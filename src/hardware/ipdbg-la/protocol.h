@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Eva Kissling <eva.kissling@bluewin.ch>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "ipdbg-la"
 
@@ -54,26 +54,26 @@ struct dev_context {
 	uint8_t *raw_sample_buf;
 };
 
-SR_PRIV struct ipdbg_la_tcp *ipdbg_la_tcp_new(void);
-SR_PRIV void ipdbg_la_tcp_free(struct ipdbg_la_tcp *tcp);
-SR_PRIV int ipdbg_la_tcp_open(struct ipdbg_la_tcp *tcp);
-SR_PRIV int ipdbg_la_tcp_close(struct ipdbg_la_tcp *tcp);
-SR_PRIV int ipdbg_la_tcp_receive(struct ipdbg_la_tcp *tcp,
+OTC_PRIV struct ipdbg_la_tcp *ipdbg_la_tcp_new(void);
+OTC_PRIV void ipdbg_la_tcp_free(struct ipdbg_la_tcp *tcp);
+OTC_PRIV int ipdbg_la_tcp_open(struct ipdbg_la_tcp *tcp);
+OTC_PRIV int ipdbg_la_tcp_close(struct ipdbg_la_tcp *tcp);
+OTC_PRIV int ipdbg_la_tcp_receive(struct ipdbg_la_tcp *tcp,
 	uint8_t *buf, size_t bufsize);
 
-SR_PRIV int ipdbg_la_convert_trigger(const struct sr_dev_inst *sdi);
+OTC_PRIV int ipdbg_la_convert_trigger(const struct otc_dev_inst *sdi);
 
-SR_PRIV struct dev_context *ipdbg_la_dev_new(void);
-SR_PRIV void ipdbg_la_get_addrwidth_and_datawidth(
+OTC_PRIV struct dev_context *ipdbg_la_dev_new(void);
+OTC_PRIV void ipdbg_la_get_addrwidth_and_datawidth(
 	struct ipdbg_la_tcp *tcp, struct dev_context *devc);
-SR_PRIV int ipdbg_la_send_reset(struct ipdbg_la_tcp *tcp);
-SR_PRIV int ipdbg_la_request_id(struct ipdbg_la_tcp *tcp);
-SR_PRIV int ipdbg_la_send_start(struct ipdbg_la_tcp *tcp);
-SR_PRIV int ipdbg_la_send_trigger(struct dev_context *devc,
+OTC_PRIV int ipdbg_la_send_reset(struct ipdbg_la_tcp *tcp);
+OTC_PRIV int ipdbg_la_request_id(struct ipdbg_la_tcp *tcp);
+OTC_PRIV int ipdbg_la_send_start(struct ipdbg_la_tcp *tcp);
+OTC_PRIV int ipdbg_la_send_trigger(struct dev_context *devc,
 	struct ipdbg_la_tcp *tcp);
-SR_PRIV int ipdbg_la_send_delay(struct dev_context *devc,
+OTC_PRIV int ipdbg_la_send_delay(struct dev_context *devc,
 	struct ipdbg_la_tcp *tcp);
-SR_PRIV int ipdbg_la_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV void ipdbg_la_abort_acquisition(const struct sr_dev_inst *sdi);
+OTC_PRIV int ipdbg_la_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV void ipdbg_la_abort_acquisition(const struct otc_dev_inst *sdi);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Sergey Alirzaev <zl29ah@gmail.com>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "ftdi-la"
 
@@ -48,7 +48,7 @@ struct dev_context {
 	uint64_t bytes_received;
 };
 
-SR_PRIV int ftdi_la_set_samplerate(struct dev_context *devc);
-SR_PRIV int ftdi_la_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int ftdi_la_set_samplerate(struct dev_context *devc);
+OTC_PRIV int ftdi_la_receive_data(int fd, int revents, void *cb_data);
 
 #endif

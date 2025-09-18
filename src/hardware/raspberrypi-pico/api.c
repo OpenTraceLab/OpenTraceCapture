@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2022 Shawn Walker <ac0bi00@gmail.com>
  *
@@ -24,8 +24,8 @@
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 /* Baud rate is really a don't care because we run USB CDC, dtr must be 1.
@@ -37,9 +37,9 @@
  * 60 characters */
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,		/* Required OS name for the port, i.e. /dev/ttyACM0 */
-	SR_CONF_SERIALCOMM,	/* Optional config of the port, i.e. 115200/8n1 */
-	SR_CONF_FORCE_DETECT
+	OTC_CONF_CONN,		/* Required OS name for the port, i.e. /dev/ttyACM0 */
+	OTC_CONF_SERIALCOMM,	/* Optional config of the port, i.e. 115200/8n1 */
+	OTC_CONF_FORCE_DETECT
 };
 
 /* Sample rate can either provide a std_gvar_samplerates_steps or a
@@ -49,89 +49,89 @@ static const uint32_t scanopts[] = {
  * Going with the full list because while the spin box is more flexible, it is
  * harder to read */
 static const uint64_t samplerates[] = {
-	SR_KHZ(5),
-	SR_KHZ(6),
-	SR_KHZ(8),
-	SR_KHZ(10),
-	SR_KHZ(20),
-	SR_KHZ(30),
-	SR_KHZ(40),
-	SR_KHZ(50),
-	SR_KHZ(60),
-	SR_KHZ(80),
-	SR_KHZ(100),
-	SR_KHZ(125),
-	SR_KHZ(150),
-	SR_KHZ(160), /* max rate of 3 ADC chans that has integer divisor/dividend */
-	SR_KHZ(200),
-	SR_KHZ(250), /* max rate of 2 ADC chans */
-	SR_KHZ(300),
-	SR_KHZ(400),
-	SR_KHZ(500),
-	SR_KHZ(600),
-	SR_KHZ(800),
+	OTC_KHZ(5),
+	OTC_KHZ(6),
+	OTC_KHZ(8),
+	OTC_KHZ(10),
+	OTC_KHZ(20),
+	OTC_KHZ(30),
+	OTC_KHZ(40),
+	OTC_KHZ(50),
+	OTC_KHZ(60),
+	OTC_KHZ(80),
+	OTC_KHZ(100),
+	OTC_KHZ(125),
+	OTC_KHZ(150),
+	OTC_KHZ(160), /* max rate of 3 ADC chans that has integer divisor/dividend */
+	OTC_KHZ(200),
+	OTC_KHZ(250), /* max rate of 2 ADC chans */
+	OTC_KHZ(300),
+	OTC_KHZ(400),
+	OTC_KHZ(500),
+	OTC_KHZ(600),
+	OTC_KHZ(800),
 	/* Give finer granularity near the thresholds of RLE effectiveness ~1-4Msps
 	 * Also use 1.2 and 2.4 as likely max values for ADC overclocking */
-	SR_MHZ(1),
-	SR_MHZ(1.2),
-	SR_MHZ(1.5),
-	SR_MHZ(2),
-	SR_MHZ(2.4),
-	SR_MHZ(3),
-	SR_MHZ(4),
-	SR_MHZ(5),
-	SR_MHZ(6),
-	SR_MHZ(8),
-	SR_MHZ(10),
-	SR_MHZ(15),
-	SR_MHZ(20),
-	SR_MHZ(30),
-	SR_MHZ(40),
-	SR_MHZ(60),
+	OTC_MHZ(1),
+	OTC_MHZ(1.2),
+	OTC_MHZ(1.5),
+	OTC_MHZ(2),
+	OTC_MHZ(2.4),
+	OTC_MHZ(3),
+	OTC_MHZ(4),
+	OTC_MHZ(5),
+	OTC_MHZ(6),
+	OTC_MHZ(8),
+	OTC_MHZ(10),
+	OTC_MHZ(15),
+	OTC_MHZ(20),
+	OTC_MHZ(30),
+	OTC_MHZ(40),
+	OTC_MHZ(60),
 	/* The baseline 120Mhz PICO clock won't support an 80 or 100
 	 * with non fractional divisor, but an overclocked version or one
 	 * that modified sysclk could */
-	SR_MHZ(80),
-	SR_MHZ(100),
-	SR_MHZ(120),
+	OTC_MHZ(80),
+	OTC_MHZ(100),
+	OTC_MHZ(120),
 	/* These may not be practically useful, but someone might want to
 	 * try to make it work with overclocking */
-	SR_MHZ(150),
-	SR_MHZ(200),
-	SR_MHZ(240),
+	OTC_MHZ(150),
+	OTC_MHZ(200),
+	OTC_MHZ(240),
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_OSCILLOSCOPE,
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_OSCILLOSCOPE,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const int32_t trigger_matches[] = {
-	SR_TRIGGER_ZERO,
-	SR_TRIGGER_ONE,
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
-	SR_TRIGGER_EDGE,
+	OTC_TRIGGER_ZERO,
+	OTC_TRIGGER_ONE,
+	OTC_TRIGGER_RISING,
+	OTC_TRIGGER_FALLING,
+	OTC_TRIGGER_EDGE,
 };
 
 
 static const uint32_t devopts[] = {
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
+	OTC_CONF_CAPTURE_RATIO | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
-static struct sr_dev_driver raspberrypi_pico_driver_info;
+static struct otc_dev_driver raspberrypi_pico_driver_info;
 
 
-static GSList *scan(struct sr_dev_driver *di, GSList * options)
+static GSList *scan(struct otc_dev_driver *di, GSList * options)
 {
-	struct sr_config *src;
-	struct sr_dev_inst *sdi;
-	struct sr_serial_dev_inst *serial;
+	struct otc_config *src;
+	struct otc_dev_inst *sdi;
+	struct otc_serial_dev_inst *serial;
 	struct dev_context *devc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	GSList *l;
 	int num_read;
 	int i;
@@ -146,15 +146,15 @@ static GSList *scan(struct sr_dev_driver *di, GSList * options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_FORCE_DETECT:
+		case OTC_CONF_FORCE_DETECT:
 			force_detect = g_variant_get_string(src->data, NULL);
-			sr_info("Force detect string %s", force_detect);
+			otc_info("Force detect string %s", force_detect);
 			break;
 		}
 	}
@@ -164,46 +164,46 @@ static GSList *scan(struct sr_dev_driver *di, GSList * options)
 	if (!serialcomm)
 		serialcomm = SERIALCOMM;
 
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
-	sr_info("Opening %s.", conn);
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK) {
-		sr_err("1st serial open fail");
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
+	otc_info("Opening %s.", conn);
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK) {
+		otc_err("1st serial open fail");
 		return NULL;
 	}
 
-	sr_info("Resetting device with *s at %s.", conn);
+	otc_info("Resetting device with *s at %s.", conn);
 	send_serial_char(serial, '*');
 	g_usleep(10000);
 	do {
-		sr_warn("Drain reads");
+		otc_warn("Drain reads");
 		len = serial_read_blocking(serial, buf, 32, 100);
-		sr_warn("Drain reads done");
+		otc_warn("Drain reads done");
 		if (len)
-			sr_dbg("Dropping in flight serial data");
+			otc_dbg("Dropping in flight serial data");
 	} while (len > 0);
 	/* Send the user string with the identify */
 	if (force_detect && (strlen(force_detect) <= 60)) {
 		sprintf(ustr,"i%s\n", force_detect);
-		sr_info("User string %s", ustr);
+		otc_info("User string %s", ustr);
 		num_read = send_serial_w_resp(serial, ustr, buf, 17);
 	} else {
 		num_read = send_serial_w_resp(serial, "i\n", buf, 17);
 	}
 	if (num_read < 16) {
-		sr_err("1st identify failed");
+		otc_err("1st identify failed");
 		serial_close(serial);
 		g_usleep(100000);
-		if (serial_open(serial, SERIAL_RDWR) != SR_OK) {
-			sr_err("2nd serial open fail");
+		if (serial_open(serial, SERIAL_RDWR) != OTC_OK) {
+			otc_err("2nd serial open fail");
 			return NULL;
 		}
 		g_usleep(100000);
-		sr_err("Send second *");
+		otc_err("Send second *");
 		send_serial_char(serial, '*');
 		g_usleep(100000);
 		num_read = send_serial_w_resp(serial, "i\n", buf, 17);
 		if (num_read < 10) {
-			sr_err("Second attempt failed");
+			otc_err("Second attempt failed");
 			return NULL;
 		}
 	}
@@ -214,7 +214,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList * options)
 	 * version# which must be 02 */
 	if ((num_read < 16) || (strncmp(buf, "SRPICO,A", 8)) \
 		|| (buf[11] != 'D') || (buf[15] != '0') || (buf[16] != '2')) {
-		sr_err("ERROR: Bad response string %s %d", buf, num_read);
+		otc_err("ERROR: Bad response string %s %d", buf, num_read);
 		return NULL;
 	}
 
@@ -224,20 +224,20 @@ static GSList *scan(struct sr_dev_driver *di, GSList * options)
 	num_a = atoi(&buf[8]);
 	num_d = atoi(&buf[12]);
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("Raspberry Pi");
 	sdi->model = g_strdup("PICO");
 	sdi->version = g_strdup("00");
 	sdi->conn = serial;
 	sdi->driver = &raspberrypi_pico_driver_info;
-	sdi->inst_type = SR_INST_SERIAL;
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->serial_num = g_strdup("N/A");
 
 	if (((num_a == 0) && (num_d == 0)) \
 		|| (num_a > MAX_ANALOG_CHANNELS) || (num_d > MAX_DIGITAL_CHANNELS)
 		|| (a_size < 1) || (a_size > 4)) {
-		sr_err("ERROR: invalid channel config a %d d %d asz %d",
+		otc_err("ERROR: invalid channel config a %d d %d asz %d",
 			num_a, num_d, a_size);
 		return NULL;
 	}
@@ -263,19 +263,19 @@ static GSList *scan(struct sr_dev_driver *di, GSList * options)
 		/* logic sent in groups of 7*/
 		devc->bytes_per_slice += (devc->num_d_channels + 6) / 7;
 	}
-	sr_dbg("num channels a %d d %d bps %d dsb %d", num_a, num_d,
+	otc_dbg("num channels a %d d %d bps %d dsb %d", num_a, num_d,
 		devc->bytes_per_slice, devc->dig_sample_bytes);
 
 	/* Each analog channel is its own group; digital are just channels;
 	 * Grouping of channels is rather arbitrary as parameters like sample rate
 	 * and number of samples apply to all channels. Analog channels do have a
 	 * scale and offset, but that is applied automatically. */
-	devc->analog_groups = g_malloc0(sizeof(struct sr_channel_group *) *
+	devc->analog_groups = g_malloc0(sizeof(struct otc_channel_group *) *
 		devc->num_a_channels);
 	for (i = 0; i < devc->num_a_channels; i++) {
 		channel_name = g_strdup_printf("A%d", i);
-		ch = sr_channel_new(sdi, i, SR_CHANNEL_ANALOG, TRUE, channel_name);
-		devc->analog_groups[i] = g_malloc0(sizeof(struct sr_channel_group));
+		ch = otc_channel_new(sdi, i, OTC_CHANNEL_ANALOG, TRUE, channel_name);
+		devc->analog_groups[i] = g_malloc0(sizeof(struct otc_channel_group));
 		devc->analog_groups[i]->name = channel_name;
 		devc->analog_groups[i]->channels = g_slist_append(NULL, ch);
 		sdi->channel_groups = g_slist_append(sdi->channel_groups,
@@ -286,7 +286,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList * options)
 		for (i = 0; i < devc->num_d_channels; i++) {
 			/* Name digital channels starting at D2 to match pico board names */
 			channel_name = g_strdup_printf("D%d", i + 2);
-			sr_channel_new(sdi, i, SR_CHANNEL_LOGIC, TRUE, channel_name);
+			otc_channel_new(sdi, i, OTC_CHANNEL_LOGIC, TRUE, channel_name);
 			g_free(channel_name);
 		}
 	}
@@ -303,11 +303,11 @@ static GSList *scan(struct sr_dev_driver *di, GSList * options)
 	 * But, it's only 32K... */
 	devc->serial_buffer_size = 32000;
 	devc->buffer = NULL;
-	sr_dbg("Setting serial buffer size: %i.", devc->serial_buffer_size);
+	otc_dbg("Setting serial buffer size: %i.", devc->serial_buffer_size);
 
 	devc->cbuf_wrptr = 0;
 	/* While slices are sent as a group of one sample across all channels,
-	 * sigrok wants analog channel data sent as separate packets. Logical trace
+	 * opentracelab wants analog channel data sent as separate packets. Logical trace
 	 * values are packed together. An RLE byte in normal mode can represent up
 	 * to 1640 samples. In D4 an RLE byte can represent up to 640 samples.
 	 * Rather than making the sample_buf_size 1640x the size of serial buffer,
@@ -328,7 +328,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList * options)
 
 	sdi->priv = devc;
 
-	if (raspberrypi_pico_get_dev_cfg(sdi) != SR_OK) {
+	if (raspberrypi_pico_get_dev_cfg(sdi) != OTC_OK) {
 		return NULL;
 	};
 
@@ -339,121 +339,121 @@ static GSList *scan(struct sr_dev_driver *di, GSList * options)
 /* Note that on the initial driver load we pull all values into local storage.
  * Thus gets can return local data, but sets have to issue commands to device. */
 static int config_set(uint32_t key, GVariant * data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	int ret;
 	(void) cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
-	ret = SR_OK;
+	ret = OTC_OK;
 
-	sr_dbg("Got config_set key %d \n", key);
+	otc_dbg("Got config_set key %d \n", key);
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		devc->sample_rate = g_variant_get_uint64(data);
-		sr_dbg("config_set sr %lu\n", devc->sample_rate);
+		otc_dbg("config_set sr %lu\n", devc->sample_rate);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		devc->limit_samples = g_variant_get_uint64(data);
-		sr_dbg("config_set slimit %" PRIu64 "\n", devc->limit_samples);
+		otc_dbg("config_set slimit %" PRIu64 "\n", devc->limit_samples);
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		devc->capture_ratio = g_variant_get_uint64(data);
 		break;
 
 	default:
-		sr_err("ERROR: config_set given undefined key %d\n", key);
-		ret = SR_ERR_NA;
+		otc_err("ERROR: config_set given undefined key %d\n", key);
+		ret = OTC_ERR_NA;
 	}
 
 	return ret;
 }
 
 static int config_get(uint32_t key, GVariant ** data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
-	sr_dbg("config_get given key %d", key);
+	otc_dbg("config_get given key %d", key);
 
 	(void) cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(devc->sample_rate);
-		sr_spew("sample rate get of %" PRIu64 "", devc->sample_rate);
+		otc_spew("sample rate get of %" PRIu64 "", devc->sample_rate);
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		if (!sdi)
-			return SR_ERR;
+			return OTC_ERR;
 		devc = sdi->priv;
 		*data = g_variant_new_uint64(devc->capture_ratio);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
-		sr_spew("config_get limit_samples of %lu", devc->limit_samples);
+	case OTC_CONF_LIMIT_SAMPLES:
+		otc_spew("config_get limit_samples of %lu", devc->limit_samples);
 		*data = g_variant_new_uint64(devc->limit_samples);
 		break;
 	default:
-		sr_spew("unsupported config_get key %d", key);
-		return SR_ERR_NA;
+		otc_spew("unsupported config_get key %d", key);
+		return OTC_ERR_NA;
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant ** data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	(void) cg;
 
 	/* Scan or device options are the only ones that can be called without a
 	 * defined instance */
-	if ((key == SR_CONF_SCAN_OPTIONS) || (key == SR_CONF_DEVICE_OPTIONS)) {
+	if ((key == OTC_CONF_SCAN_OPTIONS) || (key == OTC_CONF_DEVICE_OPTIONS)) {
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
 	}
 
 	if (!sdi) {
-		sr_err("ERROR: Call to config list with null sdi");
-		return SR_ERR_ARG;
+		otc_err("ERROR: Call to config list with null sdi");
+		return OTC_ERR_ARG;
 	}
 
-	sr_dbg("Start config_list with key %X", key);
+	otc_dbg("Start config_list with key %X", key);
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates));
 		break;
 	/* This must be set to get SW trigger support */
-	case SR_CONF_TRIGGER_MATCH:
+	case OTC_CONF_TRIGGER_MATCH:
 		*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		/* Really this limit is up to the memory capacity of the host,
 		 * and users that pick huge values deserve what they get.
 		 * But setting this limit to prevent really crazy things. */
 		*data = std_gvar_tuple_u64(1LL, 1000000000LL);
 		break;
 	default:
-		sr_dbg("Reached default statement of config_list");
+		otc_dbg("Reached default statement of config_list");
 
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	struct dev_context *devc;
-	struct sr_channel *ch;
-	struct sr_trigger *trigger;
+	struct otc_channel *ch;
+	struct otc_trigger *trigger;
 	char tmpstr[20];
 	char buf[32];
 	GSList *l;
@@ -462,30 +462,30 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	int i, num_read;
 
 	devc = sdi->priv;
-	sr_dbg("Enter acq start");
-	sr_dbg("dsbstart %d", devc->dig_sample_bytes);
+	otc_dbg("Enter acq start");
+	otc_dbg("dsbstart %d", devc->dig_sample_bytes);
 
 	devc->buffer = g_malloc(devc->serial_buffer_size);
 	if (!(devc->buffer)) {
-		sr_err("ERROR: serial buffer malloc fail");
-		return SR_ERR_MALLOC;
+		otc_err("ERROR: serial buffer malloc fail");
+		return OTC_ERR_MALLOC;
 	}
 
 	/* Get device in idle state */
-	if (serial_drain(serial) != SR_OK) {
-		sr_err("Initial Drain Failed");
-		return SR_ERR;
+	if (serial_drain(serial) != OTC_OK) {
+		otc_err("Initial Drain Failed");
+		return OTC_ERR;
 	}
 
 	send_serial_char(serial, '*');
-	if (serial_drain(serial) != SR_OK) {
-		sr_err("Second Drain Failed");
-		return SR_ERR;
+	if (serial_drain(serial) != OTC_OK) {
+		otc_err("Second Drain Failed");
+		return OTC_ERR;
 	}
 
 	for (l = sdi->channels; l; l = l->next) {
 		ch = l->data;
-		sr_dbg("c %d enabled %d name %s\n", ch->index, ch->enabled, ch->name);
+		otc_dbg("c %d enabled %d name %s\n", ch->index, ch->enabled, ch->name);
 
 		if (ch->name[0] == 'A') {
 			devc->a_chan_mask &= ~(1 << ch->index);
@@ -502,12 +502,12 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			}
 		}
 
-		sr_info("Channel enable masks D 0x%X A 0x%X",
+		otc_info("Channel enable masks D 0x%X A 0x%X",
 			devc->d_chan_mask, devc->a_chan_mask);
 		sprintf(tmpstr, "%c%d%d\n", ch->name[0], ch->enabled, ch->index);
-		if (send_serial_w_ack(serial, tmpstr) != SR_OK) {
-			sr_err("ERROR: Channel enable fail");
-			return SR_ERR;
+		if (send_serial_w_ack(serial, tmpstr) != OTC_OK) {
+			otc_err("ERROR: Channel enable fail");
+			return OTC_ERR;
 		}
 	}
 
@@ -516,9 +516,9 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	for (i = 0; i < 32; i++) {
 		if ((devc->d_chan_mask >> i) & 1) {
 			if (invalid) {
-				sr_err("Digital channel mask 0x%X not continous",
+				otc_err("Digital channel mask 0x%X not continous",
 					devc->d_chan_mask);
-				return SR_ERR;
+				return OTC_ERR;
 			}
 		} else
 			invalid = 1;
@@ -532,34 +532,34 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			(devc->bytes_per_slice)++;
 
 	if ((a_enabled == 0) && (d_enabled == 0)) {
-		sr_err("ERROR:No channels enabled");
-		return SR_ERR;
+		otc_err("ERROR:No channels enabled");
+		return OTC_ERR;
 	}
 
-	sr_dbg("bps %d\n", devc->bytes_per_slice);
+	otc_dbg("bps %d\n", devc->bytes_per_slice);
 
 	/* Apply sample rate limits; while earlier versions forced a lower sample
 	 * rate, the PICO seems to allow ADC overclocking, and by not enforcing
-	 * these limits it may support other devices. Thus call sr_err to get
+	 * these limits it may support other devices. Thus call otc_err to get
 	 * something into the device logs, but allowing it to progress. */
 	if ((a_enabled == 3) && (devc->sample_rate > 160000))
-		sr_err("WARN: 3 channel ADC sample rate above 160khz");
+		otc_err("WARN: 3 channel ADC sample rate above 160khz");
 	if ((a_enabled == 2) && (devc->sample_rate > 250000))
-		sr_err("WARN: 2 channel ADC sample rate above 250khz");
+		otc_err("WARN: 2 channel ADC sample rate above 250khz");
 	if ((a_enabled == 1) && (devc->sample_rate > 500000))
-		sr_err("WARN: 1 channel ADC sample rate above 500khz");
+		otc_err("WARN: 1 channel ADC sample rate above 500khz");
 
 	/* Depending on channel configs, rates below 5ksps are possible but such a
 	 * low rate can easily stream and this eliminates a lot	of special cases. */
 	if (devc->sample_rate < 5000) {
-		sr_err("Sample rate override to min of 5ksps");
+		otc_err("Sample rate override to min of 5ksps");
 		devc->sample_rate = 5000;
 	}
 
 	/* While PICO specs a max clock ~120-125Mhz, it does overclock in many cases
 	 * so leaving a warning. */
 	if (devc->sample_rate > 120000000)
-		sr_warn("WARN: Sample rate above 120Msps");
+		otc_warn("WARN: Sample rate above 120Msps");
 
 	/* It may take a very large number of samples to notice, but if digital and
 	 * analog are enabled and either PIO or ADC are fractional the samples will
@@ -575,7 +575,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			/* Make sure the divisor increment didn't make us go too low. */
 			if (devc->sample_rate < 5000)
 				devc->sample_rate = 50000;
-			sr_warn("WARN: Forcing common integer divisor sample rate of " \
+			otc_warn("WARN: Forcing common integer divisor sample rate of " \
 				"%lu div %u", devc->sample_rate, commondivint);
 		}
 	}
@@ -588,24 +588,24 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	 * could avoid. This generally won't be a problem because most of the
 	 * sample_rate pulldown values are integer divisors. */
 	if ((a_enabled > 0) && (48000000ULL % (devc->sample_rate * a_enabled)))
-		sr_warn("WARN: Non integer ADC divisor of 48Mhz clock for sample " \
+		otc_warn("WARN: Non integer ADC divisor of 48Mhz clock for sample " \
 			"rate %lu may cause sample to sample variability.",
 			devc->sample_rate);
 	if ((d_enabled > 0) && (120000000ULL % (devc->sample_rate)))
-		sr_warn("WARN: Non integer PIO divisor of 120Mhz for sample rate " \
+		otc_warn("WARN: Non integer PIO divisor of 120Mhz for sample rate " \
 			"%lu may cause sample to sample variability.", devc->sample_rate);
 
 	sprintf(tmpstr, "L%" PRIu64 "\n", devc->limit_samples);
-	if (send_serial_w_ack(serial, tmpstr) != SR_OK) {
-		sr_err("Sample limit to device failed");
-		return SR_ERR;
+	if (send_serial_w_ack(serial, tmpstr) != OTC_OK) {
+		otc_err("Sample limit to device failed");
+		return OTC_ERR;
 	}
 
 	/* To support future devices that may allow the analog scale/offset to
 	 * change, call get_dev_cfg again to get new values */
-	if (raspberrypi_pico_get_dev_cfg(sdi) != SR_OK) {
-		sr_err("get_dev_cfg failure on start");
-		return SR_ERR;
+	if (raspberrypi_pico_get_dev_cfg(sdi) != OTC_OK) {
+		otc_err("get_dev_cfg failure on start");
+		return OTC_ERR;
 	}
 
 	/* With all other params set, we use the final sample rate setting as an
@@ -618,14 +618,14 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	num_read = send_serial_w_resp(serial, tmpstr, buf, 30);
 	buf[num_read] = 0;
 	if ((num_read > 1) && (buf[0] == '*'))
-		sr_dbg("Sample rate to device success with resp %s", buf);
+		otc_dbg("Sample rate to device success with resp %s", buf);
 	else if (!((num_read == 1) && (buf[0] == '*'))) {
-		sr_err("Sample rate to device failed");
+		otc_err("Sample rate to device failed");
 		if (num_read > 0) {
 			buf[num_read]=0;
-			sr_err("sample_rate error string %s",buf);
+			otc_err("sample_rate error string %s",buf);
 		}
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	devc->sent_samples = 0;
@@ -637,16 +637,16 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		serial_timeout(serial, 4));
 
 	if (len > 0) {
-		sr_info("Pre-ARM drain had %d characters:", len);
+		otc_info("Pre-ARM drain had %d characters:", len);
 		devc->buffer[len] = 0;
-		sr_info("%s", devc->buffer);
+		otc_info("%s", devc->buffer);
 	}
 
 	for (i = 0; i < devc->num_a_channels; i++) {
 		devc->a_data_bufs[i] = g_malloc(devc->sample_buf_size * sizeof(float));
 		if (!(devc->a_data_bufs[i])) {
-			sr_err("ERROR: analog buffer malloc fail");
-			return SR_ERR_MALLOC;
+			otc_err("ERROR: analog buffer malloc fail");
+			return OTC_ERR_MALLOC;
 		}
 	}
 
@@ -654,8 +654,8 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		devc->d_data_buf = g_malloc(devc->sample_buf_size *
 			devc->dig_sample_bytes);
 		if (!(devc->d_data_buf)) {
-			sr_err("ERROR: logic buffer malloc fail");
-			return SR_ERR_MALLOC;
+			otc_err("ERROR: logic buffer malloc fail");
+			return OTC_ERR_MALLOC;
 		}
 	}
 
@@ -667,16 +667,16 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	 * sending untriggered samples across USB.  Thus this code will remain but
 	 * likely may not be used by the device, unless HW based triggers are
 	 * implemented */
-	if ((trigger = sr_session_trigger_get(sdi->session))) {
+	if ((trigger = otc_session_trigger_get(sdi->session))) {
 		if (g_slist_length(trigger->stages) > 1)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 
-		struct sr_trigger_stage *stage;
-		struct sr_trigger_match *match;
+		struct otc_trigger_stage *stage;
+		struct otc_trigger_match *match;
 		GSList *l;
 		stage = g_slist_nth_data(trigger->stages, 0);
 		if (!stage)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		for (l = stage->matches; l; l = l->next) {
 			match = l->data;
 			if (!match->match)
@@ -686,49 +686,49 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			int idx = match->channel->index;
 			int8_t val;
 			switch(match->match) {
-			case SR_TRIGGER_ZERO:
+			case OTC_TRIGGER_ZERO:
 				val = 0; break;
-			case SR_TRIGGER_ONE:
+			case OTC_TRIGGER_ONE:
 				val = 1; break;
-			case SR_TRIGGER_RISING:
+			case OTC_TRIGGER_RISING:
 				val = 2; break;
-			case SR_TRIGGER_FALLING:
+			case OTC_TRIGGER_FALLING:
 				val = 3; break;
-			case SR_TRIGGER_EDGE:
+			case OTC_TRIGGER_EDGE:
 				val = 4; break;
 			default:
 				val = -1;
 			}
-			sr_info("Trigger value idx %d match %d", idx, match->match);
+			otc_info("Trigger value idx %d match %d", idx, match->match);
 			/* Only set trigger on enabled channels */
 			if ((val >= 0) && ((devc->d_chan_mask >> idx) & 1)) {
 				sprintf(&tmpstr[0], "t%d%02d\n", val, idx+2);
-				if (send_serial_w_ack(serial, tmpstr) != SR_OK) {
-					sr_err("Trigger cfg to device failed");
-					return SR_ERR;
+				if (send_serial_w_ack(serial, tmpstr) != OTC_OK) {
+					otc_err("Trigger cfg to device failed");
+					return OTC_ERR;
 				}
 			}
 		}
 
 		sprintf(&tmpstr[0], "p%d\n", devc->pretrig_entries);
-		if (send_serial_w_ack(serial, tmpstr) != SR_OK) {
-			sr_err("Pretrig to device failed");
-			return SR_ERR;
+		if (send_serial_w_ack(serial, tmpstr) != OTC_OK) {
+			otc_err("Pretrig to device failed");
+			return OTC_ERR;
 		}
 
 		devc->stl = soft_trigger_logic_new(sdi, trigger, devc->pretrig_entries);
 		if (!devc->stl)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 
 		devc->trigger_fired = FALSE;
 		if (devc->pretrig_entries > 0) {
-			sr_dbg("Allocating pretrig buffers size %d", devc->pretrig_entries);
+			otc_dbg("Allocating pretrig buffers size %d", devc->pretrig_entries);
 			for (i = 0; i < devc->num_a_channels; i++) {
 				if ((devc->a_chan_mask >> i) & 1) {
 					devc->a_pretrig_bufs[i] = g_malloc0(sizeof(float) *
 						devc->pretrig_entries);
 					if (!devc->a_pretrig_bufs[i]) {
-						sr_err("ERROR:Analog pretrigger buffer malloc " \
+						otc_err("ERROR:Analog pretrigger buffer malloc " \
 							"failure, disabling");
 						devc->trigger_fired = TRUE;
 					}
@@ -736,31 +736,31 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			}
 		}
 
-		sr_info("Entering sw triggered mode");
+		otc_info("Entering sw triggered mode");
 		/* Post the receive before starting the device to ensure we are ready
 		 * to receive data ASAP */
 		serial_source_add(sdi->session, serial, G_IO_IN, 200,
 			raspberrypi_pico_receive, (void*)sdi);
 
 		sprintf(tmpstr, "C\n");
-		if (send_serial_str(serial, tmpstr) != SR_OK)
-			return SR_ERR;
+		if (send_serial_str(serial, tmpstr) != OTC_OK)
+			return OTC_ERR;
 
 	} else {
 		devc->trigger_fired = TRUE;
 		devc->pretrig_entries = 0;
-		sr_info("Entering fixed sample mode");
+		otc_info("Entering fixed sample mode");
 		serial_source_add(sdi->session, serial, G_IO_IN, 200,
 			raspberrypi_pico_receive, (void*)sdi);
 
 		sprintf(tmpstr, "F\n");
-		if (send_serial_str(serial, tmpstr) != SR_OK)
-			return SR_ERR;
+		if (send_serial_str(serial, tmpstr) != OTC_OK)
+			return OTC_ERR;
 	}
 
 	std_session_send_df_header(sdi);
 
-	sr_dbg("dsbstartend %d", devc->dig_sample_bytes);
+	otc_dbg("dsbstartend %d", devc->dig_sample_bytes);
 
 	if (devc->trigger_fired)
 		std_session_send_df_trigger(sdi);
@@ -769,22 +769,22 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	 * is ok */
 	devc->rxstate = RX_ACTIVE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* This function is called either by the protocol code if we reached all of the
  * samples or an error condition, and also by the user clicking stop in
  * pulseview. It must always be called for any acquistion that was started to
  * free memory. */
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int len;
 	devc = sdi->priv;
 	serial = sdi->conn;
 
-	sr_dbg("At dev_acquisition_stop");
+	otc_dbg("At dev_acquisition_stop");
 
 	std_session_send_df_end(sdi);
 
@@ -792,10 +792,10 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	 * button was pushed in pulseview. That is generally some kind of error
 	 * condition, so we don't try to check the bytenct */
 	if (devc->rxstate == RX_ACTIVE)
-		sr_err("Reached dev_acquisition_stop in RX_ACTIVE");
+		otc_err("Reached dev_acquisition_stop in RX_ACTIVE");
 
 	if (devc->rxstate != RX_IDLE) {
-		sr_err("Sending plus to stop device stream");
+		otc_err("Sending plus to stop device stream");
 		send_serial_char(serial, '+');
 	}
 
@@ -807,7 +807,7 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 		len = serial_read_blocking(serial, devc->buffer,
 			devc->serial_buffer_size, 100);
 		if (len)
-			sr_err("Dropping %d device bytes", len);
+			otc_err("Dropping %d device bytes", len);
 	} while (len > 0);
 
 	if (devc->buffer) {
@@ -835,10 +835,10 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	serial = sdi->conn;
 	serial_source_remove(sdi->session, serial);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver raspberrypi_pico_driver_info = {
+static struct otc_dev_driver raspberrypi_pico_driver_info = {
 	.name = "raspberrypi-pico",
 	.longname = "RaspberryPI PICO",
 	.api_version = 1,
@@ -857,4 +857,4 @@ static struct sr_dev_driver raspberrypi_pico_driver_info = {
 	.context = NULL,
 };
 
-SR_REGISTER_DEV_DRIVER(raspberrypi_pico_driver_info);
+OTC_REGISTER_DEV_DRIVER(raspberrypi_pico_driver_info);

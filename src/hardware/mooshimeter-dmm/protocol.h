@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Derek Hageman <hageman@inthat.cloud>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "mooshimeter-dmm"
 
@@ -82,23 +82,23 @@ struct dev_context {
 	uint32_t buffer_bps[2];
 	float buffer_lsb2native[2];
 
-	void (*channel_autorange[3])(const struct sr_dev_inst *sdi, float value);
+	void (*channel_autorange[3])(const struct otc_dev_inst *sdi, float value);
 
-	struct sr_sw_limits limits;
-	struct sr_analog_meaning channel_meaning[3];
+	struct otc_sw_limits limits;
+	struct otc_analog_meaning channel_meaning[3];
 
 	gboolean enable_value_stream;
 };
 
-SR_PRIV int mooshimeter_dmm_open(const struct sr_dev_inst *sdi);
-SR_PRIV int mooshimeter_dmm_close(const struct sr_dev_inst *sdi);
-SR_PRIV int mooshimeter_dmm_set_chooser(const struct sr_dev_inst *sdi, const char *path, const char *choice);
-SR_PRIV int mooshimeter_dmm_set_integer(const struct sr_dev_inst *sdi, const char *path, int value);
-SR_PRIV int mooshimeter_dmm_set_larger_number(const struct sr_dev_inst *sdi, const char *path, const char *parent, float number);
-SR_PRIV gboolean mooshimeter_dmm_set_autorange(const struct sr_dev_inst *sdi, const char *path, const char *parent, float latest);
-SR_PRIV int mooshimeter_dmm_get_chosen_number(const struct sr_dev_inst *sdi, const char *path, const char *parent, float *number);
-SR_PRIV int mooshimeter_dmm_get_available_number_choices(const struct sr_dev_inst *sdi, const char *path, float **numbers, size_t *count);
-SR_PRIV int mooshimeter_dmm_poll(int fd, int revents, void *cb_data);
-SR_PRIV int mooshimeter_dmm_heartbeat(int fd, int revents, void *cb_data);
+OTC_PRIV int mooshimeter_dmm_open(const struct otc_dev_inst *sdi);
+OTC_PRIV int mooshimeter_dmm_close(const struct otc_dev_inst *sdi);
+OTC_PRIV int mooshimeter_dmm_set_chooser(const struct otc_dev_inst *sdi, const char *path, const char *choice);
+OTC_PRIV int mooshimeter_dmm_set_integer(const struct otc_dev_inst *sdi, const char *path, int value);
+OTC_PRIV int mooshimeter_dmm_set_larger_number(const struct otc_dev_inst *sdi, const char *path, const char *parent, float number);
+OTC_PRIV gboolean mooshimeter_dmm_set_autorange(const struct otc_dev_inst *sdi, const char *path, const char *parent, float latest);
+OTC_PRIV int mooshimeter_dmm_get_chosen_number(const struct otc_dev_inst *sdi, const char *path, const char *parent, float *number);
+OTC_PRIV int mooshimeter_dmm_get_available_number_choices(const struct otc_dev_inst *sdi, const char *path, float **numbers, size_t *count);
+OTC_PRIV int mooshimeter_dmm_poll(int fd, int revents, void *cb_data);
+OTC_PRIV int mooshimeter_dmm_heartbeat(int fd, int revents, void *cb_data);
 
 #endif

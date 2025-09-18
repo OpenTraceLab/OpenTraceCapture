@@ -1,3 +1,9 @@
+OpenTraceCapture - Enhanced signal analysis library
+Copyright (C) 2024 OpenTraceCapture Contributors
+
+This is a fork of libsigrok with enhanced trace capture capabilities.
+Original libsigrok copyright notices are preserved below.
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 

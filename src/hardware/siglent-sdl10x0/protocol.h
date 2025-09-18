@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2024 Timo Boettcher <timo@timoboettcher.name>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "siglent-sdl10x0"
 
@@ -50,20 +50,20 @@ enum acquisition_state {
 };
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	enum acquisition_state acq_state;
 	float voltage;
 	float current;
 	double maxpower;
 };
 
-SR_PRIV const char *siglent_sdl10x0_mode_to_string(enum siglent_sdl10x0_modes mode);
-SR_PRIV const char *siglent_sdl10x0_mode_to_longstring(enum siglent_sdl10x0_modes mode);
-SR_PRIV int siglent_sdl10x0_string_to_mode(const char *modename, enum siglent_sdl10x0_modes *mode);
+OTC_PRIV const char *siglent_sdl10x0_mode_to_string(enum siglent_sdl10x0_modes mode);
+OTC_PRIV const char *siglent_sdl10x0_mode_to_longstring(enum siglent_sdl10x0_modes mode);
+OTC_PRIV int siglent_sdl10x0_string_to_mode(const char *modename, enum siglent_sdl10x0_modes *mode);
 
-SR_PRIV void siglent_sdl10x0_send_value(const struct sr_dev_inst *sdi, float value, enum sr_mq mq, enum sr_mqflag mqflags, enum sr_unit unit, int digits);
+OTC_PRIV void siglent_sdl10x0_send_value(const struct otc_dev_inst *sdi, float value, enum otc_mq mq, enum otc_mqflag mqflags, enum otc_unit unit, int digits);
 
-SR_PRIV int siglent_sdl10x0_receive_data(struct sr_dev_inst *sdi);
-SR_PRIV int siglent_sdl10x0_handle_events(int fd, int revents, void *cb_data);
+OTC_PRIV int siglent_sdl10x0_receive_data(struct otc_dev_inst *sdi);
+OTC_PRIV int siglent_sdl10x0_handle_events(int fd, int revents, void *cb_data);
 
 #endif

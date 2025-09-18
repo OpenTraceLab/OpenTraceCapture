@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  * With protocol information from the hantekdso project,
@@ -37,7 +37,7 @@
 #define DEFAULT_VOLTAGE         VDIV_500MV
 #define DEFAULT_FRAMESIZE       FRAMESIZE_SMALL
 #define DEFAULT_TIMEBASE        TIME_100us
-#define DEFAULT_SAMPLERATE      SR_KHZ(10)
+#define DEFAULT_SAMPLERATE      OTC_KHZ(10)
 #define DEFAULT_TRIGGER_SOURCE  "CH1"
 #define DEFAULT_COUPLING        COUPLING_DC
 #define DEFAULT_CAPTURE_RATIO   100
@@ -214,17 +214,17 @@ struct dev_context {
 	unsigned char *framebuf;
 };
 
-SR_PRIV int dso_open(struct sr_dev_inst *sdi);
-SR_PRIV void dso_close(struct sr_dev_inst *sdi);
-SR_PRIV int dso_enable_trigger(const struct sr_dev_inst *sdi);
-SR_PRIV int dso_force_trigger(const struct sr_dev_inst *sdi);
-SR_PRIV int dso_init(const struct sr_dev_inst *sdi);
-SR_PRIV int dso_get_capturestate(const struct sr_dev_inst *sdi,
+OTC_PRIV int dso_open(struct otc_dev_inst *sdi);
+OTC_PRIV void dso_close(struct otc_dev_inst *sdi);
+OTC_PRIV int dso_enable_trigger(const struct otc_dev_inst *sdi);
+OTC_PRIV int dso_force_trigger(const struct otc_dev_inst *sdi);
+OTC_PRIV int dso_init(const struct otc_dev_inst *sdi);
+OTC_PRIV int dso_get_capturestate(const struct otc_dev_inst *sdi,
 		uint8_t *capturestate, uint32_t *trigger_offset);
-SR_PRIV int dso_capture_start(const struct sr_dev_inst *sdi);
-SR_PRIV int dso_get_channeldata(const struct sr_dev_inst *sdi,
+OTC_PRIV int dso_capture_start(const struct otc_dev_inst *sdi);
+OTC_PRIV int dso_get_channeldata(const struct otc_dev_inst *sdi,
 		libusb_transfer_cb_fn cb);
-SR_PRIV int dso_set_trigger_samplerate(const struct sr_dev_inst *sdi);
-SR_PRIV int dso_set_voffsets(const struct sr_dev_inst *sdi);
+OTC_PRIV int dso_set_trigger_samplerate(const struct otc_dev_inst *sdi);
+OTC_PRIV int dso_set_voffsets(const struct otc_dev_inst *sdi);
 
 #endif

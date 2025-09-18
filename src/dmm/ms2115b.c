@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Vitaliy Vorobyov
  *
@@ -91,65 +91,65 @@
 #include <ctype.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "ms2115b"
 
-static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
+static void handle_flags(struct otc_datafeed_analog *analog, float *floatval,
 	const struct ms2115b_info *info)
 {
 	/* Measurement modes */
 	if (info->is_volt) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_ampere) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 	}
 	if (info->is_ohm) {
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 	if (info->is_hz) {
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 	}
 	if (info->is_farad) {
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 	}
 	if (info->is_beep) {
-		analog->meaning->mq = SR_MQ_CONTINUITY;
-		analog->meaning->unit = SR_UNIT_BOOLEAN;
+		analog->meaning->mq = OTC_MQ_CONTINUITY;
+		analog->meaning->unit = OTC_UNIT_BOOLEAN;
 		*floatval = (*floatval == INFINITY) ? 0.0 : 1.0;
 	}
 	if (info->is_diode) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 
 	if (info->is_duty_cycle)
-		analog->meaning->mq = SR_MQ_DUTY_CYCLE;
+		analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
 
 	if (info->is_percent)
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 
 	/* Measurement related flags */
 	if (info->is_ac)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (info->is_dc)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	if (info->is_auto)
-		analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 	if (info->is_diode)
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 }
 
-SR_PRIV gboolean sr_ms2115b_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_ms2115b_packet_valid(const uint8_t *buf)
 {
-	sr_dbg("DMM packet: %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+	otc_dbg("DMM packet: %02x %02x %02x %02x %02x %02x %02x %02x %02x",
 		buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6],
 		buf[7], buf[8]);
 
@@ -208,12 +208,12 @@ static const int v_exp[] = {
 	0,      /* 1000  V  (x 1)     */
 };
 
-SR_PRIV const char *ms2115b_channel_formats[MS2115B_DISPLAY_COUNT] = {
+OTC_PRIV const char *ms2115b_channel_formats[MS2115B_DISPLAY_COUNT] = {
 	"main", "sub",
 };
 
 static int ms2115b_parse(const uint8_t *buf, float *floatval,
-	struct sr_datafeed_analog *analog, void *info)
+	struct otc_datafeed_analog *analog, void *info)
 {
 	int exponent = 0;
 	float up_limit = 6000.0;
@@ -252,7 +252,7 @@ static int ms2115b_parse(const uint8_t *buf, float *floatval,
 			break;
 		case MODE_V:
 			if (range >= ARRAY_SIZE(v_exp))
-				return SR_ERR;
+				return OTC_ERR;
 			exponent = v_exp[range];
 			sign = TRUE;
 			info_local->is_volt = TRUE;
@@ -272,25 +272,25 @@ static int ms2115b_parse(const uint8_t *buf, float *floatval,
 			break;
 		case MODE_OHM:
 			if (range >= ARRAY_SIZE(res_exp))
-				return SR_ERR;
+				return OTC_ERR;
 			exponent = res_exp[range];
 			info_local->is_ohm = TRUE;
 			break;
 		case MODE_CAP:
 			if (range >= ARRAY_SIZE(cap_exp))
-				return SR_ERR;
+				return OTC_ERR;
 			exponent = cap_exp[range];
 			info_local->is_farad = TRUE;
 			break;
 		case MODE_HZ:
 			range = (buf[3] & 7);
 			if (range >= ARRAY_SIZE(hz_exp))
-				return SR_ERR;
+				return OTC_ERR;
 			exponent = hz_exp[range];
 			info_local->is_hz = TRUE;
 			break;
 		default:
-			return SR_ERR;
+			return OTC_ERR;
 		}
 
 		if (sign) {
@@ -307,7 +307,7 @@ static int ms2115b_parse(const uint8_t *buf, float *floatval,
 		case MODE_A60:
 		case MODE_V:
 			if (func) /* DC */
-				return SR_ERR_NA;
+				return OTC_ERR_NA;
 
 			/* AC */
 			info_local->is_hz = TRUE;
@@ -319,19 +319,19 @@ static int ms2115b_parse(const uint8_t *buf, float *floatval,
 			exponent = -1;
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 
 		*floatval = RL16(buf + 6); /* unsigned 16bit value */
 		break;
 	default:
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if (fabsf(*floatval) > up_limit) {
-		sr_spew("Over limit.");
+		otc_spew("Over limit.");
 		*floatval = INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	*floatval *= powf(10, exponent);
@@ -341,7 +341,7 @@ static int ms2115b_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -350,17 +350,17 @@ static int ms2115b_parse(const uint8_t *buf, float *floatval,
  * @param buf Buffer containing the 9-byte protocol packet. Must not be NULL.
  * @param floatval Pointer to a float variable. That variable will contain the
  *                 result value upon parsing success. Must not be NULL.
- * @param analog Pointer to a struct sr_datafeed_analog. The struct will be
+ * @param analog Pointer to a struct otc_datafeed_analog. The struct will be
  *               filled with data according to the protocol packet.
  *               Must not be NULL.
  * @param info Pointer to a struct ms2115b_info. The struct will be filled
  *             with data according to the protocol packet. Must not be NULL.
  *
- * @return SR_OK upon success, SR_ERR upon failure. Upon errors, the
+ * @return OTC_OK upon success, OTC_ERR upon failure. Upon errors, the
  *         'analog' variable contents are undefined and should not be used.
  */
-SR_PRIV int sr_ms2115b_parse(const uint8_t *buf, float *floatval,
-		struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_ms2115b_parse(const uint8_t *buf, float *floatval,
+		struct otc_datafeed_analog *analog, void *info)
 {
 	int ret;
 	int ch_idx;

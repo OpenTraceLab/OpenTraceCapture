@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014-2017 Kumar Abhishek <abhishek@theembeddedkitchen.net>
  *
@@ -89,7 +89,7 @@ enum beaglelogic_sampleunit {
  * Parameters:
  * 	devc : Device context structure to operate on
  * Returns:
- * 	SR_OK or SR_ERR
+ * 	OTC_OK or OTC_ERR
  */
 
 struct beaglelogic_ops {
@@ -123,10 +123,10 @@ struct beaglelogic_ops {
 	int (*munmap)(struct dev_context *devc);
 };
 
-SR_PRIV extern const struct beaglelogic_ops beaglelogic_native_ops;
-SR_PRIV extern const struct beaglelogic_ops beaglelogic_tcp_ops;
+OTC_PRIV extern const struct beaglelogic_ops beaglelogic_native_ops;
+OTC_PRIV extern const struct beaglelogic_ops beaglelogic_tcp_ops;
 
-SR_PRIV int beaglelogic_tcp_detect(struct dev_context *devc);
-SR_PRIV int beaglelogic_tcp_drain(struct dev_context *devc);
+OTC_PRIV int beaglelogic_tcp_detect(struct dev_context *devc);
+OTC_PRIV int beaglelogic_tcp_drain(struct dev_context *devc);
 
 #endif

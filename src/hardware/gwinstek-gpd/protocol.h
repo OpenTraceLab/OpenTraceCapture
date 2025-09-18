@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Bastian Schmitz <bastian.schmitz@udo.edu>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "gwinstek-gpd"
 
@@ -68,14 +68,14 @@ struct dev_context {
 	int64_t req_sent_at;
 	gboolean reply_pending;
 
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	int channel_mode;
 	struct per_channel_config *config;
 	const struct gpd_model *model;
 };
 
-SR_PRIV int gpd_send_cmd(struct sr_serial_dev_inst *serial, const char *cmd, ...);
-SR_PRIV int gpd_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV int gpd_receive_reply(struct sr_serial_dev_inst *serial, char *buf, int buflen);
+OTC_PRIV int gpd_send_cmd(struct otc_serial_dev_inst *serial, const char *cmd, ...);
+OTC_PRIV int gpd_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int gpd_receive_reply(struct otc_serial_dev_inst *serial, char *buf, int buflen);
 
 #endif

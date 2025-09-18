@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <check.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libsigrok.h>
 #include "lib.h"
 
 /*
@@ -54,10 +54,10 @@ static void swap_bytes(uint8_t *buff, size_t blen)
 	}
 }
 
-static int sr_analog_init_(struct sr_datafeed_analog *analog,
-		struct sr_analog_encoding *encoding,
-		struct sr_analog_meaning *meaning,
-		struct sr_analog_spec *spec,
+static int otc_analog_init_(struct otc_datafeed_analog *analog,
+		struct otc_analog_encoding *encoding,
+		struct otc_analog_meaning *meaning,
+		struct otc_analog_spec *spec,
 		int digits)
 {
 	memset(analog, 0, sizeof(*analog));
@@ -85,7 +85,7 @@ static int sr_analog_init_(struct sr_datafeed_analog *analog,
 
 	spec->spec_digits = digits;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 START_TEST(test_analog_to_float)
@@ -93,14 +93,14 @@ START_TEST(test_analog_to_float)
 	int ret;
 	unsigned int i;
 	float f, fout;
-	struct sr_channel ch;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_channel ch;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	const float v[] = {-12.9, -333.999, 0, 3.1415, 29.7, 989898.121212};
 
-	sr_analog_init_(&analog, &encoding, &meaning, &spec, 3);
+	otc_analog_init_(&analog, &encoding, &meaning, &spec, 3);
 	analog.num_samples = 1;
 	analog.data = &f;
 	meaning.channels = g_slist_append(NULL, &ch);
@@ -108,8 +108,8 @@ START_TEST(test_analog_to_float)
 	for (i = 0; i < ARRAY_SIZE(v); i++) {
 		fout = 19;
 		f = v[i];
-		ret = sr_analog_to_float(&analog, &fout);
-		fail_unless(ret == SR_OK, "sr_analog_to_float() failed: %d.", ret);
+		ret = otc_analog_to_float(&analog, &fout);
+		fail_unless(ret == OTC_OK, "otc_analog_to_float() failed: %d.", ret);
 		fail_unless(fabs(f - fout) <= 0.001, "%f != %f", f, fout);
 	}
 }
@@ -119,36 +119,36 @@ START_TEST(test_analog_to_float_null)
 {
 	int ret;
 	float f, fout;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
 	f = G_PI;
-	sr_analog_init_(&analog, &encoding, &meaning, &spec, 3);
+	otc_analog_init_(&analog, &encoding, &meaning, &spec, 3);
 	analog.num_samples = 1;
 	analog.data = &f;
 
-	ret = sr_analog_to_float(NULL, &fout);
-	fail_unless(ret == SR_ERR_ARG);
-	ret = sr_analog_to_float(&analog, NULL);
-	fail_unless(ret == SR_ERR_ARG);
-	ret = sr_analog_to_float(NULL, NULL);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_analog_to_float(NULL, &fout);
+	fail_unless(ret == OTC_ERR_ARG);
+	ret = otc_analog_to_float(&analog, NULL);
+	fail_unless(ret == OTC_ERR_ARG);
+	ret = otc_analog_to_float(NULL, NULL);
+	fail_unless(ret == OTC_ERR_ARG);
 
 	analog.data = NULL;
-	ret = sr_analog_to_float(&analog, &fout);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_analog_to_float(&analog, &fout);
+	fail_unless(ret == OTC_ERR_ARG);
 	analog.data = &f;
 
 	analog.meaning = NULL;
-	ret = sr_analog_to_float(&analog, &fout);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_analog_to_float(&analog, &fout);
+	fail_unless(ret == OTC_ERR_ARG);
 	analog.meaning = &meaning;
 
 	analog.encoding = NULL;
-	ret = sr_analog_to_float(&analog, &fout);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_analog_to_float(&analog, &fout);
+	fail_unless(ret == OTC_ERR_ARG);
 	analog.encoding = &encoding;
 }
 END_TEST
@@ -328,19 +328,19 @@ START_TEST(test_analog_to_float_conv)
 		},
 	};
 	const size_t max_floats = 6;
-	struct sr_channel ch = {
+	struct otc_channel ch = {
 		.index = 0,
 		.enabled = TRUE,
-		.type = SR_CHANNEL_LOGIC,
+		.type = OTC_CHANNEL_LOGIC,
 		.name = "input",
 	};
 
 	size_t item_idx;
 	char item_text[32];
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	size_t byte_count, value_idx;
 	uint8_t f_in[max_floats * sizeof(double)], *byte_ptr;
 	float f_out[max_floats];
@@ -378,7 +378,7 @@ START_TEST(test_analog_to_float_conv)
 		}
 
 		/* Setup the analog feed description. */
-		sr_analog_init_(&analog, &encoding, &meaning, &spec, 3);
+		otc_analog_init_(&analog, &encoding, &meaning, &spec, 3);
 		analog.num_samples = item->nums;
 		analog.data = &f_in[0];
 		encoding.unitsize = item->unit;
@@ -390,18 +390,18 @@ START_TEST(test_analog_to_float_conv)
 		meaning.channels = g_slist_append(NULL, &ch);
 
 		/* Convert to an array of single precision float values. */
-		ret = sr_analog_to_float(&analog, &f_out[0]);
+		ret = otc_analog_to_float(&analog, &f_out[0]);
 		if (!item->want) {
-			fail_if(ret == SR_OK,
-				"%s: sr_analog_to_float() passed", item_text);
+			fail_if(ret == OTC_OK,
+				"%s: otc_analog_to_float() passed", item_text);
 			if (with_diag) {
 				fprintf(stderr, " -- expected fail, OK\n");
 				fflush(stderr);
 			}
 			continue;
 		}
-		fail_unless(ret == SR_OK,
-			"%s: sr_analog_to_float() failed: %d", item_text, ret);
+		fail_unless(ret == OTC_OK,
+			"%s: otc_analog_to_float() failed: %d", item_text, ret);
 		if (with_diag) {
 			fprintf(stderr, " -- float:");
 			for (value_idx = 0; value_idx < item->nums; value_idx++)
@@ -463,16 +463,16 @@ START_TEST(test_analog_si_prefix)
 	for (unsigned int i = 0; i < ARRAY_SIZE(v); i++) {
 		float value = v[i].input_value;
 		int digits = v[i].input_digits;
-		const char *si_prefix = sr_analog_si_prefix(&value, &digits);
+		const char *si_prefix = otc_analog_si_prefix(&value, &digits);
 
 		fail_unless(fabs(value - v[i].output_value) <= 0.00001,
-			"sr_analog_si_prefix() unexpected output value %f (i=%d).",
+			"otc_analog_si_prefix() unexpected output value %f (i=%d).",
 			value , i);
 		fail_unless(digits == v[i].output_digits,
-			"sr_analog_si_prefix() unexpected output digits %d (i=%d).",
+			"otc_analog_si_prefix() unexpected output digits %d (i=%d).",
 			digits, i);
 		fail_unless(!strcmp(si_prefix, v[i].output_si_prefix),
-			"sr_analog_si_prefix() unexpected output prefix \"%s\" (i=%d).",
+			"otc_analog_si_prefix() unexpected output prefix \"%s\" (i=%d).",
 			si_prefix, i);
 	}
 }
@@ -484,11 +484,11 @@ START_TEST(test_analog_si_prefix_null)
 	int digits = 1;
 	const char *si_prefix;
 
-	si_prefix = sr_analog_si_prefix(NULL, &digits);
+	si_prefix = otc_analog_si_prefix(NULL, &digits);
 	fail_unless(!strcmp(si_prefix, ""));
-	si_prefix = sr_analog_si_prefix(&value, NULL);
+	si_prefix = otc_analog_si_prefix(&value, NULL);
 	fail_unless(!strcmp(si_prefix, ""));
-	si_prefix = sr_analog_si_prefix(NULL, NULL);
+	si_prefix = otc_analog_si_prefix(NULL, NULL);
 	fail_unless(!strcmp(si_prefix, ""));
 }
 END_TEST
@@ -498,21 +498,21 @@ START_TEST(test_analog_unit_to_string)
 	int ret;
 	unsigned int i;
 	char *result;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
-	const int u[] = {SR_UNIT_VOLT, SR_UNIT_AMPERE, SR_UNIT_CELSIUS};
-	const int f[] = {SR_MQFLAG_RMS, 0, 0};
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
+	const int u[] = {OTC_UNIT_VOLT, OTC_UNIT_AMPERE, OTC_UNIT_CELSIUS};
+	const int f[] = {OTC_MQFLAG_RMS, 0, 0};
 	const char *r[] = {"V RMS", "A", "°C"};
 
-	sr_analog_init_(&analog, &encoding, &meaning, &spec, 3);
+	otc_analog_init_(&analog, &encoding, &meaning, &spec, 3);
 
 	for (i = 0; i < ARRAY_SIZE(r); i++) {
 		meaning.unit = u[i];
 		meaning.mqflags = f[i];
-		ret = sr_analog_unit_to_string(&analog, &result);
-		fail_unless(ret == SR_OK);
+		ret = otc_analog_unit_to_string(&analog, &result);
+		fail_unless(ret == OTC_OK);
 		fail_unless(result != NULL);
 		fail_unless(!strcmp(result, r[i]), "%s != %s", result, r[i]);
 		g_free(result);
@@ -524,38 +524,38 @@ START_TEST(test_analog_unit_to_string_null)
 {
 	int ret;
 	char *result;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
-	sr_analog_init_(&analog, &encoding, &meaning, &spec, 3);
+	otc_analog_init_(&analog, &encoding, &meaning, &spec, 3);
 
-	meaning.unit = SR_UNIT_VOLT;
-	meaning.mqflags = SR_MQFLAG_RMS;
+	meaning.unit = OTC_UNIT_VOLT;
+	meaning.mqflags = OTC_MQFLAG_RMS;
 
-	ret = sr_analog_unit_to_string(NULL, &result);
-	fail_unless(ret == SR_ERR_ARG);
-	ret = sr_analog_unit_to_string(&analog, NULL);
-	fail_unless(ret == SR_ERR_ARG);
-	ret = sr_analog_unit_to_string(NULL, NULL);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_analog_unit_to_string(NULL, &result);
+	fail_unless(ret == OTC_ERR_ARG);
+	ret = otc_analog_unit_to_string(&analog, NULL);
+	fail_unless(ret == OTC_ERR_ARG);
+	ret = otc_analog_unit_to_string(NULL, NULL);
+	fail_unless(ret == OTC_ERR_ARG);
 
 	analog.meaning = NULL;
-	ret = sr_analog_unit_to_string(&analog, &result);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_analog_unit_to_string(&analog, &result);
+	fail_unless(ret == OTC_ERR_ARG);
 }
 END_TEST
 
 START_TEST(test_set_rational)
 {
 	unsigned int i;
-	struct sr_rational r;
+	struct otc_rational r;
 	const int64_t p[] = {0, 1, -5, INT64_MAX};
 	const uint64_t q[] = {0, 2, 7, UINT64_MAX};
 
 	for (i = 0; i < ARRAY_SIZE(p); i++) {
-		sr_rational_set(&r, p[i], q[i]);
+		otc_rational_set(&r, p[i], q[i]);
 		fail_unless(r.p == p[i] && r.q == q[i]);
 	}
 }
@@ -563,13 +563,13 @@ END_TEST
 
 START_TEST(test_set_rational_null)
 {
-	sr_rational_set(NULL, 5, 7);
+	otc_rational_set(NULL, 5, 7);
 }
 END_TEST
 
 START_TEST(test_cmp_rational)
 {
-	const struct sr_rational r[] = { { 1, 1 },
+	const struct otc_rational r[] = { { 1, 1 },
 		{ 2, 2 },
 		{ 1000, 1000 },
 		{ INT64_MAX, INT64_MAX },
@@ -579,26 +579,26 @@ START_TEST(test_cmp_rational)
 		{ INT64_MIN, UINT64_MAX },
 	};
 
-	fail_unless(sr_rational_eq(&r[0], &r[0]) == 1);
-	fail_unless(sr_rational_eq(&r[0], &r[1]) == 1);
-	fail_unless(sr_rational_eq(&r[1], &r[2]) == 1);
-	fail_unless(sr_rational_eq(&r[2], &r[3]) == 1);
-	fail_unless(sr_rational_eq(&r[3], &r[3]) == 1);
+	fail_unless(otc_rational_eq(&r[0], &r[0]) == 1);
+	fail_unless(otc_rational_eq(&r[0], &r[1]) == 1);
+	fail_unless(otc_rational_eq(&r[1], &r[2]) == 1);
+	fail_unless(otc_rational_eq(&r[2], &r[3]) == 1);
+	fail_unless(otc_rational_eq(&r[3], &r[3]) == 1);
 
-	fail_unless(sr_rational_eq(&r[4], &r[4]) == 1);
-	fail_unless(sr_rational_eq(&r[4], &r[5]) == 1);
-	fail_unless(sr_rational_eq(&r[5], &r[5]) == 1);
+	fail_unless(otc_rational_eq(&r[4], &r[4]) == 1);
+	fail_unless(otc_rational_eq(&r[4], &r[5]) == 1);
+	fail_unless(otc_rational_eq(&r[5], &r[5]) == 1);
 
-	fail_unless(sr_rational_eq(&r[6], &r[6]) == 1);
-	fail_unless(sr_rational_eq(&r[7], &r[7]) == 1);
+	fail_unless(otc_rational_eq(&r[6], &r[6]) == 1);
+	fail_unless(otc_rational_eq(&r[7], &r[7]) == 1);
 
-	fail_unless(sr_rational_eq(&r[1], &r[4]) == 0);
+	fail_unless(otc_rational_eq(&r[1], &r[4]) == 0);
 }
 END_TEST
 
 START_TEST(test_mult_rational)
 {
-	static const struct sr_rational r[][3] = {
+	static const struct otc_rational r[][3] = {
 		/*   a    *    b    =    c   */
 		{ { 1, 1 }, { 1, 1 }, { 1, 1 }},
 		{ { 2, 1 }, { 3, 1 }, { 6, 1 }},
@@ -626,14 +626,14 @@ START_TEST(test_mult_rational)
 	};
 
 	size_t i;
-	struct sr_rational res;
+	struct otc_rational res;
 	int rc;
 
 	for (i = 0; i < ARRAY_SIZE(r); i++) {
-		rc = sr_rational_mult(&res, &r[i][0], &r[i][1]);
-		fail_unless(rc == SR_OK);
-		fail_unless(sr_rational_eq(&res, &r[i][2]) == 1,
-			"sr_rational_mult() failed: [%zu] %" PRIi64 "/%" PRIu64 " != %" PRIi64 "/%" PRIu64 ".",
+		rc = otc_rational_mult(&res, &r[i][0], &r[i][1]);
+		fail_unless(rc == OTC_OK);
+		fail_unless(otc_rational_eq(&res, &r[i][2]) == 1,
+			"otc_rational_mult() failed: [%zu] %" PRIi64 "/%" PRIu64 " != %" PRIi64 "/%" PRIu64 ".",
 			i, res.p, res.q, r[i][2].p, r[i][2].q);
 	}
 }
@@ -641,7 +641,7 @@ END_TEST
 
 START_TEST(test_div_rational)
 {
-	static const struct sr_rational r[][3] = {
+	static const struct otc_rational r[][3] = {
 		/*   a    *    b    =    c   */
 		{ { 1, 1 }, { 1, 1 }, { 1, 1 }},
 		{ { 2, 1 }, { 1, 3 }, { 6, 1 }},
@@ -665,21 +665,21 @@ START_TEST(test_div_rational)
 	};
 
 	size_t i;
-	struct sr_rational res;
+	struct otc_rational res;
 	int rc;
 
 	for (i = 0; i < ARRAY_SIZE(r); i++) {
-		rc = sr_rational_div(&res, &r[i][0], &r[i][1]);
-		fail_unless(rc == SR_OK);
-		fail_unless(sr_rational_eq(&res, &r[i][2]) == 1,
-			"sr_rational_mult() failed: [%zu] %" PRIi64 "/%" PRIu64 " != %" PRIi64 "/%" PRIu64 ".",
+		rc = otc_rational_div(&res, &r[i][0], &r[i][1]);
+		fail_unless(rc == OTC_OK);
+		fail_unless(otc_rational_eq(&res, &r[i][2]) == 1,
+			"otc_rational_mult() failed: [%zu] %" PRIi64 "/%" PRIu64 " != %" PRIi64 "/%" PRIu64 ".",
 			i, res.p, res.q, r[i][2].p, r[i][2].q);
 	}
 
 	{
-		rc = sr_rational_div(&res, &r[0][0], &((struct sr_rational){ 0, 5 }));
+		rc = otc_rational_div(&res, &r[0][0], &((struct otc_rational){ 0, 5 }));
 
-		fail_unless(rc == SR_ERR_ARG);
+		fail_unless(rc == OTC_ERR_ARG);
 	}
 }
 END_TEST

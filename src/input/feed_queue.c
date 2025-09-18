@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2020 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -17,22 +17,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 #include <string.h>
 
 struct feed_queue_logic {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	size_t unit_size;
 	size_t alloc_count;
 	size_t fill_count;
 	uint8_t *data_bytes;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 };
 
-SR_API struct feed_queue_logic *feed_queue_logic_alloc(
-	const struct sr_dev_inst *sdi,
+OTC_API struct feed_queue_logic *feed_queue_logic_alloc(
+	const struct otc_dev_inst *sdi,
 	size_t sample_count, size_t unit_size)
 {
 	struct feed_queue_logic *q;
@@ -49,7 +49,7 @@ SR_API struct feed_queue_logic *feed_queue_logic_alloc(
 
 	memset(&q->packet, 0, sizeof(q->packet));
 	memset(&q->logic, 0, sizeof(q->logic));
-	q->packet.type = SR_DF_LOGIC;
+	q->packet.type = OTC_DF_LOGIC;
 	q->packet.payload = &q->logic;
 	q->logic.unitsize = q->unit_size;
 	q->logic.data = q->data_bytes;
@@ -57,7 +57,7 @@ SR_API struct feed_queue_logic *feed_queue_logic_alloc(
 	return q;
 }
 
-SR_API int feed_queue_logic_submit_one(struct feed_queue_logic *q,
+OTC_API int feed_queue_logic_submit_one(struct feed_queue_logic *q,
 	const uint8_t *data, size_t repeat_count)
 {
 	uint8_t *wrptr;
@@ -70,16 +70,16 @@ SR_API int feed_queue_logic_submit_one(struct feed_queue_logic *q,
 		q->fill_count++;
 		if (q->fill_count == q->alloc_count) {
 			ret = feed_queue_logic_flush(q);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			wrptr = &q->data_bytes[0];
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_API int feed_queue_logic_submit_many(struct feed_queue_logic *q,
+OTC_API int feed_queue_logic_submit_many(struct feed_queue_logic *q,
 	const uint8_t *data, size_t samples_count)
 {
 	uint8_t *wrptr;
@@ -99,47 +99,47 @@ SR_API int feed_queue_logic_submit_many(struct feed_queue_logic *q,
 		q->fill_count += copy_count;
 		if (q->fill_count == q->alloc_count) {
 			ret = feed_queue_logic_flush(q);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			wrptr = &q->data_bytes[0];
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_API int feed_queue_logic_flush(struct feed_queue_logic *q)
+OTC_API int feed_queue_logic_flush(struct feed_queue_logic *q)
 {
 	int ret;
 
 	if (!q->fill_count)
-		return SR_OK;
+		return OTC_OK;
 
 	q->logic.length = q->fill_count * q->unit_size;
-	ret = sr_session_send(q->sdi, &q->packet);
-	if (ret != SR_OK)
+	ret = otc_session_send(q->sdi, &q->packet);
+	if (ret != OTC_OK)
 		return ret;
 	q->fill_count = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_API int feed_queue_logic_send_trigger(struct feed_queue_logic *q)
+OTC_API int feed_queue_logic_send_trigger(struct feed_queue_logic *q)
 {
 	int ret;
 
 	ret = feed_queue_logic_flush(q);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = std_session_send_df_trigger(q->sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_API void feed_queue_logic_free(struct feed_queue_logic *q)
+OTC_API void feed_queue_logic_free(struct feed_queue_logic *q)
 {
 
 	if (!q)
@@ -150,22 +150,22 @@ SR_API void feed_queue_logic_free(struct feed_queue_logic *q)
 }
 
 struct feed_queue_analog {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	size_t alloc_count;
 	size_t fill_count;
 	float *data_values;
 	int digits;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	GSList *channels;
 };
 
-SR_API struct feed_queue_analog *feed_queue_analog_alloc(
-	const struct sr_dev_inst *sdi,
-	size_t sample_count, int digits, struct sr_channel *ch)
+OTC_API struct feed_queue_analog *feed_queue_analog_alloc(
+	const struct otc_dev_inst *sdi,
+	size_t sample_count, int digits, struct otc_channel *ch)
 {
 	struct feed_queue_analog *q;
 
@@ -181,8 +181,8 @@ SR_API struct feed_queue_analog *feed_queue_analog_alloc(
 	q->channels = g_slist_append(NULL, ch);
 
 	memset(&q->packet, 0, sizeof(q->packet));
-	sr_analog_init(&q->analog, &q->encoding, &q->meaning, &q->spec, digits);
-	q->packet.type = SR_DF_ANALOG;
+	otc_analog_init(&q->analog, &q->encoding, &q->meaning, &q->spec, digits);
+	q->packet.type = OTC_DF_ANALOG;
 	q->packet.payload = &q->analog;
 	q->encoding.is_signed = TRUE;
 	q->meaning.channels = q->channels;
@@ -191,35 +191,35 @@ SR_API struct feed_queue_analog *feed_queue_analog_alloc(
 	return q;
 }
 
-SR_API int feed_queue_analog_mq_unit(struct feed_queue_analog *q,
-	enum sr_mq mq, enum sr_mqflag mq_flag, enum sr_unit unit)
+OTC_API int feed_queue_analog_mq_unit(struct feed_queue_analog *q,
+	enum otc_mq mq, enum otc_mqflag mq_flag, enum otc_unit unit)
 {
 	int ret;
 
 	if (!q)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ret = feed_queue_analog_flush(q);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	q->meaning.mq = mq;
 	q->meaning.mqflags = mq_flag;
 	q->meaning.unit = unit;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_API int feed_queue_analog_scale_offset(struct feed_queue_analog *q,
-	const struct sr_rational *scale, const struct sr_rational *offset)
+OTC_API int feed_queue_analog_scale_offset(struct feed_queue_analog *q,
+	const struct otc_rational *scale, const struct otc_rational *offset)
 {
 	int ret;
 
 	if (!q)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ret = feed_queue_analog_flush(q);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (scale)
@@ -227,10 +227,10 @@ SR_API int feed_queue_analog_scale_offset(struct feed_queue_analog *q,
 	if (offset)
 		q->encoding.offset = *offset;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_API int feed_queue_analog_submit_one(struct feed_queue_analog *q,
+OTC_API int feed_queue_analog_submit_one(struct feed_queue_analog *q,
 	float data, size_t repeat_count)
 {
 	int ret;
@@ -239,31 +239,31 @@ SR_API int feed_queue_analog_submit_one(struct feed_queue_analog *q,
 		q->data_values[q->fill_count++] = data;
 		if (q->fill_count == q->alloc_count) {
 			ret = feed_queue_analog_flush(q);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_API int feed_queue_analog_flush(struct feed_queue_analog *q)
+OTC_API int feed_queue_analog_flush(struct feed_queue_analog *q)
 {
 	int ret;
 
 	if (!q->fill_count)
-		return SR_OK;
+		return OTC_OK;
 
 	q->analog.num_samples = q->fill_count;
-	ret = sr_session_send(q->sdi, &q->packet);
-	if (ret != SR_OK)
+	ret = otc_session_send(q->sdi, &q->packet);
+	if (ret != OTC_OK)
 		return ret;
 	q->fill_count = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_API void feed_queue_analog_free(struct feed_queue_analog *q)
+OTC_API void feed_queue_analog_free(struct feed_queue_analog *q)
 {
 
 	if (!q)

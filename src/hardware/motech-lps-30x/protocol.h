@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2014 Matthias Heidbrink <m-sigrok@heidbrink.biz>
+ * Copyright (C) 2014 Matthias Heidbrink <m-opentracelab@heidbrink.biz>
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com> (code from atten-pps3xxx)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,13 +23,13 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "motech-lps-30x"
 
-SR_PRIV int lps_process_status(struct sr_dev_inst *sdi, int stat);
-SR_PRIV int lps_send_req(struct sr_serial_dev_inst *serial, const char *fmt, ...);
+OTC_PRIV int lps_process_status(struct otc_dev_inst *sdi, int stat);
+OTC_PRIV int lps_send_req(struct otc_serial_dev_inst *serial, const char *fmt, ...);
 
 #define LINELEN_MAX 50	/**< Max. line length for requests */
 
@@ -89,7 +89,7 @@ struct dev_context {
 	const struct lps_modelspec *model;
 
 	gboolean acq_running;		/**< Acquisition is running. */
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	acquisition_req acq_req;	/**< Current request. */
 	uint8_t	acq_req_pending;	/**< Request pending. 0=none, 1=reply, 2=OK */
 
@@ -101,6 +101,6 @@ struct dev_context {
 	int buflen;		/**< Data len in buf */
 };
 
-SR_PRIV int motech_lps_30x_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int motech_lps_30x_receive_data(int fd, int revents, void *cb_data);
 
 #endif

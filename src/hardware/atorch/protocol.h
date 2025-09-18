@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2023 Mathieu Pilato <pilato.mathieu@free.fr>
  *
@@ -21,10 +21,10 @@
 #define LIBSIGROK_HARDWARE_ATORCH_PROTOCOL_H
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <stdint.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "atorch"
 
@@ -40,11 +40,11 @@ struct atorch_device_profile {
 struct atorch_channel_desc {
 	const char *name;
 	struct binary_value_spec spec;
-	struct sr_rational scale;
+	struct otc_rational scale;
 	int digits;
-	enum sr_mq mq;
-	enum sr_unit unit;
-	enum sr_mqflag flags;
+	enum otc_mq mq;
+	enum otc_unit unit;
+	enum otc_mqflag flags;
 };
 
 enum atorch_msg_type {
@@ -55,14 +55,14 @@ enum atorch_msg_type {
 
 struct dev_context {
 	const struct atorch_device_profile *profile;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	struct feed_queue_analog **feeds;
 	uint8_t buf[ATORCH_BUFSIZE];
 	size_t wr_idx;
 	size_t rd_idx;
 };
 
-SR_PRIV int atorch_probe(struct sr_serial_dev_inst *serial, struct dev_context *devc);
-SR_PRIV int atorch_receive_data_callback(int fd, int revents, void *cb_data);
+OTC_PRIV int atorch_probe(struct otc_serial_dev_inst *serial, struct dev_context *devc);
+OTC_PRIV int atorch_receive_data_callback(int fd, int revents, void *cb_data);
 
 #endif

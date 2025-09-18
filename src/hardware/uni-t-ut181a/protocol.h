@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019-2020 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -21,10 +21,10 @@
 #define LIBSIGROK_HARDWARE_UNI_T_UT181A_PROTOCOL_H
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <stdint.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "uni-t-ut181a"
 
@@ -222,16 +222,16 @@ enum ut181a_mode_code {
 #define MODE_COUNT_PER_MQ_MQF	15
 
 struct mqopt_item {
-	enum sr_mq mq;
-	enum sr_mqflag mqflags;
+	enum otc_mq mq;
+	enum otc_mqflag mqflags;
 	enum ut181a_mode_code modes[MODE_COUNT_PER_MQ_MQF];
 };
 
 struct mq_scale_params {
 	int scale;
-	enum sr_mq mq;
-	enum sr_mqflag mqflags;
-	enum sr_unit unit;
+	enum otc_mq mq;
+	enum otc_mqflag mqflags;
+	enum otc_unit unit;
 };
 
 struct value_params {
@@ -241,11 +241,11 @@ struct value_params {
 };
 
 struct feed_buffer {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	int scale;
 	float main_value; /* TODO double, for epoch timestamps */
 };
@@ -371,7 +371,7 @@ enum ut181a_data_source {
 };
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	enum ut181a_data_source data_source;
 	size_t data_source_count;
 	const char *data_source_names[DATA_SOURCE_MAX + 1];
@@ -408,31 +408,31 @@ struct dev_context {
 	} last_data;
 };
 
-SR_PRIV const struct mqopt_item *ut181a_get_mqitem_from_mode(uint16_t mode);
-SR_PRIV uint16_t ut181a_get_mode_from_mq_flags(enum sr_mq mq, enum sr_mqflag mqflags);
-SR_PRIV GVariant *ut181a_get_mq_flags_list_item(enum sr_mq mq, enum sr_mqflag mqflag);
-SR_PRIV GVariant *ut181a_get_mq_flags_list(void);
+OTC_PRIV const struct mqopt_item *ut181a_get_mqitem_from_mode(uint16_t mode);
+OTC_PRIV uint16_t ut181a_get_mode_from_mq_flags(enum otc_mq mq, enum otc_mqflag mqflags);
+OTC_PRIV GVariant *ut181a_get_mq_flags_list_item(enum otc_mq mq, enum otc_mqflag mqflag);
+OTC_PRIV GVariant *ut181a_get_mq_flags_list(void);
 
-SR_PRIV int ut181a_send_cmd_monitor(struct sr_serial_dev_inst *serial, gboolean on);
-SR_PRIV int ut181a_send_cmd_setmode(struct sr_serial_dev_inst *serial, uint16_t mode);
-SR_PRIV int ut181a_send_cmd_setrange(struct sr_serial_dev_inst *serial, uint8_t range);
-SR_PRIV int ut181a_send_cmd_get_save_count(struct sr_serial_dev_inst *serial);
-SR_PRIV int ut181a_send_cmd_get_saved_value(struct sr_serial_dev_inst *serial, size_t idx);
-SR_PRIV int ut181a_send_cmd_get_recs_count(struct sr_serial_dev_inst *serial);
-SR_PRIV int ut181a_send_cmd_get_rec_info(struct sr_serial_dev_inst *serial, size_t idx);
-SR_PRIV int ut181a_send_cmd_get_rec_samples(struct sr_serial_dev_inst *serial, size_t idx, size_t off);
+OTC_PRIV int ut181a_send_cmd_monitor(struct otc_serial_dev_inst *serial, gboolean on);
+OTC_PRIV int ut181a_send_cmd_setmode(struct otc_serial_dev_inst *serial, uint16_t mode);
+OTC_PRIV int ut181a_send_cmd_setrange(struct otc_serial_dev_inst *serial, uint8_t range);
+OTC_PRIV int ut181a_send_cmd_get_save_count(struct otc_serial_dev_inst *serial);
+OTC_PRIV int ut181a_send_cmd_get_saved_value(struct otc_serial_dev_inst *serial, size_t idx);
+OTC_PRIV int ut181a_send_cmd_get_recs_count(struct otc_serial_dev_inst *serial);
+OTC_PRIV int ut181a_send_cmd_get_rec_info(struct otc_serial_dev_inst *serial, size_t idx);
+OTC_PRIV int ut181a_send_cmd_get_rec_samples(struct otc_serial_dev_inst *serial, size_t idx, size_t off);
 
-SR_PRIV int ut181a_configure_waitfor(struct dev_context *devc,
+OTC_PRIV int ut181a_configure_waitfor(struct dev_context *devc,
 	gboolean want_code, enum ut181_cmd_code want_data,
 	enum ut181_rsp_type want_rsp_type,
 	gboolean want_measure, gboolean want_rec_count,
 	gboolean want_save_count, gboolean want_sample_count);
-SR_PRIV int ut181a_waitfor_response(const struct sr_dev_inst *sdi, int timeout_ms);
+OTC_PRIV int ut181a_waitfor_response(const struct otc_dev_inst *sdi, int timeout_ms);
 
-SR_PRIV int ut181a_handle_events(int fd, int revents, void *cb_data);
+OTC_PRIV int ut181a_handle_events(int fd, int revents, void *cb_data);
 
-SR_PRIV GVariant *ut181a_get_ranges_list(void);
-SR_PRIV const char *ut181a_get_range_from_packet_bytes(struct dev_context *devc);
-SR_PRIV int ut181a_set_range_from_text(const struct sr_dev_inst *sdi, const char *text);
+OTC_PRIV GVariant *ut181a_get_ranges_list(void);
+OTC_PRIV const char *ut181a_get_range_from_packet_bytes(struct dev_context *devc);
+OTC_PRIV int ut181a_set_range_from_text(const struct otc_dev_inst *sdi, const char *text);
 
 #endif

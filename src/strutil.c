@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -35,8 +35,8 @@
 #include <string.h>
 #include <strings.h>
 #include <errno.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "strutil"
@@ -45,13 +45,13 @@
 /**
  * @file
  *
- * Helper functions for handling or converting libsigrok-related strings.
+ * Helper functions for handling or converting libopentracecapture-related strings.
  */
 
 /**
  * @defgroup grp_strutil String utilities
  *
- * Helper functions for handling or converting libsigrok-related strings.
+ * Helper functions for handling or converting libopentracecapture-related strings.
  *
  * @{
  */
@@ -65,12 +65,12 @@
  * @param str The string representation to convert.
  * @param ret Pointer to long where the result of the conversion will be stored.
  *
- * @retval SR_OK Conversion successful.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Conversion successful.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int sr_atol(const char *str, long *ret)
+OTC_PRIV int otc_atol(const char *str, long *ret)
 {
 	long tmp;
 	char *endptr = NULL;
@@ -84,11 +84,11 @@ SR_PRIV int sr_atol(const char *str, long *ret)
 	if (!endptr || *endptr || errno) {
 		if (!errno)
 			errno = EINVAL;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	*ret = tmp;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -101,18 +101,18 @@ SR_PRIV int sr_atol(const char *str, long *ret)
  * @param[out] end The position after the number.
  * @param[in] base The number format's base, can be 0.
  *
- * @retval SR_OK Conversion successful.
- * @retval SR_ERR Conversion failed.
+ * @retval OTC_OK Conversion successful.
+ * @retval OTC_ERR Conversion failed.
  *
  * @private
  *
- * This routine is more general than @ref sr_atol(), which strictly
+ * This routine is more general than @ref otc_atol(), which strictly
  * expects the input text to contain just a decimal number, and nothing
- * else in addition. The @ref sr_atol_base() routine accepts trailing
+ * else in addition. The @ref otc_atol_base() routine accepts trailing
  * text after the number, and supports non-decimal numbers (bin, hex),
  * including automatic detection from prefix text.
  */
-SR_PRIV int sr_atol_base(const char *str, long *ret, char **end, int base)
+OTC_PRIV int otc_atol_base(const char *str, long *ret, char **end, int base)
 {
 	long num;
 	char *endptr;
@@ -132,7 +132,7 @@ SR_PRIV int sr_atol_base(const char *str, long *ret, char **end, int base)
 	if (!endptr || errno) {
 		if (!errno)
 			errno = EINVAL;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	*ret = num;
 
@@ -142,7 +142,7 @@ SR_PRIV int sr_atol_base(const char *str, long *ret, char **end, int base)
 	if (end)
 		*end = endptr;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -155,18 +155,18 @@ SR_PRIV int sr_atol_base(const char *str, long *ret, char **end, int base)
  * @param[out] end The position after the number.
  * @param[in] base The number format's base, can be 0.
  *
- * @retval SR_OK Conversion successful.
- * @retval SR_ERR Conversion failed.
+ * @retval OTC_OK Conversion successful.
+ * @retval OTC_ERR Conversion failed.
  *
  * @private
  *
- * This routine is more general than @ref sr_atol(), which strictly
+ * This routine is more general than @ref otc_atol(), which strictly
  * expects the input text to contain just a decimal number, and nothing
- * else in addition. The @ref sr_atoul_base() routine accepts trailing
+ * else in addition. The @ref otc_atoul_base() routine accepts trailing
  * text after the number, and supports non-decimal numbers (bin, hex),
  * including automatic detection from prefix text.
  */
-SR_PRIV int sr_atoul_base(const char *str, unsigned long *ret, char **end, int base)
+OTC_PRIV int otc_atoul_base(const char *str, unsigned long *ret, char **end, int base)
 {
 	unsigned long num;
 	char *endptr;
@@ -186,7 +186,7 @@ SR_PRIV int sr_atoul_base(const char *str, unsigned long *ret, char **end, int b
 	if (!endptr || errno) {
 		if (!errno)
 			errno = EINVAL;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	*ret = num;
 
@@ -196,7 +196,7 @@ SR_PRIV int sr_atoul_base(const char *str, unsigned long *ret, char **end, int b
 	if (end)
 		*end = endptr;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -208,25 +208,25 @@ SR_PRIV int sr_atoul_base(const char *str, unsigned long *ret, char **end, int b
  * @param str The string representation to convert.
  * @param ret Pointer to int where the result of the conversion will be stored.
  *
- * @retval SR_OK Conversion successful.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Conversion successful.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int sr_atoi(const char *str, int *ret)
+OTC_PRIV int otc_atoi(const char *str, int *ret)
 {
 	long tmp;
 
-	if (sr_atol(str, &tmp) != SR_OK)
-		return SR_ERR;
+	if (otc_atol(str, &tmp) != OTC_OK)
+		return OTC_ERR;
 
 	if ((int) tmp != tmp) {
 		errno = ERANGE;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	*ret = (int) tmp;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -238,12 +238,12 @@ SR_PRIV int sr_atoi(const char *str, int *ret)
  * @param str The string representation to convert.
  * @param ret Pointer to double where the result of the conversion will be stored.
  *
- * @retval SR_OK Conversion successful.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Conversion successful.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int sr_atod(const char *str, double *ret)
+OTC_PRIV int otc_atod(const char *str, double *ret)
 {
 	double tmp;
 	char *endptr = NULL;
@@ -257,11 +257,11 @@ SR_PRIV int sr_atod(const char *str, double *ret)
 	if (!endptr || *endptr || errno) {
 		if (!errno)
 			errno = EINVAL;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	*ret = tmp;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -273,25 +273,25 @@ SR_PRIV int sr_atod(const char *str, double *ret)
  * @param str The string representation to convert.
  * @param ret Pointer to float where the result of the conversion will be stored.
  *
- * @retval SR_OK Conversion successful.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Conversion successful.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int sr_atof(const char *str, float *ret)
+OTC_PRIV int otc_atof(const char *str, float *ret)
 {
 	double tmp;
 
-	if (sr_atod(str, &tmp) != SR_OK)
-		return SR_ERR;
+	if (otc_atod(str, &tmp) != OTC_OK)
+		return OTC_ERR;
 
 	if ((float) tmp != tmp) {
 		errno = ERANGE;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	*ret = (float) tmp;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -303,12 +303,12 @@ SR_PRIV int sr_atof(const char *str, float *ret)
  * @param str The string representation to convert.
  * @param ret Pointer to double where the result of the conversion will be stored.
  *
- * @retval SR_OK Conversion successful.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Conversion successful.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int sr_atod_ascii(const char *str, double *ret)
+OTC_PRIV int otc_atod_ascii(const char *str, double *ret)
 {
 	double tmp;
 	char *endptr = NULL;
@@ -319,11 +319,11 @@ SR_PRIV int sr_atod_ascii(const char *str, double *ret)
 	if (!endptr || *endptr || errno) {
 		if (!errno)
 			errno = EINVAL;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	*ret = tmp;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -333,18 +333,18 @@ SR_PRIV int sr_atod_ascii(const char *str, double *ret)
  * @param[out] ret The conversion result, a double precision float number.
  * @param[out] digits The number of significant decimals.
  *
- * @returns SR_OK in case of successful text to number conversion.
- * @returns SR_ERR when conversion fails.
+ * @returns OTC_OK in case of successful text to number conversion.
+ * @returns OTC_ERR when conversion fails.
  *
  * @since 0.6.0
  */
-SR_PRIV int sr_atod_ascii_digits(const char *str, double *ret, int *digits)
+OTC_PRIV int otc_atod_ascii_digits(const char *str, double *ret, int *digits)
 {
 	int d;
 	double f;
 
-	if (sr_count_digits(str, &d) != SR_OK || sr_atod_ascii(str, &f) != SR_OK)
-		return SR_ERR;
+	if (otc_count_digits(str, &d) != OTC_OK || otc_atod_ascii(str, &f) != OTC_OK)
+		return OTC_ERR;
 
 	if (ret)
 		*ret = f;
@@ -352,7 +352,7 @@ SR_PRIV int sr_atod_ascii_digits(const char *str, double *ret, int *digits)
 	if (digits)
 		*digits = d;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -364,12 +364,12 @@ SR_PRIV int sr_atod_ascii_digits(const char *str, double *ret, int *digits)
  * @param str The string representation to convert.
  * @param ret Pointer to float where the result of the conversion will be stored.
  *
- * @retval SR_OK Conversion successful.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Conversion successful.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int sr_atof_ascii(const char *str, float *ret)
+OTC_PRIV int otc_atof_ascii(const char *str, float *ret)
 {
 	double tmp;
 	char *endptr = NULL;
@@ -380,7 +380,7 @@ SR_PRIV int sr_atof_ascii(const char *str, float *ret)
 	if (!endptr || *endptr || errno) {
 		if (!errno)
 			errno = EINVAL;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* FIXME This fails unexpectedly. Some other method to safel downcast
@@ -388,13 +388,13 @@ SR_PRIV int sr_atof_ascii(const char *str, float *ret)
 	/*
 	if ((float) tmp != tmp) {
 		errno = ERANGE;
-		sr_dbg("ERANGEEEE %e != %e", (float) tmp, tmp);
-		return SR_ERR;
+		otc_dbg("ERANGEEEE %e != %e", (float) tmp, tmp);
+		return OTC_ERR;
 	}
 	*/
 
 	*ret = (float) tmp;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -404,16 +404,16 @@ SR_PRIV int sr_atof_ascii(const char *str, float *ret)
  * @param[out] ret The conversion result, a double precision float number.
  * @param[out] digits The number of significant decimals.
  *
- * @returns SR_OK in case of successful text to number conversion.
- * @returns SR_ERR when conversion fails.
+ * @returns OTC_OK in case of successful text to number conversion.
+ * @returns OTC_ERR when conversion fails.
  */
-SR_PRIV int sr_atof_ascii_digits(const char *str, float *ret, int *digits)
+OTC_PRIV int otc_atof_ascii_digits(const char *str, float *ret, int *digits)
 {
 	int d;
 	float f;
 
-	if (sr_count_digits(str, &d) != SR_OK || sr_atof_ascii(str, &f) != SR_OK)
-		return SR_ERR;
+	if (otc_count_digits(str, &d) != OTC_OK || otc_atof_ascii(str, &f) != OTC_OK)
+		return OTC_ERR;
 
 	if (ret)
 		*ret = f;
@@ -421,7 +421,7 @@ SR_PRIV int sr_atof_ascii_digits(const char *str, float *ret, int *digits)
 	if (digits)
 		*digits = d;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -430,12 +430,12 @@ SR_PRIV int sr_atof_ascii_digits(const char *str, float *ret, int *digits)
  * @param[in] str The input text to convert.
  * @param[out] digits The number of significant decimals.
  *
- * @returns SR_OK in case of successful.
- * @returns SR_ERR when conversion fails.
+ * @returns OTC_OK in case of successful.
+ * @returns OTC_ERR when conversion fails.
  *
  * @private
  */
-SR_PRIV int sr_count_digits(const char *str, int *digits)
+OTC_PRIV int otc_count_digits(const char *str, int *digits)
 {
 	const char *p = str;
 	char *exp_end;
@@ -470,25 +470,25 @@ SR_PRIV int sr_count_digits(const char *str, int *digits)
 		errno = 0;
 		exp = strtol(p, &exp_end, 10);
 		if (errno) {
-			sr_spew("Failed to parse exponent: txt \"%s\", e \"%s\"",
+			otc_spew("Failed to parse exponent: txt \"%s\", e \"%s\"",
 				str, p);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		p = exp_end;
 	}
 
-	sr_spew("count digits: txt \"%s\" -> d_int %d, d_dec %d, e %d "
+	otc_spew("count digits: txt \"%s\" -> d_int %d, d_dec %d, e %d "
 		"-> digits %d\n",
 		str, d_int, d_dec, exp, d_dec - exp);
 
 	/* We should have parsed the whole string by now. Return an
 	 * error if not. */
 	if ((*p) || (d_dec == 0 && d_int == 0)) {
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	*digits = d_dec - exp;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -516,13 +516,13 @@ SR_PRIV int sr_count_digits(const char *str, int *digits)
  *
  * @since 0.6.0
  */
-SR_API int sr_sprintf_ascii(char *buf, const char *format, ...)
+OTC_API int otc_sprintf_ascii(char *buf, const char *format, ...)
 {
 	int ret;
 	va_list args;
 
 	va_start(args, format);
-	ret = sr_vsprintf_ascii(buf, format, args);
+	ret = otc_vsprintf_ascii(buf, format, args);
 	va_end(args);
 
 	return ret;
@@ -555,7 +555,7 @@ SR_API int sr_sprintf_ascii(char *buf, const char *format, ...)
  *
  * @since 0.6.0
  */
-SR_API int sr_vsprintf_ascii(char *buf, const char *format, va_list args)
+OTC_API int otc_vsprintf_ascii(char *buf, const char *format, va_list args)
 {
 #if defined(_WIN32)
 	int ret;
@@ -680,14 +680,14 @@ SR_API int sr_vsprintf_ascii(char *buf, const char *format, va_list args)
  *
  * @since 0.6.0
  */
-SR_API int sr_snprintf_ascii(char *buf, size_t buf_size,
+OTC_API int otc_snprintf_ascii(char *buf, size_t buf_size,
 	const char *format, ...)
 {
 	int ret;
 	va_list args;
 
 	va_start(args, format);
-	ret = sr_vsnprintf_ascii(buf, buf_size, format, args);
+	ret = otc_vsnprintf_ascii(buf, buf_size, format, args);
 	va_end(args);
 
 	return ret;
@@ -727,7 +727,7 @@ SR_API int sr_snprintf_ascii(char *buf, size_t buf_size,
  *
  * @since 0.6.0
  */
-SR_API int sr_vsnprintf_ascii(char *buf, size_t buf_size,
+OTC_API int otc_vsnprintf_ascii(char *buf, size_t buf_size,
 	const char *format, va_list args)
 {
 #if defined(_WIN32)
@@ -826,7 +826,7 @@ SR_API int sr_vsnprintf_ascii(char *buf, size_t buf_size,
 /**
  * Convert a sequence of bytes to its textual representation ("hex dump").
  *
- * Callers should free the allocated GString. See sr_hexdump_free().
+ * Callers should free the allocated GString. See otc_hexdump_free().
  *
  * @param[in] data Pointer to the byte sequence to print.
  * @param[in] len Number of bytes to print.
@@ -835,7 +835,7 @@ SR_API int sr_vsnprintf_ascii(char *buf, size_t buf_size,
  *
  * @private
  */
-SR_PRIV GString *sr_hexdump_new(const uint8_t *data, const size_t len)
+OTC_PRIV GString *otc_hexdump_new(const uint8_t *data, const size_t len)
 {
 	GString *s;
 	size_t i;
@@ -858,34 +858,34 @@ SR_PRIV GString *sr_hexdump_new(const uint8_t *data, const size_t len)
 }
 
 /**
- * Free a hex dump text that was created by sr_hexdump_new().
+ * Free a hex dump text that was created by otc_hexdump_new().
  *
  * @param[in] s Pointer to the GString to release.
  *
  * @private
  */
-SR_PRIV void sr_hexdump_free(GString *s)
+OTC_PRIV void otc_hexdump_free(GString *s)
 {
 	if (s)
 		g_string_free(s, TRUE);
 }
 
 /**
- * Convert a string representation of a numeric value to a sr_rational.
+ * Convert a string representation of a numeric value to a otc_rational.
  *
  * The conversion is strict and will fail if the complete string does not
  * represent a valid number. The function sets errno according to the details
  * of the failure. This version ignores the locale.
  *
  * @param str The string representation to convert.
- * @param ret Pointer to sr_rational where the result of the conversion will be stored.
+ * @param ret Pointer to otc_rational where the result of the conversion will be stored.
  *
- * @retval SR_OK Conversion successful.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Conversion successful.
+ * @retval OTC_ERR Failure.
  *
  * @since 0.5.0
  */
-SR_API int sr_parse_rational(const char *str, struct sr_rational *ret)
+OTC_API int otc_parse_rational(const char *str, struct otc_rational *ret)
 {
 	const char *readptr;
 	char *endptr;
@@ -931,10 +931,10 @@ SR_API int sr_parse_rational(const char *str, struct sr_rational *ret)
 		empty_integral = FALSE;
 		integral = g_ascii_strtoll(readptr, &endptr, 10);
 		if (errno)
-			return SR_ERR;
+			return OTC_ERR;
 		if (endptr == str) {
 			errno = -EINVAL;
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		readptr = endptr;
 	}
@@ -951,10 +951,10 @@ SR_API int sr_parse_rational(const char *str, struct sr_rational *ret)
 			empty_fractional = FALSE;
 			fractional = g_ascii_strtoll(readptr, &endptr, 10);
 			if (errno)
-				return SR_ERR;
+				return OTC_ERR;
 			if (endptr == readptr) {
 				errno = -EINVAL;
-				return SR_ERR;
+				return OTC_ERR;
 			}
 			fractional_len = endptr - readptr;
 			readptr = endptr;
@@ -964,7 +964,7 @@ SR_API int sr_parse_rational(const char *str, struct sr_rational *ret)
 	/* At least one of integral or fractional is required. */
 	if (empty_integral && empty_fractional) {
 		errno = -EINVAL;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* Get the (optional) exponent. */
@@ -984,15 +984,15 @@ SR_API int sr_parse_rational(const char *str, struct sr_rational *ret)
 		}
 		if (!isdigit(*readptr)) {
 			errno = -EINVAL;
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		errno = 0;
 		exponent = g_ascii_strtoll(readptr, &endptr, 10);
 		if (errno)
-			return SR_ERR;
+			return OTC_ERR;
 		if (endptr == readptr) {
 			errno = -EINVAL;
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		readptr = endptr;
 		if (exp_negative)
@@ -1002,7 +1002,7 @@ SR_API int sr_parse_rational(const char *str, struct sr_rational *ret)
 	/* Input must be exhausted. Unconverted remaining input is fatal. */
 	if (*endptr != '\0') {
 		errno = -EINVAL;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/*
@@ -1038,7 +1038,7 @@ SR_API int sr_parse_rational(const char *str, struct sr_rational *ret)
 	ret->p = integral;
 	ret->q = denominator;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -1058,12 +1058,12 @@ SR_API int sr_parse_rational(const char *str, struct sr_rational *ret)
  *
  * @since 0.2.0
  */
-SR_API char *sr_si_string_u64(uint64_t x, const char *unit)
+OTC_API char *otc_si_string_u64(uint64_t x, const char *unit)
 {
 	uint8_t i;
 	uint64_t quot, divisor[] = {
-		SR_HZ(1), SR_KHZ(1), SR_MHZ(1), SR_GHZ(1),
-		SR_GHZ(1000), SR_GHZ(1000 * 1000), SR_GHZ(1000 * 1000 * 1000),
+		OTC_HZ(1), OTC_KHZ(1), OTC_MHZ(1), OTC_GHZ(1),
+		OTC_GHZ(1000), OTC_GHZ(1000 * 1000), OTC_GHZ(1000 * 1000 * 1000),
 	};
 	const char *p, prefix[] = "\0kMGTPE";
 	char fmt[16], fract[20] = "", *f;
@@ -1100,9 +1100,9 @@ SR_API char *sr_si_string_u64(uint64_t x, const char *unit)
  *
  * @since 0.1.0
  */
-SR_API char *sr_samplerate_string(uint64_t samplerate)
+OTC_API char *otc_samplerate_string(uint64_t samplerate)
 {
-	return sr_si_string_u64(samplerate, "Hz");
+	return otc_si_string_u64(samplerate, "Hz");
 }
 
 /**
@@ -1122,22 +1122,22 @@ SR_API char *sr_samplerate_string(uint64_t samplerate)
  *
  * @since 0.5.0
  */
-SR_API char *sr_period_string(uint64_t v_p, uint64_t v_q)
+OTC_API char *otc_period_string(uint64_t v_p, uint64_t v_q)
 {
 	double freq, v;
 	int prec;
 
 	freq = 1 / ((double)v_p / v_q);
 
-	if (freq > SR_GHZ(1)) {
+	if (freq > OTC_GHZ(1)) {
 		v = (double)v_p / v_q * 1000000000000.0;
 		prec = ((v - (uint64_t)v) < FLT_MIN) ? 0 : 3;
 		return g_strdup_printf("%.*f ps", prec, v);
-	} else if (freq > SR_MHZ(1)) {
+	} else if (freq > OTC_MHZ(1)) {
 		v = (double)v_p / v_q * 1000000000.0;
 		prec = ((v - (uint64_t)v) < FLT_MIN) ? 0 : 3;
 		return g_strdup_printf("%.*f ns", prec, v);
-	} else if (freq > SR_KHZ(1)) {
+	} else if (freq > OTC_KHZ(1)) {
 		v = (double)v_p / v_q * 1000000.0;
 		prec = ((v - (uint64_t)v) < FLT_MIN) ? 0 : 3;
 		return g_strdup_printf("%.*f us", prec, v);
@@ -1168,7 +1168,7 @@ SR_API char *sr_period_string(uint64_t v_p, uint64_t v_q)
  *
  * @since 0.2.0
  */
-SR_API char *sr_voltage_string(uint64_t v_p, uint64_t v_q)
+OTC_API char *otc_voltage_string(uint64_t v_p, uint64_t v_q)
 {
 	if (v_q == 1000)
 		return g_strdup_printf("%" PRIu64 " mV", v_p);
@@ -1191,11 +1191,11 @@ SR_API char *sr_voltage_string(uint64_t v_p, uint64_t v_q)
  * @param sizestring A string containing a (decimal) size value.
  * @param size Pointer to uint64_t which will contain the string's size value.
  *
- * @return SR_OK upon success, SR_ERR upon errors.
+ * @return OTC_OK upon success, OTC_ERR upon errors.
  *
  * @since 0.1.0
  */
-SR_API int sr_parse_sizestring(const char *sizestring, uint64_t *size)
+OTC_API int otc_parse_sizestring(const char *sizestring, uint64_t *size)
 {
 	uint64_t multiplier;
 	int done;
@@ -1215,27 +1215,27 @@ SR_API int sr_parse_sizestring(const char *sizestring, uint64_t *size)
 			break;
 		case 'k':
 		case 'K':
-			multiplier = SR_KHZ(1);
+			multiplier = OTC_KHZ(1);
 			break;
 		case 'm':
 		case 'M':
-			multiplier = SR_MHZ(1);
+			multiplier = OTC_MHZ(1);
 			break;
 		case 'g':
 		case 'G':
-			multiplier = SR_GHZ(1);
+			multiplier = OTC_GHZ(1);
 			break;
 		case 't':
 		case 'T':
-			multiplier = SR_GHZ(1000);
+			multiplier = OTC_GHZ(1000);
 			break;
 		case 'p':
 		case 'P':
-			multiplier = SR_GHZ(1000 * 1000);
+			multiplier = OTC_GHZ(1000 * 1000);
 			break;
 		case 'e':
 		case 'E':
-			multiplier = SR_GHZ(1000 * 1000 * 1000);
+			multiplier = OTC_GHZ(1000 * 1000 * 1000);
 			break;
 		default:
 			done = TRUE;
@@ -1251,9 +1251,9 @@ SR_API int sr_parse_sizestring(const char *sizestring, uint64_t *size)
 	}
 
 	if (s && *s && g_ascii_strcasecmp(s, "Hz"))
-		return SR_ERR;
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -1276,7 +1276,7 @@ SR_API int sr_parse_sizestring(const char *sizestring, uint64_t *size)
  *
  * @since 0.1.0
  */
-SR_API uint64_t sr_parse_timestring(const char *timestring)
+OTC_API uint64_t otc_parse_timestring(const char *timestring)
 {
 	uint64_t time_msec;
 	char *s;
@@ -1302,7 +1302,7 @@ SR_API uint64_t sr_parse_timestring(const char *timestring)
 }
 
 /** @since 0.1.0 */
-SR_API gboolean sr_parse_boolstring(const char *boolstr)
+OTC_API gboolean otc_parse_boolstring(const char *boolstr)
 {
 	/*
 	 * Complete absence of an input spec is assumed to mean TRUE,
@@ -1322,14 +1322,14 @@ SR_API gboolean sr_parse_boolstring(const char *boolstr)
 }
 
 /** @since 0.2.0 */
-SR_API int sr_parse_period(const char *periodstr, uint64_t *p, uint64_t *q)
+OTC_API int otc_parse_period(const char *periodstr, uint64_t *p, uint64_t *q)
 {
 	char *s;
 
 	*p = strtoull(periodstr, &s, 10);
 	if (*p == 0 && s == periodstr)
 		/* No digits found. */
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (s && *s) {
 		while (*s == ' ')
@@ -1348,21 +1348,21 @@ SR_API int sr_parse_period(const char *periodstr, uint64_t *p, uint64_t *q)
 			*q = 1;
 		else
 			/* Must have a time suffix. */
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** @since 0.2.0 */
-SR_API int sr_parse_voltage(const char *voltstr, uint64_t *p, uint64_t *q)
+OTC_API int otc_parse_voltage(const char *voltstr, uint64_t *p, uint64_t *q)
 {
 	char *s;
 
 	*p = strtoull(voltstr, &s, 10);
 	if (*p == 0 && s == voltstr)
 		/* No digits found. */
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (s && *s) {
 		while (*s == ' ')
@@ -1373,10 +1373,10 @@ SR_API int sr_parse_voltage(const char *voltstr, uint64_t *p, uint64_t *q)
 			*q = 1;
 		else
 			/* Must have a base suffix. */
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -1608,11 +1608,11 @@ static const char **lookup_probe_alias(const char *name)
  * is returned to the caller, so that it need not re-get the length.
  *
  * Calling applications must release the allocated vector by means
- * of @ref sr_free_probe_names().
+ * of @ref otc_free_probe_names().
  *
  * @since 0.6.0
  */
-SR_API char **sr_parse_probe_names(const char *spec,
+OTC_API char **otc_parse_probe_names(const char *spec,
 	const char **dflt_names, size_t dflt_count,
 	size_t max_count, size_t *ret_count)
 {
@@ -1714,7 +1714,7 @@ SR_API char **sr_parse_probe_names(const char *spec,
  *
  * @since 0.6.0
  */
-SR_API void sr_free_probe_names(char **names)
+OTC_API void otc_free_probe_names(char **names)
 {
 	g_strfreev(names);
 }
@@ -1730,7 +1730,7 @@ SR_API void sr_free_probe_names(char **names)
  *
  * @since 0.6.0
  */
-SR_API char *sr_text_trim_spaces(char *s)
+OTC_API char *otc_text_trim_spaces(char *s)
 {
 	char *p;
 
@@ -1790,7 +1790,7 @@ SR_API char *sr_text_trim_spaces(char *s)
  *
  * @since 0.6.0
  */
-SR_API char *sr_text_next_line(char *s, size_t l, char **next, size_t *taken)
+OTC_API char *otc_text_next_line(char *s, size_t l, char **next, size_t *taken)
 {
 	char *p;
 
@@ -1815,7 +1815,7 @@ SR_API char *sr_text_next_line(char *s, size_t l, char **next, size_t *taken)
 		*next = l ? p : NULL;
 
 	/* Trim NUL terminated text line at both ends. */
-	s = sr_text_trim_spaces(s);
+	s = otc_text_trim_spaces(s);
 	return s;
 }
 
@@ -1833,7 +1833,7 @@ SR_API char *sr_text_next_line(char *s, size_t l, char **next, size_t *taken)
  *
  * @since 0.6.0
  */
-SR_API char *sr_text_next_word(char *s, char **next)
+OTC_API char *otc_text_next_word(char *s, char **next)
 {
 	char *word, *p;
 
@@ -1879,14 +1879,14 @@ SR_API char *sr_text_next_word(char *s, char **next)
  * @param[out] bits The required number of bits.
  * @param[out] power The corresponding power-of-two.
  *
- * @return SR_OK upon success, SR_ERR* otherwise.
+ * @return OTC_OK upon success, OTC_ERR* otherwise.
  *
  * TODO Move this routine to a more appropriate location, it is not
  * strictly string related.
  *
  * @since 0.6.0
  */
-SR_API int sr_next_power_of_two(size_t value, size_t *bits, size_t *power)
+OTC_API int otc_next_power_of_two(size_t value, size_t *bits, size_t *power)
 {
 	size_t need_bits;
 	size_t check_mask;
@@ -1906,7 +1906,7 @@ SR_API int sr_next_power_of_two(size_t value, size_t *bits, size_t *power)
 			*bits = 1;
 		if (power)
 			*power = 1;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	need_bits = 0;
@@ -1921,7 +1921,7 @@ SR_API int sr_next_power_of_two(size_t value, size_t *bits, size_t *power)
 		*bits = need_bits;
 	if (power)
 		*power = ++check_mask;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** @} */

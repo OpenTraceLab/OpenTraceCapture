@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Daniel Elstner <daniel.kitta@gmail.com>
  *
@@ -24,7 +24,7 @@
 /* Number of logic channels. */
 #define NUM_CHANNELS	16
 
-/* Unit size for the sigrok logic datafeed. */
+/* Unit size for the opentracelab logic datafeed. */
 #define UNIT_SIZE	((NUM_CHANNELS + 7) / 8)
 
 /* Size of the acquisition buffer in device memory units. */
@@ -178,11 +178,11 @@ static void read_response_rle(struct acquisition_state *acq)
  * users seem to see it more frequently than others. Detect it here in
  * order to avoid paying the penalty unnecessarily.
  */
-static int test_read_memory(const struct sr_dev_inst *sdi,
+static int test_read_memory(const struct otc_dev_inst *sdi,
 			    unsigned int start, unsigned int count)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	unsigned int i;
 	int xfer_len, ret;
 	uint16_t command[5];
@@ -198,31 +198,31 @@ static int test_read_memory(const struct sr_dev_inst *sdi,
 	command[4] = LWLA_WORD_1(count);
 
 	ret = lwla_send_command(usb, ARRAY_AND_SIZE(command));
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = lwla_receive_reply(usb, reply, sizeof(reply), &xfer_len);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	devc->short_transfer_quirk = (xfer_len == 64);
 
 	for (i = xfer_len; i < 4 * count && xfer_len == 64; i += xfer_len) {
 		ret = lwla_receive_reply(usb, reply, sizeof(reply), &xfer_len);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 	if (i != 4 * count) {
-		sr_err("Invalid read response of unexpected length %d.",
+		otc_err("Invalid read response of unexpected length %d.",
 		       xfer_len);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Select and transfer FPGA bitstream for the current configuration. */
-static int apply_fpga_config(const struct sr_dev_inst *sdi)
+static int apply_fpga_config(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct drv_context *drvc;
@@ -231,23 +231,23 @@ static int apply_fpga_config(const struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 	drvc = sdi->driver->context;
 
-	if (sdi->status == SR_ST_INACTIVE)
-		return SR_OK; /* The LWLA1016 has no off state. */
+	if (sdi->status == OTC_ST_INACTIVE)
+		return OTC_OK; /* The LWLA1016 has no off state. */
 
 	config = (devc->cfg_rle) ? FPGA_100_TS : FPGA_100;
 
 	if (config == devc->active_fpga_config)
-		return SR_OK; /* No change. */
+		return OTC_OK; /* No change. */
 
-	ret = lwla_send_bitstream(drvc->sr_ctx, sdi->conn,
+	ret = lwla_send_bitstream(drvc->otc_ctx, sdi->conn,
 				  bitstream_map[config]);
-	devc->active_fpga_config = (ret == SR_OK) ? config : FPGA_NOCONF;
+	devc->active_fpga_config = (ret == OTC_OK) ? config : FPGA_NOCONF;
 
 	return ret;
 }
 
 /* Perform initialization self test. */
-static int device_init_check(const struct sr_dev_inst *sdi)
+static int device_init_check(const struct otc_dev_inst *sdi)
 {
 	static const struct regval mem_reset[] = {
 		{REG_MEM_CTRL, MEM_CTRL_RESET},
@@ -261,20 +261,20 @@ static int device_init_check(const struct sr_dev_inst *sdi)
 
 	/* Ignore the value returned by the first read. */
 	ret = lwla_read_reg(sdi->conn, REG_TEST_ID, &value);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (value != 0x12345678) {
-		sr_err("Received invalid test word 0x%08X.", value);
-		return SR_ERR;
+		otc_err("Received invalid test word 0x%08X.", value);
+		return OTC_ERR;
 	}
 
 	ret = lwla_write_regs(sdi->conn, ARRAY_AND_SIZE(mem_reset));
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = test_read_memory(sdi, 0, test_count);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -284,7 +284,7 @@ static int device_init_check(const struct sr_dev_inst *sdi)
 	return test_read_memory(sdi, test_count, test_count);
 }
 
-static int setup_acquisition(const struct sr_dev_inst *sdi)
+static int setup_acquisition(const struct otc_dev_inst *sdi)
 {
 	static const struct regval capture_init[] = {
 		{REG_CAP_CTRL,  0},
@@ -298,7 +298,7 @@ static int setup_acquisition(const struct sr_dev_inst *sdi)
 		{REG_CAP_COUNT, MEMORY_DEPTH - 5},
 	};
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	uint32_t divider_count, trigger_setup;
 	int ret;
 
@@ -306,20 +306,20 @@ static int setup_acquisition(const struct sr_dev_inst *sdi)
 	usb = sdi->conn;
 
 	ret = lwla_write_reg(usb, REG_CHAN_MASK, devc->channel_mask);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	if (devc->samplerate > 0 && devc->samplerate < SR_MHZ(100))
-		divider_count = SR_MHZ(100) / devc->samplerate - 1;
+	if (devc->samplerate > 0 && devc->samplerate < OTC_MHZ(100))
+		divider_count = OTC_MHZ(100) / devc->samplerate - 1;
 	else
 		divider_count = 0;
 
 	ret = lwla_write_reg(usb, REG_DIV_COUNT, divider_count);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = lwla_write_regs(usb, ARRAY_AND_SIZE(capture_init));
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	trigger_setup = ((devc->trigger_edge_mask & 0xFFFF) << 16)
@@ -328,7 +328,7 @@ static int setup_acquisition(const struct sr_dev_inst *sdi)
 	return lwla_write_reg(usb, REG_TRG_SEL, trigger_setup);
 }
 
-static int prepare_request(const struct sr_dev_inst *sdi)
+static int prepare_request(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct acquisition_state *acq;
@@ -381,14 +381,14 @@ static int prepare_request(const struct sr_dev_inst *sdi)
 		acq->mem_addr_next += count;
 		break;
 	default:
-		sr_err("BUG: unhandled request state %d.", devc->state);
-		return SR_ERR_BUG;
+		otc_err("BUG: unhandled request state %d.", devc->state);
+		return OTC_ERR_BUG;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int handle_response(const struct sr_dev_inst *sdi)
+static int handle_response(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct acquisition_state *acq;
@@ -411,10 +411,10 @@ static int handle_response(const struct sr_dev_inst *sdi)
 		expect_len = (acq->mem_addr_next - acq->mem_addr_done
 				+ acq->in_index) * sizeof(acq->xfer_buf_in[0]);
 		if (acq->xfer_in->actual_length != expect_len) {
-			sr_err("Received size %d does not match expected size %d.",
+			otc_err("Received size %d does not match expected size %d.",
 			       acq->xfer_in->actual_length, expect_len);
 			devc->transfer_error = TRUE;
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		if (acq->rle_enabled)
 			read_response_rle(acq);
@@ -422,35 +422,35 @@ static int handle_response(const struct sr_dev_inst *sdi)
 			read_response(acq);
 		break;
 	default:
-		sr_err("BUG: unhandled response state %d.", devc->state);
-		return SR_ERR_BUG;
+		otc_err("BUG: unhandled response state %d.", devc->state);
+		return OTC_ERR_BUG;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Model descriptor for the LWLA1016. */
-SR_PRIV const struct model_info lwla1016_info = {
+OTC_PRIV const struct model_info lwla1016_info = {
 	.name = "LWLA1016",
 	.num_channels = NUM_CHANNELS,
 
 	.num_devopts = 5,
 	.devopts = {
-		SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-		SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-		SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-		SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-		SR_CONF_RLE | SR_CONF_GET | SR_CONF_SET,
+		OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+		OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+		OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+		OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
+		OTC_CONF_RLE | OTC_CONF_GET | OTC_CONF_SET,
 	},
 	.num_samplerates = 19,
 	.samplerates = {
-		SR_MHZ(100),
-		SR_MHZ(50),  SR_MHZ(20),  SR_MHZ(10),
-		SR_MHZ(5),   SR_MHZ(2),   SR_MHZ(1),
-		SR_KHZ(500), SR_KHZ(200), SR_KHZ(100),
-		SR_KHZ(50),  SR_KHZ(20),  SR_KHZ(10),
-		SR_KHZ(5),   SR_KHZ(2),   SR_KHZ(1),
-		SR_HZ(500),  SR_HZ(200),  SR_HZ(100),
+		OTC_MHZ(100),
+		OTC_MHZ(50),  OTC_MHZ(20),  OTC_MHZ(10),
+		OTC_MHZ(5),   OTC_MHZ(2),   OTC_MHZ(1),
+		OTC_KHZ(500), OTC_KHZ(200), OTC_KHZ(100),
+		OTC_KHZ(50),  OTC_KHZ(20),  OTC_KHZ(10),
+		OTC_KHZ(5),   OTC_KHZ(2),   OTC_KHZ(1),
+		OTC_HZ(500),  OTC_HZ(200),  OTC_HZ(100),
 	},
 
 	.apply_fpga_config = &apply_fpga_config,

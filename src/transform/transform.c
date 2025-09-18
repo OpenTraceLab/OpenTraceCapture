@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2015 Uwe Hermann <uwe@hermann-uwe.de>
@@ -20,8 +20,8 @@
 
 #include <config.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "transform"
@@ -42,12 +42,12 @@
  */
 
 /** @cond PRIVATE */
-extern SR_PRIV struct sr_transform_module transform_nop;
-extern SR_PRIV struct sr_transform_module transform_scale;
-extern SR_PRIV struct sr_transform_module transform_invert;
+extern OTC_PRIV struct otc_transform_module transform_nop;
+extern OTC_PRIV struct otc_transform_module transform_scale;
+extern OTC_PRIV struct otc_transform_module transform_invert;
 /** @endcond */
 
-static const struct sr_transform_module *transform_module_list[] = {
+static const struct otc_transform_module *transform_module_list[] = {
 	&transform_nop,
 	&transform_scale,
 	&transform_invert,
@@ -59,7 +59,7 @@ static const struct sr_transform_module *transform_module_list[] = {
  *
  * @since 0.4.0
  */
-SR_API const struct sr_transform_module **sr_transform_list(void)
+OTC_API const struct otc_transform_module **otc_transform_list(void)
 {
 	return transform_module_list;
 }
@@ -69,10 +69,10 @@ SR_API const struct sr_transform_module **sr_transform_list(void)
  *
  * @since 0.4.0
  */
-SR_API const char *sr_transform_id_get(const struct sr_transform_module *tmod)
+OTC_API const char *otc_transform_id_get(const struct otc_transform_module *tmod)
 {
 	if (!tmod) {
-		sr_err("Invalid transform module NULL!");
+		otc_err("Invalid transform module NULL!");
 		return NULL;
 	}
 
@@ -84,10 +84,10 @@ SR_API const char *sr_transform_id_get(const struct sr_transform_module *tmod)
  *
  * @since 0.4.0
  */
-SR_API const char *sr_transform_name_get(const struct sr_transform_module *tmod)
+OTC_API const char *otc_transform_name_get(const struct otc_transform_module *tmod)
 {
 	if (!tmod) {
-		sr_err("Invalid transform module NULL!");
+		otc_err("Invalid transform module NULL!");
 		return NULL;
 	}
 
@@ -99,10 +99,10 @@ SR_API const char *sr_transform_name_get(const struct sr_transform_module *tmod)
  *
  * @since 0.4.0
  */
-SR_API const char *sr_transform_description_get(const struct sr_transform_module *tmod)
+OTC_API const char *otc_transform_description_get(const struct otc_transform_module *tmod)
 {
 	if (!tmod) {
-		sr_err("Invalid transform module NULL!");
+		otc_err("Invalid transform module NULL!");
 		return NULL;
 	}
 
@@ -115,7 +115,7 @@ SR_API const char *sr_transform_description_get(const struct sr_transform_module
  *
  * @since 0.4.0
  */
-SR_API const struct sr_transform_module *sr_transform_find(const char *id)
+OTC_API const struct otc_transform_module *otc_transform_find(const char *id)
 {
 	int i;
 
@@ -128,17 +128,17 @@ SR_API const struct sr_transform_module *sr_transform_find(const char *id)
 }
 
 /**
- * Returns a NULL-terminated array of struct sr_option, or NULL if the
+ * Returns a NULL-terminated array of struct otc_option, or NULL if the
  * module takes no options.
  *
  * Each call to this function must be followed by a call to
- * sr_transform_options_free().
+ * otc_transform_options_free().
  *
  * @since 0.4.0
  */
-SR_API const struct sr_option **sr_transform_options_get(const struct sr_transform_module *tmod)
+OTC_API const struct otc_option **otc_transform_options_get(const struct otc_transform_module *tmod)
 {
-	const struct sr_option *mod_opts, **opts;
+	const struct otc_option *mod_opts, **opts;
 	int size, i;
 
 	if (!tmod || !tmod->options)
@@ -148,7 +148,7 @@ SR_API const struct sr_option **sr_transform_options_get(const struct sr_transfo
 
 	for (size = 0; mod_opts[size].id; size++)
 		;
-	opts = g_malloc((size + 1) * sizeof(struct sr_option *));
+	opts = g_malloc((size + 1) * sizeof(struct otc_option *));
 
 	for (i = 0; i < size; i++)
 		opts[i] = &mod_opts[i];
@@ -158,12 +158,12 @@ SR_API const struct sr_option **sr_transform_options_get(const struct sr_transfo
 }
 
 /**
- * After a call to sr_transform_options_get(), this function cleans up all
+ * After a call to otc_transform_options_get(), this function cleans up all
  * resources returned by that call.
  *
  * @since 0.4.0
  */
-SR_API void sr_transform_options_free(const struct sr_option **options)
+OTC_API void otc_transform_options_free(const struct otc_option **options)
 {
 	int i;
 
@@ -173,12 +173,12 @@ SR_API void sr_transform_options_free(const struct sr_option **options)
 	for (i = 0; options[i]; i++) {
 		if (options[i]->def) {
 			g_variant_unref(options[i]->def);
-			((struct sr_option *)options[i])->def = NULL;
+			((struct otc_option *)options[i])->def = NULL;
 		}
 
 		if (options[i]->values) {
 			g_slist_free_full(options[i]->values, (GDestroyNotify)g_variant_unref);
-			((struct sr_option *)options[i])->values = NULL;
+			((struct otc_option *)options[i])->values = NULL;
 		}
 	}
 	g_free(options);
@@ -192,23 +192,23 @@ SR_API void sr_transform_options_free(const struct sr_option **options)
  * pointers with sunk * references, of the same GVariantType as the option's
  * default value.
  *
- * The sr_dev_inst passed in can be used by the instance to determine
+ * The otc_dev_inst passed in can be used by the instance to determine
  * channel names, samplerate, and so on.
  *
  * @since 0.4.0
  */
-SR_API const struct sr_transform *sr_transform_new(const struct sr_transform_module *tmod,
-		GHashTable *options, const struct sr_dev_inst *sdi)
+OTC_API const struct otc_transform *otc_transform_new(const struct otc_transform_module *tmod,
+		GHashTable *options, const struct otc_dev_inst *sdi)
 {
-	struct sr_transform *t;
-	const struct sr_option *mod_opts;
+	struct otc_transform *t;
+	const struct otc_option *mod_opts;
 	const GVariantType *gvt;
 	GHashTable *new_opts;
 	GHashTableIter iter;
 	gpointer key, value;
 	int i;
 
-	t = g_malloc(sizeof(struct sr_transform));
+	t = g_malloc(sizeof(struct otc_transform));
 	t->module = tmod;
 	t->sdi = sdi;
 
@@ -222,7 +222,7 @@ SR_API const struct sr_transform *sr_transform_new(const struct sr_transform_mod
 				/* Pass option along. */
 				gvt = g_variant_get_type(mod_opts[i].def);
 				if (!g_variant_is_of_type(value, gvt)) {
-					sr_err("Invalid type for '%s' option.",
+					otc_err("Invalid type for '%s' option.",
 						(char *)key);
 					g_free(t);
 					return NULL;
@@ -241,7 +241,7 @@ SR_API const struct sr_transform *sr_transform_new(const struct sr_transform_mod
 			g_hash_table_iter_init(&iter, options);
 			while (g_hash_table_iter_next(&iter, &key, &value)) {
 				if (!g_hash_table_lookup(new_opts, key)) {
-					sr_err("Transform module '%s' has no option '%s'.",
+					otc_err("Transform module '%s' has no option '%s'.",
 						tmod->id, (char *)key);
 					g_hash_table_destroy(new_opts);
 					g_free(t);
@@ -251,7 +251,7 @@ SR_API const struct sr_transform *sr_transform_new(const struct sr_transform_mod
 		}
 	}
 
-	if (t->module->init && t->module->init(t, new_opts) != SR_OK) {
+	if (t->module->init && t->module->init(t, new_opts) != OTC_OK) {
 		g_free(t);
 		t = NULL;
 	}
@@ -269,16 +269,16 @@ SR_API const struct sr_transform *sr_transform_new(const struct sr_transform_mod
  *
  * @since 0.4.0
  */
-SR_API int sr_transform_free(const struct sr_transform *t)
+OTC_API int otc_transform_free(const struct otc_transform *t)
 {
 	int ret;
 
 	if (!t)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	if (t->module->cleanup)
-		ret = t->module->cleanup((struct sr_transform *)t);
+		ret = t->module->cleanup((struct otc_transform *)t);
 	g_free((gpointer)t);
 
 	return ret;

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021-2023 Frank Stettner <frank-stettner@gmx.net>
  *
@@ -21,10 +21,10 @@
 #define LIBSIGROK_HARDWARE_ICSTATION_USBRELAY_PROTOCOL_H
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <stdint.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "icstation-usbrelay"
 
@@ -53,10 +53,10 @@ struct channel_group_context {
 	size_t index;
 };
 
-SR_PRIV int icstation_usbrelay_identify(struct sr_serial_dev_inst *serial,
+OTC_PRIV int icstation_usbrelay_identify(struct otc_serial_dev_inst *serial,
 	uint8_t *id);
-SR_PRIV int icstation_usbrelay_start(const struct sr_dev_inst *sdi);
-SR_PRIV int icstation_usbrelay_switch_cg(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, gboolean on);
+OTC_PRIV int icstation_usbrelay_start(const struct otc_dev_inst *sdi);
+OTC_PRIV int icstation_usbrelay_switch_cg(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, gboolean on);
 
 #endif

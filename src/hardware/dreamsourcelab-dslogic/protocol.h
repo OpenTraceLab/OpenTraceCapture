@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2012 Joel Holdsworth <joel@airwebreathe.org.uk>
@@ -26,8 +26,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libusb.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "dreamsourcelab-dslogic"
 
@@ -130,7 +130,7 @@ struct dev_context {
 
 	unsigned int num_transfers;
 	struct libusb_transfer **transfers;
-	struct sr_context *ctx;
+	struct otc_context *ctx;
 
 	uint16_t *deinterleave_buffer;
 
@@ -142,11 +142,11 @@ struct dev_context {
 	double cur_threshold;
 };
 
-SR_PRIV int dslogic_fpga_firmware_upload(const struct sr_dev_inst *sdi);
-SR_PRIV int dslogic_set_voltage_threshold(const struct sr_dev_inst *sdi, double threshold);
-SR_PRIV int dslogic_dev_open(struct sr_dev_inst *sdi, struct sr_dev_driver *di);
-SR_PRIV struct dev_context *dslogic_dev_new(void);
-SR_PRIV int dslogic_acquisition_start(const struct sr_dev_inst *sdi);
-SR_PRIV int dslogic_acquisition_stop(struct sr_dev_inst *sdi);
+OTC_PRIV int dslogic_fpga_firmware_upload(const struct otc_dev_inst *sdi);
+OTC_PRIV int dslogic_set_voltage_threshold(const struct otc_dev_inst *sdi, double threshold);
+OTC_PRIV int dslogic_dev_open(struct otc_dev_inst *sdi, struct otc_dev_driver *di);
+OTC_PRIV struct dev_context *dslogic_dev_new(void);
+OTC_PRIV int dslogic_acquisition_start(const struct otc_dev_inst *sdi);
+OTC_PRIV int dslogic_acquisition_stop(struct otc_dev_inst *sdi);
 
 #endif

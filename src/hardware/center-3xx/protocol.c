@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -30,20 +30,20 @@ struct center_info {
 	gboolean mode_std, mode_rel, mode_max, mode_min, mode_maxmin;
 };
 
-static int center_send(struct sr_serial_dev_inst *serial, const char *cmd)
+static int center_send(struct otc_serial_dev_inst *serial, const char *cmd)
 {
 	int ret;
 
 	if ((ret = serial_write_blocking(serial, cmd, strlen(cmd),
 			serial_timeout(serial, strlen(cmd)))) < 0) {
-		sr_err("Error sending '%s' command: %d.", cmd, ret);
-		return SR_ERR;
+		otc_err("Error sending '%s' command: %d.", cmd, ret);
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV gboolean center_3xx_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean center_3xx_packet_valid(const uint8_t *buf)
 {
 	return (buf[0] == 0x02 && buf[44] == 0x03);
 }
@@ -57,7 +57,7 @@ static void log_packet(const uint8_t *buf, int idx)
 	g_string_printf(s, "Packet: ");
 	for (i = 0; i < center_devs[idx].packet_size; i++)
 	        g_string_append_printf(s, "%02x ", buf[i]);
-	sr_spew("%s", s->str);
+	otc_spew("%s", s->str);
 	g_string_free(s, TRUE);
 }
 
@@ -120,16 +120,16 @@ static int packet_parse(const uint8_t *buf, int idx, struct center_info *info)
 
 	/* Byte 44: Always 0x03. */
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int handle_packet(const uint8_t *buf, struct sr_dev_inst *sdi, int idx)
+static int handle_packet(const uint8_t *buf, struct otc_dev_inst *sdi, int idx)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	struct dev_context *devc;
 	struct center_info info;
 	GSList *l;
@@ -138,20 +138,20 @@ static int handle_packet(const uint8_t *buf, struct sr_dev_inst *sdi, int idx)
 	devc = sdi->priv;
 
 	/* Note: digits/spec_digits will be overridden later. */
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 	memset(&info, 0, sizeof(struct center_info));
 
 	ret = packet_parse(buf, idx, &info);
 	if (ret < 0) {
-		sr_err("Failed to parse packet.");
-		return SR_ERR;
+		otc_err("Failed to parse packet.");
+		return OTC_ERR;
 	}
 
 	/* Common values for all 4 channels. */
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	analog.meaning->mq = SR_MQ_TEMPERATURE;
-	analog.meaning->unit = (info.celsius) ? SR_UNIT_CELSIUS : SR_UNIT_FAHRENHEIT;
+	analog.meaning->mq = OTC_MQ_TEMPERATURE;
+	analog.meaning->unit = (info.celsius) ? OTC_UNIT_CELSIUS : OTC_UNIT_FAHRENHEIT;
 	analog.num_samples = 1;
 
 	/* Send the values for T1 - T4. */
@@ -162,20 +162,20 @@ static int handle_packet(const uint8_t *buf, struct sr_dev_inst *sdi, int idx)
 		analog.encoding->digits = info.digits[i];
 		analog.spec->spec_digits = info.digits[i];
 		analog.data = &(info.temp[i]);
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 		g_slist_free(l);
 	}
 
-	sr_sw_limits_update_samples_read(&devc->sw_limits, 1);
+	otc_sw_limits_update_samples_read(&devc->sw_limits, 1);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Return TRUE if a full packet was parsed, FALSE otherwise. */
-static gboolean handle_new_data(struct sr_dev_inst *sdi, int idx)
+static gboolean handle_new_data(struct otc_dev_inst *sdi, int idx)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int len, offset, ret = FALSE;
 
 	devc = sdi->priv;
@@ -185,7 +185,7 @@ static gboolean handle_new_data(struct sr_dev_inst *sdi, int idx)
 	len = SERIAL_BUFSIZE - devc->buflen;
 	len = serial_read_nonblocking(serial, devc->buf + devc->buflen, len);
 	if (len < 1) {
-		sr_err("Serial port read error: %d.", len);
+		otc_err("Serial port read error: %d.", len);
 		return FALSE;
 	}
 
@@ -213,10 +213,10 @@ static gboolean handle_new_data(struct sr_dev_inst *sdi, int idx)
 
 static int receive_data(int fd, int revents, int idx, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	static gboolean request_new_packet = TRUE;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	(void)fd;
 
@@ -242,14 +242,14 @@ static int receive_data(int fd, int revents, int idx, void *cb_data)
 		}
 	}
 
-	if (sr_sw_limits_check(&devc->sw_limits))
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->sw_limits))
+		otc_dev_acquisition_stop(sdi);
 
 	return TRUE;
 }
 
 #define RECEIVE_DATA(ID_UPPER) \
-SR_PRIV int receive_data_##ID_UPPER(int fd, int revents, void *cb_data) { \
+OTC_PRIV int receive_data_##ID_UPPER(int fd, int revents, void *cb_data) { \
 	return receive_data(fd, revents, ID_UPPER, cb_data); }
 
 /* Driver-specific receive_data() wrappers */

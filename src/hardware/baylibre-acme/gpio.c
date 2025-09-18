@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Bartosz Golaszewski <bgolaszewski@baylibre.com>
  *
@@ -24,8 +24,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "gpio.h"
 
 #define LOG_PREFIX "gpio"
@@ -37,21 +37,21 @@ static int open_and_write(const gchar *path, const gchar *buf)
 
 	fd = g_fopen(path, "w");
 	if (!fd) {
-		sr_err("Error opening %s: %s", path, g_strerror(errno));
+		otc_err("Error opening %s: %s", path, g_strerror(errno));
 		return -1;
 	}
 
 	wr = g_fprintf(fd, "%s", buf);
 	fclose(fd);
 	if (wr < 0) {
-		sr_err("Error writing to %s: %s", path, g_strerror(errno));
+		otc_err("Error writing to %s: %s", path, g_strerror(errno));
 		return -1;
 	}
 
 	return 0;
 }
 
-SR_PRIV int sr_gpio_export(unsigned gpio)
+OTC_PRIV int otc_gpio_export(unsigned gpio)
 {
 	GString *path, *buf;
 	gboolean exported;
@@ -64,7 +64,7 @@ SR_PRIV int sr_gpio_export(unsigned gpio)
 	if (exported)
 		return 0; /* Already exported. */
 
-	status = sr_gpio_set_direction(gpio, GPIO_DIR_OUT);
+	status = otc_gpio_set_direction(gpio, GPIO_DIR_OUT);
 	if (status < 0)
 		return status;
 
@@ -76,7 +76,7 @@ SR_PRIV int sr_gpio_export(unsigned gpio)
 	return status;
 }
 
-SR_PRIV int sr_gpio_set_direction(unsigned gpio, unsigned direction)
+OTC_PRIV int otc_gpio_set_direction(unsigned gpio, unsigned direction)
 {
 	GString *path, *buf;
 	int status;
@@ -94,7 +94,7 @@ SR_PRIV int sr_gpio_set_direction(unsigned gpio, unsigned direction)
 	return status;
 }
 
-SR_PRIV int sr_gpio_set_value(unsigned gpio, unsigned value)
+OTC_PRIV int otc_gpio_set_value(unsigned gpio, unsigned value)
 {
 	GString *path, *buf;
 	int status;
@@ -112,7 +112,7 @@ SR_PRIV int sr_gpio_set_value(unsigned gpio, unsigned value)
 	return status;
 }
 
-SR_PRIV int sr_gpio_get_value(int gpio)
+OTC_PRIV int otc_gpio_get_value(int gpio)
 {
 	FILE *fd;
 	GString *path;
@@ -122,7 +122,7 @@ SR_PRIV int sr_gpio_get_value(int gpio)
 	g_string_printf(path, "/sys/class/gpio/gpio%d/value", gpio);
 	fd = g_fopen(path->str, "r");
 	if (!fd) {
-		sr_err("Error opening %s: %s", path->str, g_strerror(errno));
+		otc_err("Error opening %s: %s", path->str, g_strerror(errno));
 		g_string_free(path, TRUE);
 		return -1;
 	}
@@ -130,7 +130,7 @@ SR_PRIV int sr_gpio_get_value(int gpio)
 	status = fscanf(fd, "%d", &ret);
 	fclose(fd);
 	if (status != 1) {
-		sr_err("Error reading from %s: %s", path->str, g_strerror(errno));
+		otc_err("Error reading from %s: %s", path->str, g_strerror(errno));
 		g_string_free(path, TRUE);
 		return -1;
 	}
@@ -139,28 +139,28 @@ SR_PRIV int sr_gpio_get_value(int gpio)
 	return ret;
 }
 
-SR_PRIV int sr_gpio_setval_export(int gpio, int value)
+OTC_PRIV int otc_gpio_setval_export(int gpio, int value)
 {
 	int status;
 
-	status = sr_gpio_export(gpio);
+	status = otc_gpio_export(gpio);
 	if (status < 0)
 		return status;
 
-	status = sr_gpio_set_value(gpio, value);
+	status = otc_gpio_set_value(gpio, value);
 	if (status < 0)
 		return status;
 
 	return 0;
 }
 
-SR_PRIV int sr_gpio_getval_export(int gpio)
+OTC_PRIV int otc_gpio_getval_export(int gpio)
 {
 	int status;
 
-	status = sr_gpio_export(gpio);
+	status = otc_gpio_export(gpio);
 	if (status < 0)
 		return status;
 
-	return sr_gpio_get_value(gpio);
+	return otc_gpio_get_value(gpio);
 }

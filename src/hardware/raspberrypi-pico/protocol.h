@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2022 Shawn Walker <ac0bi00@gmail.com>
  *
@@ -22,10 +22,10 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
-/* This is used by sr_dbg/log etc to indicate where a printout came from */
+/* This is used by otc_dbg/log etc to indicate where a printout came from */
 #define LOG_PREFIX "srpico"
 
 /* Number of bytes between markers */
@@ -38,14 +38,14 @@
 #define MAX_ANALOG_CHANNELS 8
 #define MAX_DIGITAL_CHANNELS 32
 
-/* Digits input to sr_analog_init */
+/* Digits input to otc_analog_init */
 #define ANALOG_DIGITS 4
 
-SR_PRIV int send_serial_str(struct sr_serial_dev_inst *serial, char *str);
-SR_PRIV int send_serial_char(struct sr_serial_dev_inst *serial, char ch);
-int send_serial_w_resp(struct sr_serial_dev_inst *serial, char *str,
+OTC_PRIV int send_serial_str(struct otc_serial_dev_inst *serial, char *str);
+OTC_PRIV int send_serial_char(struct otc_serial_dev_inst *serial, char ch);
+int send_serial_w_resp(struct otc_serial_dev_inst *serial, char *str,
 	char *resp, size_t cnt);
-SR_PRIV int send_serial_w_ack(struct sr_serial_dev_inst *serial, char *str);
+OTC_PRIV int send_serial_w_ack(struct otc_serial_dev_inst *serial, char *str);
 
 typedef enum rxstate {
 	RX_IDLE = 0,		/* Not receiving */
@@ -73,8 +73,8 @@ struct dev_context {
 	uint32_t a_chan_mask;
 	uint32_t d_chan_mask;
 	/* Channel groups - each analog channel is its own group */
-	struct sr_channel_group **analog_groups;
-	struct sr_channel_group *digital_group;
+	struct otc_channel_group **analog_groups;
+	struct otc_channel_group *digital_group;
 	/* Data size in bytes for each analog channel in bytes must be 1 as only
 	 * single byte samples are supported in this version */
 	uint8_t a_size;
@@ -142,21 +142,21 @@ struct dev_context {
 	uint32_t pretrig_wr_ptr;
 };
 
-SR_PRIV int raspberrypi_pico_receive(int fd, int revents, void *cb_data);
-SR_PRIV int raspberrypi_pico_get_dev_cfg(const struct sr_dev_inst *sdi);
+OTC_PRIV int raspberrypi_pico_receive(int fd, int revents, void *cb_data);
+OTC_PRIV int raspberrypi_pico_get_dev_cfg(const struct otc_dev_inst *sdi);
 
-void process_D4(struct sr_dev_inst *sdi, struct dev_context *d);
-void process_slice(struct sr_dev_inst *sdi, struct dev_context *devc);
+void process_D4(struct otc_dev_inst *sdi, struct dev_context *d);
+void process_slice(struct otc_dev_inst *sdi, struct dev_context *devc);
 
-int send_analog(struct sr_dev_inst *sdi, struct dev_context *devc,
+int send_analog(struct otc_dev_inst *sdi, struct dev_context *devc,
 	uint32_t num_samples, uint32_t offset);
-int send_analog_ring(struct sr_dev_inst *sdi, struct dev_context *devc,
+int send_analog_ring(struct otc_dev_inst *sdi, struct dev_context *devc,
 	uint32_t num_samples);
 
-int process_group(struct sr_dev_inst *sdi, struct dev_context *devc,
+int process_group(struct otc_dev_inst *sdi, struct dev_context *devc,
 	uint32_t num_slices);
 void rle_memset(struct dev_context *devc, uint32_t num_slices);
-SR_PRIV int check_marker(struct dev_context *d, int *len);
+OTC_PRIV int check_marker(struct dev_context *d, int *len);
 
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  *
@@ -21,8 +21,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "output/bits"
 
@@ -40,15 +40,15 @@ struct context {
 	GString **lines;
 };
 
-static int init(struct sr_output *o, GHashTable *options)
+static int init(struct otc_output *o, GHashTable *options)
 {
 	struct context *ctx;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	GSList *l;
 	unsigned int i, j;
 
 	if (!o || !o->sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ctx = g_malloc0(sizeof(struct context));
 	o->priv = ctx;
@@ -57,7 +57,7 @@ static int init(struct sr_output *o, GHashTable *options)
 
 	for (l = o->sdi->channels; l; l = l->next) {
 		ch = l->data;
-		if (ch->type != SR_CHANNEL_LOGIC)
+		if (ch->type != OTC_CHANNEL_LOGIC)
 			continue;
 		if (!ch->enabled)
 			continue;
@@ -70,7 +70,7 @@ static int init(struct sr_output *o, GHashTable *options)
 	j = 0;
 	for (i = 0, l = o->sdi->channels; l; l = l->next, i++) {
 		ch = l->data;
-		if (ch->type != SR_CHANNEL_LOGIC)
+		if (ch->type != OTC_CHANNEL_LOGIC)
 			continue;
 		if (!ch->enabled)
 			continue;
@@ -81,10 +81,10 @@ static int init(struct sr_output *o, GHashTable *options)
 		j++;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static GString *gen_header(const struct sr_output *o)
+static GString *gen_header(const struct otc_output *o)
 {
 	struct context *ctx;
 	GVariant *gvar;
@@ -94,20 +94,20 @@ static GString *gen_header(const struct sr_output *o)
 
 	ctx = o->priv;
 	if (ctx->samplerate == 0) {
-		if (sr_config_get(o->sdi->driver, o->sdi, NULL, SR_CONF_SAMPLERATE,
-				&gvar) == SR_OK) {
+		if (otc_config_get(o->sdi->driver, o->sdi, NULL, OTC_CONF_SAMPLERATE,
+				&gvar) == OTC_OK) {
 			ctx->samplerate = g_variant_get_uint64(gvar);
 			g_variant_unref(gvar);
 		}
 	}
 
 	header = g_string_sized_new(512);
-	g_string_printf(header, "%s %s\n", PACKAGE_NAME, sr_package_version_string_get());
+	g_string_printf(header, "%s %s\n", PACKAGE_NAME, otc_package_version_string_get());
 	num_channels = g_slist_length(o->sdi->channels);
 	g_string_append_printf(header, "Acquisition with %d/%d channels",
 			ctx->num_enabled_channels, num_channels);
 	if (ctx->samplerate != 0) {
-		samplerate_s = sr_samplerate_string(ctx->samplerate);
+		samplerate_s = otc_samplerate_string(ctx->samplerate);
 		g_string_append_printf(header, " at %s", samplerate_s);
 		g_free(samplerate_s);
 	}
@@ -116,12 +116,12 @@ static GString *gen_header(const struct sr_output *o)
 	return header;
 }
 
-static int receive(const struct sr_output *o, const struct sr_datafeed_packet *packet,
+static int receive(const struct otc_output *o, const struct otc_datafeed_packet *packet,
 		GString **out)
 {
-	const struct sr_datafeed_meta *meta;
-	const struct sr_datafeed_logic *logic;
-	const struct sr_config *src;
+	const struct otc_datafeed_meta *meta;
+	const struct otc_datafeed_logic *logic;
+	const struct otc_config *src;
 	struct context *ctx;
 	GSList *l;
 	int idx, offset;
@@ -130,24 +130,24 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 
 	*out = NULL;
 	if (!o || !o->sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!(ctx = o->priv))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	switch (packet->type) {
-	case SR_DF_META:
+	case OTC_DF_META:
 		meta = packet->payload;
 		for (l = meta->config; l; l = l->next) {
 			src = l->data;
-			if (src->key != SR_CONF_SAMPLERATE)
+			if (src->key != OTC_CONF_SAMPLERATE)
 				continue;
 			ctx->samplerate = g_variant_get_uint64(src->data);
 		}
 		break;
-	case SR_DF_TRIGGER:
+	case OTC_DF_TRIGGER:
 		ctx->trigger = ctx->spl_cnt;
 		break;
-	case SR_DF_LOGIC:
+	case OTC_DF_LOGIC:
 		if (!ctx->header_done) {
 			*out = gen_header(o);
 			ctx->header_done = TRUE;
@@ -188,7 +188,7 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 				ctx->spl_cnt = 0;
 		}
 		break;
-	case SR_DF_END:
+	case OTC_DF_END:
 		if (ctx->spl_cnt) {
 			/* Line buffers need flushing. */
 			*out = g_string_sized_new(512);
@@ -200,19 +200,19 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 		break;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int cleanup(struct sr_output *o)
+static int cleanup(struct otc_output *o)
 {
 	struct context *ctx;
 	unsigned int i;
 
 	if (!o)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (!(ctx = o->priv))
-		return SR_OK;
+		return OTC_OK;
 
 	g_free(ctx->channel_index);
 	g_free(ctx->channel_names);
@@ -222,15 +222,15 @@ static int cleanup(struct sr_output *o)
 	g_free(ctx);
 	o->priv = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	{ "width", "Width", "Number of samples per line", NULL, NULL },
 	ALL_ZERO
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	if (!options[0].def) {
 		options[0].def = g_variant_new_uint32(DEFAULT_SAMPLES_PER_LINE);
@@ -240,7 +240,7 @@ static const struct sr_option *get_options(void)
 	return options;
 }
 
-SR_PRIV struct sr_output_module output_bits = {
+OTC_PRIV struct otc_output_module output_bits = {
 	.id = "bits",
 	.name = "Bits",
 	.desc = "0/1 digits logic data",

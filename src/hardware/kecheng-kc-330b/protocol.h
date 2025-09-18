@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "kecheng-kc-330b"
 
@@ -34,8 +34,8 @@
 #define DEFAULT_SAMPLE_INTERVAL 0
 #define DEFAULT_ALARM_LOW 40
 #define DEFAULT_ALARM_HIGH 120
-#define DEFAULT_WEIGHT_TIME SR_MQFLAG_SPL_TIME_WEIGHT_F
-#define DEFAULT_WEIGHT_FREQ SR_MQFLAG_SPL_FREQ_WEIGHT_A
+#define DEFAULT_WEIGHT_TIME OTC_MQFLAG_SPL_TIME_WEIGHT_F
+#define DEFAULT_WEIGHT_FREQ OTC_MQFLAG_SPL_FREQ_WEIGHT_A
 /* Live */
 #define DEFAULT_DATA_SOURCE DATA_SOURCE_LIVE
 
@@ -71,7 +71,7 @@ struct dev_context {
 	int sample_interval;
 	int alarm_low;
 	int alarm_high;
-	enum sr_mqflag mqflags;
+	enum otc_mqflag mqflags;
 	int data_source;
 
 	int state;
@@ -84,15 +84,15 @@ struct dev_context {
 	gint64 last_live_request;
 };
 
-SR_PRIV int kecheng_kc_330b_handle_events(int fd, int revents, void *cb_data);
-SR_PRIV void LIBUSB_CALL kecheng_kc_330b_receive_transfer(struct libusb_transfer *transfer);
-SR_PRIV int kecheng_kc_330b_configure(const struct sr_dev_inst *sdi);
-SR_PRIV int kecheng_kc_330b_set_date_time(struct sr_dev_inst *sdi);
-SR_PRIV int kecheng_kc_330b_recording_get(const struct sr_dev_inst *sdi,
+OTC_PRIV int kecheng_kc_330b_handle_events(int fd, int revents, void *cb_data);
+OTC_PRIV void LIBUSB_CALL kecheng_kc_330b_receive_transfer(struct libusb_transfer *transfer);
+OTC_PRIV int kecheng_kc_330b_configure(const struct otc_dev_inst *sdi);
+OTC_PRIV int kecheng_kc_330b_set_date_time(struct otc_dev_inst *sdi);
+OTC_PRIV int kecheng_kc_330b_recording_get(const struct otc_dev_inst *sdi,
 		gboolean *tmp);
-SR_PRIV int kecheng_kc_330b_status_get(const struct sr_dev_inst *sdi,
+OTC_PRIV int kecheng_kc_330b_status_get(const struct otc_dev_inst *sdi,
 		int *status);
-SR_PRIV int kecheng_kc_330b_log_info_get(const struct sr_dev_inst *sdi,
+OTC_PRIV int kecheng_kc_330b_log_info_get(const struct otc_dev_inst *sdi,
 		unsigned char *buf);
 
 #endif

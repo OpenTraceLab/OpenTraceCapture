@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Martin Lederhilger <martin.lederhilger@gmx.at>
  *
@@ -22,9 +22,9 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
-#include "scpi.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
+#include "../../scpi.h"
 
 #define LOG_PREFIX "gwinstek-gds-800"
 
@@ -57,6 +57,6 @@ struct dev_context {
 	gboolean df_started;
 };
 
-SR_PRIV int gwinstek_gds_800_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int gwinstek_gds_800_receive_data(int fd, int revents, void *cb_data);
 
 #endif

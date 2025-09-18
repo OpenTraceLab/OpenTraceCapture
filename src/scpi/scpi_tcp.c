@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2013 Martin Ling <martin-sigrok@earth.li>
+ * Copyright (C) 2013 Martin Ling <martin-opentracelab@earth.li>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,18 +21,18 @@
 
 #include <errno.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <string.h>
 
-#include "libsigrok-internal.h"
-#include "scpi.h"
+#include "../libopentracecapture-internal.h"
+#include "../scpi.h"
 
 #define LOG_PREFIX "scpi_tcp"
 
 #define LENGTH_BYTES sizeof(uint32_t)
 
 struct scpi_tcp {
-	struct sr_tcp_dev_inst *tcp_dev;
+	struct otc_tcp_dev_inst *tcp_dev;
 	uint8_t length_buf[LENGTH_BYTES];
 	size_t length_bytes_read;
 	size_t response_length;
@@ -49,59 +49,59 @@ static int scpi_tcp_dev_inst_new(void *priv, struct drv_context *drvc,
 	(void)serialcomm;
 
 	if (!params || !params[1] || !params[2]) {
-		sr_err("Invalid parameters.");
-		return SR_ERR;
+		otc_err("Invalid parameters.");
+		return OTC_ERR;
 	}
 
-	tcp->tcp_dev = sr_tcp_dev_inst_new(params[1], params[2]);
+	tcp->tcp_dev = otc_tcp_dev_inst_new(params[1], params[2]);
 	if (!tcp->tcp_dev)
-		return SR_ERR;
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_tcp_open(struct sr_scpi_dev_inst *scpi)
+static int scpi_tcp_open(struct otc_scpi_dev_inst *scpi)
 {
 	struct scpi_tcp *tcp = scpi->priv;
 	int ret;
 
-	ret = sr_tcp_connect(tcp->tcp_dev);
-	if (ret != SR_OK)
+	ret = otc_tcp_connect(tcp->tcp_dev);
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_tcp_connection_id(struct sr_scpi_dev_inst *scpi,
+static int scpi_tcp_connection_id(struct otc_scpi_dev_inst *scpi,
 		char **connection_id)
 {
 	struct scpi_tcp *tcp = scpi->priv;
 	char conn_text[128];
 	int ret;
 
-	ret = sr_tcp_get_port_path(tcp->tcp_dev, scpi->prefix, '/',
+	ret = otc_tcp_get_port_path(tcp->tcp_dev, scpi->prefix, '/',
 		conn_text, sizeof(conn_text));
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	*connection_id = g_strdup(conn_text);
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_tcp_source_add(struct sr_session *session, void *priv,
-		int events, int timeout, sr_receive_data_callback cb, void *cb_data)
+static int scpi_tcp_source_add(struct otc_session *session, void *priv,
+		int events, int timeout, otc_receive_data_callback cb, void *cb_data)
 {
 	struct scpi_tcp *tcp = priv;
 
-	return sr_tcp_source_add(session, tcp->tcp_dev,
+	return otc_tcp_source_add(session, tcp->tcp_dev,
 		events, timeout, cb, cb_data);
 }
 
-static int scpi_tcp_source_remove(struct sr_session *session, void *priv)
+static int scpi_tcp_source_remove(struct otc_session *session, void *priv)
 {
 	struct scpi_tcp *tcp = priv;
 
-	return sr_tcp_source_remove(session, tcp->tcp_dev);
+	return otc_tcp_source_remove(session, tcp->tcp_dev);
 }
 
 /* Transmit text, usually a command. tcp-raw and tcp-rigol modes. */
@@ -114,20 +114,20 @@ static int scpi_tcp_send(void *priv, const char *command)
 
 	wrptr = (const uint8_t *)command;
 	wrlen = strlen(command);
-	ret = sr_tcp_write_bytes(tcp->tcp_dev, wrptr, wrlen);
+	ret = otc_tcp_write_bytes(tcp->tcp_dev, wrptr, wrlen);
 	if (ret < 0) {
-		sr_err("Send error: %s", g_strerror(errno));
-		return SR_ERR;
+		otc_err("Send error: %s", g_strerror(errno));
+		return OTC_ERR;
 	}
 	written = (size_t)ret;
 	if (written < wrlen) {
-		sr_dbg("Only sent %zu/%zu bytes of SCPI command: '%s'.",
+		otc_dbg("Only sent %zu/%zu bytes of SCPI command: '%s'.",
 			written, wrlen, command);
 	}
 
-	sr_spew("Successfully sent SCPI command: '%s'.", command);
+	otc_spew("Successfully sent SCPI command: '%s'.", command);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Start reception across multiple read calls. tcp-raw and tcp-rigol modes. */
@@ -138,7 +138,7 @@ static int scpi_tcp_read_begin(void *priv)
 	tcp->response_bytes_read = 0;
 	tcp->length_bytes_read = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Receive response data. tcp-raw mode. */
@@ -152,10 +152,10 @@ static int scpi_tcp_raw_read_data(void *priv, char *buf, int maxlen)
 	/* Get another chunk of receive data. */
 	rdptr = (uint8_t *)buf;
 	rdlen = maxlen;
-	ret = sr_tcp_read_bytes(tcp->tcp_dev, rdptr, rdlen, FALSE);
+	ret = otc_tcp_read_bytes(tcp->tcp_dev, rdptr, rdlen, FALSE);
 	if (ret < 0) {
-		sr_err("Receive error: %s", g_strerror(errno));
-		return SR_ERR;
+		otc_err("Receive error: %s", g_strerror(errno));
+		return OTC_ERR;
 	}
 	rcvd = (size_t)ret;
 
@@ -184,10 +184,10 @@ static int scpi_tcp_raw_write_data(void *priv, char *buf, int len)
 
 	wrptr = (const uint8_t *)buf;
 	wrlen = len;
-	ret = sr_tcp_write_bytes(tcp->tcp_dev, wrptr, wrlen);
+	ret = otc_tcp_write_bytes(tcp->tcp_dev, wrptr, wrlen);
 	if (ret < 0) {
-		sr_err("Send error: %s.", g_strerror(errno));
-		return SR_ERR;
+		otc_err("Send error: %s.", g_strerror(errno));
+		return OTC_ERR;
 	}
 	sent = (size_t)ret;
 
@@ -211,10 +211,10 @@ static int scpi_tcp_rigol_read_data(void *priv, char *buf, int maxlen)
 	if (tcp->length_bytes_read < sizeof(tcp->length_buf)) {
 		rdptr = &tcp->length_buf[tcp->length_bytes_read];
 		rdlen = sizeof(tcp->length_buf) - tcp->length_bytes_read;
-		ret = sr_tcp_read_bytes(tcp->tcp_dev, rdptr, rdlen, FALSE);
+		ret = otc_tcp_read_bytes(tcp->tcp_dev, rdptr, rdlen, FALSE);
 		if (ret < 0) {
-			sr_err("Receive error: %s", g_strerror(errno));
-			return SR_ERR;
+			otc_err("Receive error: %s", g_strerror(errno));
+			return OTC_ERR;
 		}
 		rcvd = (size_t)ret;
 		tcp->length_bytes_read += rcvd;
@@ -225,15 +225,15 @@ static int scpi_tcp_rigol_read_data(void *priv, char *buf, int maxlen)
 
 	/* Received more chunk data than announced size? Fatal. */
 	if (tcp->response_bytes_read >= tcp->response_length)
-		return SR_ERR;
+		return OTC_ERR;
 
 	/* Read another chunk of the receive data. */
 	rdptr = (uint8_t *)buf;
 	rdlen = maxlen;
-	ret = sr_tcp_read_bytes(tcp->tcp_dev, rdptr, rdlen, FALSE);
+	ret = otc_tcp_read_bytes(tcp->tcp_dev, rdptr, rdlen, FALSE);
 	if (ret < 0) {
-		sr_err("Receive error: %s", g_strerror(errno));
-		return SR_ERR;
+		otc_err("Receive error: %s", g_strerror(errno));
+		return OTC_ERR;
 	}
 	rcvd = (size_t)ret;
 	tcp->response_bytes_read += rcvd;
@@ -253,26 +253,26 @@ static int scpi_tcp_read_complete(void *priv)
 	return have_length && have_response;
 }
 
-static int scpi_tcp_close(struct sr_scpi_dev_inst *scpi)
+static int scpi_tcp_close(struct otc_scpi_dev_inst *scpi)
 {
 	struct scpi_tcp *tcp = scpi->priv;
 	int ret;
 
-	ret = sr_tcp_disconnect(tcp->tcp_dev);
-	if (ret != SR_OK)
+	ret = otc_tcp_disconnect(tcp->tcp_dev);
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void scpi_tcp_free(void *priv)
 {
 	struct scpi_tcp *tcp = priv;
 
-	sr_tcp_dev_inst_free(tcp->tcp_dev);
+	otc_tcp_dev_inst_free(tcp->tcp_dev);
 }
 
-SR_PRIV const struct sr_scpi_dev_inst scpi_tcp_raw_dev = {
+OTC_PRIV const struct otc_scpi_dev_inst scpi_tcp_raw_dev = {
 	.name          = "RAW TCP",
 	.prefix        = "tcp-raw",
 	.transport     = SCPI_TRANSPORT_RAW_TCP,
@@ -291,7 +291,7 @@ SR_PRIV const struct sr_scpi_dev_inst scpi_tcp_raw_dev = {
 	.free          = scpi_tcp_free,
 };
 
-SR_PRIV const struct sr_scpi_dev_inst scpi_tcp_rigol_dev = {
+OTC_PRIV const struct otc_scpi_dev_inst scpi_tcp_rigol_dev = {
 	.name          = "RIGOL TCP",
 	.prefix        = "tcp-rigol",
 	.transport     = SCPI_TRANSPORT_RIGOL_TCP,

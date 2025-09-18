@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -26,8 +26,8 @@
 #include <ctype.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "kern"
 
@@ -54,9 +54,9 @@ static int parse_value(const uint8_t *buf, float *result,
 
 	if (buf[s2] == 'E') {
 		/* Display: "o-Err" or "u-Err", but protocol only has 'E'. */
-		sr_spew("Over/under limit.");
+		otc_spew("Over/under limit.");
 		*result = INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	strval = g_strndup((const char *)buf, len);
@@ -67,7 +67,7 @@ static int parse_value(const uint8_t *buf, float *result,
 	g_free(strval);
 	*result = floatval;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void parse_flags(const uint8_t *buf, struct kern_info *info)
@@ -112,46 +112,46 @@ static void parse_flags(const uint8_t *buf, struct kern_info *info)
 	/* Byte LF: Always '\n' (newline, 0x0a, 10) */
 }
 
-static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
+static void handle_flags(struct otc_datafeed_analog *analog, float *floatval,
 			 const struct kern_info *info)
 {
 	(void)floatval;
 
 	/* Measured quantity: mass. */
-	analog->meaning->mq = SR_MQ_MASS;
+	analog->meaning->mq = OTC_MQ_MASS;
 
 	/* Unit */
 	if (info->is_gram)
-		analog->meaning->unit = SR_UNIT_GRAM;
+		analog->meaning->unit = OTC_UNIT_GRAM;
 	if (info->is_carat)
-		analog->meaning->unit = SR_UNIT_CARAT;
+		analog->meaning->unit = OTC_UNIT_CARAT;
 	if (info->is_ounce)
-		analog->meaning->unit = SR_UNIT_OUNCE;
+		analog->meaning->unit = OTC_UNIT_OUNCE;
 	if (info->is_pound)
-		analog->meaning->unit = SR_UNIT_POUND;
+		analog->meaning->unit = OTC_UNIT_POUND;
 	if (info->is_troy_ounce)
-		analog->meaning->unit = SR_UNIT_TROY_OUNCE;
+		analog->meaning->unit = OTC_UNIT_TROY_OUNCE;
 	if (info->is_pennyweight)
-		analog->meaning->unit = SR_UNIT_PENNYWEIGHT;
+		analog->meaning->unit = OTC_UNIT_PENNYWEIGHT;
 	if (info->is_grain)
-		analog->meaning->unit = SR_UNIT_GRAIN;
+		analog->meaning->unit = OTC_UNIT_GRAIN;
 	if (info->is_tael)
-		analog->meaning->unit = SR_UNIT_TAEL;
+		analog->meaning->unit = OTC_UNIT_TAEL;
 	if (info->is_momme)
-		analog->meaning->unit = SR_UNIT_MOMME;
+		analog->meaning->unit = OTC_UNIT_MOMME;
 	if (info->is_tola)
-		analog->meaning->unit = SR_UNIT_TOLA;
+		analog->meaning->unit = OTC_UNIT_TOLA;
 	if (info->is_percentage)
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 	if (info->is_piece)
-		analog->meaning->unit = SR_UNIT_PIECE;
+		analog->meaning->unit = OTC_UNIT_PIECE;
 
 	/* Measurement related flags */
 	if (info->is_unstable)
-		analog->meaning->mqflags |= SR_MQFLAG_UNSTABLE;
+		analog->meaning->mqflags |= OTC_MQFLAG_UNSTABLE;
 }
 
-SR_PRIV gboolean sr_kern_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_kern_packet_valid(const uint8_t *buf)
 {
 	int buflen, s1, s2, cr, lf;
 
@@ -189,17 +189,17 @@ SR_PRIV gboolean sr_kern_packet_valid(const uint8_t *buf)
  * @param buf Buffer containing the protocol packet. Must not be NULL.
  * @param floatval Pointer to a float variable. That variable will contain the
  *                 result value upon parsing success. Must not be NULL.
- * @param analog Pointer to a struct sr_datafeed_analog. The struct will be
+ * @param analog Pointer to a struct otc_datafeed_analog. The struct will be
  *               filled with data according to the protocol packet.
  *               Must not be NULL.
  * @param info Pointer to a struct kern_info. The struct will be filled
  *             with data according to the protocol packet. Must not be NULL.
  *
- * @return SR_OK upon success, SR_ERR upon failure. Upon errors, the
+ * @return OTC_OK upon success, OTC_ERR upon failure. Upon errors, the
  *         'analog' variable contents are undefined and should not be used.
  */
-SR_PRIV int sr_kern_parse(const uint8_t *buf, float *floatval,
-			  struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_kern_parse(const uint8_t *buf, float *floatval,
+			  struct otc_datafeed_analog *analog, void *info)
 {
 	int ret, digits = 0;
 	struct kern_info *info_local;
@@ -208,8 +208,8 @@ SR_PRIV int sr_kern_parse(const uint8_t *buf, float *floatval,
 
 	info_local->buflen = get_buflen(buf);
 
-	if ((ret = parse_value(buf, floatval, &digits, info_local)) != SR_OK) {
-		sr_dbg("Error parsing value: %d.", ret);
+	if ((ret = parse_value(buf, floatval, &digits, info_local)) != OTC_OK) {
+		otc_dbg("Error parsing value: %d.", ret);
 		return ret;
 	}
 
@@ -219,5 +219,5 @@ SR_PRIV int sr_kern_parse(const uint8_t *buf, float *floatval,
 	parse_flags(buf, info_local);
 	handle_flags(analog, floatval, info_local);
 
-	return SR_OK;
+	return OTC_OK;
 }

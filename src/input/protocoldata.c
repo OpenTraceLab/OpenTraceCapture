@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019-2023 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -19,7 +19,7 @@
 
 /*
  * This input module reads data values from an input stream, and sends
- * the corresponding samples to the sigrok session feed which form the
+ * the corresponding samples to the opentracelab session feed which form the
  * respective waveform, pretending that a logic analyzer had captured
  * wire traffic. This allows to feed data to protocol decoders which
  * were recorded by different means (COM port redirection, pcap(3)
@@ -83,8 +83,8 @@
  *   disk, or can be part of a pipe input. Either the earlier process
  *   in the pipe which provides the values, or an intermediate filter
  *   in the pipe, can provide the decoration.
- *     $ ./gen-values.sh | sigrok-cli -i - ...
- *     $ ./gen-values.sh | cat header - | sigrok-cli -i - ...
+ *     $ ./gen-values.sh | opentracelab-cli -i - ...
+ *     $ ./gen-values.sh | cat header - | opentracelab-cli -i - ...
  * - Since the input format supports automatic detection as well as
  *   parameter specs by means of input module options as well as in
  *   file content, the format lends itself equally well to pipelined
@@ -99,38 +99,38 @@
  *   can be used, which eliminates the need to configure non-default
  *   options in decoders (and redundantly do the same thing in the
  *   input module, just to have them match again).
- *     $ ./gen-values.sh | sigrok-cli \
+ *     $ ./gen-values.sh | opentracelab-cli \
  *       -i - -I protocoldata:protocol=uart:bitrate=57600:frameformat=8e2 \
  *       -P uart:parity=even:baudrate=57600
- *     $ ./gen-values.sh | sigrok-cli \
+ *     $ ./gen-values.sh | opentracelab-cli \
  *       -i - -I protocoldata:protocol=uart -P uart,midi
  *
  * Example invocations:
  *
- *   $ sigrok-cli -I protocoldata --show
+ *   $ opentracelab-cli -I protocoldata --show
  *
- *   $ echo "Hello sigrok protocol values!" | \
- *     sigrok-cli \
+ *   $ echo "Hello opentracelab protocol values!" | \
+ *     opentracelab-cli \
  *       -I protocoldata:protocol=uart -i - \
  *       -P uart:format=ascii -A uart=rx-data
  *
- *   $ sigrok-cli -i file.bin -P uart -A uart=rx-data
- *   $ sigrok-cli -i file.txt -P uart:rx=rxtx -A uart
- *   $ sigrok-cli -i file.txt --show
- *   $ sigrok-cli -i file.txt -O ascii:width=4000 | $PAGER
+ *   $ opentracelab-cli -i file.bin -P uart -A uart=rx-data
+ *   $ opentracelab-cli -i file.txt -P uart:rx=rxtx -A uart
+ *   $ opentracelab-cli -i file.txt --show
+ *   $ opentracelab-cli -i file.txt -O ascii:width=4000 | $PAGER
  *
- *   $ echo "# -- sigrok protocol data values file --" > header.txt
- *   $ echo "# -- sigrok protocol data header start --" >> header.txt
+ *   $ echo "# -- opentracelab protocol data values file --" > header.txt
+ *   $ echo "# -- opentracelab protocol data header start --" >> header.txt
  *   $ echo "protocol=uart" >> header.txt
  *   $ echo "bitrate=100000" >> header.txt
  *   $ echo "frameformat=8e2" >> header.txt
  *   $ echo "textinput=yes" >> header.txt
- *   $ echo "# -- sigrok protocol data header end --" >> header.txt
+ *   $ echo "# -- opentracelab protocol data header end --" >> header.txt
  *   $ echo "# textinput: radix=16" > values.txt
  *   $ echo "0f  40 a6 28 fa 78 05 19 ee c2 92 70 58 62 09 a9 f1 ca 44 90 d1 07 19  02  00" >> values.txt
  *   $ head header.txt values.txt
  *   $ cat values.txt | cat header.txt - | \
- *     sigrok-cli -i - -P uart:baudrate=100000:parity=even,sbus_futaba -A sbus_futaba
+ *     opentracelab-cli -i - -P uart:baudrate=100000:parity=even,sbus_futaba -A sbus_futaba
  *
  *   $ pulseview -i file-spi-text.txt &
  *
@@ -212,7 +212,7 @@
  *   motivated by serial communication (UART). More channels were not
  *   needed so far. Even QuadSPI and Hitachi displays fit onto 8 lines.
  *
- * See the sigrok.org file format wiki page for details about the syntax
+ * See the opentracelab.org file format wiki page for details about the syntax
  * that is supported by this input module. Or see the top of the source
  * file and its preprocessor symbols to quickly get an idea of known
  * keywords in input files.
@@ -221,11 +221,11 @@
 #include "config.h"
 
 #include <ctype.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <string.h>
 #include <strings.h>
 
-#include "libsigrok-internal.h"
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX	"input/protocoldata"
 
@@ -236,9 +236,9 @@
  * embedded options in a header section after the file detection magic
  * and before the payload data (bytes or text).
  */
-#define MAGIC_FILE_TYPE		"# -- sigrok protocol data values file --"
-#define TEXT_HEAD_START		"# -- sigrok protocol data header start --"
-#define TEXT_HEAD_END		"# -- sigrok protocol data header end --"
+#define MAGIC_FILE_TYPE		"# -- opentracelab protocol data values file --"
+#define TEXT_HEAD_START		"# -- opentracelab protocol data header start --"
+#define TEXT_HEAD_END		"# -- opentracelab protocol data header end --"
 #define TEXT_COMM_LEADER	"#"
 
 #define LABEL_SAMPLERATE	"samplerate="
@@ -277,7 +277,7 @@
  * fit into that memory while it is not used to communicate a byte.
  */
 #define UART_HANDLER_NAME	"uart"
-#define UART_DFLT_SAMPLERATE	SR_MHZ(1)
+#define UART_DFLT_SAMPLERATE	OTC_MHZ(1)
 #define UART_DFLT_BITRATE	115200
 #define UART_DFLT_FRAMEFMT	"8n1"
 #define UART_MIN_DATABITS	5
@@ -292,8 +292,8 @@
 #define UART_PSEUDO_IDLE	"idle"
 
 #define SPI_HANDLER_NAME	"spi"
-#define SPI_DFLT_SAMPLERATE	SR_MHZ(10)
-#define SPI_DFLT_BITRATE	SR_MHZ(1)
+#define SPI_DFLT_SAMPLERATE	OTC_MHZ(10)
+#define SPI_DFLT_BITRATE	OTC_MHZ(1)
 #define SPI_DFLT_FRAMEFMT	"cs-low,bits=8,mode=0,msb-first"
 #define SPI_MIN_DATABITS	8
 #define SPI_MAX_DATABITS	8
@@ -318,8 +318,8 @@
 #define SPI_PSEUDO_IDLE		"idle"
 
 #define I2C_HANDLER_NAME	"i2c"
-#define I2C_DFLT_SAMPLERATE	SR_MHZ(10)
-#define I2C_DFLT_BITRATE	SR_KHZ(400)
+#define I2C_DFLT_SAMPLERATE	OTC_MHZ(10)
+#define I2C_DFLT_BITRATE	OTC_KHZ(400)
 #define I2C_DFLT_FRAMEFMT	"addr-7bit"
 #define I2C_BITTIME_SLOTS	(1 + 8 + 1 + 1)
 #define I2C_BITTIME_QUANTA	6
@@ -381,7 +381,7 @@ struct proto_handler_t {
 	size_t priv_size;
 	int (*check_opts)(struct context *inc);
 	int (*config_frame)(struct context *inc);
-	int (*proc_pseudo)(struct sr_input *in, char *text);
+	int (*proc_pseudo)(struct otc_input *in, char *text);
 	int (*proc_value)(struct context *inc, uint32_t value);
 	int (*get_idle_capture)(struct context *inc,
 		size_t *bits, uint8_t *lvls);
@@ -486,8 +486,8 @@ struct context {
 	} read_text;
 	/* Manage state across .reset() calls. Robustness. */
 	struct proto_prev {
-		GSList *sr_channels;
-		GSList *sr_groups;
+		GSList *otc_channels;
+		GSList *otc_groups;
 	} prev;
 };
 
@@ -515,10 +515,10 @@ static int alloc_frame_storage(struct context *inc)
 	size_t bits, alloc;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (!inc->max_frame_bits)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	inc->top_frame_bits = 0;
 	bits = inc->max_frame_bits;
@@ -530,14 +530,14 @@ static int alloc_frame_storage(struct context *inc)
 	alloc = bits * sizeof(inc->sample_levels[0]);
 	inc->sample_levels = g_malloc0(alloc);
 	if (!inc->sample_edges || !inc->sample_widths || !inc->sample_levels)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
 	alloc = bits * sizeof(inc->bit_scale[0]);
 	inc->bit_scale = g_malloc0(alloc);
 	if (!inc->bit_scale)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -567,7 +567,7 @@ static int assign_bit_widths(struct context *inc)
 	size_t idx;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/*
 	 * Run the protocol handler's optional configure routine.
@@ -577,7 +577,7 @@ static int assign_bit_widths(struct context *inc)
 	handler = inc->curr_opts.prot_hdl;
 	if (handler && handler->config_frame) {
 		ret = handler->config_frame(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
@@ -585,9 +585,9 @@ static int assign_bit_widths(struct context *inc)
 	bit_time = inc->curr_opts.samplerate;
 	bit_time /= inc->curr_opts.bitrate;
 	inc->curr_opts.samples_per_bit = bit_time + 0.5;
-	sr_dbg("Samplerate %" PRIu64 ", bitrate %" PRIu64 ".",
+	otc_dbg("Samplerate %" PRIu64 ", bitrate %" PRIu64 ".",
 		inc->curr_opts.samplerate, inc->curr_opts.bitrate);
-	sr_dbg("Resulting bit width %.2f samples, int %" PRIu64 ".",
+	otc_dbg("Resulting bit width %.2f samples, int %" PRIu64 ".",
 		bit_time, inc->curr_opts.samples_per_bit);
 	bit_edge = 0.0;
 	bit_time_prev = 0;
@@ -605,12 +605,12 @@ static int assign_bit_widths(struct context *inc)
 		inc->sample_widths[idx] = bit_time_int;
 		bit_time_prev = inc->sample_edges[idx];
 		bit_times_total += bit_time_int;
-		sr_spew("Bit %zu, width %" PRIu64 ".", idx, bit_time_int);
+		otc_spew("Bit %zu, width %" PRIu64 ".", idx, bit_time_int);
 	}
-	sr_dbg("Maximum waveform width: %zu slots, %.2f / %" PRIu64 " samples.",
+	otc_dbg("Maximum waveform width: %zu slots, %.2f / %" PRIu64 " samples.",
 		inc->max_frame_bits, bit_edge, bit_times_total);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Start accumulating the samples for a new part of the waveform. */
@@ -618,11 +618,11 @@ static int wave_clear_sequence(struct context *inc)
 {
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	inc->top_frame_bits = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Append channels' levels to the waveform for another period of samples. */
@@ -630,14 +630,14 @@ static int wave_append_pattern(struct context *inc, uint8_t sample)
 {
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (inc->top_frame_bits >= inc->max_frame_bits)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	inc->sample_levels[inc->top_frame_bits++] = sample;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Initially assign idle levels, start the buffer from idle state. */
@@ -707,17 +707,17 @@ static int send_idle_capture(struct context *inc)
 
 	handler = inc->curr_opts.prot_hdl;
 	if (!handler->get_idle_capture)
-		return SR_OK;
+		return OTC_OK;
 
 	ret = handler->get_idle_capture(inc, &count, &data);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	count *= inc->curr_opts.samples_per_bit;
 	ret = feed_queue_logic_submit_one(inc->feed_logic, &data, count);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Optionally send idle level between protocol frames. */
@@ -730,20 +730,20 @@ static int send_idle_interframe(struct context *inc)
 
 	handler = inc->curr_opts.prot_hdl;
 	if (!handler->get_idle_interframe)
-		return SR_OK;
+		return OTC_OK;
 
 	ret = handler->get_idle_interframe(inc, &count, &data);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	ret = feed_queue_logic_submit_one(inc->feed_logic, &data, count);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Forward the previously accumulated samples of the waveform. */
-static int send_frame(struct sr_input *in)
+static int send_frame(struct otc_input *in)
 {
 	struct context *inc;
 	size_t count, index;
@@ -757,11 +757,11 @@ static int send_frame(struct sr_input *in)
 		count = inc->sample_widths[index];
 		ret = feed_queue_logic_submit_one(inc->feed_logic,
 			&data, count);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* }}} frame bits manipulation */
@@ -787,7 +787,7 @@ static int uart_check_opts(struct context *inc)
 	size_t total_bits;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	fmt_opts = &inc->curr_opts.frame_format.uart;
 
 	/* Apply defaults before reading external spec. */
@@ -802,7 +802,7 @@ static int uart_check_opts(struct context *inc)
 	fmt_text = inc->curr_opts.fmt_text;
 	if (!fmt_text || !*fmt_text)
 		fmt_text = UART_DFLT_FRAMEFMT;
-	sr_dbg("UART frame format: %s.", fmt_text);
+	otc_dbg("UART frame format: %s.", fmt_text);
 
 	/* Parse the comma separated list of user provided options. */
 	opts = g_strsplit_set(fmt_text, ", ", 0);
@@ -811,7 +811,7 @@ static int uart_check_opts(struct context *inc)
 		opt = opts[opt_idx];
 		if (!opt || !*opt)
 			continue;
-		sr_spew("UART format option: %s", opt);
+		otc_spew("UART format option: %s", opt);
 		/*
 		 * Check for specific keywords. Before falling back to
 		 * attempting the "8n1" et al interpretation.
@@ -823,12 +823,12 @@ static int uart_check_opts(struct context *inc)
 		/* Parse an "8n1", "8e2", "7o1", or similar input spec. */
 		/* Get the data bits count. */
 		endp = NULL;
-		ret = sr_atoul_base(opt, &v, &endp, 10);
-		if (ret != SR_OK || !endp)
-			return SR_ERR_DATA;
+		ret = otc_atoul_base(opt, &v, &endp, 10);
+		if (ret != OTC_OK || !endp)
+			return OTC_ERR_DATA;
 		opt = endp;
 		if (v < UART_MIN_DATABITS || v > UART_MAX_DATABITS)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		fmt_opts->databit_count = v;
 		/* Get the parity type. */
 		par_text = tolower((int)*opt++);
@@ -843,16 +843,16 @@ static int uart_check_opts(struct context *inc)
 			fmt_opts->parity_type = UART_PARITY_EVEN;
 			break;
 		default:
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		/* Get the stop bits count. Supports half bits too. */
 		endp = NULL;
-		ret = sr_atoul_base(opt, &v, &endp, 10);
-		if (ret != SR_OK || !endp)
-			return SR_ERR_DATA;
+		ret = otc_atoul_base(opt, &v, &endp, 10);
+		if (ret != OTC_OK || !endp)
+			return OTC_ERR_DATA;
 		opt = endp;
 		if (v > UART_MAX_STOPBITS)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		fmt_opts->stopbit_count = v;
 		if (g_ascii_strcasecmp(opt, ".5") == 0) {
 			opt += strlen(".5");
@@ -860,8 +860,8 @@ static int uart_check_opts(struct context *inc)
 		}
 		/* Incomplete consumption of input text is fatal. */
 		if (*opt) {
-			sr_err("Unprocessed frame format remainder: %s.", opt);
-			return SR_ERR_DATA;
+			otc_err("Unprocessed frame format remainder: %s.", opt);
+			return OTC_ERR_DATA;
 		}
 		continue;
 	}
@@ -879,12 +879,12 @@ static int uart_check_opts(struct context *inc)
 	total_bits += fmt_opts->stopbit_count;
 	total_bits += fmt_opts->half_stopbit ? 1 : 0;
 	total_bits += UART_ADD_IDLEBITS;
-	sr_dbg("UART frame: total bits %zu.", total_bits);
+	otc_dbg("UART frame: total bits %zu.", total_bits);
 	if (total_bits > UART_MAX_WAVELEN)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	inc->max_frame_bits = total_bits;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -899,7 +899,7 @@ static int uart_config_frame(struct context *inc)
 	uint8_t sample;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	fmt_opts = &inc->curr_opts.frame_format.uart;
 
 	/*
@@ -914,7 +914,7 @@ static int uart_config_frame(struct context *inc)
 	bit_idx += (fmt_opts->parity_type == UART_PARITY_NONE) ? 0 : 1;
 	bit_idx += fmt_opts->stopbit_count;
 	if (fmt_opts->half_stopbit) {
-		sr_dbg("Setting bit index %zu to half width.", bit_idx);
+		otc_dbg("Setting bit index %zu to half width.", bit_idx);
 		inc->bit_scale[bit_idx].div = 2;
 		bit_idx++;
 	}
@@ -927,7 +927,7 @@ static int uart_config_frame(struct context *inc)
 		sample |= UART_PINMASK_RXTX;
 	sample_buffer_preset(inc, sample);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Create samples for a special UART frame (IDLE, BREAK). */
@@ -938,11 +938,11 @@ static int uart_write_special(struct context *inc, uint8_t level)
 	size_t bits;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	fmt_opts = &inc->curr_opts.frame_format.uart;
 
 	ret = wave_clear_sequence(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -960,7 +960,7 @@ static int uart_write_special(struct context *inc, uint8_t level)
 	bits += fmt_opts->half_stopbit ? 1 : 0;
 	while (bits--) {
 		ret = wave_append_buffer(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
@@ -974,15 +974,15 @@ static int uart_write_special(struct context *inc, uint8_t level)
 	bits = UART_ADD_IDLEBITS;
 	while (bits--) {
 		ret = wave_append_buffer(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Process UART protocol specific pseudo comments. */
-static int uart_proc_pseudo(struct sr_input *in, char *line)
+static int uart_proc_pseudo(struct otc_input *in, char *line)
 {
 	struct context *inc;
 	char *word;
@@ -991,33 +991,33 @@ static int uart_proc_pseudo(struct sr_input *in, char *line)
 	inc = in->priv;
 
 	while (line) {
-		word = sr_text_next_word(line, &line);
+		word = otc_text_next_word(line, &line);
 		if (!word)
 			break;
 		if (!*word)
 			continue;
 		if (strcmp(word, UART_PSEUDO_BREAK) == 0) {
 			ret = uart_write_special(inc, 0);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			ret = send_frame(in);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			continue;
 		}
 		if (strcmp(word, UART_PSEUDO_IDLE) == 0) {
 			ret = uart_write_special(inc, 1);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			ret = send_frame(in);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			continue;
 		}
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1039,11 +1039,11 @@ static int uart_proc_value(struct context *inc, uint32_t value)
 	int par_bit, data_bit;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	fmt_opts = &inc->curr_opts.frame_format.uart;
 
 	ret = wave_clear_sequence(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* START bit, unconditional, always 0. */
@@ -1063,7 +1063,7 @@ static int uart_proc_value(struct context *inc, uint32_t value)
 			data_bit = !data_bit;
 		sample_buffer_setclr(inc, data_bit, UART_PINMASK_RXTX);
 		ret = wave_append_buffer(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
@@ -1087,7 +1087,7 @@ static int uart_proc_value(struct context *inc, uint32_t value)
 			data_bit = !data_bit;
 		sample_buffer_setclr(inc, data_bit, UART_PINMASK_RXTX);
 		ret = wave_append_buffer(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
@@ -1099,7 +1099,7 @@ static int uart_proc_value(struct context *inc, uint32_t value)
 	bits += fmt_opts->half_stopbit ? 1 : 0;
 	while (bits--) {
 		ret = wave_append_buffer(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
@@ -1111,11 +1111,11 @@ static int uart_proc_value(struct context *inc, uint32_t value)
 	bits = UART_ADD_IDLEBITS - 1;
 	while (bits--) {
 		ret = wave_append_buffer(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Start/end the logic trace with a few bit times of idle level. */
@@ -1128,7 +1128,7 @@ static int uart_get_idle_capture(struct context *inc,
 		*bitcount = inc->max_frame_bits;
 	if (sample)
 		*sample = inc->samples.idle_levels;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Arrange for a few samples of idle level between UART frames. */
@@ -1150,7 +1150,7 @@ static int uart_get_idle_interframe(struct context *inc,
 	}
 	if (sample)
 		*sample = inc->samples.idle_levels;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* }}} UART protocol handler */
@@ -1331,7 +1331,7 @@ static int spi_write_frame_patterns(struct context *inc,
 	size_t bits;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	incs = inc->curr_opts.prot_priv;
 	fmt_opts = &inc->curr_opts.frame_format.spi;
 
@@ -1342,15 +1342,15 @@ static int spi_write_frame_patterns(struct context *inc,
 		incs->miso_byte = incs->miso_fixed_value;
 
 	ret = wave_clear_sequence(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Provide two samples with idle SCK and current CS. */
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -1385,13 +1385,13 @@ static int spi_write_frame_patterns(struct context *inc,
 		if (fmt_opts->spi_mode_cpha && incs->cs_active)
 			sample_buffer_toggle(inc, SPI_PINMASK_SCK);
 		ret = wave_append_buffer(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		/* Second half-period. Keep DATABIT, toggle SCK. */
 		if (incs->cs_active)
 			sample_buffer_toggle(inc, SPI_PINMASK_SCK);
 		ret = wave_append_buffer(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		/* Toggle SCK again unless done above due to CPHA. */
 		if (!fmt_opts->spi_mode_cpha && incs->cs_active)
@@ -1407,20 +1407,20 @@ static int spi_write_frame_patterns(struct context *inc,
 	 * (long) bit slot to present an inter-frame gap.
 	 */
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	if (cs_release)
 		spi_auto_select_update(inc);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	if (cs_release) {
 		ret = wave_append_buffer(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* SPI specific options and frame format check. */
@@ -1436,7 +1436,7 @@ static int spi_check_opts(struct context *inc)
 	size_t total_bits;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	fmt_opts = &inc->curr_opts.frame_format.spi;
 
 	/* Setup defaults before reading external specs. */
@@ -1450,7 +1450,7 @@ static int spi_check_opts(struct context *inc)
 	fmt_text = inc->curr_opts.fmt_text;
 	if (!fmt_text || !*fmt_text)
 		fmt_text = SPI_DFLT_FRAMEFMT;
-	sr_dbg("SPI frame format: %s.", fmt_text);
+	otc_dbg("SPI frame format: %s.", fmt_text);
 
 	/* Accept comma separated key=value pairs of specs. */
 	opts = g_strsplit_set(fmt_text, ", ", 0);
@@ -1459,42 +1459,42 @@ static int spi_check_opts(struct context *inc)
 		opt = opts[opt_idx];
 		if (!opt || !*opt)
 			continue;
-		sr_spew("SPI format option: %s.", opt);
+		otc_spew("SPI format option: %s.", opt);
 		if (strcmp(opt, SPI_FORMAT_CS_LOW) == 0) {
-			sr_spew("SPI chip select: low.");
+			otc_spew("SPI chip select: low.");
 			fmt_opts->cs_polarity = 0;
 			continue;
 		}
 		if (strcmp(opt, SPI_FORMAT_CS_HIGH) == 0) {
-			sr_spew("SPI chip select: high.");
+			otc_spew("SPI chip select: high.");
 			fmt_opts->cs_polarity = 1;
 			continue;
 		}
 		if (g_str_has_prefix(opt, SPI_FORMAT_DATA_BITS)) {
 			opt += strlen(SPI_FORMAT_DATA_BITS);
 			endp = NULL;
-			ret = sr_atoul_base(opt, &v, &endp, 10);
-			if (ret != SR_OK)
+			ret = otc_atoul_base(opt, &v, &endp, 10);
+			if (ret != OTC_OK)
 				return ret;
 			if (!endp || *endp)
-				return SR_ERR_ARG;
-			sr_spew("SPI word size: %lu.", v);
+				return OTC_ERR_ARG;
+			otc_spew("SPI word size: %lu.", v);
 			if (v < SPI_MIN_DATABITS || v > SPI_MAX_DATABITS)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			fmt_opts->databit_count = v;
 			continue;
 		}
 		if (g_str_has_prefix(opt, SPI_FORMAT_SPI_MODE)) {
 			opt += strlen(SPI_FORMAT_SPI_MODE);
 			endp = NULL;
-			ret = sr_atoul_base(opt, &v, &endp, 10);
-			if (ret != SR_OK)
+			ret = otc_atoul_base(opt, &v, &endp, 10);
+			if (ret != OTC_OK)
 				return ret;
 			if (!endp || *endp)
-				return SR_ERR_ARG;
-			sr_spew("SPI mode: %lu.", v);
+				return OTC_ERR_ARG;
+			otc_spew("SPI mode: %lu.", v);
 			if (v > 3)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			fmt_opts->spi_mode_cpol = v & (1UL << 1);
 			fmt_opts->spi_mode_cpha = v & (1UL << 0);
 			continue;
@@ -1502,42 +1502,42 @@ static int spi_check_opts(struct context *inc)
 		if (g_str_has_prefix(opt, SPI_FORMAT_MODE_CPOL)) {
 			opt += strlen(SPI_FORMAT_MODE_CPOL);
 			endp = NULL;
-			ret = sr_atoul_base(opt, &v, &endp, 10);
-			if (ret != SR_OK)
+			ret = otc_atoul_base(opt, &v, &endp, 10);
+			if (ret != OTC_OK)
 				return ret;
 			if (!endp || *endp)
-				return SR_ERR_ARG;
-			sr_spew("SPI cpol: %lu.", v);
+				return OTC_ERR_ARG;
+			otc_spew("SPI cpol: %lu.", v);
 			if (v > 1)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			fmt_opts->spi_mode_cpol = !!v;
 			continue;
 		}
 		if (g_str_has_prefix(opt, SPI_FORMAT_MODE_CPHA)) {
 			opt += strlen(SPI_FORMAT_MODE_CPHA);
 			endp = NULL;
-			ret = sr_atoul_base(opt, &v, &endp, 10);
-			if (ret != SR_OK)
+			ret = otc_atoul_base(opt, &v, &endp, 10);
+			if (ret != OTC_OK)
 				return ret;
 			if (!endp || *endp)
-				return SR_ERR_ARG;
-			sr_spew("SPI cpha: %lu.", v);
+				return OTC_ERR_ARG;
+			otc_spew("SPI cpha: %lu.", v);
 			if (v > 1)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			fmt_opts->spi_mode_cpha = !!v;
 			continue;
 		}
 		if (strcmp(opt, SPI_FORMAT_MSB_FIRST) == 0) {
-			sr_spew("SPI endianess: MSB first.");
+			otc_spew("SPI endianess: MSB first.");
 			fmt_opts->msb_first = 1;
 			continue;
 		}
 		if (strcmp(opt, SPI_FORMAT_LSB_FIRST) == 0) {
-			sr_spew("SPI endianess: LSB first.");
+			otc_spew("SPI endianess: LSB first.");
 			fmt_opts->msb_first = 0;
 			continue;
 		}
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	g_strfreev(opts);
 
@@ -1550,12 +1550,12 @@ static int spi_check_opts(struct context *inc)
 	total_bits += 2 * fmt_opts->databit_count;
 	total_bits += 3;
 
-	sr_dbg("SPI frame: total bits %zu.", total_bits);
+	otc_dbg("SPI frame: total bits %zu.", total_bits);
 	if (total_bits > SPI_MAX_WAVELEN)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	inc->max_frame_bits = total_bits;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1573,7 +1573,7 @@ static int spi_config_frame(struct context *inc)
 	size_t bit_idx, bit_count;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	fmt_opts = &inc->curr_opts.frame_format.spi;
 
 	/* Configure DATABIT positions for half width (for clock period). */
@@ -1600,7 +1600,7 @@ static int spi_config_frame(struct context *inc)
 	spi_pseudo_select_control(inc, FALSE);
 	sample_buffer_preset(inc, inc->samples.curr_levels);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1608,7 +1608,7 @@ static int spi_config_frame(struct context *inc)
  * construction and submission, or can immediately emit "inter frame"
  * bit patterns like chip select control.
  */
-static int spi_proc_pseudo(struct sr_input *in, char *line)
+static int spi_proc_pseudo(struct otc_input *in, char *line)
 {
 	struct context *inc;
 	char *word, *endp;
@@ -1618,98 +1618,98 @@ static int spi_proc_pseudo(struct sr_input *in, char *line)
 	inc = in->priv;
 
 	while (line) {
-		word = sr_text_next_word(line, &line);
+		word = otc_text_next_word(line, &line);
 		if (!word)
 			break;
 		if (!*word)
 			continue;
 		if (strcmp(word, SPI_PSEUDO_MOSI_ONLY) == 0) {
-			sr_spew("SPI pseudo: MOSI only");
+			otc_spew("SPI pseudo: MOSI only");
 			spi_pseudo_data_order(inc, TRUE, FALSE, TRUE);
 			continue;
 		}
 		if (g_str_has_prefix(word, SPI_PSEUDO_MOSI_FIXED)) {
 			word += strlen(SPI_PSEUDO_MOSI_FIXED);
 			endp = NULL;
-			ret = sr_atoul_base(word, &v, &endp, inc->read_text.base);
-			if (ret != SR_OK)
+			ret = otc_atoul_base(word, &v, &endp, inc->read_text.base);
+			if (ret != OTC_OK)
 				return ret;
 			if (!endp || *endp)
-				return SR_ERR_ARG;
-			sr_spew("SPI pseudo: MOSI fixed %lu", v);
+				return OTC_ERR_ARG;
+			otc_spew("SPI pseudo: MOSI fixed %lu", v);
 			spi_pseudo_mosi_fixed(inc, v);
 			continue;
 		}
 		if (strcmp(word, SPI_PSEUDO_MISO_ONLY) == 0) {
-			sr_spew("SPI pseudo: MISO only");
+			otc_spew("SPI pseudo: MISO only");
 			spi_pseudo_data_order(inc, FALSE, TRUE, FALSE);
 			continue;
 		}
 		if (g_str_has_prefix(word, SPI_PSEUDO_MISO_FIXED)) {
 			word += strlen(SPI_PSEUDO_MISO_FIXED);
 			endp = NULL;
-			ret = sr_atoul_base(word, &v, &endp, inc->read_text.base);
-			if (ret != SR_OK)
+			ret = otc_atoul_base(word, &v, &endp, inc->read_text.base);
+			if (ret != OTC_OK)
 				return ret;
 			if (!endp || *endp)
-				return SR_ERR_ARG;
-			sr_spew("SPI pseudo: MISO fixed %lu", v);
+				return OTC_ERR_ARG;
+			otc_spew("SPI pseudo: MISO fixed %lu", v);
 			spi_pseudo_miso_fixed(inc, v);
 			continue;
 		}
 		if (strcmp(word, SPI_PSEUDO_MOSI_MISO) == 0) {
-			sr_spew("SPI pseudo: MOSI then MISO");
+			otc_spew("SPI pseudo: MOSI then MISO");
 			spi_pseudo_data_order(inc, TRUE, TRUE, TRUE);
 			continue;
 		}
 		if (strcmp(word, SPI_PSEUDO_MISO_MOSI) == 0) {
-			sr_spew("SPI pseudo: MISO then MOSI");
+			otc_spew("SPI pseudo: MISO then MOSI");
 			spi_pseudo_data_order(inc, TRUE, TRUE, FALSE);
 			continue;
 		}
 		if (strcmp(word, SPI_PSEUDO_CS_ASSERT) == 0) {
-			sr_spew("SPI pseudo: CS assert");
+			otc_spew("SPI pseudo: CS assert");
 			spi_pseudo_select_control(inc, TRUE);
 			continue;
 		}
 		if (strcmp(word, SPI_PSEUDO_CS_RELEASE) == 0) {
-			sr_spew("SPI pseudo: CS release");
+			otc_spew("SPI pseudo: CS release");
 			/* Release CS. Force IDLE to display the pin change. */
 			spi_pseudo_select_control(inc, FALSE);
 			ret = spi_write_frame_patterns(inc, TRUE, FALSE);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			ret = send_frame(in);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			continue;
 		}
 		if (g_str_has_prefix(word, SPI_PSEUDO_CS_NEXT)) {
 			word += strlen(SPI_PSEUDO_CS_NEXT);
 			endp = NULL;
-			ret = sr_atoul_base(word, &v, &endp, 0);
-			if (ret != SR_OK)
+			ret = otc_atoul_base(word, &v, &endp, 0);
+			if (ret != OTC_OK)
 				return ret;
 			if (!endp || *endp)
-				return SR_ERR_ARG;
-			sr_spew("SPI pseudo: CS auto next %lu", v);
+				return OTC_ERR_ARG;
+			otc_spew("SPI pseudo: CS auto next %lu", v);
 			spi_pseudo_auto_select(inc, v);
 			continue;
 		}
 		if (strcmp(word, SPI_PSEUDO_IDLE) == 0) {
-			sr_spew("SPI pseudo: idle");
+			otc_spew("SPI pseudo: idle");
 			ret = spi_write_frame_patterns(inc, TRUE, FALSE);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			ret = send_frame(in);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			continue;
 		}
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1725,7 +1725,7 @@ static int spi_proc_value(struct context *inc, uint32_t value)
 	gboolean auto_cs_end;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	incs = inc->curr_opts.prot_priv;
 
 	/*
@@ -1735,7 +1735,7 @@ static int spi_proc_value(struct context *inc, uint32_t value)
 	 * constructed after receiving data values.
 	 */
 	if (spi_value_is_bytes_complete(inc)) {
-		sr_spew("SPI value: discarding previous data");
+		otc_spew("SPI value: discarding previous data");
 		spi_value_discard_prev_data(inc);
 	}
 
@@ -1745,18 +1745,18 @@ static int spi_proc_value(struct context *inc, uint32_t value)
 	 */
 	taken = FALSE;
 	if (!taken && incs->mosi_first && !incs->has_mosi) {
-		sr_spew("SPI value: grabbing MOSI value");
+		otc_spew("SPI value: grabbing MOSI value");
 		incs->mosi_byte = value & 0xff;
 		incs->has_mosi = TRUE;
 		taken = TRUE;
 	}
 	if (!taken && !incs->has_miso) {
-		sr_spew("SPI value: grabbing MISO value");
+		otc_spew("SPI value: grabbing MISO value");
 		incs->miso_byte = value & 0xff;
 		incs->has_miso = TRUE;
 	}
 	if (!taken && !incs->mosi_first && !incs->has_mosi) {
-		sr_spew("SPI value: grabbing MOSI value");
+		otc_spew("SPI value: grabbing MOSI value");
 		incs->mosi_byte = value & 0xff;
 		incs->has_mosi = TRUE;
 		taken = TRUE;
@@ -1771,13 +1771,13 @@ static int spi_proc_value(struct context *inc, uint32_t value)
 	 * data bytes, when requested by the input stream.
 	 */
 	if (!spi_value_is_bytes_complete(inc)) {
-		sr_spew("SPI value: need more values");
+		otc_spew("SPI value: need more values");
 		return +1;
 	}
 	auto_cs_end = spi_auto_select_ends(inc);
-	sr_spew("SPI value: frame complete, drawing, auto CS %d", auto_cs_end);
+	otc_spew("SPI value: frame complete, drawing, auto CS %d", auto_cs_end);
 	ret = spi_write_frame_patterns(inc, FALSE, auto_cs_end);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	return 0;
 }
@@ -1792,7 +1792,7 @@ static int spi_get_idle_capture(struct context *inc,
 		*bitcount = inc->max_frame_bits;
 	if (sample)
 		*sample = inc->samples.idle_levels;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Arrange for a few samples of idle level between UART frames. */
@@ -1807,7 +1807,7 @@ static int spi_get_idle_interframe(struct context *inc,
 	}
 	if (sample)
 		*sample = inc->samples.curr_levels;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* }}} SPI protocol handler */
@@ -1854,11 +1854,11 @@ static int i2c_write_nothing(struct context *inc)
 	reps = I2C_BITTIME_QUANTA;
 	while (reps--) {
 		ret = wave_append_buffer(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1887,29 +1887,29 @@ static int i2c_write_start(struct context *inc)
 	/* Enforce SDA high. */
 	sample_buffer_raise(inc, I2C_PINMASK_SDA);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Enforce SCL high. */
 	sample_buffer_raise(inc, I2C_PINMASK_SCL);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Keep high SCL and high SDA for another period. */
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Falling SDA while SCL is high. */
 	sample_buffer_clear(inc, I2C_PINMASK_SDA);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Keep high SCL and low SDA for one more period. */
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -1920,10 +1920,10 @@ static int i2c_write_start(struct context *inc)
 	 */
 	sample_buffer_clear(inc, I2C_PINMASK_SCL);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1938,38 +1938,38 @@ static int i2c_write_stop(struct context *inc)
 	/* Enforce SCL low before SDA changes. */
 	sample_buffer_clear(inc, I2C_PINMASK_SCL);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Enforce SDA low (can change while SCL is low). */
 	sample_buffer_clear(inc, I2C_PINMASK_SDA);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Rise SCL high while SDA is low. */
 	sample_buffer_raise(inc, I2C_PINMASK_SCL);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Keep high SCL and low SDA for another period. */
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Rising SDA. */
 	sample_buffer_raise(inc, I2C_PINMASK_SDA);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Keep high SCL and high SDA for one more periods. */
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1984,36 +1984,36 @@ static int i2c_write_bit(struct context *inc, uint8_t value)
 	/* Enforce SCL low before SDA changes. */
 	sample_buffer_clear(inc, I2C_PINMASK_SCL);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Setup SDA pin level while SCL is low. */
 	sample_buffer_setclr(inc, value, I2C_PINMASK_SDA);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Rising SCL, starting SDA validity. */
 	sample_buffer_raise(inc, I2C_PINMASK_SCL);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Keep SDA level with high SCL for two more periods. */
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Falling SCL, terminates SDA validity. */
 	sample_buffer_clear(inc, I2C_PINMASK_SCL);
 	ret = wave_append_buffer(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Create a waveform for the eight data bits and the ACK/NAK slot. */
@@ -2024,7 +2024,7 @@ static int i2c_write_byte(struct context *inc, uint8_t value, uint8_t ack)
 
 	/* Keep an empty bit time before the data byte. */
 	ret = i2c_write_nothing(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Send 8 data bits, MSB first. */
@@ -2033,26 +2033,26 @@ static int i2c_write_byte(struct context *inc, uint8_t value, uint8_t ack)
 		bit_value = value & bit_mask;
 		bit_mask >>= 1;
 		ret = i2c_write_bit(inc, bit_value);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
 	/* Send ACK, which is low active. NAK is recessive, high. */
 	bit_value = !ack;
 	ret = i2c_write_bit(inc, bit_value);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Keep an empty bit time after the data byte. */
 	ret = i2c_write_nothing(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Send slave address (7bit or 10bit, 1 or 2 bytes). Consumes one ACK. */
-static int i2c_send_address(struct sr_input *in, uint16_t addr, gboolean read)
+static int i2c_send_address(struct otc_input *in, uint16_t addr, gboolean read)
 {
 	struct context *inc;
 	struct i2c_frame_fmt_opts *fmt_opts;
@@ -2072,15 +2072,15 @@ static int i2c_send_address(struct sr_input *in, uint16_t addr, gboolean read)
 		addr_byte = addr & 0x7f;
 		addr_byte <<= 1;
 		addr_byte |= rw_bit;
-		sr_spew("I2C 7bit address, byte 0x%" PRIx8, addr_byte);
+		otc_spew("I2C 7bit address, byte 0x%" PRIx8, addr_byte);
 		ret = wave_clear_sequence(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		ret = i2c_write_byte(inc, addr_byte, with_ack);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		ret = send_frame(in);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	} else {
 		/*
@@ -2092,31 +2092,31 @@ static int i2c_send_address(struct sr_input *in, uint16_t addr, gboolean read)
 		addr_byte <<= 1;
 		addr_byte |= 0xf0;
 		addr_byte |= rw_bit;
-		sr_spew("I2C 10bit address, byte 0x%" PRIx8, addr_byte);
+		otc_spew("I2C 10bit address, byte 0x%" PRIx8, addr_byte);
 		ret = wave_clear_sequence(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		ret = i2c_write_byte(inc, addr_byte, with_ack);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		ret = send_frame(in);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		addr_byte = addr & 0xff;
-		sr_spew("I2C 10bit address, byte 0x%" PRIx8, addr_byte);
+		otc_spew("I2C 10bit address, byte 0x%" PRIx8, addr_byte);
 		ret = wave_clear_sequence(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		ret = i2c_write_byte(inc, addr_byte, with_ack);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		ret = send_frame(in);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* I2C specific options and frame format check. */
@@ -2129,7 +2129,7 @@ static int i2c_check_opts(struct context *inc)
 	size_t total_bits;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	fmt_opts = &inc->curr_opts.frame_format.i2c;
 
 	/* Apply defaults before reading external specs. */
@@ -2140,7 +2140,7 @@ static int i2c_check_opts(struct context *inc)
 	fmt_text = inc->curr_opts.fmt_text;
 	if (!fmt_text || !*fmt_text)
 		fmt_text = I2C_DFLT_FRAMEFMT;
-	sr_dbg("I2C frame format: %s.", fmt_text);
+	otc_dbg("I2C frame format: %s.", fmt_text);
 
 	/* Accept comma separated key=value pairs of specs. */
 	opts = g_strsplit_set(fmt_text, ", ", 0);
@@ -2149,18 +2149,18 @@ static int i2c_check_opts(struct context *inc)
 		opt = opts[opt_idx];
 		if (!opt || !*opt)
 			continue;
-		sr_spew("I2C format option: %s.", opt);
+		otc_spew("I2C format option: %s.", opt);
 		if (strcmp(opt, I2C_FORMAT_ADDR_7BIT) == 0) {
-			sr_spew("I2C address: 7 bit");
+			otc_spew("I2C address: 7 bit");
 			fmt_opts->addr_10bit = FALSE;
 			continue;
 		}
 		if (strcmp(opt, I2C_FORMAT_ADDR_10BIT) == 0) {
-			sr_spew("I2C address: 10 bit");
+			otc_spew("I2C address: 10 bit");
 			fmt_opts->addr_10bit = TRUE;
 			continue;
 		}
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	g_strfreev(opts);
 
@@ -2170,12 +2170,12 @@ static int i2c_check_opts(struct context *inc)
 	total_bits *= I2C_BITTIME_QUANTA;
 	total_bits += I2C_ADD_IDLESLOTS;
 
-	sr_dbg("I2C frame: total bits %zu.", total_bits);
+	otc_dbg("I2C frame: total bits %zu.", total_bits);
 	if (total_bits > I2C_MAX_WAVELEN)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	inc->max_frame_bits = total_bits;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -2193,7 +2193,7 @@ static int i2c_config_frame(struct context *inc)
 	uint8_t sample;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	incs = inc->curr_opts.prot_priv;
 
 	memset(incs, 0, sizeof(*incs));
@@ -2212,7 +2212,7 @@ static int i2c_config_frame(struct context *inc)
 	sample |= I2C_PINMASK_SDA;
 	sample_buffer_preset(inc, sample);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -2222,7 +2222,7 @@ static int i2c_config_frame(struct context *inc)
  * transfer controls, put the special symbol nicely centered. Supports
  * users during interactive exploration of generated waveforms.
  */
-static int i2c_proc_pseudo(struct sr_input *in, char *line)
+static int i2c_proc_pseudo(struct otc_input *in, char *line)
 {
 	struct context *inc;
 	char *word, *endp;
@@ -2233,136 +2233,136 @@ static int i2c_proc_pseudo(struct sr_input *in, char *line)
 	inc = in->priv;
 
 	while (line) {
-		word = sr_text_next_word(line, &line);
+		word = otc_text_next_word(line, &line);
 		if (!word)
 			break;
 		if (!*word)
 			continue;
-		sr_spew("I2C pseudo: word %s", word);
+		otc_spew("I2C pseudo: word %s", word);
 		if (strcmp(word, I2C_PSEUDO_START) == 0) {
-			sr_spew("I2C pseudo: send START");
+			otc_spew("I2C pseudo: send START");
 			ret = wave_clear_sequence(inc);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			bits = I2C_BITTIME_SLOTS / 2;
 			while (bits--) {
 				ret = i2c_write_nothing(inc);
-				if (ret != SR_OK)
+				if (ret != OTC_OK)
 					return ret;
 			}
 			ret = i2c_write_start(inc);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			bits = I2C_BITTIME_SLOTS / 2;
 			while (bits--) {
 				ret = i2c_write_nothing(inc);
-				if (ret != SR_OK)
+				if (ret != OTC_OK)
 					return ret;
 			}
 			ret = send_frame(in);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			continue;
 		}
 		if (strcmp(word, I2C_PSEUDO_REP_START) == 0) {
-			sr_spew("I2C pseudo: send REPEAT START");
+			otc_spew("I2C pseudo: send REPEAT START");
 			ret = wave_clear_sequence(inc);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			bits = I2C_BITTIME_SLOTS / 2;
 			while (bits--) {
 				ret = i2c_write_nothing(inc);
-				if (ret != SR_OK)
+				if (ret != OTC_OK)
 					return ret;
 			}
 			ret = i2c_write_start(inc);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			bits = I2C_BITTIME_SLOTS / 2;
 			while (bits--) {
 				ret = i2c_write_nothing(inc);
-				if (ret != SR_OK)
+				if (ret != OTC_OK)
 					return ret;
 			}
 			ret = send_frame(in);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			continue;
 		}
 		if (strcmp(word, I2C_PSEUDO_STOP) == 0) {
-			sr_spew("I2C pseudo: send STOP");
+			otc_spew("I2C pseudo: send STOP");
 			ret = wave_clear_sequence(inc);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			bits = I2C_BITTIME_SLOTS / 2;
 			while (bits--) {
 				ret = i2c_write_nothing(inc);
-				if (ret != SR_OK)
+				if (ret != OTC_OK)
 					return ret;
 			}
 			ret = i2c_write_stop(inc);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			bits = I2C_BITTIME_SLOTS / 2;
 			while (bits--) {
 				ret = i2c_write_nothing(inc);
-				if (ret != SR_OK)
+				if (ret != OTC_OK)
 					return ret;
 			}
 			ret = send_frame(in);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			continue;
 		}
 		if (g_str_has_prefix(word, I2C_PSEUDO_ADDR_WRITE)) {
 			word += strlen(I2C_PSEUDO_ADDR_WRITE);
 			endp = NULL;
-			ret = sr_atoul_base(word, &v, &endp, 0);
-			if (ret != SR_OK)
+			ret = otc_atoul_base(word, &v, &endp, 0);
+			if (ret != OTC_OK)
 				return ret;
 			if (!endp || *endp)
-				return SR_ERR_ARG;
-			sr_spew("I2C pseudo: addr write %lu", v);
+				return OTC_ERR_ARG;
+			otc_spew("I2C pseudo: addr write %lu", v);
 			ret = i2c_send_address(in, v, FALSE);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			continue;
 		}
 		if (g_str_has_prefix(word, I2C_PSEUDO_ADDR_READ)) {
 			word += strlen(I2C_PSEUDO_ADDR_READ);
 			endp = NULL;
-			ret = sr_atoul_base(word, &v, &endp, 0);
-			if (ret != SR_OK)
+			ret = otc_atoul_base(word, &v, &endp, 0);
+			if (ret != OTC_OK)
 				return ret;
 			if (!endp || *endp)
-				return SR_ERR_ARG;
-			sr_spew("I2C pseudo: addr read %lu", v);
+				return OTC_ERR_ARG;
+			otc_spew("I2C pseudo: addr read %lu", v);
 			ret = i2c_send_address(in, v, TRUE);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			continue;
 		}
 		if (g_str_has_prefix(word, I2C_PSEUDO_ACK_NEXT)) {
 			word += strlen(I2C_PSEUDO_ACK_NEXT);
 			endp = NULL;
-			ret = sr_atoul_base(word, &v, &endp, 0);
-			if (ret != SR_OK)
+			ret = otc_atoul_base(word, &v, &endp, 0);
+			if (ret != OTC_OK)
 				return ret;
 			if (!endp || *endp)
-				return SR_ERR_ARG;
-			sr_spew("i2c pseudo: ack next %lu", v);
+				return OTC_ERR_ARG;
+			otc_spew("i2c pseudo: ack next %lu", v);
 			i2c_auto_ack_start(inc, v);
 			continue;
 		}
 		if (strcmp(word, I2C_PSEUDO_ACK_ONCE) == 0) {
-			sr_spew("i2c pseudo: ack once");
+			otc_spew("i2c pseudo: ack once");
 			i2c_auto_ack_start(inc, 1);
 			continue;
 		}
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -2376,15 +2376,15 @@ static int i2c_proc_value(struct context *inc, uint32_t value)
 	int ret;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	with_ack = i2c_auto_ack_avail(inc);
 
 	ret = wave_clear_sequence(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	ret = i2c_write_byte(inc, value, with_ack);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return 0;
@@ -2400,7 +2400,7 @@ static int i2c_get_idle_capture(struct context *inc,
 		*bitcount = I2C_BITTIME_SLOTS;
 	if (sample)
 		*sample = inc->samples.idle_levels;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Arrange for a few samples of idle level between UART frames. */
@@ -2419,7 +2419,7 @@ static int i2c_get_idle_interframe(struct context *inc,
 	}
 	if (sample)
 		*sample = inc->samples.curr_levels;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* }}} I2C protocol handler */
@@ -2513,7 +2513,7 @@ static int lookup_protocol_name(struct context *inc)
 	(void)sample_buffer_assign;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	inc->curr_opts.protocol_type = PROTO_TYPE_NONE;
 	inc->curr_opts.prot_hdl = NULL;
 
@@ -2537,13 +2537,13 @@ static int lookup_protocol_name(struct context *inc)
 		if (handler->priv_size) {
 			priv = g_malloc0(handler->priv_size);
 			if (!priv)
-				return SR_ERR_MALLOC;
+				return OTC_ERR_MALLOC;
 			inc->curr_opts.prot_priv = priv;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 
-	return SR_ERR_DATA;
+	return OTC_ERR_DATA;
 }
 
 /* }}} protocol dispatching */
@@ -2700,13 +2700,13 @@ static int parse_samplerate(struct context *inc, const char *text)
 	uint64_t rate;
 	int ret;
 
-	ret = sr_parse_sizestring(text, &rate);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
+	ret = otc_parse_sizestring(text, &rate);
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
 
 	inc->curr_opts.samplerate = rate;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int parse_bitrate(struct context *inc, const char *text)
@@ -2714,20 +2714,20 @@ static int parse_bitrate(struct context *inc, const char *text)
 	uint64_t rate;
 	int ret;
 
-	ret = sr_parse_sizestring(text, &rate);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
+	ret = otc_parse_sizestring(text, &rate);
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
 
 	inc->curr_opts.bitrate = rate;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int parse_protocol(struct context *inc, const char *line)
 {
 
 	if (!line || !*line)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	if (inc->curr_opts.proto_name) {
 		free(inc->curr_opts.proto_name);
@@ -2735,17 +2735,17 @@ static int parse_protocol(struct context *inc, const char *line)
 	}
 	inc->curr_opts.proto_name = g_strdup(line);
 	if (!inc->curr_opts.proto_name)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	line = inc->curr_opts.proto_name;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int parse_frameformat(struct context *inc, const char *line)
 {
 
 	if (!line || !*line)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	if (inc->curr_opts.fmt_text) {
 		free(inc->curr_opts.fmt_text);
@@ -2753,10 +2753,10 @@ static int parse_frameformat(struct context *inc, const char *line)
 	}
 	inc->curr_opts.fmt_text = g_strdup(line);
 	if (!inc->curr_opts.fmt_text)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	line = inc->curr_opts.fmt_text;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int parse_textinput(struct context *inc, const char *text)
@@ -2764,11 +2764,11 @@ static int parse_textinput(struct context *inc, const char *text)
 	gboolean is_text;
 
 	if (!text || !*text)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	is_text = sr_parse_boolstring(text);
+	is_text = otc_parse_boolstring(text);
 	inc->curr_opts.textinput = is_text ? INPUT_TEXT : INPUT_BYTES;
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int parse_header_line(struct context *inc, const char *line)
@@ -2776,7 +2776,7 @@ static int parse_header_line(struct context *inc, const char *line)
 
 	/* Silently ignore comment lines. Also covers start/end markers. */
 	if (strncmp(line, TEXT_COMM_LEADER, strlen(TEXT_COMM_LEADER)) == 0)
-		return SR_OK;
+		return OTC_OK;
 
 	if (strncmp(line, LABEL_SAMPLERATE, strlen(LABEL_SAMPLERATE)) == 0) {
 		line += strlen(LABEL_SAMPLERATE);
@@ -2800,9 +2800,9 @@ static int parse_header_line(struct context *inc, const char *line)
 	}
 
 	/* Unsupported directive. */
-	sr_err("Unsupported header directive: %s.", line);
+	otc_err("Unsupported header directive: %s.", line);
 
-	return SR_ERR_DATA;
+	return OTC_ERR_DATA;
 }
 
 static int parse_header(struct context *inc, GString *buf, size_t hdr_len)
@@ -2811,14 +2811,14 @@ static int parse_header(struct context *inc, GString *buf, size_t hdr_len)
 	char *curr, *next, *line;
 	int ret;
 
-	ret = SR_OK;
+	ret = OTC_OK;
 
 	/* The caller determined where the header ends. Read up to there. */
 	remain = hdr_len;
 	curr = buf->str;
 	while (curr && remain) {
 		/* Get another text line. Skip empty lines. */
-		line = sr_text_next_line(curr, remain, &next, NULL);
+		line = otc_text_next_line(curr, remain, &next, NULL);
 		if (!line)
 			break;
 		if (next)
@@ -2829,9 +2829,9 @@ static int parse_header(struct context *inc, GString *buf, size_t hdr_len)
 		if (!*line)
 			continue;
 		/* Process the non-empty file header text line. */
-		sr_dbg("Header line: %s", line);
+		otc_dbg("Header line: %s", line);
 		ret = parse_header_line(inc, line);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 	}
 
@@ -2839,7 +2839,7 @@ static int parse_header(struct context *inc, GString *buf, size_t hdr_len)
 }
 
 /* Process input text reader specific pseudo comment. */
-static int process_pseudo_textinput(struct sr_input *in, char *line)
+static int process_pseudo_textinput(struct otc_input *in, char *line)
 {
 	struct context *inc;
 	char *word;
@@ -2849,7 +2849,7 @@ static int process_pseudo_textinput(struct sr_input *in, char *line)
 
 	inc = in->priv;
 	while (line) {
-		word = sr_text_next_word(line, &line);
+		word = otc_text_next_word(line, &line);
 		if (!word)
 			break;
 		if (!*word)
@@ -2857,20 +2857,20 @@ static int process_pseudo_textinput(struct sr_input *in, char *line)
 		if (g_str_has_prefix(word, TEXT_INPUT_RADIX)) {
 			word += strlen(TEXT_INPUT_RADIX);
 			endp = NULL;
-			ret = sr_atoul_base(word, &v, &endp, 10);
-			if (ret != SR_OK)
+			ret = otc_atoul_base(word, &v, &endp, 10);
+			if (ret != OTC_OK)
 				return ret;
 			inc->read_text.base = v;
 			continue;
 		}
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Process a line of input text. */
-static int process_textline(struct sr_input *in, char *line)
+static int process_textline(struct otc_input *in, char *line)
 {
 	struct context *inc;
 	const struct proto_handler_t *handler;
@@ -2901,8 +2901,8 @@ static int process_textline(struct sr_input *in, char *line)
 			line += strlen(TEXT_INPUT_PREFIX);
 			while (isspace(*line))
 				line++;
-			sr_dbg("pseudo comment, textinput: %s", line);
-			line = sr_text_trim_spaces(line);
+			otc_dbg("pseudo comment, textinput: %s", line);
+			line = otc_text_trim_spaces(line);
 			return process_pseudo_textinput(in, line);
 		}
 		is_pseudo = g_str_has_prefix(line, handler->name);
@@ -2915,13 +2915,13 @@ static int process_textline(struct sr_input *in, char *line)
 		if (is_pseudo) {
 			while (isspace(*line))
 				line++;
-			sr_dbg("pseudo comment, protocol: %s", line);
+			otc_dbg("pseudo comment, protocol: %s", line);
 			if (!handler->proc_pseudo)
-				return SR_OK;
+				return OTC_OK;
 			return handler->proc_pseudo(in, line);
 		}
-		sr_spew("comment, skipping: %s", line);
-		return SR_OK;
+		otc_spew("comment, skipping: %s", line);
+		return OTC_OK;
 	}
 
 	/*
@@ -2932,25 +2932,25 @@ static int process_textline(struct sr_input *in, char *line)
 	 * Pass the values to the protocol handler. Flush waveforms
 	 * when handlers state that their construction has completed.
 	 */
-	sr_spew("got values line: %s", line);
+	otc_spew("got values line: %s", line);
 	for (p = line; *p; p++) {
 		if (*p == ',' || *p == ';')
 			*p = ' ';
 	}
 	while (line) {
-		word = sr_text_next_word(line, &line);
+		word = otc_text_next_word(line, &line);
 		if (!word)
 			break;
 		if (!*word)
 			continue;
 		/* Get another numeric value. */
 		endp = NULL;
-		ret = sr_atoul_base(word, &value, &endp, inc->read_text.base);
-		if (ret != SR_OK)
+		ret = otc_atoul_base(word, &value, &endp, inc->read_text.base);
+		if (ret != OTC_OK)
 			return ret;
 		if (!endp || *endp)
-			return SR_ERR_DATA;
-		sr_spew("got a value, text [%s] -> number [%lu]", word, value);
+			return OTC_ERR_DATA;
+		otc_spew("got a value, text [%s] -> number [%lu]", word, value);
 		/* Forward the value to the protocol handler. */
 		ret = 0;
 		if (handler->proc_value)
@@ -2961,14 +2961,14 @@ static int process_textline(struct sr_input *in, char *line)
 		if (ret > 0)
 			continue;
 		ret = send_frame(in);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		ret = send_idle_interframe(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* }}} text/binary input file reader */
@@ -2988,36 +2988,36 @@ static int check_header_user_options(struct context *inc)
 	enum textinput_t is_text;
 
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Prefer user specs over file content. */
 	rate = inc->user_opts.samplerate;
 	if (rate) {
-		sr_dbg("Using user samplerate %" PRIu64 ".", rate);
+		otc_dbg("Using user samplerate %" PRIu64 ".", rate);
 		inc->curr_opts.samplerate = rate;
 	}
 	rate = inc->user_opts.bitrate;
 	if (rate) {
-		sr_dbg("Using user bitrate %" PRIu64 ".", rate);
+		otc_dbg("Using user bitrate %" PRIu64 ".", rate);
 		inc->curr_opts.bitrate = rate;
 	}
 	text = inc->user_opts.proto_name;
 	if (text && *text) {
-		sr_dbg("Using user protocol %s.", text);
+		otc_dbg("Using user protocol %s.", text);
 		ret = parse_protocol(inc, text);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 	}
 	text = inc->user_opts.fmt_text;
 	if (text && *text) {
-		sr_dbg("Using user frame format %s.", text);
+		otc_dbg("Using user frame format %s.", text);
 		ret = parse_frameformat(inc, text);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 	}
 	is_text = inc->user_opts.textinput;
 	if (is_text) {
-		sr_dbg("Using user textinput %d.", is_text);
+		otc_dbg("Using user textinput %d.", is_text);
 		inc->curr_opts.textinput = is_text;
 	}
 
@@ -3025,114 +3025,114 @@ static int check_header_user_options(struct context *inc)
 	text = inc->curr_opts.proto_name;
 	ret = lookup_protocol_name(inc);
 	handler = inc->curr_opts.prot_hdl;
-	if (ret != SR_OK || !handler) {
-		sr_err("Unsupported protocol: %s.", text);
-		return SR_ERR_DATA;
+	if (ret != OTC_OK || !handler) {
+		otc_err("Unsupported protocol: %s.", text);
+		return OTC_ERR_DATA;
 	}
 	text = handler->name;
 	if (!inc->curr_opts.proto_name && text) {
-		sr_dbg("Using protocol handler name %s.", text);
+		otc_dbg("Using protocol handler name %s.", text);
 		ret = parse_protocol(inc, text);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 	}
 	rate = handler->dflt.samplerate;
 	if (!inc->curr_opts.samplerate && rate) {
-		sr_dbg("Using protocol handler samplerate %" PRIu64 ".", rate);
+		otc_dbg("Using protocol handler samplerate %" PRIu64 ".", rate);
 		inc->curr_opts.samplerate = rate;
 	}
 	rate = handler->dflt.bitrate;
 	if (!inc->curr_opts.bitrate && rate) {
-		sr_dbg("Using protocol handler bitrate %" PRIu64 ".", rate);
+		otc_dbg("Using protocol handler bitrate %" PRIu64 ".", rate);
 		inc->curr_opts.bitrate = rate;
 	}
 	text = handler->dflt.frame_format;
 	if (!inc->curr_opts.fmt_text && text && *text) {
-		sr_dbg("Using protocol handler frame format %s.", text);
+		otc_dbg("Using protocol handler frame format %s.", text);
 		ret = parse_frameformat(inc, text);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 	}
 	is_text = handler->dflt.textinput;
 	if (!inc->curr_opts.textinput && is_text) {
-		sr_dbg("Using protocol handler text format %d.", is_text);
+		otc_dbg("Using protocol handler text format %d.", is_text);
 		inc->curr_opts.textinput = is_text;
 	}
 
 	if (!inc->curr_opts.samplerate) {
-		sr_err("Need a samplerate.");
-		return SR_ERR_DATA;
+		otc_err("Need a samplerate.");
+		return OTC_ERR_DATA;
 	}
 	if (!inc->curr_opts.bitrate) {
-		sr_err("Need a protocol bitrate.");
-		return SR_ERR_DATA;
+		otc_err("Need a protocol bitrate.");
+		return OTC_ERR_DATA;
 	}
 
 	if (inc->curr_opts.samplerate < inc->curr_opts.bitrate) {
-		sr_err("Bitrate cannot exceed samplerate.");
-		return SR_ERR_DATA;
+		otc_err("Bitrate cannot exceed samplerate.");
+		return OTC_ERR_DATA;
 	}
 	if (inc->curr_opts.samplerate / inc->curr_opts.bitrate < 3)
-		sr_warn("Low oversampling, consider higher samplerate.");
+		otc_warn("Low oversampling, consider higher samplerate.");
 	if (inc->curr_opts.prot_hdl->check_opts) {
 		ret = inc->curr_opts.prot_hdl->check_opts(inc);
-		if (ret != SR_OK) {
-			sr_err("Options failed the protocol's check.");
-			return SR_ERR_DATA;
+		if (ret != OTC_OK) {
+			otc_err("Options failed the protocol's check.");
+			return OTC_ERR_DATA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int create_channels(struct sr_input *in)
+static int create_channels(struct otc_input *in)
 {
 	struct context *inc;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	const struct proto_handler_t *handler;
 	size_t index;
 	const char *name;
 
 	if (!in)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	inc = in->priv;
 	if (!inc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	sdi = in->sdi;
 	handler = inc->curr_opts.prot_hdl;
 
 	for (index = 0; index < handler->chans.count; index++) {
 		name = handler->chans.names[index];
-		sr_dbg("Channel %zu name %s.", index, name);
-		sr_channel_new(sdi, index, SR_CHANNEL_LOGIC, TRUE, name);
+		otc_dbg("Channel %zu name %s.", index, name);
+		otc_channel_new(sdi, index, OTC_CHANNEL_LOGIC, TRUE, name);
 	}
 
 	inc->feed_logic = feed_queue_logic_alloc(in->sdi,
 		CHUNK_SIZE, sizeof(uint8_t));
 	if (!inc->feed_logic) {
-		sr_err("Cannot create session feed.");
-		return SR_ERR_MALLOC;
+		otc_err("Cannot create session feed.");
+		return OTC_ERR_MALLOC;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
  * Keep track of a previously created channel list, in preparation of
  * re-reading the input file. Gets called from reset()/cleanup() paths.
  */
-static void keep_header_for_reread(const struct sr_input *in)
+static void keep_header_for_reread(const struct otc_input *in)
 {
 	struct context *inc;
 
 	inc = in->priv;
 
-	g_slist_free_full(inc->prev.sr_groups, sr_channel_group_free_cb);
-	inc->prev.sr_groups = in->sdi->channel_groups;
+	g_slist_free_full(inc->prev.otc_groups, otc_channel_group_free_cb);
+	inc->prev.otc_groups = in->sdi->channel_groups;
 	in->sdi->channel_groups = NULL;
 
-	g_slist_free_full(inc->prev.sr_channels, sr_channel_free_cb);
-	inc->prev.sr_channels = in->sdi->channels;
+	g_slist_free_full(inc->prev.otc_channels, otc_channel_free_cb);
+	inc->prev.otc_channels = in->sdi->channels;
 	in->sdi->channels = NULL;
 }
 
@@ -3149,7 +3149,7 @@ static void keep_header_for_reread(const struct sr_input *in)
  * re-read file, then make sure to keep using the previous channel list,
  * applications may still reference them.
  */
-static gboolean check_header_in_reread(const struct sr_input *in)
+static gboolean check_header_in_reread(const struct otc_input *in)
 {
 	struct context *inc;
 
@@ -3158,27 +3158,27 @@ static gboolean check_header_in_reread(const struct sr_input *in)
 	inc = in->priv;
 	if (!inc)
 		return FALSE;
-	if (!inc->prev.sr_channels)
+	if (!inc->prev.otc_channels)
 		return TRUE;
 
-	if (sr_channel_lists_differ(inc->prev.sr_channels, in->sdi->channels)) {
-		sr_err("Channel list change not supported for file re-read.");
+	if (otc_channel_lists_differ(inc->prev.otc_channels, in->sdi->channels)) {
+		otc_err("Channel list change not supported for file re-read.");
 		return FALSE;
 	}
 
-	g_slist_free_full(in->sdi->channel_groups, sr_channel_group_free_cb);
-	in->sdi->channel_groups = inc->prev.sr_groups;
-	inc->prev.sr_groups = NULL;
+	g_slist_free_full(in->sdi->channel_groups, otc_channel_group_free_cb);
+	in->sdi->channel_groups = inc->prev.otc_groups;
+	inc->prev.otc_groups = NULL;
 
-	g_slist_free_full(in->sdi->channels, sr_channel_free_cb);
-	in->sdi->channels = inc->prev.sr_channels;
-	inc->prev.sr_channels = NULL;
+	g_slist_free_full(in->sdi->channels, otc_channel_free_cb);
+	in->sdi->channels = inc->prev.otc_channels;
+	inc->prev.otc_channels = NULL;
 
 	return TRUE;
 }
 
 /* Process another chunk of accumulated input data. */
-static int process_buffer(struct sr_input *in, gboolean is_eof)
+static int process_buffer(struct otc_input *in, gboolean is_eof)
 {
 	struct context *inc;
 	GVariant *gvar;
@@ -3200,13 +3200,13 @@ static int process_buffer(struct sr_input *in, gboolean is_eof)
 	if (!inc->started) {
 		std_session_send_df_header(in->sdi);
 		gvar = g_variant_new_uint64(inc->curr_opts.samplerate);
-		ret = sr_session_send_meta(in->sdi, SR_CONF_SAMPLERATE, gvar);
+		ret = otc_session_send_meta(in->sdi, OTC_CONF_SAMPLERATE, gvar);
 		inc->started = TRUE;
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		ret = send_idle_capture(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
@@ -3229,7 +3229,7 @@ static int process_buffer(struct sr_input *in, gboolean is_eof)
 	if (inc->curr_opts.textinput == INPUT_TEXT) do {
 		/* Get another line of text. */
 		seen = 0;
-		line = sr_text_next_line(buf->str, buf->len, &next, &seen);
+		line = otc_text_next_line(buf->str, buf->len, &next, &seen);
 		if (!line)
 			break;
 		/* Process non-empty input lines. */
@@ -3261,10 +3261,10 @@ static int process_buffer(struct sr_input *in, gboolean is_eof)
 			if (ret > 0)
 				continue;
 			ret = send_frame(in);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			ret = send_idle_interframe(inc);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 		}
 		g_string_erase(buf, 0, seen);
@@ -3273,18 +3273,18 @@ static int process_buffer(struct sr_input *in, gboolean is_eof)
 	/* Send idle level, and flush when end of input data is seen. */
 	if (is_eof) {
 		if (buf->len)
-			sr_warn("Unprocessed input data remains.");
+			otc_warn("Unprocessed input data remains.");
 
 		ret = send_idle_capture(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		ret = feed_queue_logic_flush(inc->feed_logic);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int format_match(GHashTable *metadata, unsigned int *confidence)
@@ -3293,7 +3293,7 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	gboolean has_magic;
 
 	buf = g_hash_table_lookup(metadata,
-		GINT_TO_POINTER(SR_INPUT_META_HEADER));
+		GINT_TO_POINTER(OTC_INPUT_META_HEADER));
 	tmpbuf = g_string_new_len(buf->str, buf->len);
 
 	check_remove_bom(tmpbuf);
@@ -3301,13 +3301,13 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	g_string_free(tmpbuf, TRUE);
 
 	if (!has_magic)
-		return SR_ERR;
+		return OTC_ERR;
 
 	*confidence = 1;
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	struct context *inc;
 	GVariant *gvar;
@@ -3330,7 +3330,7 @@ static int init(struct sr_input *in, GHashTable *options)
 	if (gvar) {
 		rate = g_variant_get_uint64(gvar);
 		if (rate)
-			sr_dbg("User samplerate %" PRIu64 ".", rate);
+			otc_dbg("User samplerate %" PRIu64 ".", rate);
 		inc->user_opts.samplerate = rate;
 	}
 
@@ -3338,7 +3338,7 @@ static int init(struct sr_input *in, GHashTable *options)
 	if (gvar) {
 		rate = g_variant_get_uint64(gvar);
 		if (rate)
-			sr_dbg("User bitrate %" PRIu64 ".", rate);
+			otc_dbg("User bitrate %" PRIu64 ".", rate);
 		inc->user_opts.bitrate = rate;
 	}
 
@@ -3346,9 +3346,9 @@ static int init(struct sr_input *in, GHashTable *options)
 	if (gvar) {
 		copy = g_strdup(g_variant_get_string(gvar, NULL));
 		if (!copy)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		if (*copy)
-			sr_dbg("User protocol %s.", copy);
+			otc_dbg("User protocol %s.", copy);
 		inc->user_opts.proto_name = copy;
 	}
 
@@ -3356,9 +3356,9 @@ static int init(struct sr_input *in, GHashTable *options)
 	if (gvar) {
 		copy = g_strdup(g_variant_get_string(gvar, NULL));
 		if (!copy)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		if (*copy)
-			sr_dbg("User frame format %s.", copy);
+			otc_dbg("User frame format %s.", copy);
 		inc->user_opts.fmt_text = copy;
 	}
 
@@ -3367,10 +3367,10 @@ static int init(struct sr_input *in, GHashTable *options)
 	if (gvar) {
 		text = g_variant_get_string(gvar, NULL);
 		if (!text)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		if (!*text)
-			return SR_ERR_DATA;
-		sr_dbg("User text input %s.", text);
+			return OTC_ERR_DATA;
+		otc_dbg("User text input %s.", text);
 		if (strcmp(text, input_format_texts[INPUT_UNSPEC]) == 0) {
 			inc->user_opts.textinput = INPUT_UNSPEC;
 		} else if (strcmp(text, input_format_texts[INPUT_BYTES]) == 0) {
@@ -3378,14 +3378,14 @@ static int init(struct sr_input *in, GHashTable *options)
 		} else if (strcmp(text, input_format_texts[INPUT_TEXT]) == 0) {
 			inc->user_opts.textinput = INPUT_TEXT;
 		} else {
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 	struct context *inc;
 	char *after_magic, *after_header;
@@ -3420,7 +3420,7 @@ static int receive(struct sr_input *in, GString *buf)
 			inc->scanned_magic = TRUE;
 			if (inc->has_magic) {
 				consumed = after_magic - in->buf->str;
-				sr_dbg("File format magic found (%zu).", consumed);
+				otc_dbg("File format magic found (%zu).", consumed);
 				g_string_erase(in->buf, 0, consumed);
 			}
 		}
@@ -3429,13 +3429,13 @@ static int receive(struct sr_input *in, GString *buf)
 		if (inc->has_magic) {
 			ret = have_header(in->buf, &after_header);
 			if (ret < 0)
-				return SR_OK;
+				return OTC_OK;
 			inc->has_header = ret;
 			if (inc->has_header) {
 				consumed = after_header - in->buf->str;
-				sr_dbg("File header found (%zu), processing.", consumed);
+				otc_dbg("File header found (%zu), processing.", consumed);
 				ret = parse_header(inc, in->buf, consumed);
-				if (ret != SR_OK)
+				if (ret != OTC_OK)
 					return ret;
 				g_string_erase(in->buf, 0, consumed);
 			}
@@ -3447,23 +3447,23 @@ static int receive(struct sr_input *in, GString *buf)
 		 * logic channels, prepare resources for data processing.
 		 */
 		ret = check_header_user_options(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		ret = create_channels(in);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!check_header_in_reread(in))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		ret = alloc_frame_storage(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		ret = assign_bit_widths(inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		/* Notify the frontend that sdi is ready. */
 		in->sdi_ready = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/*
@@ -3475,7 +3475,7 @@ static int receive(struct sr_input *in, GString *buf)
 	return ret;
 }
 
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	struct context *inc;
 	int ret;
@@ -3485,21 +3485,21 @@ static int end(struct sr_input *in)
 	/* Must complete processing of previously received chunks. */
 	if (in->sdi_ready) {
 		ret = process_buffer(in, TRUE);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
 	/* Must send DF_END when DF_HEADER was sent before. */
 	if (inc->started) {
 		ret = std_session_send_df_end(in->sdi);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void cleanup(struct sr_input *in)
+static void cleanup(struct otc_input *in)
 {
 	struct context *inc;
 
@@ -3525,7 +3525,7 @@ static void cleanup(struct sr_input *in)
 	inc->bit_scale = NULL;
 }
 
-static int reset(struct sr_input *in)
+static int reset(struct otc_input *in)
 {
 	struct context *inc;
 	struct user_opts_t save_user_opts;
@@ -3544,7 +3544,7 @@ static int reset(struct sr_input *in)
 	inc->user_opts = save_user_opts;
 	inc->prev = save_chans;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 enum proto_option_t {
@@ -3556,7 +3556,7 @@ enum proto_option_t {
 	OPT_MAX,
 };
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	[OPT_SAMPLERATE] = {
 		"samplerate", "Logic data samplerate",
 		"Samplerate of generated logic traces",
@@ -3585,7 +3585,7 @@ static struct sr_option options[] = {
 	[OPT_MAX] = ALL_ZERO,
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	GSList *l;
 	enum proto_type_t p_idx;
@@ -3618,12 +3618,12 @@ static const struct sr_option *get_options(void)
 	return options;
 }
 
-SR_PRIV struct sr_input_module input_protocoldata = {
+OTC_PRIV struct otc_input_module input_protocoldata = {
 	.id = "protocoldata",
 	.name = "Protocol data",
 	.desc = "Generate logic traces from protocol's data values",
 	.exts = (const char *[]){ "sr-protocol", "protocol", "bin", NULL, },
-	.metadata = { SR_INPUT_META_HEADER | SR_INPUT_META_REQUIRED },
+	.metadata = { OTC_INPUT_META_HEADER | OTC_INPUT_META_REQUIRED },
 	.options = get_options,
 	.format_match = format_match,
 	.init = init,

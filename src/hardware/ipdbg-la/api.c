@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Eva Kissling <eva.kissling@bluewin.ch>
  *
@@ -21,25 +21,25 @@
 #include "protocol.h"
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
+	OTC_CONF_CAPTURE_RATIO | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const int32_t trigger_matches[] = {
-	SR_TRIGGER_ZERO,
-	SR_TRIGGER_ONE,
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
-	SR_TRIGGER_EDGE,
+	OTC_TRIGGER_ZERO,
+	OTC_TRIGGER_ONE,
+	OTC_TRIGGER_RISING,
+	OTC_TRIGGER_FALLING,
+	OTC_TRIGGER_EDGE,
 };
 
 static void ipdbg_la_split_addr_port(const char *conn, char **addr,
@@ -53,7 +53,7 @@ static void ipdbg_la_split_addr_port(const char *conn, char **addr,
 	g_strfreev(strs);
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct drv_context *drvc;
 	GSList *devices;
@@ -62,14 +62,14 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	drvc = di->context;
 	drvc->instances = NULL;
 	const char *conn;
-	struct sr_config *src;
+	struct otc_config *src;
 	GSList *l;
 
 	conn = NULL;
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -85,17 +85,17 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	if (!tcp->address)
 		return NULL;
 
-	if (ipdbg_la_tcp_open(tcp) != SR_OK)
+	if (ipdbg_la_tcp_open(tcp) != OTC_OK)
 		return NULL;
 
 	ipdbg_la_send_reset(tcp);
 	ipdbg_la_send_reset(tcp);
 
-	if (ipdbg_la_request_id(tcp) != SR_OK)
+	if (ipdbg_la_request_id(tcp) != OTC_OK)
 		return NULL;
 
-	struct sr_dev_inst *sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	struct otc_dev_inst *sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("ipdbg.org");
 	sdi->model = g_strdup("IPDBG LA");
 	sdi->version = g_strdup("v1.0");
@@ -106,17 +106,17 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	ipdbg_la_get_addrwidth_and_datawidth(tcp, devc);
 
-	sr_dbg("addr_width = %d, data_width = %d\n", devc->addr_width,
+	otc_dbg("addr_width = %d, data_width = %d\n", devc->addr_width,
 		devc->data_width);
-	sr_dbg("limit samples = %" PRIu64 "\n", devc->limit_samples_max);
+	otc_dbg("limit samples = %" PRIu64 "\n", devc->limit_samples_max);
 
 	for (uint32_t i = 0; i < devc->data_width; i++) {
 		char *name = g_strdup_printf("CH%d", i);
-		sr_channel_new(sdi, i, SR_CHANNEL_LOGIC, TRUE, name);
+		otc_channel_new(sdi, i, OTC_CHANNEL_LOGIC, TRUE, name);
 		g_free(name);
 	}
 
-	sdi->inst_type = SR_INST_USER;
+	sdi->inst_type = OTC_INST_USER;
 	sdi->conn = tcp;
 
 	ipdbg_la_tcp_close(tcp);
@@ -126,10 +126,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	return std_scan_complete(di, devices);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	struct drv_context *drvc = di->context;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	GSList *l;
 
 	if (drvc) {
@@ -148,20 +148,20 @@ static int dev_clear(const struct sr_dev_driver *di)
 	return std_dev_clear(di);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
 	struct ipdbg_la_tcp *tcp = sdi->conn;
 
 	if (!tcp)
-		return SR_ERR;
+		return OTC_ERR;
 
-	if (ipdbg_la_tcp_open(tcp) != SR_OK)
-		return SR_ERR;
+	if (ipdbg_la_tcp_open(tcp) != OTC_OK)
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	/* Should be called before a new call to scan(). */
 	struct ipdbg_la_tcp *tcp = sdi->conn;
@@ -171,42 +171,42 @@ static int dev_close(struct sr_dev_inst *sdi)
 
 	sdi->conn = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc = sdi->priv;
 
 	(void)cg;
 
 	switch (key) {
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		*data = g_variant_new_uint64(devc->capture_ratio);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		*data = g_variant_new_uint64(devc->limit_samples);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc = sdi->priv;
 
 	(void)cg;
 
 	switch (key) {
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		devc->capture_ratio = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		{
 			uint64_t limit_samples = g_variant_get_uint64(data);
 			if (limit_samples <= devc->limit_samples_max)
@@ -214,30 +214,30 @@ static int config_set(uint32_t key, GVariant *data,
 		}
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_TRIGGER_MATCH:
+	case OTC_CONF_TRIGGER_MATCH:
 		*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct ipdbg_la_tcp *tcp = sdi->conn;
 	struct dev_context *devc = sdi->priv;
@@ -249,15 +249,15 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	/* If the device stops sending for longer than it takes to send a byte,
 	 * that means it's finished. But wait at least 100 ms to be safe.
 	 */
-	sr_session_source_add(sdi->session, tcp->socket, G_IO_IN, 100,
-		ipdbg_la_receive_data, (struct sr_dev_inst *)sdi);
+	otc_session_source_add(sdi->session, tcp->socket, G_IO_IN, 100,
+		ipdbg_la_receive_data, (struct otc_dev_inst *)sdi);
 
 	ipdbg_la_send_start(tcp);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct ipdbg_la_tcp *tcp = sdi->conn;
 	struct dev_context *devc = sdi->priv;
@@ -277,10 +277,10 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	ipdbg_la_send_reset(tcp);
 	ipdbg_la_abort_acquisition(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver ipdbg_la_driver_info = {
+static struct otc_dev_driver ipdbg_la_driver_info = {
 	.name = "ipdbg-la",
 	.longname = "IPDBG LA",
 	.api_version = 1,
@@ -298,4 +298,4 @@ static struct sr_dev_driver ipdbg_la_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(ipdbg_la_driver_info);
+OTC_REGISTER_DEV_DRIVER(ipdbg_la_driver_info);

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  *
@@ -24,8 +24,8 @@
 #include <string.h>
 #include <limits.h>
 #include <math.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 #define JOB_TIMEOUT 300
@@ -81,16 +81,16 @@ static const struct agdmm_job *job_next(struct dev_context *devc)
 	return job_current(devc);
 }
 
-static void job_run_again(const struct sr_dev_inst *sdi)
+static void job_run_again(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	devc->job_again = FALSE;
 	devc->job_running = TRUE;
-	if (job_current(devc)->send(sdi) == SR_ERR_NA)
+	if (job_current(devc)->send(sdi) == OTC_ERR_NA)
 		job_done(devc);
 }
 
-static void job_run(const struct sr_dev_inst *sdi)
+static void job_run(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	int64_t now = g_get_monotonic_time() / 1000;
@@ -98,7 +98,7 @@ static void job_run(const struct sr_dev_inst *sdi)
 	job_run_again(sdi);
 }
 
-static void dispatch(const struct sr_dev_inst *sdi)
+static void dispatch(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 
@@ -116,7 +116,7 @@ static void dispatch(const struct sr_dev_inst *sdi)
 		job_run(sdi);
 }
 
-static gboolean receive_line(const struct sr_dev_inst *sdi)
+static gboolean receive_line(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	const struct agdmm_recv *recvs, *recv;
@@ -135,7 +135,7 @@ static gboolean receive_line(const struct sr_dev_inst *sdi)
 		else
 			break;
 	}
-	sr_spew("Received '%s'.", devc->buf);
+	otc_spew("Received '%s'.", devc->buf);
 
 	recv = NULL;
 	recvs = devc->profile->recvs;
@@ -159,18 +159,18 @@ static gboolean receive_line(const struct sr_dev_inst *sdi)
 		g_match_info_unref(match);
 		g_regex_unref(reg);
 	} else
-		sr_dbg("Unknown line '%s'.", devc->buf);
+		otc_dbg("Unknown line '%s'.", devc->buf);
 
 	/* Done with this. */
 	devc->buflen = 0;
 	return stop;
 }
 
-SR_PRIV int agdmm_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int agdmm_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	gboolean stop = FALSE;
 	int len;
 
@@ -199,17 +199,17 @@ SR_PRIV int agdmm_receive_data(int fd, int revents, void *cb_data)
 		}
 	}
 
-	if (sr_sw_limits_check(&devc->limits) || stop)
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits) || stop)
+		otc_dev_acquisition_stop(sdi);
 	else
 		dispatch(sdi);
 
 	return TRUE;
 }
 
-static int agdmm_send(const struct sr_dev_inst *sdi, const char *cmd, ...)
+static int agdmm_send(const struct otc_dev_inst *sdi, const char *cmd, ...)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	va_list args;
 	char buf[32];
 
@@ -218,50 +218,50 @@ static int agdmm_send(const struct sr_dev_inst *sdi, const char *cmd, ...)
 	va_start(args, cmd);
 	vsnprintf(buf, sizeof(buf) - 3, cmd, args);
 	va_end(args);
-	sr_spew("Sending '%s'.", buf);
+	otc_spew("Sending '%s'.", buf);
 	if (!strncmp(buf, "*IDN?", 5))
 		strcat(buf, "\r\n");
 	else
 		strcat(buf, "\n\r\n");
 	if (serial_write_blocking(serial, buf, strlen(buf), SERIAL_WRITE_TIMEOUT_MS) < (int)strlen(buf)) {
-		sr_err("Failed to send.");
-		return SR_ERR;
+		otc_err("Failed to send.");
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int send_stat(const struct sr_dev_inst *sdi)
+static int send_stat(const struct otc_dev_inst *sdi)
 {
 	return agdmm_send(sdi, "STAT?");
 }
 
-static int recv_stat_u123x(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_stat_u123x(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
 	struct dev_context *devc;
 	char *s;
 
 	devc = sdi->priv;
 	s = g_match_info_fetch(match, 1);
-	sr_spew("STAT response '%s'.", s);
+	otc_spew("STAT response '%s'.", s);
 
 	/* Max, Min or Avg mode -- no way to tell which, so we'll
 	 * set both flags to denote it's not a normal measurement. */
 	if (s[0] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_MAX | SR_MQFLAG_MIN;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_MAX | OTC_MQFLAG_MIN;
 	else
-		devc->cur_mqflags[0] &= ~(SR_MQFLAG_MAX | SR_MQFLAG_MIN);
+		devc->cur_mqflags[0] &= ~(OTC_MQFLAG_MAX | OTC_MQFLAG_MIN);
 
 	if (s[1] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_RELATIVE;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_RELATIVE;
 	else
-		devc->cur_mqflags[0] &= ~SR_MQFLAG_RELATIVE;
+		devc->cur_mqflags[0] &= ~OTC_MQFLAG_RELATIVE;
 
 	/* Triggered or auto hold modes. */
 	if (s[2] == '1' || s[3] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_HOLD;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_HOLD;
 	else
-		devc->cur_mqflags[0] &= ~SR_MQFLAG_HOLD;
+		devc->cur_mqflags[0] &= ~OTC_MQFLAG_HOLD;
 
 	/* Temp/aux mode. */
 	if (s[7] == '1')
@@ -280,158 +280,158 @@ static int recv_stat_u123x(const struct sr_dev_inst *sdi, GMatchInfo *match)
 	return JOB_STAT;
 }
 
-static int recv_stat_u124x(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_stat_u124x(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
 	struct dev_context *devc;
 	char *s;
 
 	devc = sdi->priv;
 	s = g_match_info_fetch(match, 1);
-	sr_spew("STAT response '%s'.", s);
+	otc_spew("STAT response '%s'.", s);
 
 	/* Max, Min or Avg mode -- no way to tell which, so we'll
 	 * set both flags to denote it's not a normal measurement. */
 	if (s[0] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_MAX | SR_MQFLAG_MIN;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_MAX | OTC_MQFLAG_MIN;
 	else
-		devc->cur_mqflags[0] &= ~(SR_MQFLAG_MAX | SR_MQFLAG_MIN);
+		devc->cur_mqflags[0] &= ~(OTC_MQFLAG_MAX | OTC_MQFLAG_MIN);
 
 	if (s[1] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_RELATIVE;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_RELATIVE;
 	else
-		devc->cur_mqflags[0] &= ~SR_MQFLAG_RELATIVE;
+		devc->cur_mqflags[0] &= ~OTC_MQFLAG_RELATIVE;
 
 	/* Hold mode. */
 	if (s[7] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_HOLD;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_HOLD;
 	else
-		devc->cur_mqflags[0] &= ~SR_MQFLAG_HOLD;
+		devc->cur_mqflags[0] &= ~OTC_MQFLAG_HOLD;
 
 	g_free(s);
 
 	return JOB_STAT;
 }
 
-static int recv_stat_u124xc(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_stat_u124xc(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
 	struct dev_context *devc;
 	char *s;
 
 	devc = sdi->priv;
 	s = g_match_info_fetch(match, 1);
-	sr_spew("STAT response '%s'.", s);
+	otc_spew("STAT response '%s'.", s);
 
 	/* Max, Min or Avg mode -- no way to tell which, so we'll
 	 * set both flags to denote it's not a normal measurement. */
 	if (s[0] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_MAX | SR_MQFLAG_MIN | SR_MQFLAG_AVG;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_MAX | OTC_MQFLAG_MIN | OTC_MQFLAG_AVG;
 	else
-		devc->cur_mqflags[0] &= ~(SR_MQFLAG_MAX | SR_MQFLAG_MIN | SR_MQFLAG_AVG);
+		devc->cur_mqflags[0] &= ~(OTC_MQFLAG_MAX | OTC_MQFLAG_MIN | OTC_MQFLAG_AVG);
 
 	/* Null function. */
 	if (s[1] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_RELATIVE;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_RELATIVE;
 	else
-		devc->cur_mqflags[0] &= ~SR_MQFLAG_RELATIVE;
+		devc->cur_mqflags[0] &= ~OTC_MQFLAG_RELATIVE;
 
 	/* Triggered or auto hold modes. */
 	if (s[7] == '1' || s[11] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_HOLD;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_HOLD;
 	else
-		devc->cur_mqflags[0] &= ~SR_MQFLAG_HOLD;
+		devc->cur_mqflags[0] &= ~OTC_MQFLAG_HOLD;
 
 	g_free(s);
 
 	return JOB_STAT;
 }
 
-static int recv_stat_u125x(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_stat_u125x(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
 	struct dev_context *devc;
 	char *s;
 
 	devc = sdi->priv;
 	s = g_match_info_fetch(match, 1);
-	sr_spew("STAT response '%s'.", s);
+	otc_spew("STAT response '%s'.", s);
 
 	/* dBm/dBV modes. */
 	if ((s[2] & ~0x20) == 'M')
-		devc->mode_dbm_dbv = devc->cur_unit[0] = SR_UNIT_DECIBEL_MW;
+		devc->mode_dbm_dbv = devc->cur_unit[0] = OTC_UNIT_DECIBEL_MW;
 	else if ((s[2] & ~0x20) == 'V')
-		devc->mode_dbm_dbv = devc->cur_unit[0] = SR_UNIT_DECIBEL_VOLT;
+		devc->mode_dbm_dbv = devc->cur_unit[0] = OTC_UNIT_DECIBEL_VOLT;
 	else
 		devc->mode_dbm_dbv = 0;
 
 	/* Peak hold mode. */
 	if (s[4] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_MAX;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_MAX;
 	else
-		devc->cur_mqflags[0] &= ~SR_MQFLAG_MAX;
+		devc->cur_mqflags[0] &= ~OTC_MQFLAG_MAX;
 
 	/* Triggered hold mode. */
 	if (s[7] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_HOLD;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_HOLD;
 	else
-		devc->cur_mqflags[0] &= ~SR_MQFLAG_HOLD;
+		devc->cur_mqflags[0] &= ~OTC_MQFLAG_HOLD;
 
 	g_free(s);
 
 	return JOB_STAT;
 }
 
-static int recv_stat_u128x(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_stat_u128x(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
 	struct dev_context *devc;
 	char *s;
 
 	devc = sdi->priv;
 	s = g_match_info_fetch(match, 1);
-	sr_spew("STAT response '%s'.", s);
+	otc_spew("STAT response '%s'.", s);
 
 	/* Max, Min or Avg mode -- no way to tell which, so we'll
 	 * set both flags to denote it's not a normal measurement. */
 	if (s[0] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_MAX | SR_MQFLAG_MIN | SR_MQFLAG_AVG;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_MAX | OTC_MQFLAG_MIN | OTC_MQFLAG_AVG;
 	else
-		devc->cur_mqflags[0] &= ~(SR_MQFLAG_MAX | SR_MQFLAG_MIN | SR_MQFLAG_AVG);
+		devc->cur_mqflags[0] &= ~(OTC_MQFLAG_MAX | OTC_MQFLAG_MIN | OTC_MQFLAG_AVG);
 
 	/* dBm/dBV modes. */
 	if ((s[2] & ~0x20) == 'M')
-		devc->mode_dbm_dbv = devc->cur_unit[0] = SR_UNIT_DECIBEL_MW;
+		devc->mode_dbm_dbv = devc->cur_unit[0] = OTC_UNIT_DECIBEL_MW;
 	else if ((s[2] & ~0x20) == 'V')
-		devc->mode_dbm_dbv = devc->cur_unit[0] = SR_UNIT_DECIBEL_VOLT;
+		devc->mode_dbm_dbv = devc->cur_unit[0] = OTC_UNIT_DECIBEL_VOLT;
 	else
 		devc->mode_dbm_dbv = 0;
 
 	/* Peak hold mode. */
 	if (s[4] == '4')
-		devc->cur_mqflags[0] |= SR_MQFLAG_MAX;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_MAX;
 	else
-		devc->cur_mqflags[0] &= ~SR_MQFLAG_MAX;
+		devc->cur_mqflags[0] &= ~OTC_MQFLAG_MAX;
 
 	/* Null function. */
 	if (s[1] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_RELATIVE;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_RELATIVE;
 	else
-		devc->cur_mqflags[0] &= ~SR_MQFLAG_RELATIVE;
+		devc->cur_mqflags[0] &= ~OTC_MQFLAG_RELATIVE;
 
 	/* Triggered or auto hold modes. */
 	if (s[7] == '1' || s[11] == '1')
-		devc->cur_mqflags[0] |= SR_MQFLAG_HOLD;
+		devc->cur_mqflags[0] |= OTC_MQFLAG_HOLD;
 	else
-		devc->cur_mqflags[0] &= ~SR_MQFLAG_HOLD;
+		devc->cur_mqflags[0] &= ~OTC_MQFLAG_HOLD;
 
 	g_free(s);
 
 	return JOB_STAT;
 }
 
-static int send_fetc(const struct sr_dev_inst *sdi)
+static int send_fetc(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 
 	if (devc->mode_squarewave)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	if (devc->cur_channel->index > 0)
 		return agdmm_send(sdi, "FETC? @%d", devc->cur_channel->index + 1);
@@ -439,21 +439,21 @@ static int send_fetc(const struct sr_dev_inst *sdi)
 		return agdmm_send(sdi, "FETC?");
 }
 
-static int recv_fetc(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_fetc(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
-	struct sr_channel *prev_chan;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
+	struct otc_channel *prev_chan;
 	float fvalue;
 	const char *s;
 	char *mstr;
 	int i, exp;
 
-	sr_spew("FETC reply '%s'.", g_match_info_get_string(match));
+	otc_spew("FETC reply '%s'.", g_match_info_get_string(match));
 	devc = sdi->priv;
 	i = devc->cur_channel->index;
 
@@ -470,28 +470,28 @@ static int recv_fetc(const struct sr_dev_inst *sdi, GMatchInfo *match)
 		fvalue = NAN;
 	} else {
 		mstr = g_match_info_fetch(match, 1);
-		if (sr_atof_ascii(mstr, &fvalue) != SR_OK) {
+		if (otc_atof_ascii(mstr, &fvalue) != OTC_OK) {
 			g_free(mstr);
-			sr_dbg("Invalid float.");
-			return SR_ERR;
+			otc_dbg("Invalid float.");
+			return OTC_ERR;
 		}
 		g_free(mstr);
 		if (devc->cur_exponent[i] != 0)
 			fvalue *= powf(10, devc->cur_exponent[i]);
 	}
 
-	if (devc->cur_unit[i] == SR_UNIT_DECIBEL_MW ||
-	    devc->cur_unit[i] == SR_UNIT_DECIBEL_VOLT ||
-	    devc->cur_unit[i] == SR_UNIT_PERCENTAGE) {
+	if (devc->cur_unit[i] == OTC_UNIT_DECIBEL_MW ||
+	    devc->cur_unit[i] == OTC_UNIT_DECIBEL_VOLT ||
+	    devc->cur_unit[i] == OTC_UNIT_PERCENTAGE) {
 		mstr = g_match_info_fetch(match, 2);
-		if (mstr && sr_atoi(mstr, &exp) == SR_OK) {
+		if (mstr && otc_atoi(mstr, &exp) == OTC_OK) {
 			devc->cur_digits[i] = MIN(4 - exp, devc->cur_digits[i]);
 			devc->cur_encoding[i] = MIN(5 - exp, devc->cur_encoding[i]);
 		}
 		g_free(mstr);
 	}
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec,
+	otc_analog_init(&analog, &encoding, &meaning, &spec,
 	               devc->cur_digits[i] - devc->cur_exponent[i]);
 	analog.meaning->mq = devc->cur_mq[i];
 	analog.meaning->unit = devc->cur_unit[i];
@@ -500,29 +500,29 @@ static int recv_fetc(const struct sr_dev_inst *sdi, GMatchInfo *match)
 	analog.num_samples = 1;
 	analog.data = &fvalue;
 	encoding.digits = devc->cur_encoding[i] - devc->cur_exponent[i];
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 	g_slist_free(analog.meaning->channels);
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 
 skip_value:
 	prev_chan = devc->cur_channel;
-	devc->cur_channel = sr_next_enabled_channel(sdi, devc->cur_channel);
+	devc->cur_channel = otc_next_enabled_channel(sdi, devc->cur_channel);
 	if (devc->cur_channel->index > prev_chan->index)
 		return JOB_AGAIN;
 	else
 		return JOB_FETC;
 }
 
-static int send_conf(const struct sr_dev_inst *sdi)
+static int send_conf(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 
 	/* Do not try to send CONF? for internal temperature channel. */
 	if (devc->cur_conf->index >= MIN(devc->profile->nb_channels, 2))
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	if (devc->cur_conf->index > 0)
 		return agdmm_send(sdi, "CONF? @%d", devc->cur_conf->index + 1);
@@ -530,99 +530,99 @@ static int send_conf(const struct sr_dev_inst *sdi)
 		return agdmm_send(sdi, "CONF?");
 }
 
-static int recv_conf_u123x(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_conf_u123x(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
 	struct dev_context *devc;
 	char *mstr, *rstr;
 	int i, resolution;
 
-	sr_spew("CONF? response '%s'.", g_match_info_get_string(match));
+	otc_spew("CONF? response '%s'.", g_match_info_get_string(match));
 	devc = sdi->priv;
 	i = devc->cur_conf->index;
 
 	rstr = g_match_info_fetch(match, 2);
 	if (rstr)
-		sr_atoi(rstr, &resolution);
+		otc_atoi(rstr, &resolution);
 	g_free(rstr);
 
 	mstr = g_match_info_fetch(match, 1);
 	if (!strcmp(mstr, "V")) {
-		devc->cur_mq[i] = SR_MQ_VOLTAGE;
-		devc->cur_unit[i] = SR_UNIT_VOLT;
+		devc->cur_mq[i] = OTC_MQ_VOLTAGE;
+		devc->cur_unit[i] = OTC_UNIT_VOLT;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 		devc->cur_digits[i] = 4 - resolution;
 	} else if (!strcmp(mstr, "MV")) {
 		if (devc->mode_tempaux) {
-			devc->cur_mq[i] = SR_MQ_TEMPERATURE;
+			devc->cur_mq[i] = OTC_MQ_TEMPERATURE;
 			/* No way to detect whether Fahrenheit or Celsius
 			 * is used, so we'll just default to Celsius. */
-			devc->cur_unit[i] = SR_UNIT_CELSIUS;
+			devc->cur_unit[i] = OTC_UNIT_CELSIUS;
 			devc->cur_mqflags[i] = 0;
 			devc->cur_exponent[i] = 0;
 			devc->cur_digits[i] = 1;
 		} else {
-			devc->cur_mq[i] = SR_MQ_VOLTAGE;
-			devc->cur_unit[i] = SR_UNIT_VOLT;
+			devc->cur_mq[i] = OTC_MQ_VOLTAGE;
+			devc->cur_unit[i] = OTC_UNIT_VOLT;
 			devc->cur_mqflags[i] = 0;
 			devc->cur_exponent[i] = -3;
 			devc->cur_digits[i] = 5 - resolution;
 		}
 	} else if (!strcmp(mstr, "A")) {
-		devc->cur_mq[i] = SR_MQ_CURRENT;
-		devc->cur_unit[i] = SR_UNIT_AMPERE;
+		devc->cur_mq[i] = OTC_MQ_CURRENT;
+		devc->cur_unit[i] = OTC_UNIT_AMPERE;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 		devc->cur_digits[i] = 3 - resolution;
 	} else if (!strcmp(mstr, "MA")) {
-		devc->cur_mq[i] = SR_MQ_CURRENT;
-		devc->cur_unit[i] = SR_UNIT_AMPERE;
+		devc->cur_mq[i] = OTC_MQ_CURRENT;
+		devc->cur_unit[i] = OTC_UNIT_AMPERE;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = -3;
 		devc->cur_digits[i] = 8 - resolution;
 	} else if (!strcmp(mstr, "UA")) {
-		devc->cur_mq[i] = SR_MQ_CURRENT;
-		devc->cur_unit[i] = SR_UNIT_AMPERE;
+		devc->cur_mq[i] = OTC_MQ_CURRENT;
+		devc->cur_unit[i] = OTC_UNIT_AMPERE;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = -6;
 		devc->cur_digits[i] = 8 - resolution;
 	} else if (!strcmp(mstr, "FREQ")) {
-		devc->cur_mq[i] = SR_MQ_FREQUENCY;
-		devc->cur_unit[i] = SR_UNIT_HERTZ;
+		devc->cur_mq[i] = OTC_MQ_FREQUENCY;
+		devc->cur_unit[i] = OTC_UNIT_HERTZ;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 		devc->cur_digits[i] = 2 - resolution;
 	} else if (!strcmp(mstr, "RES")) {
 		if (devc->mode_continuity) {
-			devc->cur_mq[i] = SR_MQ_CONTINUITY;
-			devc->cur_unit[i] = SR_UNIT_BOOLEAN;
+			devc->cur_mq[i] = OTC_MQ_CONTINUITY;
+			devc->cur_unit[i] = OTC_UNIT_BOOLEAN;
 		} else {
-			devc->cur_mq[i] = SR_MQ_RESISTANCE;
-			devc->cur_unit[i] = SR_UNIT_OHM;
+			devc->cur_mq[i] = OTC_MQ_RESISTANCE;
+			devc->cur_unit[i] = OTC_UNIT_OHM;
 		}
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 		devc->cur_digits[i] = 1 - resolution;
 	} else if (!strcmp(mstr, "DIOD")) {
-		devc->cur_mq[i] = SR_MQ_VOLTAGE;
-		devc->cur_unit[i] = SR_UNIT_VOLT;
-		devc->cur_mqflags[i] = SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		devc->cur_mq[i] = OTC_MQ_VOLTAGE;
+		devc->cur_unit[i] = OTC_UNIT_VOLT;
+		devc->cur_mqflags[i] = OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 		devc->cur_exponent[i] = 0;
 		devc->cur_digits[i] = 3;
 	} else if (!strcmp(mstr, "TEMP")) {
-		devc->cur_mq[i] = SR_MQ_TEMPERATURE;
-		devc->cur_unit[i] = SR_UNIT_CELSIUS;
+		devc->cur_mq[i] = OTC_MQ_TEMPERATURE;
+		devc->cur_unit[i] = OTC_UNIT_CELSIUS;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 		devc->cur_digits[i] = 1;
 	} else if (!strcmp(mstr, "CAP")) {
-		devc->cur_mq[i] = SR_MQ_CAPACITANCE;
-		devc->cur_unit[i] = SR_UNIT_FARAD;
+		devc->cur_mq[i] = OTC_MQ_CAPACITANCE;
+		devc->cur_unit[i] = OTC_UNIT_FARAD;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 		devc->cur_digits[i] = 9 - resolution;
 	} else
-		sr_dbg("Unknown first argument.");
+		otc_dbg("Unknown first argument.");
 	g_free(mstr);
 
 	/* This is based on guess, supposing similarity with other models. */
@@ -632,44 +632,44 @@ static int recv_conf_u123x(const struct sr_dev_inst *sdi, GMatchInfo *match)
 		mstr = g_match_info_fetch(match, 3);
 		/* Third value, if present, is always AC or DC. */
 		if (!strcmp(mstr, "AC")) {
-			devc->cur_mqflags[i] |= SR_MQFLAG_AC;
-			if (devc->cur_mq[i] == SR_MQ_VOLTAGE)
-				devc->cur_mqflags[i] |= SR_MQFLAG_RMS;
+			devc->cur_mqflags[i] |= OTC_MQFLAG_AC;
+			if (devc->cur_mq[i] == OTC_MQ_VOLTAGE)
+				devc->cur_mqflags[i] |= OTC_MQFLAG_RMS;
 		} else if (!strcmp(mstr, "DC")) {
-			devc->cur_mqflags[i] |= SR_MQFLAG_DC;
+			devc->cur_mqflags[i] |= OTC_MQFLAG_DC;
 		} else if (!strcmp(mstr, "ACDC")) {
-			devc->cur_mqflags[i] |= SR_MQFLAG_AC | SR_MQFLAG_DC | SR_MQFLAG_RMS;
+			devc->cur_mqflags[i] |= OTC_MQFLAG_AC | OTC_MQFLAG_DC | OTC_MQFLAG_RMS;
 		} else {
-			sr_dbg("Unknown first argument '%s'.", mstr);
+			otc_dbg("Unknown first argument '%s'.", mstr);
 		}
 		g_free(mstr);
 	} else
-		devc->cur_mqflags[i] &= ~(SR_MQFLAG_AC | SR_MQFLAG_DC);
+		devc->cur_mqflags[i] &= ~(OTC_MQFLAG_AC | OTC_MQFLAG_DC);
 
-	struct sr_channel *prev_conf = devc->cur_conf;
-	devc->cur_conf = sr_next_enabled_channel(sdi, devc->cur_conf);
+	struct otc_channel *prev_conf = devc->cur_conf;
+	devc->cur_conf = otc_next_enabled_channel(sdi, devc->cur_conf);
 	if (devc->cur_conf->index >= MIN(devc->profile->nb_channels, 2))
-		devc->cur_conf = sr_next_enabled_channel(sdi, devc->cur_conf);
+		devc->cur_conf = otc_next_enabled_channel(sdi, devc->cur_conf);
 	if (devc->cur_conf->index > prev_conf->index)
 		return JOB_AGAIN;
 	else
 		return JOB_CONF;
 }
 
-static int recv_conf_u124x_5x(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_conf_u124x_5x(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
 	struct dev_context *devc;
 	char *mstr, *rstr, *m2;
 	int i, resolution;
 
-	sr_spew("CONF? response '%s'.", g_match_info_get_string(match));
+	otc_spew("CONF? response '%s'.", g_match_info_get_string(match));
 	devc = sdi->priv;
 	i = devc->cur_conf->index;
 
 	devc->mode_squarewave = 0;
 
 	rstr = g_match_info_fetch(match, 4);
-	if (rstr && sr_atoi(rstr, &resolution) == SR_OK) {
+	if (rstr && otc_atoi(rstr, &resolution) == OTC_OK) {
 		devc->cur_digits[i] = -resolution;
 		devc->cur_encoding[i] = -resolution + 1;
 	}
@@ -677,8 +677,8 @@ static int recv_conf_u124x_5x(const struct sr_dev_inst *sdi, GMatchInfo *match)
 
 	mstr = g_match_info_fetch(match, 1);
 	if (!strncmp(mstr, "VOLT", 4)) {
-		devc->cur_mq[i] = SR_MQ_VOLTAGE;
-		devc->cur_unit[i] = SR_UNIT_VOLT;
+		devc->cur_mq[i] = OTC_MQ_VOLTAGE;
+		devc->cur_unit[i] = OTC_UNIT_VOLT;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 		if (i == 0 && devc->mode_dbm_dbv) {
@@ -689,77 +689,77 @@ static int recv_conf_u124x_5x(const struct sr_dev_inst *sdi, GMatchInfo *match)
 		if (mstr[4] == ':') {
 			if (!strncmp(mstr + 5, "ACDC", 4)) {
 				/* AC + DC offset */
-				devc->cur_mqflags[i] |= SR_MQFLAG_AC | SR_MQFLAG_DC | SR_MQFLAG_RMS;
+				devc->cur_mqflags[i] |= OTC_MQFLAG_AC | OTC_MQFLAG_DC | OTC_MQFLAG_RMS;
 			} else if (!strncmp(mstr + 5, "AC", 2)) {
-				devc->cur_mqflags[i] |= SR_MQFLAG_AC | SR_MQFLAG_RMS;
+				devc->cur_mqflags[i] |= OTC_MQFLAG_AC | OTC_MQFLAG_RMS;
 			} else if (!strncmp(mstr + 5, "DC", 2)) {
-				devc->cur_mqflags[i] |= SR_MQFLAG_DC;
+				devc->cur_mqflags[i] |= OTC_MQFLAG_DC;
 			} else if (!strncmp(mstr + 5, "HRAT", 4)) {
-				devc->cur_mq[i] = SR_MQ_HARMONIC_RATIO;
-				devc->cur_unit[i] = SR_UNIT_PERCENTAGE;
+				devc->cur_mq[i] = OTC_MQ_HARMONIC_RATIO;
+				devc->cur_unit[i] = OTC_UNIT_PERCENTAGE;
 				devc->cur_digits[i] = 2;
 				devc->cur_encoding[i] = 3;
 			}
 		} else
-			devc->cur_mqflags[i] |= SR_MQFLAG_DC;
+			devc->cur_mqflags[i] |= OTC_MQFLAG_DC;
 	} else if (!strncmp(mstr, "CURR", 4)) {
-		devc->cur_mq[i] = SR_MQ_CURRENT;
-		devc->cur_unit[i] = SR_UNIT_AMPERE;
+		devc->cur_mq[i] = OTC_MQ_CURRENT;
+		devc->cur_unit[i] = OTC_UNIT_AMPERE;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 		if (mstr[4] == ':') {
 			if (!strncmp(mstr + 5, "ACDC", 4)) {
 				/* AC + DC offset */
-				devc->cur_mqflags[i] |= SR_MQFLAG_AC | SR_MQFLAG_DC | SR_MQFLAG_RMS;
+				devc->cur_mqflags[i] |= OTC_MQFLAG_AC | OTC_MQFLAG_DC | OTC_MQFLAG_RMS;
 			} else if (!strncmp(mstr + 5, "AC", 2)) {
-				devc->cur_mqflags[i] |= SR_MQFLAG_AC | SR_MQFLAG_RMS;
+				devc->cur_mqflags[i] |= OTC_MQFLAG_AC | OTC_MQFLAG_RMS;
 			} else if (!strncmp(mstr + 5, "DC", 2)) {
-				devc->cur_mqflags[i] |= SR_MQFLAG_DC;
+				devc->cur_mqflags[i] |= OTC_MQFLAG_DC;
 			}
 		} else
-			devc->cur_mqflags[i] |= SR_MQFLAG_DC;
+			devc->cur_mqflags[i] |= OTC_MQFLAG_DC;
 	} else if (!strcmp(mstr, "RES")) {
-		devc->cur_mq[i] = SR_MQ_RESISTANCE;
-		devc->cur_unit[i] = SR_UNIT_OHM;
+		devc->cur_mq[i] = OTC_MQ_RESISTANCE;
+		devc->cur_unit[i] = OTC_UNIT_OHM;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 	} else if (!strcmp(mstr, "COND")) {
-		devc->cur_mq[i] = SR_MQ_CONDUCTANCE;
-		devc->cur_unit[i] = SR_UNIT_SIEMENS;
+		devc->cur_mq[i] = OTC_MQ_CONDUCTANCE;
+		devc->cur_unit[i] = OTC_UNIT_SIEMENS;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 	} else if (!strcmp(mstr, "CAP")) {
-		devc->cur_mq[i] = SR_MQ_CAPACITANCE;
-		devc->cur_unit[i] = SR_UNIT_FARAD;
+		devc->cur_mq[i] = OTC_MQ_CAPACITANCE;
+		devc->cur_unit[i] = OTC_UNIT_FARAD;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 	} else if (!strncmp(mstr, "FREQ", 4) || !strncmp(mstr, "FC1", 3)) {
-		devc->cur_mq[i] = SR_MQ_FREQUENCY;
-		devc->cur_unit[i] = SR_UNIT_HERTZ;
+		devc->cur_mq[i] = OTC_MQ_FREQUENCY;
+		devc->cur_unit[i] = OTC_UNIT_HERTZ;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 	} else if (!strncmp(mstr, "PULS:PWID", 9)) {
-		devc->cur_mq[i] = SR_MQ_PULSE_WIDTH;
-		devc->cur_unit[i] = SR_UNIT_SECOND;
+		devc->cur_mq[i] = OTC_MQ_PULSE_WIDTH;
+		devc->cur_unit[i] = OTC_UNIT_SECOND;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 		devc->cur_encoding[i] = MIN(devc->cur_encoding[i], 6);
 	} else if (!strncmp(mstr, "PULS:PDUT", 9)) {
-		devc->cur_mq[i] = SR_MQ_DUTY_CYCLE;
-		devc->cur_unit[i] = SR_UNIT_PERCENTAGE;
+		devc->cur_mq[i] = OTC_MQ_DUTY_CYCLE;
+		devc->cur_unit[i] = OTC_UNIT_PERCENTAGE;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 		devc->cur_digits[i] = 3;
 		devc->cur_encoding[i] = 4;
 	} else if (!strcmp(mstr, "CONT")) {
-		devc->cur_mq[i] = SR_MQ_CONTINUITY;
-		devc->cur_unit[i] = SR_UNIT_OHM;
+		devc->cur_mq[i] = OTC_MQ_CONTINUITY;
+		devc->cur_unit[i] = OTC_UNIT_OHM;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 	} else if (!strcmp(mstr, "DIOD")) {
-		devc->cur_mq[i] = SR_MQ_VOLTAGE;
-		devc->cur_unit[i] = SR_UNIT_VOLT;
-		devc->cur_mqflags[i] = SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		devc->cur_mq[i] = OTC_MQ_VOLTAGE;
+		devc->cur_unit[i] = OTC_UNIT_VOLT;
+		devc->cur_mqflags[i] = OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 		devc->cur_exponent[i] = 0;
 		if (devc->profile->model == KEYSIGHT_U1281 ||
 		    devc->profile->model == KEYSIGHT_U1282) {
@@ -771,7 +771,7 @@ static int recv_conf_u124x_5x(const struct sr_dev_inst *sdi, GMatchInfo *match)
 		}
 	} else if (!strncmp(mstr, "T1", 2) || !strncmp(mstr, "T2", 2) ||
 		   !strncmp(mstr, "TEMP", 4)) {
-		devc->cur_mq[i] = SR_MQ_TEMPERATURE;
+		devc->cur_mq[i] = OTC_MQ_TEMPERATURE;
 		m2 = g_match_info_fetch(match, 2);
 		if (!m2 && devc->profile->nb_channels == 3)
 			/*
@@ -780,9 +780,9 @@ static int recv_conf_u124x_5x(const struct sr_dev_inst *sdi, GMatchInfo *match)
 			 */
 			devc->cur_mq[i] = -1;
 		else if (m2 && !strcmp(m2, "FAR"))
-			devc->cur_unit[i] = SR_UNIT_FAHRENHEIT;
+			devc->cur_unit[i] = OTC_UNIT_FAHRENHEIT;
 		else
-			devc->cur_unit[i] = SR_UNIT_CELSIUS;
+			devc->cur_unit[i] = OTC_UNIT_CELSIUS;
 		g_free(m2);
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
@@ -792,11 +792,11 @@ static int recv_conf_u124x_5x(const struct sr_dev_inst *sdi, GMatchInfo *match)
 		/*
 		 * Switch counter, not supported. Not sure what values
 		 * come from FETC in this mode, or how they would map
-		 * into libsigrok.
+		 * into libopentracecapture.
 		 */
 	} else if (!strncmp(mstr, "CPER:", 5)) {
-		devc->cur_mq[i] = SR_MQ_CURRENT;
-		devc->cur_unit[i] = SR_UNIT_PERCENTAGE;
+		devc->cur_mq[i] = OTC_MQ_CURRENT;
+		devc->cur_unit[i] = OTC_UNIT_PERCENTAGE;
 		devc->cur_mqflags[i] = 0;
 		devc->cur_exponent[i] = 0;
 		devc->cur_digits[i] = 2;
@@ -808,9 +808,9 @@ static int recv_conf_u124x_5x(const struct sr_dev_inst *sdi, GMatchInfo *match)
 		 */
 		devc->mode_squarewave = 1;
 	} else if (!strcmp(mstr, "NCV")) {
-		devc->cur_mq[i] = SR_MQ_VOLTAGE;
-		devc->cur_unit[i] = SR_UNIT_VOLT;
-		devc->cur_mqflags[i] = SR_MQFLAG_AC;
+		devc->cur_mq[i] = OTC_MQ_VOLTAGE;
+		devc->cur_unit[i] = OTC_UNIT_VOLT;
+		devc->cur_mqflags[i] = OTC_MQFLAG_AC;
 		if (devc->profile->model == KEYSIGHT_U1281 ||
 		    devc->profile->model == KEYSIGHT_U1282) {
 			devc->cur_exponent[i] = -3;
@@ -822,21 +822,21 @@ static int recv_conf_u124x_5x(const struct sr_dev_inst *sdi, GMatchInfo *match)
 			devc->cur_encoding[i] = 3;
 		}
 	} else {
-		sr_dbg("Unknown first argument '%s'.", mstr);
+		otc_dbg("Unknown first argument '%s'.", mstr);
 	}
 	g_free(mstr);
 
-	struct sr_channel *prev_conf = devc->cur_conf;
-	devc->cur_conf = sr_next_enabled_channel(sdi, devc->cur_conf);
+	struct otc_channel *prev_conf = devc->cur_conf;
+	devc->cur_conf = otc_next_enabled_channel(sdi, devc->cur_conf);
 	if (devc->cur_conf->index >= MIN(devc->profile->nb_channels, 2))
-		devc->cur_conf = sr_next_enabled_channel(sdi, devc->cur_conf);
+		devc->cur_conf = otc_next_enabled_channel(sdi, devc->cur_conf);
 	if (devc->cur_conf->index > prev_conf->index)
 		return JOB_AGAIN;
 	else
 		return JOB_CONF;
 }
 
-static int send_log(const struct sr_dev_inst *sdi)
+static int send_log(const struct otc_dev_inst *sdi)
 {
 	const char *source[] = { "LOG:HAND", "LOG:TRIG", "LOG:AUTO", "LOG:EXPO" };
 	struct dev_context *devc = sdi->priv;
@@ -844,39 +844,39 @@ static int send_log(const struct sr_dev_inst *sdi)
 	                  source[devc->data_source - 1], devc->cur_sample);
 }
 
-static int recv_log(const struct sr_dev_inst *sdi, GMatchInfo *match,
+static int recv_log(const struct otc_dev_inst *sdi, GMatchInfo *match,
                     const int mqs[], const int units[], const int exponents[],
                     unsigned int num_functions)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	char *mstr;
 	unsigned function;
 	int value, negative, overload, exponent, alternate_unit, mq, unit;
 	int mqflags = 0;
 	float fvalue;
 
-	sr_spew("LOG response '%s'.", g_match_info_get_string(match));
+	otc_spew("LOG response '%s'.", g_match_info_get_string(match));
 
 	devc = sdi->priv;
 
 	mstr = g_match_info_fetch(match, 2);
-	if (sr_atoi(mstr, (int*)&function) != SR_OK || function >= num_functions) {
+	if (otc_atoi(mstr, (int*)&function) != OTC_OK || function >= num_functions) {
 		g_free(mstr);
-		sr_dbg("Invalid function.");
-		return SR_ERR;
+		otc_dbg("Invalid function.");
+		return OTC_ERR;
 	}
 	g_free(mstr);
 
 	mstr = g_match_info_fetch(match, 3);
-	if (sr_atoi(mstr, &value) != SR_OK) {
+	if (otc_atoi(mstr, &value) != OTC_OK) {
 		g_free(mstr);
-		sr_dbg("Invalid value.");
-		return SR_ERR;
+		otc_dbg("Invalid value.");
+		return OTC_ERR;
 	}
 	g_free(mstr);
 
@@ -886,24 +886,24 @@ static int recv_log(const struct sr_dev_inst *sdi, GMatchInfo *match,
 	exponent = (mstr[9] & 0xF) + exponents[function];
 	alternate_unit = mstr[10] & 1;
 
-	if (mstr[ 8] & 1)  mqflags |= SR_MQFLAG_DC;
-	if (mstr[ 8] & 2)  mqflags |= SR_MQFLAG_AC;
-	if (mstr[11] & 4)  mqflags |= SR_MQFLAG_RELATIVE;
-	if (mstr[12] & 1)  mqflags |= SR_MQFLAG_AVG;
-	if (mstr[12] & 2)  mqflags |= SR_MQFLAG_MIN;
-	if (mstr[12] & 4)  mqflags |= SR_MQFLAG_MAX;
-	if (function == 5) mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+	if (mstr[ 8] & 1)  mqflags |= OTC_MQFLAG_DC;
+	if (mstr[ 8] & 2)  mqflags |= OTC_MQFLAG_AC;
+	if (mstr[11] & 4)  mqflags |= OTC_MQFLAG_RELATIVE;
+	if (mstr[12] & 1)  mqflags |= OTC_MQFLAG_AVG;
+	if (mstr[12] & 2)  mqflags |= OTC_MQFLAG_MIN;
+	if (mstr[12] & 4)  mqflags |= OTC_MQFLAG_MAX;
+	if (function == 5) mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 	g_free(mstr);
 
 	mq = mqs[function];
 	unit = units[function];
 	if (alternate_unit) {
-		if (mq == SR_MQ_RESISTANCE)
-			mq = SR_MQ_CONTINUITY;
-		if (unit == SR_UNIT_DECIBEL_MW)
-			unit = SR_UNIT_DECIBEL_VOLT;
-		if (unit == SR_UNIT_CELSIUS) {
-			unit = SR_UNIT_FAHRENHEIT;
+		if (mq == OTC_MQ_RESISTANCE)
+			mq = OTC_MQ_CONTINUITY;
+		if (unit == OTC_UNIT_DECIBEL_MW)
+			unit = OTC_UNIT_DECIBEL_VOLT;
+		if (unit == OTC_UNIT_CELSIUS) {
+			unit = OTC_UNIT_FAHRENHEIT;
 			if (devc->profile->model == KEYSIGHT_U1281 ||
 			    devc->profile->model == KEYSIGHT_U1282)
 				exponent--;
@@ -915,37 +915,37 @@ static int recv_log(const struct sr_dev_inst *sdi, GMatchInfo *match,
 	else
 		fvalue = negative * value * powf(10, exponent);
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, -exponent);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, -exponent);
 	analog.meaning->mq = mq;
 	analog.meaning->unit = unit;
 	analog.meaning->mqflags = mqflags;
 	analog.meaning->channels = g_slist_append(NULL, devc->cur_channel);
 	analog.num_samples = 1;
 	analog.data = &fvalue;
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 	g_slist_free(analog.meaning->channels);
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 	devc->cur_sample++;
 
 	return JOB_LOG;
 }
 
-static int recv_log_u124xc(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_log_u124xc(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
-	static const int mqs[] = { SR_MQ_VOLTAGE, SR_MQ_VOLTAGE, SR_MQ_CURRENT, SR_MQ_CURRENT, SR_MQ_RESISTANCE, SR_MQ_VOLTAGE, SR_MQ_TEMPERATURE, SR_MQ_CAPACITANCE, SR_MQ_FREQUENCY, SR_MQ_HARMONIC_RATIO, SR_MQ_CURRENT };
-	static const int units[] = { SR_UNIT_VOLT, SR_UNIT_VOLT, SR_UNIT_AMPERE, SR_UNIT_AMPERE, SR_UNIT_OHM, SR_UNIT_VOLT, SR_UNIT_CELSIUS, SR_UNIT_FARAD, SR_UNIT_HERTZ, SR_UNIT_PERCENTAGE, SR_UNIT_PERCENTAGE };
+	static const int mqs[] = { OTC_MQ_VOLTAGE, OTC_MQ_VOLTAGE, OTC_MQ_CURRENT, OTC_MQ_CURRENT, OTC_MQ_RESISTANCE, OTC_MQ_VOLTAGE, OTC_MQ_TEMPERATURE, OTC_MQ_CAPACITANCE, OTC_MQ_FREQUENCY, OTC_MQ_HARMONIC_RATIO, OTC_MQ_CURRENT };
+	static const int units[] = { OTC_UNIT_VOLT, OTC_UNIT_VOLT, OTC_UNIT_AMPERE, OTC_UNIT_AMPERE, OTC_UNIT_OHM, OTC_UNIT_VOLT, OTC_UNIT_CELSIUS, OTC_UNIT_FARAD, OTC_UNIT_HERTZ, OTC_UNIT_PERCENTAGE, OTC_UNIT_PERCENTAGE };
 	static const int exponents[] = { -5, -4, -7, -3, -2, -3, -1, -10, -2, -2, -2 };
 
 	return recv_log(sdi, match, mqs, units, exponents, ARRAY_SIZE(mqs));
 }
 
-static int recv_log_u128x(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_log_u128x(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
-	static const int mqs[] = { SR_MQ_VOLTAGE, SR_MQ_VOLTAGE, SR_MQ_CURRENT, SR_MQ_CURRENT, SR_MQ_RESISTANCE, SR_MQ_VOLTAGE, SR_MQ_TEMPERATURE, SR_MQ_CAPACITANCE, SR_MQ_FREQUENCY, SR_MQ_DUTY_CYCLE, SR_MQ_PULSE_WIDTH, SR_MQ_VOLTAGE, SR_MQ_CURRENT, SR_MQ_CONDUCTANCE };
-	static const int units[] = { SR_UNIT_VOLT, SR_UNIT_VOLT, SR_UNIT_AMPERE, SR_UNIT_AMPERE, SR_UNIT_OHM, SR_UNIT_VOLT, SR_UNIT_CELSIUS, SR_UNIT_FARAD, SR_UNIT_HERTZ, SR_UNIT_PERCENTAGE, SR_UNIT_SECOND, SR_UNIT_DECIBEL_MW, SR_UNIT_PERCENTAGE, SR_UNIT_SIEMENS };
+	static const int mqs[] = { OTC_MQ_VOLTAGE, OTC_MQ_VOLTAGE, OTC_MQ_CURRENT, OTC_MQ_CURRENT, OTC_MQ_RESISTANCE, OTC_MQ_VOLTAGE, OTC_MQ_TEMPERATURE, OTC_MQ_CAPACITANCE, OTC_MQ_FREQUENCY, OTC_MQ_DUTY_CYCLE, OTC_MQ_PULSE_WIDTH, OTC_MQ_VOLTAGE, OTC_MQ_CURRENT, OTC_MQ_CONDUCTANCE };
+	static const int units[] = { OTC_UNIT_VOLT, OTC_UNIT_VOLT, OTC_UNIT_AMPERE, OTC_UNIT_AMPERE, OTC_UNIT_OHM, OTC_UNIT_VOLT, OTC_UNIT_CELSIUS, OTC_UNIT_FARAD, OTC_UNIT_HERTZ, OTC_UNIT_PERCENTAGE, OTC_UNIT_SECOND, OTC_UNIT_DECIBEL_MW, OTC_UNIT_PERCENTAGE, OTC_UNIT_SIEMENS };
 	static const int exponents[] = { -6, -4, -9, -4, -3, -4, -1, -12, -3, -3, -6, -3, -2, -11 };
 
 	return recv_log(sdi, match, mqs, units, exponents, ARRAY_SIZE(mqs));
@@ -955,11 +955,11 @@ static int recv_log_u128x(const struct sr_dev_inst *sdi, GMatchInfo *match)
  * We could use it to determine the major measurement mode, but we already
  * have the output of CONF? for that, which is more detailed. However
  * we do need to catch this here, or it'll show up in some other output. */
-static int recv_switch(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_switch(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
 	struct dev_context *devc = sdi->priv;
 
-	sr_spew("Switch '%s'.", g_match_info_get_string(match));
+	otc_spew("Switch '%s'.", g_match_info_get_string(match));
 
 	devc->current_job = 0;
 	devc->job_running = FALSE;
@@ -968,10 +968,10 @@ static int recv_switch(const struct sr_dev_inst *sdi, GMatchInfo *match)
 	if (devc->profile->nb_channels > 2)
 		devc->cur_mq[1] = -1;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int recv_err(const struct sr_dev_inst *sdi, GMatchInfo *match)
+static int recv_err(const struct otc_dev_inst *sdi, GMatchInfo *match)
 {
 	struct dev_context *devc = sdi->priv;
 
@@ -984,7 +984,7 @@ static int recv_err(const struct sr_dev_inst *sdi, GMatchInfo *match)
 }
 
 /* Poll CONF/STAT at 1Hz and values at samplerate. */
-SR_PRIV const struct agdmm_job agdmm_jobs_live[] = {
+OTC_PRIV const struct agdmm_job agdmm_jobs_live[] = {
 	{ JOB_FETC, SAMPLERATE_INTERVAL, send_fetc },
 	{ JOB_CONF,                1000, send_conf },
 	{ JOB_STAT,                1000, send_stat },
@@ -992,12 +992,12 @@ SR_PRIV const struct agdmm_job agdmm_jobs_live[] = {
 };
 
 /* Poll LOG as fast as possible. */
-SR_PRIV const struct agdmm_job agdmm_jobs_log[] = {
+OTC_PRIV const struct agdmm_job agdmm_jobs_log[] = {
 	{ JOB_LOG,                    0, send_log  },
 	ALL_ZERO
 };
 
-SR_PRIV const struct agdmm_recv agdmm_recvs_u123x[] = {
+OTC_PRIV const struct agdmm_recv agdmm_recvs_u123x[] = {
 	{ "^\"(\\d\\d.{18}\\d)\"$", recv_stat_u123x },
 	{ "^\\*([0-9])$", recv_switch },
 	{ "^([-+][0-9]\\.[0-9]{8}E[-+][0-9]{2})$", recv_fetc },
@@ -1007,7 +1007,7 @@ SR_PRIV const struct agdmm_recv agdmm_recvs_u123x[] = {
 	ALL_ZERO
 };
 
-SR_PRIV const struct agdmm_recv agdmm_recvs_u124x[] = {
+OTC_PRIV const struct agdmm_recv agdmm_recvs_u124x[] = {
 	{ "^\"(\\d\\d.{18}\\d)\"$", recv_stat_u124x },
 	{ "^\\*([0-9])$", recv_switch },
 	{ "^([-+][0-9]\\.[0-9]{8}E[-+][0-9]{2})$", recv_fetc },
@@ -1021,7 +1021,7 @@ SR_PRIV const struct agdmm_recv agdmm_recvs_u124x[] = {
 	ALL_ZERO
 };
 
-SR_PRIV const struct agdmm_recv agdmm_recvs_u124xc[] = {
+OTC_PRIV const struct agdmm_recv agdmm_recvs_u124xc[] = {
 	{ "^\"(\\d\\d.{18}\\d)\"$", recv_stat_u124xc },
 	{ "^\\*([0-9])$", recv_switch },
 	{ "^([-+][0-9]\\.[0-9]{8}E([-+][0-9]{2}))$", recv_fetc },
@@ -1035,7 +1035,7 @@ SR_PRIV const struct agdmm_recv agdmm_recvs_u124xc[] = {
 	ALL_ZERO
 };
 
-SR_PRIV const struct agdmm_recv agdmm_recvs_u125x[] = {
+OTC_PRIV const struct agdmm_recv agdmm_recvs_u125x[] = {
 	{ "^\"(\\d\\d.{18}\\d)\"$", recv_stat_u125x },
 	{ "^\\*([0-9])$", recv_switch },
 	{ "^([-+][0-9]\\.[0-9]{8}E[-+][0-9]{2})$", recv_fetc },
@@ -1050,7 +1050,7 @@ SR_PRIV const struct agdmm_recv agdmm_recvs_u125x[] = {
 	ALL_ZERO
 };
 
-SR_PRIV const struct agdmm_recv agdmm_recvs_u127x[] = {
+OTC_PRIV const struct agdmm_recv agdmm_recvs_u127x[] = {
 	{ "^\"(\\d\\d.{18}\\d)\"$", recv_stat_u123x },
 	{ "^\\*([0-9]+)$", recv_switch },
 	{ "^([-+][0-9]\\.[0-9]{8}E[-+][0-9]{2})$", recv_fetc },
@@ -1060,7 +1060,7 @@ SR_PRIV const struct agdmm_recv agdmm_recvs_u127x[] = {
 	ALL_ZERO
 };
 
-SR_PRIV const struct agdmm_recv agdmm_recvs_u128x[] = {
+OTC_PRIV const struct agdmm_recv agdmm_recvs_u128x[] = {
 	{ "^\"(\\d\\d.{18}\\d)\"$", recv_stat_u128x },
 	{ "^\\*([0-9])$", recv_switch },
 	{ "^([-+][0-9]\\.[0-9]{8}E([-+][0-9]{2}))$", recv_fetc },

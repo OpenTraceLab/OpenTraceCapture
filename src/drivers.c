@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Lars-Peter Clausen <lars@metafoo.de>
  * Copyright (C) 2016 Aurelien Jacobs <aurel@gnuage.org>
@@ -21,8 +21,8 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /*
  * The special __sr_driver_list section contains pointers to all hardware
@@ -32,25 +32,25 @@
  * section. They are used to iterate over the list of all drivers which were
  * included in the library.
  */
-SR_PRIV extern const struct sr_dev_driver *sr_driver_list__start[];
-SR_PRIV extern const struct sr_dev_driver *sr_driver_list__stop[];
+OTC_PRIV extern const struct otc_dev_driver *otc_driver_list__start[];
+OTC_PRIV extern const struct otc_dev_driver *otc_driver_list__stop[];
 
 /**
- * Initialize the driver list in a fresh libsigrok context.
+ * Initialize the driver list in a fresh libopentracecapture context.
  *
- * @param ctx Pointer to a libsigrok context struct. Must not be NULL.
+ * @param ctx Pointer to a libopentracecapture context struct. Must not be NULL.
  *
  * @private
  */
-SR_API void sr_drivers_init(struct sr_context *ctx)
+OTC_API void otc_drivers_init(struct otc_context *ctx)
 {
 	GArray *array;
 
-	array = g_array_new(TRUE, FALSE, sizeof(struct sr_dev_driver *));
+	array = g_array_new(TRUE, FALSE, sizeof(struct otc_dev_driver *));
 #ifdef HAVE_DRIVERS
-	for (const struct sr_dev_driver **drivers = sr_driver_list__start + 1;
-	     drivers < sr_driver_list__stop; drivers++)
+	for (const struct otc_dev_driver **drivers = otc_driver_list__start + 1;
+	     drivers < otc_driver_list__stop; drivers++)
 		g_array_append_val(array, *drivers);
 #endif
-	ctx->driver_list = (struct sr_dev_driver **)g_array_free(array, FALSE);
+	ctx->driver_list = (struct otc_dev_driver **)g_array_free(array, FALSE);
 }

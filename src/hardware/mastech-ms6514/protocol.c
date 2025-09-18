@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Dave Buechi <db@pflutsch.ch>
  *
@@ -42,7 +42,7 @@ static const uint8_t channel_assignment[16][2] = {
 	{2, 2},  /* T1-T2  T1-T2 AVG */
 };
 
-SR_PRIV gboolean mastech_ms6514_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean mastech_ms6514_packet_valid(const uint8_t *buf)
 {
 	if ((buf[0]  == 0x65) && (buf[1]  == 0x14) && 
 	    (buf[16] == 0x0D) && (buf[17] == 0x0A))
@@ -57,23 +57,23 @@ static uint64_t mastech_ms6514_flags(const uint8_t *buf, const uint8_t channel_i
 
 	flags = 0;
 	if ((buf[10] & 0x40) == 0x40)
-		flags |= SR_MQFLAG_HOLD;
+		flags |= OTC_MQFLAG_HOLD;
 
 	if (channel_index == 0) {
 		if ((buf[11] & 0x03) > 0x01)
-			flags |= SR_MQFLAG_RELATIVE;
+			flags |= OTC_MQFLAG_RELATIVE;
 	}
 
 	if (channel_index == 1) {
 		switch (buf[12] & 0x03) {
 		case 0x01:
-			flags |= SR_MQFLAG_MAX;
+			flags |= OTC_MQFLAG_MAX;
 			break;
 		case 0x02:
-			flags |= SR_MQFLAG_MIN;
+			flags |= OTC_MQFLAG_MIN;
 			break;
 		case 0x03:
-			flags |= SR_MQFLAG_AVG;
+			flags |= OTC_MQFLAG_AVG;
 			break;
 		}
 	}
@@ -81,22 +81,22 @@ static uint64_t mastech_ms6514_flags(const uint8_t *buf, const uint8_t channel_i
 	return flags;
 }
 
-static enum sr_unit mastech_ms6514_unit(const uint8_t *buf)
+static enum otc_unit mastech_ms6514_unit(const uint8_t *buf)
 {
-	enum sr_unit unit;
+	enum otc_unit unit;
 
 	switch (buf[10] & 0x03) {
 	case 0x01:
-		unit = SR_UNIT_CELSIUS;
+		unit = OTC_UNIT_CELSIUS;
 		break;
 	case 0x02:
-		unit = SR_UNIT_FAHRENHEIT;
+		unit = OTC_UNIT_FAHRENHEIT;
 		break;
 	case 0x03:
-		unit = SR_UNIT_KELVIN;
+		unit = OTC_UNIT_KELVIN;
 		break;
 	default:
-		unit = SR_UNIT_UNITLESS;
+		unit = OTC_UNIT_UNITLESS;
 		break;
 	}
 
@@ -139,15 +139,15 @@ static float mastech_ms6514_temperature(const uint8_t *buf, const uint8_t channe
 	return value;
 }
 
-static void mastech_ms6514_data(struct sr_dev_inst *sdi, const uint8_t *buf)
+static void mastech_ms6514_data(struct otc_dev_inst *sdi, const uint8_t *buf)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
-	struct sr_channel *ch;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
+	struct otc_channel *ch;
 	float value;
 	int i, digits;
 
@@ -155,7 +155,7 @@ static void mastech_ms6514_data(struct sr_dev_inst *sdi, const uint8_t *buf)
 
 	if ((devc->data_source == DATA_SOURCE_MEMORY) && \
 			(mastech_ms6514_data_source(buf) == DATA_SOURCE_LIVE)) {
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 		return;
 	}
 
@@ -165,10 +165,10 @@ static void mastech_ms6514_data(struct sr_dev_inst *sdi, const uint8_t *buf)
 			continue;
 
 		value = mastech_ms6514_temperature(buf, i, &digits); 
-		sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
+		otc_analog_init(&analog, &encoding, &meaning, &spec, digits);
 		analog.num_samples = 1;
 		analog.data = &value;
-		analog.meaning->mq = SR_MQ_TEMPERATURE;
+		analog.meaning->mq = OTC_MQ_TEMPERATURE;
 		analog.meaning->unit = mastech_ms6514_unit(buf);
 		analog.meaning->mqflags = mastech_ms6514_flags(buf, i);
 		
@@ -176,16 +176,16 @@ static void mastech_ms6514_data(struct sr_dev_inst *sdi, const uint8_t *buf)
 			g_slist_nth_data(sdi->channels,
 			mastech_ms6514_channel_assignment(buf, i)));
 
-		packet.type = SR_DF_ANALOG;
+		packet.type = OTC_DF_ANALOG;
 		packet.payload = &analog;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 		g_slist_free(analog.meaning->channels);
 	}
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 }
 
-static const uint8_t *mastech_ms6514_parse_data(struct sr_dev_inst *sdi,
+static const uint8_t *mastech_ms6514_parse_data(struct otc_dev_inst *sdi,
 		const uint8_t *buf, int len)
 {
 	if (len < MASTECH_MS6514_FRAME_SIZE)
@@ -202,11 +202,11 @@ static const uint8_t *mastech_ms6514_parse_data(struct sr_dev_inst *sdi,
 	return buf + MASTECH_MS6514_FRAME_SIZE;
 }
 
-SR_PRIV int mastech_ms6514_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int mastech_ms6514_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	const uint8_t *ptr, *next_ptr, *end_ptr;
 	int len;
 
@@ -220,7 +220,7 @@ SR_PRIV int mastech_ms6514_receive_data(int fd, int revents, void *cb_data)
 	len = sizeof(devc->buf) - devc->buf_len;
 	len = serial_read_nonblocking(serial, devc->buf + devc->buf_len, len);
 	if (len < 1) {
-		sr_err("Serial port read error: %d.", len);
+		otc_err("Serial port read error: %d.", len);
 		return FALSE;
 	}
 	devc->buf_len += len;
@@ -241,8 +241,8 @@ SR_PRIV int mastech_ms6514_receive_data(int fd, int revents, void *cb_data)
 		return FALSE;
 	}
 
-	if (sr_sw_limits_check(&devc->limits)) {
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits)) {
+		otc_dev_acquisition_stop(sdi);
 		return TRUE;
 	}
 

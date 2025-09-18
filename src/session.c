@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010-2012 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2015 Daniel Elstner <daniel.kitta@gmail.com>
@@ -25,8 +25,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "session"
@@ -35,19 +35,19 @@
 /**
  * @file
  *
- * Creating, using, or destroying libsigrok sessions.
+ * Creating, using, or destroying libopentracecapture sessions.
  */
 
 /**
  * @defgroup grp_session Session handling
  *
- * Creating, using, or destroying libsigrok sessions.
+ * Creating, using, or destroying libopentracecapture sessions.
  *
  * @{
  */
 
 struct datafeed_callback {
-	sr_datafeed_callback cb;
+	otc_datafeed_callback cb;
 	void *cb_data;
 };
 
@@ -61,7 +61,7 @@ struct fd_source {
 	int64_t due_us;
 
 	/* Meta-data needed to keep track of installed sources */
-	struct sr_session *session;
+	struct otc_session *session;
 	void *key;
 
 	GPollFD pollfd;
@@ -123,10 +123,10 @@ static gboolean fd_source_dispatch(GSource *source,
 	revents = fsource->pollfd.revents;
 
 	if (!callback) {
-		sr_err("Callback not set, cannot dispatch event.");
+		otc_err("Callback not set, cannot dispatch event.");
 		return G_SOURCE_REMOVE;
 	}
-	keep = (*SR_RECEIVE_DATA_CALLBACK(callback))
+	keep = (*OTC_RECEIVE_DATA_CALLBACK(callback))
 			(fsource->pollfd.fd, revents, user_data);
 
 	if (fsource->timeout_us >= 0 && G_LIKELY(keep)
@@ -144,9 +144,9 @@ static void fd_source_finalize(GSource *source)
 
 	fsource = (struct fd_source *)source;
 
-	sr_dbg("%s: key %p", __func__, fsource->key);
+	otc_dbg("%s: key %p", __func__, fsource->key);
 
-	sr_session_source_destroyed(fsource->session, fsource->key, source);
+	otc_session_source_destroyed(fsource->session, fsource->key, source);
 }
 
 /** Create an event source for I/O on a file descriptor.
@@ -162,7 +162,7 @@ static void fd_source_finalize(GSource *source)
  *
  * @return A new event source object, or NULL on failure.
  */
-static GSource *fd_source_new(struct sr_session *session, void *key,
+static GSource *fd_source_new(struct otc_session *session, void *key,
 		gintptr fd, int events, int timeout_ms)
 {
 	static GSourceFuncs fd_source_funcs = {
@@ -204,23 +204,23 @@ static GSource *fd_source_new(struct sr_session *session, void *key,
  *
  * @param ctx         The context in which to create the new session.
  * @param new_session This will contain a pointer to the newly created
- *                    session if the return value is SR_OK, otherwise the value
+ *                    session if the return value is OTC_OK, otherwise the value
  *                    is undefined and should not be used. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_new(struct sr_context *ctx,
-		struct sr_session **new_session)
+OTC_API int otc_session_new(struct otc_context *ctx,
+		struct otc_session **new_session)
 {
-	struct sr_session *session;
+	struct otc_session *session;
 
 	if (!new_session)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	session = g_malloc0(sizeof(struct sr_session));
+	session = g_malloc0(sizeof(struct otc_session));
 
 	session->ctx = ctx;
 
@@ -233,7 +233,7 @@ SR_API int sr_session_new(struct sr_context *ctx,
 
 	*new_session = session;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -242,22 +242,22 @@ SR_API int sr_session_new(struct sr_context *ctx,
  *
  * @param session The session to destroy. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid session passed.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid session passed.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_destroy(struct sr_session *session)
+OTC_API int otc_session_destroy(struct otc_session *session)
 {
 	if (!session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
-	sr_session_dev_remove_all(session);
-	g_slist_free_full(session->owned_devs, (GDestroyNotify)sr_dev_inst_free);
+	otc_session_dev_remove_all(session);
+	g_slist_free_full(session->owned_devs, (GDestroyNotify)otc_dev_inst_free);
 
-	sr_session_datafeed_callback_remove_all(session);
+	otc_session_datafeed_callback_remove_all(session);
 
 	g_hash_table_unref(session->event_sources);
 
@@ -265,41 +265,41 @@ SR_API int sr_session_destroy(struct sr_session *session)
 
 	g_free(session);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
  * Remove all the devices from a session.
  *
- * The session itself (i.e., the struct sr_session) is not free'd and still
+ * The session itself (i.e., the struct otc_session) is not free'd and still
  * exists after this function returns.
  *
  * @param session The session to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_BUG Invalid session passed.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_BUG Invalid session passed.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_dev_remove_all(struct sr_session *session)
+OTC_API int otc_session_dev_remove_all(struct otc_session *session)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	GSList *l;
 
 	if (!session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	for (l = session->devs; l; l = l->next) {
-		sdi = (struct sr_dev_inst *) l->data;
+		sdi = (struct otc_dev_inst *) l->data;
 		sdi->session = NULL;
 	}
 
 	g_slist_free(session->devs);
 	session->devs = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -310,31 +310,31 @@ SR_API int sr_session_dev_remove_all(struct sr_session *session)
  *            be NULL. Also, sdi->driver and sdi->driver->dev_open must
  *            not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_dev_add(struct sr_session *session,
-		struct sr_dev_inst *sdi)
+OTC_API int otc_session_dev_add(struct otc_session *session,
+		struct otc_dev_inst *sdi)
 {
 	int ret;
 
 	if (!sdi) {
-		sr_err("%s: sdi was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: sdi was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	if (!session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	/* If sdi->session is not NULL, the device is already in this or
 	 * another session. */
 	if (sdi->session) {
-		sr_err("%s: already assigned to session", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: already assigned to session", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	/* If sdi->driver is NULL, this is a virtual device. */
@@ -342,13 +342,13 @@ SR_API int sr_session_dev_add(struct sr_session *session,
 		/* Just add the device, don't run dev_open(). */
 		session->devs = g_slist_append(session->devs, sdi);
 		sdi->session = session;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* sdi->driver is non-NULL (i.e. we have a real device). */
 	if (!sdi->driver->dev_open) {
-		sr_err("%s: sdi->driver->dev_open was NULL", __func__);
-		return SR_ERR_BUG;
+		otc_err("%s: sdi->driver->dev_open was NULL", __func__);
+		return OTC_ERR_BUG;
 	}
 
 	session->devs = g_slist_append(session->devs, sdi);
@@ -360,20 +360,20 @@ SR_API int sr_session_dev_add(struct sr_session *session,
 	if (session->running) {
 		/* Adding a device to a running session. Commit settings
 		 * and start acquisition on that device now. */
-		if ((ret = sr_config_commit(sdi)) != SR_OK) {
-			sr_err("Failed to commit device settings before "
+		if ((ret = otc_config_commit(sdi)) != OTC_OK) {
+			otc_err("Failed to commit device settings before "
 			       "starting acquisition in running session (%s)",
-			       sr_strerror(ret));
+			       otc_strerror(ret));
 			return ret;
 		}
-		if ((ret = sr_dev_acquisition_start(sdi)) != SR_OK) {
-			sr_err("Failed to start acquisition of device in "
-			       "running session (%s)", sr_strerror(ret));
+		if ((ret = otc_dev_acquisition_start(sdi)) != OTC_OK) {
+			otc_err("Failed to start acquisition of device in "
+			       "running session (%s)", otc_strerror(ret));
 			return ret;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -383,26 +383,26 @@ SR_API int sr_session_dev_add(struct sr_session *session,
  * @param devlist A pointer where the device instance list will be
  *                stored on return. If no devices are in the session,
  *                this will be NULL. Each element in the list points
- *                to a struct sr_dev_inst *.
+ *                to a struct otc_dev_inst *.
  *                The list must be freed by the caller, but not the
  *                elements pointed to.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_dev_list(struct sr_session *session, GSList **devlist)
+OTC_API int otc_session_dev_list(struct otc_session *session, GSList **devlist)
 {
 	if (!session)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (!devlist)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	*devlist = g_slist_copy(session->devs);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -413,35 +413,35 @@ SR_API int sr_session_dev_list(struct sr_session *session, GSList **devlist)
  *            be NULL. Also, sdi->driver and sdi->driver->dev_open must
  *            not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_dev_remove(struct sr_session *session,
-		struct sr_dev_inst *sdi)
+OTC_API int otc_session_dev_remove(struct otc_session *session,
+		struct otc_dev_inst *sdi)
 {
 	if (!sdi) {
-		sr_err("%s: sdi was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: sdi was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	if (!session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	/* If sdi->session is not session, the device is not in this
 	 * session. */
 	if (sdi->session != session) {
-		sr_err("%s: not assigned to this session", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: not assigned to this session", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	session->devs = g_slist_remove(session->devs, sdi);
 	sdi->session = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -449,22 +449,22 @@ SR_API int sr_session_dev_remove(struct sr_session *session,
  *
  * @param session The session to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid session passed.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid session passed.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_datafeed_callback_remove_all(struct sr_session *session)
+OTC_API int otc_session_datafeed_callback_remove_all(struct otc_session *session)
 {
 	if (!session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	g_slist_free_full(session->datafeed_callbacks, g_free);
 	session->datafeed_callbacks = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -475,24 +475,24 @@ SR_API int sr_session_datafeed_callback_remove_all(struct sr_session *session)
  *           Must not be NULL.
  * @param cb_data Opaque pointer passed in by the caller.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_BUG No session exists.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_BUG No session exists.
  *
  * @since 0.3.0
  */
-SR_API int sr_session_datafeed_callback_add(struct sr_session *session,
-		sr_datafeed_callback cb, void *cb_data)
+OTC_API int otc_session_datafeed_callback_add(struct otc_session *session,
+		otc_datafeed_callback cb, void *cb_data)
 {
 	struct datafeed_callback *cb_struct;
 
 	if (!session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_BUG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_BUG;
 	}
 
 	if (!cb) {
-		sr_err("%s: cb was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: cb was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	cb_struct = g_malloc0(sizeof(struct datafeed_callback));
@@ -502,7 +502,7 @@ SR_API int sr_session_datafeed_callback_add(struct sr_session *session,
 	session->datafeed_callbacks =
 	    g_slist_append(session->datafeed_callbacks, cb_struct);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -515,7 +515,7 @@ SR_API int sr_session_datafeed_callback_add(struct sr_session *session,
  *
  * @since 0.4.0
  */
-SR_API struct sr_trigger *sr_session_trigger_get(struct sr_session *session)
+OTC_API struct otc_trigger *otc_session_trigger_get(struct otc_session *session)
 {
 	if (!session)
 		return NULL;
@@ -529,55 +529,55 @@ SR_API struct sr_trigger *sr_session_trigger_get(struct sr_session *session)
  * @param session The session to use. Must not be NULL.
  * @param trig The trigger to assign to this session. Can be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_trigger_set(struct sr_session *session, struct sr_trigger *trig)
+OTC_API int otc_session_trigger_set(struct otc_session *session, struct otc_trigger *trig)
 {
 	if (!session)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	session->trigger = trig;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int verify_trigger(struct sr_trigger *trigger)
+static int verify_trigger(struct otc_trigger *trigger)
 {
-	struct sr_trigger_stage *stage;
-	struct sr_trigger_match *match;
+	struct otc_trigger_stage *stage;
+	struct otc_trigger_match *match;
 	GSList *l, *m;
 
 	if (!trigger->stages) {
-		sr_err("No trigger stages defined.");
-		return SR_ERR;
+		otc_err("No trigger stages defined.");
+		return OTC_ERR;
 	}
 
-	sr_spew("Checking trigger:");
+	otc_spew("Checking trigger:");
 	for (l = trigger->stages; l; l = l->next) {
 		stage = l->data;
 		if (!stage->matches) {
-			sr_err("Stage %d has no matches defined.", stage->stage);
-			return SR_ERR;
+			otc_err("Stage %d has no matches defined.", stage->stage);
+			return OTC_ERR;
 		}
 		for (m = stage->matches; m; m = m->next) {
 			match = m->data;
 			if (!match->channel) {
-				sr_err("Stage %d match has no channel.", stage->stage);
-				return SR_ERR;
+				otc_err("Stage %d match has no channel.", stage->stage);
+				return OTC_ERR;
 			}
 			if (!match->match) {
-				sr_err("Stage %d match is not defined.", stage->stage);
-				return SR_ERR;
+				otc_err("Stage %d match is not defined.", stage->stage);
+				return OTC_ERR;
 			}
-			sr_spew("Stage %d match on channel %s, match %d", stage->stage,
+			otc_spew("Stage %d match on channel %s, match %d", stage->stage,
 					match->channel->name, match->match);
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** Set up the main context the session will be executing in.
@@ -586,20 +586,20 @@ static int verify_trigger(struct sr_trigger *trigger)
  * will execute the session main loop. Once acquired, the main context
  * pointer is immutable for the duration of the session run.
  */
-static int set_main_context(struct sr_session *session)
+static int set_main_context(struct otc_session *session)
 {
 	GMainContext *main_context;
 
 	g_mutex_lock(&session->main_mutex);
 
-	/* May happen if sr_session_start() is called a second time
+	/* May happen if otc_session_start() is called a second time
 	 * while the session is still running.
 	 */
 	if (session->main_context) {
-		sr_err("Main context already set.");
+		otc_err("Main context already set.");
 
 		g_mutex_unlock(&session->main_mutex);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	main_context = g_main_context_ref_thread_default();
 	/*
@@ -611,18 +611,18 @@ static int set_main_context(struct sr_session *session)
 	if (g_main_context_acquire(main_context)) {
 		g_main_context_release(main_context);
 
-		sr_dbg("Using thread-default main context.");
+		otc_dbg("Using thread-default main context.");
 	} else {
 		g_main_context_unref(main_context);
 
-		sr_dbg("Creating our own main context.");
+		otc_dbg("Creating our own main context.");
 		main_context = g_main_context_new();
 	}
 	session->main_context = main_context;
 
 	g_mutex_unlock(&session->main_mutex);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** Unset the main context used for the current session run.
@@ -633,7 +633,7 @@ static int set_main_context(struct sr_session *session)
  * event sources are created -- the main loop holds its own reference
  * to the main context.
  */
-static int unset_main_context(struct sr_session *session)
+static int unset_main_context(struct otc_session *session)
 {
 	int ret;
 
@@ -642,19 +642,19 @@ static int unset_main_context(struct sr_session *session)
 	if (session->main_context) {
 		g_main_context_unref(session->main_context);
 		session->main_context = NULL;
-		ret = SR_OK;
+		ret = OTC_OK;
 	} else {
 		/* May happen if the set/unset calls are not matched.
 		 */
-		sr_err("No main context to unset.");
-		ret = SR_ERR;
+		otc_err("No main context to unset.");
+		ret = OTC_ERR;
 	}
 	g_mutex_unlock(&session->main_mutex);
 
 	return ret;
 }
 
-static unsigned int session_source_attach(struct sr_session *session,
+static unsigned int session_source_attach(struct otc_session *session,
 		GSource *source)
 {
 	unsigned int id = 0;
@@ -664,7 +664,7 @@ static unsigned int session_source_attach(struct sr_session *session,
 	if (session->main_context)
 		id = g_source_attach(source, session->main_context);
 	else
-		sr_err("Cannot add event source without main context.");
+		otc_err("Cannot add event source without main context.");
 
 	g_mutex_unlock(&session->main_mutex);
 
@@ -676,7 +676,7 @@ static unsigned int session_source_attach(struct sr_session *session,
  */
 static gboolean delayed_stop_check(void *data)
 {
-	struct sr_session *session;
+	struct otc_session *session;
 
 	session = data;
 	session->stop_check_id = 0;
@@ -692,13 +692,13 @@ static gboolean delayed_stop_check(void *data)
 	session->running = FALSE;
 	unset_main_context(session);
 
-	sr_info("Stopped.");
+	otc_info("Stopped.");
 
 	/* This indicates a bug in user code, since it is not valid to
 	 * restart or destroy a session while it may still be running.
 	 */
 	if (!session->main_loop && !session->stopped_callback) {
-		sr_err("BUG: Session stop left unhandled.");
+		otc_err("BUG: Session stop left unhandled.");
 		return G_SOURCE_REMOVE;
 	}
 	if (session->main_loop)
@@ -710,13 +710,13 @@ static gboolean delayed_stop_check(void *data)
 	return G_SOURCE_REMOVE;
 }
 
-static int stop_check_later(struct sr_session *session)
+static int stop_check_later(struct otc_session *session)
 {
 	GSource *source;
 	unsigned int source_id;
 
 	if (session->stop_check_id != 0)
-		return SR_OK; /* idle handler already installed */
+		return OTC_OK; /* idle handler already installed */
 
 	source = g_idle_source_new();
 	g_source_set_callback(source, &delayed_stop_check, session, NULL);
@@ -726,56 +726,56 @@ static int stop_check_later(struct sr_session *session)
 
 	g_source_unref(source);
 
-	return (source_id != 0) ? SR_OK : SR_ERR;
+	return (source_id != 0) ? OTC_OK : OTC_ERR;
 }
 
 /**
  * Start a session.
  *
  * When this function returns with a status code indicating success, the
- * session is running. Use sr_session_stopped_callback_set() to receive
- * notification upon completion, or call sr_session_run() to block until
+ * session is running. Use otc_session_stopped_callback_set() to receive
+ * notification upon completion, or call otc_session_run() to block until
  * the session stops.
  *
  * Session events will be processed in the context of the current thread.
  * If a thread-default GLib main context has been set, and is not owned by
- * any other thread, it will be used. Otherwise, libsigrok will create its
+ * any other thread, it will be used. Otherwise, libopentracecapture will create its
  * own main context for the current thread.
  *
  * @param session The session to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid session passed.
- * @retval SR_ERR Other error.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid session passed.
+ * @retval OTC_ERR Other error.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_start(struct sr_session *session)
+OTC_API int otc_session_start(struct otc_session *session)
 {
-	struct sr_dev_inst *sdi;
-	struct sr_channel *ch;
+	struct otc_dev_inst *sdi;
+	struct otc_channel *ch;
 	GSList *l, *c, *lend;
 	int ret;
 
 	if (!session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	if (!session->devs) {
-		sr_err("%s: session->devs was NULL; a session "
+		otc_err("%s: session->devs was NULL; a session "
 		       "cannot be started without devices.", __func__);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
 	if (session->running) {
-		sr_err("Cannot (re-)start session while it is still running.");
-		return SR_ERR;
+		otc_err("Cannot (re-)start session while it is still running.");
+		return OTC_ERR;
 	}
 
 	if (session->trigger) {
 		ret = verify_trigger(session->trigger);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
@@ -788,14 +788,14 @@ SR_API int sr_session_start(struct sr_session *session)
 				break;
 		}
 		if (!c) {
-			sr_err("%s device %s has no enabled channels.",
+			otc_err("%s device %s has no enabled channels.",
 				sdi->driver->name, sdi->connection_id);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 
-		ret = sr_config_commit(sdi);
-		if (ret != SR_OK) {
-			sr_err("Failed to commit %s device %s settings "
+		ret = otc_config_commit(sdi);
+		if (ret != OTC_OK) {
+			otc_err("Failed to commit %s device %s settings "
 				"before starting acquisition.",
 				sdi->driver->name, sdi->connection_id);
 			return ret;
@@ -803,35 +803,35 @@ SR_API int sr_session_start(struct sr_session *session)
 	}
 
 	ret = set_main_context(session);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	sr_info("Starting.");
+	otc_info("Starting.");
 
 	session->running = TRUE;
 
 	/* Have all devices start acquisition. */
 	for (l = session->devs; l; l = l->next) {
 		if (!(sdi = l->data)) {
-			sr_err("Device sdi was NULL, can't start session.");
-			ret = SR_ERR;
+			otc_err("Device sdi was NULL, can't start session.");
+			ret = OTC_ERR;
 			break;
 		}
-		ret = sr_dev_acquisition_start(sdi);
-		if (ret != SR_OK) {
-			sr_err("Could not start %s device %s acquisition.",
+		ret = otc_dev_acquisition_start(sdi);
+		if (ret != OTC_OK) {
+			otc_err("Could not start %s device %s acquisition.",
 				sdi->driver->name, sdi->connection_id);
 			break;
 		}
 	}
 
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		/* If there are multiple devices, some of them may already have
 		 * started successfully. Stop them now before returning. */
 		lend = l->next;
 		for (l = session->devs; l != lend; l = l->next) {
 			sdi = l->data;
-			sr_dev_acquisition_stop(sdi);
+			otc_dev_acquisition_stop(sdi);
 		}
 		/* TODO: Handle delayed stops. Need to iterate the event
 		 * sources... */
@@ -844,7 +844,7 @@ SR_API int sr_session_start(struct sr_session *session)
 	if (g_hash_table_size(session->event_sources) == 0)
 		stop_check_later(session);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -854,38 +854,38 @@ SR_API int sr_session_start(struct sr_session *session)
  * it to process session events until the session stops.
  *
  * Instead of using this function, applications may run their own GLib main
- * loop, and use sr_session_stopped_callback_set() to receive notification
+ * loop, and use otc_session_stopped_callback_set() to receive notification
  * when the session finished running.
  *
  * @param session The session to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid session passed.
- * @retval SR_ERR Other error.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid session passed.
+ * @retval OTC_ERR Other error.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_run(struct sr_session *session)
+OTC_API int otc_session_run(struct otc_session *session)
 {
 	if (!session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 	if (!session->running) {
-		sr_err("No session running.");
-		return SR_ERR;
+		otc_err("No session running.");
+		return OTC_ERR;
 	}
 	if (session->main_loop) {
-		sr_err("Main loop already created.");
-		return SR_ERR;
+		otc_err("Main loop already created.");
+		return OTC_ERR;
 	}
 
 	g_mutex_lock(&session->main_mutex);
 
 	if (!session->main_context) {
-		sr_err("Cannot run without main context.");
+		otc_err("Cannot run without main context.");
 		g_mutex_unlock(&session->main_mutex);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	session->main_loop = g_main_loop_new(session->main_context, FALSE);
 
@@ -896,13 +896,13 @@ SR_API int sr_session_run(struct sr_session *session)
 	g_main_loop_unref(session->main_loop);
 	session->main_loop = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static gboolean session_stop_sync(void *user_data)
 {
-	struct sr_session *session;
-	struct sr_dev_inst *sdi;
+	struct otc_session *session;
+	struct otc_dev_inst *sdi;
 	GSList *node;
 
 	session = user_data;
@@ -910,11 +910,11 @@ static gboolean session_stop_sync(void *user_data)
 	if (!session->running)
 		return G_SOURCE_REMOVE;
 
-	sr_info("Stopping.");
+	otc_info("Stopping.");
 
 	for (node = session->devs; node; node = node->next) {
 		sdi = node->data;
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 	}
 
 	return G_SOURCE_REMOVE;
@@ -927,29 +927,29 @@ static gboolean session_stop_sync(void *user_data)
  * abort the acquisition as soon as possible. Even after this function returns,
  * event processing still continues until all devices have actually stopped.
  *
- * Use sr_session_stopped_callback_set() to receive notification when the event
+ * Use otc_session_stopped_callback_set() to receive notification when the event
  * processing finished.
  *
  * This function is reentrant. That is, it may be called from a different
  * thread than the one executing the session, as long as it can be ensured
  * that the session object is valid.
  *
- * If the session is not running, sr_session_stop() silently does nothing.
+ * If the session is not running, otc_session_stop() silently does nothing.
  *
  * @param session The session to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid session passed.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid session passed.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_stop(struct sr_session *session)
+OTC_API int otc_session_stop(struct otc_session *session)
 {
 	GMainContext *main_context;
 
 	if (!session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	g_mutex_lock(&session->main_mutex);
@@ -961,14 +961,14 @@ SR_API int sr_session_stop(struct sr_session *session)
 	g_mutex_unlock(&session->main_mutex);
 
 	if (!main_context) {
-		sr_dbg("No main context set; already stopped?");
+		otc_dbg("No main context set; already stopped?");
 		/* Not an error; as it would be racy. */
-		return SR_OK;
+		return OTC_OK;
 	}
 	g_main_context_invoke(main_context, &session_stop_sync, session);
 	g_main_context_unref(main_context);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -981,15 +981,15 @@ SR_API int sr_session_stop(struct sr_session *session)
  *
  * @retval TRUE Session is running.
  * @retval FALSE Session is not running.
- * @retval SR_ERR_ARG Invalid session passed.
+ * @retval OTC_ERR_ARG Invalid session passed.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_is_running(struct sr_session *session)
+OTC_API int otc_session_is_running(struct otc_session *session)
 {
 	if (!session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 	return session->running;
 }
@@ -999,31 +999,31 @@ SR_API int sr_session_is_running(struct sr_session *session)
  *
  * Install a callback to receive notification when a session run stopped.
  * This can be used to integrate session execution with an existing main
- * loop, without having to block in sr_session_run().
+ * loop, without having to block in otc_session_run().
  *
  * Note that the callback will be invoked in the context of the thread
- * that calls sr_session_start().
+ * that calls otc_session_start().
  *
  * @param session The session to use. Must not be NULL.
  * @param cb The callback to invoke on session stop. May be NULL to unset.
  * @param cb_data User data pointer to be passed to the callback.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid session passed.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid session passed.
  *
  * @since 0.4.0
  */
-SR_API int sr_session_stopped_callback_set(struct sr_session *session,
-		sr_session_stopped_callback cb, void *cb_data)
+OTC_API int otc_session_stopped_callback_set(struct otc_session *session,
+		otc_session_stopped_callback cb, void *cb_data)
 {
 	if (!session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 	session->stopped_callback = cb;
 	session->stopped_cb_data = cb_data;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -1031,79 +1031,79 @@ SR_API int sr_session_stopped_callback_set(struct sr_session *session,
  *
  * @param packet The packet to show debugging information for.
  */
-static void datafeed_dump(const struct sr_datafeed_packet *packet)
+static void datafeed_dump(const struct otc_datafeed_packet *packet)
 {
-	const struct sr_datafeed_logic *logic;
-	const struct sr_datafeed_analog *analog;
+	const struct otc_datafeed_logic *logic;
+	const struct otc_datafeed_analog *analog;
 
-	/* Please use the same order as in libsigrok.h. */
+	/* Please use the same order as in libopentracecapture.h. */
 	switch (packet->type) {
-	case SR_DF_HEADER:
-		sr_dbg("bus: Received SR_DF_HEADER packet.");
+	case OTC_DF_HEADER:
+		otc_dbg("bus: Received OTC_DF_HEADER packet.");
 		break;
-	case SR_DF_END:
-		sr_dbg("bus: Received SR_DF_END packet.");
+	case OTC_DF_END:
+		otc_dbg("bus: Received OTC_DF_END packet.");
 		break;
-	case SR_DF_META:
-		sr_dbg("bus: Received SR_DF_META packet.");
+	case OTC_DF_META:
+		otc_dbg("bus: Received OTC_DF_META packet.");
 		break;
-	case SR_DF_TRIGGER:
-		sr_dbg("bus: Received SR_DF_TRIGGER packet.");
+	case OTC_DF_TRIGGER:
+		otc_dbg("bus: Received OTC_DF_TRIGGER packet.");
 		break;
-	case SR_DF_LOGIC:
+	case OTC_DF_LOGIC:
 		logic = packet->payload;
-		sr_dbg("bus: Received SR_DF_LOGIC packet (%" PRIu64 " bytes, "
+		otc_dbg("bus: Received OTC_DF_LOGIC packet (%" PRIu64 " bytes, "
 		       "unitsize = %d).", logic->length, logic->unitsize);
 		break;
-	case SR_DF_FRAME_BEGIN:
-		sr_dbg("bus: Received SR_DF_FRAME_BEGIN packet.");
+	case OTC_DF_FRAME_BEGIN:
+		otc_dbg("bus: Received OTC_DF_FRAME_BEGIN packet.");
 		break;
-	case SR_DF_FRAME_END:
-		sr_dbg("bus: Received SR_DF_FRAME_END packet.");
+	case OTC_DF_FRAME_END:
+		otc_dbg("bus: Received OTC_DF_FRAME_END packet.");
 		break;
-	case SR_DF_ANALOG:
+	case OTC_DF_ANALOG:
 		analog = packet->payload;
-		sr_dbg("bus: Received SR_DF_ANALOG packet (%d samples).",
+		otc_dbg("bus: Received OTC_DF_ANALOG packet (%d samples).",
 		       analog->num_samples);
 		break;
 	default:
-		sr_dbg("bus: Received unknown packet type: %d.", packet->type);
+		otc_dbg("bus: Received unknown packet type: %d.", packet->type);
 		break;
 	}
 }
 
 /**
- * Helper to send a meta datafeed package (SR_DF_META) to the session bus.
+ * Helper to send a meta datafeed package (OTC_DF_META) to the session bus.
  *
  * @param sdi The device instance to send the package from. Must not be NULL.
  * @param key The config key to send to the session bus.
  * @param var The value to send to the session bus.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @private
  */
-SR_PRIV int sr_session_send_meta(const struct sr_dev_inst *sdi,
+OTC_PRIV int otc_session_send_meta(const struct otc_dev_inst *sdi,
 		uint32_t key, GVariant *var)
 {
-	struct sr_config *cfg;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_meta meta;
+	struct otc_config *cfg;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_meta meta;
 	int ret;
 
-	cfg = sr_config_new(key, var);
+	cfg = otc_config_new(key, var);
 
 	memset(&meta, 0, sizeof(meta));
 
-	packet.type = SR_DF_META;
+	packet.type = OTC_DF_META;
 	packet.payload = &meta;
 
 	meta.config = g_slist_append(NULL, cfg);
 
-	ret = sr_session_send(sdi, &packet);
+	ret = otc_session_send(sdi, &packet);
 	g_slist_free(meta.config);
-	sr_config_free(cfg);
+	otc_config_free(cfg);
 
 	return ret;
 }
@@ -1116,33 +1116,33 @@ SR_PRIV int sr_session_send_meta(const struct sr_dev_inst *sdi,
  * @param sdi TODO.
  * @param packet The datafeed packet to send to the session bus.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @private
  */
-SR_PRIV int sr_session_send(const struct sr_dev_inst *sdi,
-		const struct sr_datafeed_packet *packet)
+OTC_PRIV int otc_session_send(const struct otc_dev_inst *sdi,
+		const struct otc_datafeed_packet *packet)
 {
 	GSList *l;
 	struct datafeed_callback *cb_struct;
-	struct sr_datafeed_packet *packet_in, *packet_out;
-	struct sr_transform *t;
+	struct otc_datafeed_packet *packet_in, *packet_out;
+	struct otc_transform *t;
 	int ret;
 
 	if (!sdi) {
-		sr_err("%s: sdi was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: sdi was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	if (!packet) {
-		sr_err("%s: packet was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: packet was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	if (!sdi->session) {
-		sr_err("%s: session was NULL", __func__);
-		return SR_ERR_BUG;
+		otc_err("%s: session was NULL", __func__);
+		return OTC_ERR_BUG;
 	}
 
 	/*
@@ -1150,22 +1150,22 @@ SR_PRIV int sr_session_send(const struct sr_dev_inst *sdi,
 	 * another packet (instead of NULL), pass that packet to the next
 	 * transform module in the list, and so on.
 	 */
-	packet_in = (struct sr_datafeed_packet *)packet;
+	packet_in = (struct otc_datafeed_packet *)packet;
 	for (l = sdi->session->transforms; l; l = l->next) {
 		t = l->data;
-		sr_spew("Running transform module '%s'.", t->module->id);
+		otc_spew("Running transform module '%s'.", t->module->id);
 		ret = t->module->receive(t, packet_in, &packet_out);
 		if (ret < 0) {
-			sr_err("Error while running transform module: %d.", ret);
-			return SR_ERR;
+			otc_err("Error while running transform module: %d.", ret);
+			return OTC_ERR;
 		}
 		if (!packet_out) {
 			/*
 			 * If any of the transforms don't return an output
 			 * packet, abort.
 			 */
-			sr_spew("Transform module didn't return a packet, aborting.");
-			return SR_OK;
+			otc_spew("Transform module didn't return a packet, aborting.");
+			return OTC_OK;
 		} else {
 			/*
 			 * Use this transform module's output packet as input
@@ -1181,13 +1181,13 @@ SR_PRIV int sr_session_send(const struct sr_dev_inst *sdi,
 	 * callbacks.
 	 */
 	for (l = sdi->session->datafeed_callbacks; l; l = l->next) {
-		if (sr_log_loglevel_get() >= SR_LOG_DBG)
+		if (otc_log_loglevel_get() >= OTC_LOG_DBG)
 			datafeed_dump(packet);
 		cb_struct = l->data;
 		cb_struct->cb(sdi, packet, cb_struct->cb_data);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -1197,14 +1197,14 @@ SR_PRIV int sr_session_send(const struct sr_dev_inst *sdi,
  * @param key The key which identifies the event source.
  * @param source An event source object. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
- * @retval SR_ERR_BUG Event source with @a key already installed.
- * @retval SR_ERR Other error.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
+ * @retval OTC_ERR_BUG Event source with @a key already installed.
+ * @retval OTC_ERR Other error.
  *
  * @private
  */
-SR_PRIV int sr_session_source_add_internal(struct sr_session *session,
+OTC_PRIV int otc_session_source_add_internal(struct otc_session *session,
 		void *key, GSource *source)
 {
 	/*
@@ -1214,32 +1214,32 @@ SR_PRIV int sr_session_source_add_internal(struct sr_session *session,
 	 * another sanity check there.)
 	 */
 	if (g_hash_table_contains(session->event_sources, key)) {
-		sr_err("Event source with key %p already exists.", key);
-		return SR_ERR_BUG;
+		otc_err("Event source with key %p already exists.", key);
+		return OTC_ERR_BUG;
 	}
 	g_hash_table_insert(session->event_sources, key, source);
 
 	if (session_source_attach(session, source) == 0)
-		return SR_ERR;
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** @private */
-SR_PRIV int sr_session_fd_source_add(struct sr_session *session,
+OTC_PRIV int otc_session_fd_source_add(struct otc_session *session,
 		void *key, gintptr fd, int events, int timeout,
-		sr_receive_data_callback cb, void *cb_data)
+		otc_receive_data_callback cb, void *cb_data)
 {
 	GSource *source;
 	int ret;
 
 	source = fd_source_new(session, key, fd, events, timeout);
 	if (!source)
-		return SR_ERR;
+		return OTC_ERR;
 
 	g_source_set_callback(source, G_SOURCE_FUNC(cb), cb_data, NULL);
 
-	ret = sr_session_source_add_internal(session, key, source);
+	ret = otc_session_source_add_internal(session, key, source);
 	g_source_unref(source);
 
 	return ret;
@@ -1256,20 +1256,20 @@ SR_PRIV int sr_session_fd_source_add(struct sr_session *session,
  * @param cb Callback function to add. Must not be NULL.
  * @param cb_data Data for the callback function. Can be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @since 0.3.0
  * @private
  */
-SR_PRIV int sr_session_source_add(struct sr_session *session, int fd,
-		int events, int timeout, sr_receive_data_callback cb, void *cb_data)
+OTC_PRIV int otc_session_source_add(struct otc_session *session, int fd,
+		int events, int timeout, otc_receive_data_callback cb, void *cb_data)
 {
 	if (fd < 0 && timeout < 0) {
-		sr_err("Cannot create timer source without timeout.");
-		return SR_ERR_ARG;
+		otc_err("Cannot create timer source without timeout.");
+		return OTC_ERR_ARG;
 	}
-	return sr_session_fd_source_add(session, GINT_TO_POINTER(fd),
+	return otc_session_fd_source_add(session, GINT_TO_POINTER(fd),
 			fd, events, timeout, cb, cb_data);
 }
 
@@ -1283,21 +1283,21 @@ SR_PRIV int sr_session_source_add(struct sr_session *session, int fd,
  * @param cb Callback function to add. Must not be NULL.
  * @param cb_data Data for the callback function. Can be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @since 0.3.0
  * @private
  */
-SR_PRIV int sr_session_source_add_pollfd(struct sr_session *session,
-		GPollFD *pollfd, int timeout, sr_receive_data_callback cb,
+OTC_PRIV int otc_session_source_add_pollfd(struct otc_session *session,
+		GPollFD *pollfd, int timeout, otc_receive_data_callback cb,
 		void *cb_data)
 {
 	if (!pollfd) {
-		sr_err("%s: pollfd was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: pollfd was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
-	return sr_session_fd_source_add(session, pollfd, pollfd->fd,
+	return otc_session_fd_source_add(session, pollfd, pollfd->fd,
 			pollfd->events, timeout, cb, cb_data);
 }
 
@@ -1312,21 +1312,21 @@ SR_PRIV int sr_session_source_add_pollfd(struct sr_session *session,
  * @param cb Callback function to add. Must not be NULL.
  * @param cb_data Data for the callback function. Can be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @since 0.3.0
  * @private
  */
-SR_PRIV int sr_session_source_add_channel(struct sr_session *session,
+OTC_PRIV int otc_session_source_add_channel(struct otc_session *session,
 		GIOChannel *channel, int events, int timeout,
-		sr_receive_data_callback cb, void *cb_data)
+		otc_receive_data_callback cb, void *cb_data)
 {
 	GPollFD pollfd;
 
 	if (!channel) {
-		sr_err("%s: channel was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: channel was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 	/* We should be using g_io_create_watch(), but can't without
 	 * changing the driver API, as the callback signature is different.
@@ -1337,7 +1337,7 @@ SR_PRIV int sr_session_source_add_channel(struct sr_session *session,
 	pollfd.fd = g_io_channel_unix_get_fd(channel);
 	pollfd.events = events;
 #endif
-	return sr_session_fd_source_add(session, channel, pollfd.fd,
+	return otc_session_fd_source_add(session, channel, pollfd.fd,
 			pollfd.events, timeout, cb, cb_data);
 }
 
@@ -1347,12 +1347,12 @@ SR_PRIV int sr_session_source_add_channel(struct sr_session *session,
  * @param session The session to use. Must not be NULL.
  * @param key The key by which the source is identified.
  *
- * @retval SR_OK Success
- * @retval SR_ERR_BUG No event source for poll_object found.
+ * @retval OTC_OK Success
+ * @retval OTC_ERR_BUG No event source for poll_object found.
  *
  * @private
  */
-SR_PRIV int sr_session_source_remove_internal(struct sr_session *session,
+OTC_PRIV int otc_session_source_remove_internal(struct otc_session *session,
 		void *key)
 {
 	GSource *source;
@@ -1363,12 +1363,12 @@ SR_PRIV int sr_session_source_remove_internal(struct sr_session *session,
 	 * since the poll_object handle may have been reused in the meantime.
 	 */
 	if (!source) {
-		sr_warn("Cannot remove non-existing event source %p.", key);
-		return SR_ERR_BUG;
+		otc_warn("Cannot remove non-existing event source %p.", key);
+		return OTC_ERR_BUG;
 	}
 	g_source_destroy(source);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -1377,16 +1377,16 @@ SR_PRIV int sr_session_source_remove_internal(struct sr_session *session,
  * @param session The session to use. Must not be NULL.
  * @param fd The file descriptor for which the source should be removed.
  *
- * @retval SR_OK Success
- * @retval SR_ERR_ARG Invalid argument
- * @retval SR_ERR_BUG Internal error.
+ * @retval OTC_OK Success
+ * @retval OTC_ERR_ARG Invalid argument
+ * @retval OTC_ERR_BUG Internal error.
  *
  * @since 0.3.0
  * @private
  */
-SR_PRIV int sr_session_source_remove(struct sr_session *session, int fd)
+OTC_PRIV int otc_session_source_remove(struct otc_session *session, int fd)
 {
-	return sr_session_source_remove_internal(session, GINT_TO_POINTER(fd));
+	return otc_session_source_remove_internal(session, GINT_TO_POINTER(fd));
 }
 
 /**
@@ -1395,21 +1395,21 @@ SR_PRIV int sr_session_source_remove(struct sr_session *session, int fd)
  * @param session The session to use. Must not be NULL.
  * @param pollfd The poll descriptor for which the source should be removed.
  *               Must not be NULL.
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments, or
- *         SR_ERR_MALLOC upon memory allocation errors, SR_ERR_BUG upon
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments, or
+ *         OTC_ERR_MALLOC upon memory allocation errors, OTC_ERR_BUG upon
  *         internal errors.
  *
  * @since 0.2.0
  * @private
  */
-SR_PRIV int sr_session_source_remove_pollfd(struct sr_session *session,
+OTC_PRIV int otc_session_source_remove_pollfd(struct otc_session *session,
 		GPollFD *pollfd)
 {
 	if (!pollfd) {
-		sr_err("%s: pollfd was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: pollfd was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
-	return sr_session_source_remove_internal(session, pollfd);
+	return otc_session_source_remove_internal(session, pollfd);
 }
 
 /**
@@ -1418,21 +1418,21 @@ SR_PRIV int sr_session_source_remove_pollfd(struct sr_session *session,
  * @param session The session to use. Must not be NULL.
  * @param channel The channel for which the source should be removed.
  *                Must not be NULL.
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
- * @return SR_ERR_BUG Internal error.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
+ * @return OTC_ERR_BUG Internal error.
  *
  * @since 0.2.0
  * @private
  */
-SR_PRIV int sr_session_source_remove_channel(struct sr_session *session,
+OTC_PRIV int otc_session_source_remove_channel(struct otc_session *session,
 		GIOChannel *channel)
 {
 	if (!channel) {
-		sr_err("%s: channel was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: channel was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
-	return sr_session_source_remove_internal(session, channel);
+	return otc_session_source_remove_internal(session, channel);
 }
 
 /** Unregister an event source that has been destroyed.
@@ -1443,13 +1443,13 @@ SR_PRIV int sr_session_source_remove_channel(struct sr_session *session,
  * @param key The key used to identify @a source.
  * @param source The source object that was destroyed.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_BUG Event source for @a key does not match @a source.
- * @retval SR_ERR Other error.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_BUG Event source for @a key does not match @a source.
+ * @retval OTC_ERR Other error.
  *
  * @private
  */
-SR_PRIV int sr_session_source_destroyed(struct sr_session *session,
+OTC_PRIV int otc_session_source_destroyed(struct otc_session *session,
 		void *key, GSource *source)
 {
 	GSource *registered_source;
@@ -1460,29 +1460,29 @@ SR_PRIV int sr_session_source_destroyed(struct sr_session *session,
 	 * since the poll_object handle may have been reused in the meantime.
 	 */
 	if (!registered_source) {
-		sr_err("No event source for key %p found.", key);
-		return SR_ERR_BUG;
+		otc_err("No event source for key %p found.", key);
+		return OTC_ERR_BUG;
 	}
 	if (registered_source != source) {
-		sr_err("Event source for key %p does not match"
+		otc_err("Event source for key %p does not match"
 			" destroyed source.", key);
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 	}
 	g_hash_table_remove(session->event_sources, key);
 
 	if (g_hash_table_size(session->event_sources) > 0)
-		return SR_OK;
+		return OTC_OK;
 
 	/* If no event sources are left, consider the acquisition finished.
 	 * This is pretty crude, as it requires all event sources to be
-	 * registered via the libsigrok API.
+	 * registered via the libopentracecapture API.
 	 */
 	return stop_check_later(session);
 }
 
-static void copy_src(struct sr_config *src, struct sr_datafeed_meta *meta_copy)
+static void copy_src(struct otc_config *src, struct otc_datafeed_meta *meta_copy)
 {
-	struct sr_config *item;
+	struct otc_config *item;
 
 #if GLIB_CHECK_VERSION(2, 67, 3)
 	item = g_memdup2(src, sizeof(*src));
@@ -1494,55 +1494,55 @@ static void copy_src(struct sr_config *src, struct sr_datafeed_meta *meta_copy)
 	meta_copy->config = g_slist_append(meta_copy->config, item);
 }
 
-SR_API int sr_packet_copy(const struct sr_datafeed_packet *packet,
-		struct sr_datafeed_packet **copy)
+OTC_API int otc_packet_copy(const struct otc_datafeed_packet *packet,
+		struct otc_datafeed_packet **copy)
 {
-	const struct sr_datafeed_meta *meta;
-	struct sr_datafeed_meta *meta_copy;
-	const struct sr_datafeed_logic *logic;
-	struct sr_datafeed_logic *logic_copy;
-	const struct sr_datafeed_analog *analog;
-	struct sr_datafeed_analog *analog_copy;
-	struct sr_analog_encoding *encoding_copy;
-	struct sr_analog_meaning *meaning_copy;
-	struct sr_analog_spec *spec_copy;
+	const struct otc_datafeed_meta *meta;
+	struct otc_datafeed_meta *meta_copy;
+	const struct otc_datafeed_logic *logic;
+	struct otc_datafeed_logic *logic_copy;
+	const struct otc_datafeed_analog *analog;
+	struct otc_datafeed_analog *analog_copy;
+	struct otc_analog_encoding *encoding_copy;
+	struct otc_analog_meaning *meaning_copy;
+	struct otc_analog_spec *spec_copy;
 	uint8_t *payload;
 
-	*copy = g_malloc0(sizeof(struct sr_datafeed_packet));
+	*copy = g_malloc0(sizeof(struct otc_datafeed_packet));
 	(*copy)->type = packet->type;
 
 	switch (packet->type) {
-	case SR_DF_TRIGGER:
-	case SR_DF_END:
+	case OTC_DF_TRIGGER:
+	case OTC_DF_END:
 		/* No payload. */
 		break;
-	case SR_DF_HEADER:
-		payload = g_malloc(sizeof(struct sr_datafeed_header));
-		memcpy(payload, packet->payload, sizeof(struct sr_datafeed_header));
+	case OTC_DF_HEADER:
+		payload = g_malloc(sizeof(struct otc_datafeed_header));
+		memcpy(payload, packet->payload, sizeof(struct otc_datafeed_header));
 		(*copy)->payload = payload;
 		break;
-	case SR_DF_META:
+	case OTC_DF_META:
 		meta = packet->payload;
-		meta_copy = g_malloc0(sizeof(struct sr_datafeed_meta));
+		meta_copy = g_malloc0(sizeof(struct otc_datafeed_meta));
 		g_slist_foreach(meta->config, (GFunc)copy_src, meta_copy->config);
 		(*copy)->payload = meta_copy;
 		break;
-	case SR_DF_LOGIC:
+	case OTC_DF_LOGIC:
 		logic = packet->payload;
 		logic_copy = g_malloc(sizeof(*logic_copy));
 		if (!logic_copy)
-			return SR_ERR;
+			return OTC_ERR;
 		logic_copy->length = logic->length;
 		logic_copy->unitsize = logic->unitsize;
 		logic_copy->data = g_malloc(logic->length * logic->unitsize);
 		if (!logic_copy->data) {
 			g_free(logic_copy);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		memcpy(logic_copy->data, logic->data, logic->length * logic->unitsize);
 		(*copy)->payload = logic_copy;
 		break;
-	case SR_DF_ANALOG:
+	case OTC_DF_ANALOG:
 		analog = packet->payload;
 		analog_copy = g_malloc(sizeof(*analog_copy));
 		analog_copy->data = g_malloc(
@@ -1567,31 +1567,31 @@ SR_API int sr_packet_copy(const struct sr_datafeed_packet *packet,
 		(*copy)->payload = analog_copy;
 		break;
 	default:
-		sr_err("Unknown packet type %d", packet->type);
-		return SR_ERR;
+		otc_err("Unknown packet type %d", packet->type);
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_API void sr_packet_free(struct sr_datafeed_packet *packet)
+OTC_API void otc_packet_free(struct otc_datafeed_packet *packet)
 {
-	const struct sr_datafeed_meta *meta;
-	const struct sr_datafeed_logic *logic;
-	const struct sr_datafeed_analog *analog;
-	struct sr_config *src;
+	const struct otc_datafeed_meta *meta;
+	const struct otc_datafeed_logic *logic;
+	const struct otc_datafeed_analog *analog;
+	struct otc_config *src;
 	GSList *l;
 
 	switch (packet->type) {
-	case SR_DF_TRIGGER:
-	case SR_DF_END:
+	case OTC_DF_TRIGGER:
+	case OTC_DF_END:
 		/* No payload. */
 		break;
-	case SR_DF_HEADER:
+	case OTC_DF_HEADER:
 		/* Payload is a simple struct. */
 		g_free((void *)packet->payload);
 		break;
-	case SR_DF_META:
+	case OTC_DF_META:
 		meta = packet->payload;
 		for (l = meta->config; l; l = l->next) {
 			src = l->data;
@@ -1601,12 +1601,12 @@ SR_API void sr_packet_free(struct sr_datafeed_packet *packet)
 		g_slist_free(meta->config);
 		g_free((void *)packet->payload);
 		break;
-	case SR_DF_LOGIC:
+	case OTC_DF_LOGIC:
 		logic = packet->payload;
 		g_free(logic->data);
 		g_free((void *)packet->payload);
 		break;
-	case SR_DF_ANALOG:
+	case OTC_DF_ANALOG:
 		analog = packet->payload;
 		g_free(analog->data);
 		g_free(analog->encoding);
@@ -1616,7 +1616,7 @@ SR_API void sr_packet_free(struct sr_datafeed_packet *packet)
 		g_free((void *)packet->payload);
 		break;
 	default:
-		sr_err("Unknown packet type %d", packet->type);
+		otc_err("Unknown packet type %d", packet->type);
 	}
 	g_free(packet);
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -43,14 +43,14 @@ static float parse_temperature(unsigned char *buf)
 			continue;
 		if (buf[i] == NEG) {
 			if (negative) {
-				sr_dbg("Double negative sign!");
+				otc_dbg("Double negative sign!");
 				return NAN;
 			}
 			negative = TRUE;
 			continue;
 		}
 		if (buf[i] < '0' || buf[i] > '9') {
-			sr_dbg("Invalid digit '%.2x'!", buf[i]);
+			otc_dbg("Invalid digit '%.2x'!", buf[i]);
 			return NAN;
 		}
 		temp *= 10;
@@ -63,22 +63,22 @@ static float parse_temperature(unsigned char *buf)
 	return temp;
 }
 
-static void process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
+static void process_packet(struct otc_dev_inst *sdi, uint8_t *pkt, size_t len)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	GString *spew;
 	float temp;
 	gboolean is_valid;
 
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
-		spew = sr_hexdump_new(pkt, len);
-		sr_spew("Got a packet, len %zu, bytes%s", len, spew->str);
-		sr_hexdump_free(spew);
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
+		spew = otc_hexdump_new(pkt, len);
+		otc_spew("Got a packet, len %zu, bytes%s", len, spew->str);
+		otc_hexdump_free(spew);
 	}
 	if (len != PACKET_SIZE)
 		return;
@@ -86,7 +86,7 @@ static void process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		return;
 	if (pkt[8] != '0' || pkt[16] != '1')
 		return;
-	sr_dbg("Processing 19-byte packet.");
+	otc_dbg("Processing 19-byte packet.");
 
 	is_valid = TRUE;
 	if (pkt[1] == NEG && pkt[2] == NEG && pkt[3] == NEG && pkt[4] == NEG)
@@ -99,22 +99,22 @@ static void process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 
 	if (is_valid) {
 		memset(&packet, 0, sizeof(packet));
-		sr_analog_init(&analog, &encoding, &meaning, &spec, 1);
-		analog.meaning->mq = SR_MQ_TEMPERATURE;
+		otc_analog_init(&analog, &encoding, &meaning, &spec, 1);
+		analog.meaning->mq = OTC_MQ_TEMPERATURE;
 		analog.meaning->mqflags = 0;
 		switch (pkt[5] - '0') {
 		case 1:
-			analog.meaning->unit = SR_UNIT_CELSIUS;
+			analog.meaning->unit = OTC_UNIT_CELSIUS;
 			break;
 		case 2:
-			analog.meaning->unit = SR_UNIT_FAHRENHEIT;
+			analog.meaning->unit = OTC_UNIT_FAHRENHEIT;
 			break;
 		case 3:
-			analog.meaning->unit = SR_UNIT_KELVIN;
+			analog.meaning->unit = OTC_UNIT_KELVIN;
 			break;
 		default:
 			/* We can still pass on the measurement, whatever it is. */
-			sr_dbg("Unknown unit 0x%.2x.", pkt[5]);
+			otc_dbg("Unknown unit 0x%.2x.", pkt[5]);
 		}
 		switch (pkt[13] - '0') {
 		case 0:
@@ -129,18 +129,18 @@ static void process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		case 3:
 			/* Channel T1-T2. */
 			analog.meaning->channels = g_slist_append(NULL, g_slist_nth_data(sdi->channels, 2));
-			analog.meaning->mqflags |= SR_MQFLAG_RELATIVE;
+			analog.meaning->mqflags |= OTC_MQFLAG_RELATIVE;
 			break;
 		default:
-			sr_err("Unknown channel 0x%.2x.", pkt[13]);
+			otc_err("Unknown channel 0x%.2x.", pkt[13]);
 			is_valid = FALSE;
 		}
 		if (is_valid) {
 			analog.num_samples = 1;
 			analog.data = &temp;
-			packet.type = SR_DF_ANALOG;
+			packet.type = OTC_DF_ANALOG;
 			packet.payload = &analog;
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 			g_slist_free(analog.meaning->channels);
 		}
 	}
@@ -151,12 +151,12 @@ static void process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 	 * memory slots come through as "----" measurements.
 	 */
 	devc = sdi->priv;
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 }
 
-static int process_buffer(struct sr_dev_inst *sdi)
+static int process_buffer(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint8_t *pkt;
@@ -213,10 +213,10 @@ static int process_buffer(struct sr_dev_inst *sdi)
 }
 
 /* Gets invoked when RX data is available. */
-static int ut32x_receive_data(struct sr_dev_inst *sdi)
+static int ut32x_receive_data(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	size_t len;
 
 	devc = sdi->priv;
@@ -245,10 +245,10 @@ static int ut32x_receive_data(struct sr_dev_inst *sdi)
 }
 
 /* Gets periodically invoked by the glib main loop. */
-SR_PRIV int ut32x_handle_events(int fd, int revents, void *cb_data)
+OTC_PRIV int ut32x_handle_events(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
-	struct sr_serial_dev_inst *serial;
+	struct otc_dev_inst *sdi;
+	struct otc_serial_dev_inst *serial;
 	uint8_t cmd;
 
 	(void)fd;
@@ -263,10 +263,10 @@ SR_PRIV int ut32x_handle_events(int fd, int revents, void *cb_data)
 	if (revents & G_IO_IN)
 		ut32x_receive_data(sdi);
 
-	if (sdi->status == SR_ST_STOPPING) {
+	if (sdi->status == OTC_ST_STOPPING) {
 		serial_source_remove(sdi->session, serial);
 		std_session_send_df_end(sdi);
-		sdi->status = SR_ST_ACTIVE;
+		sdi->status = OTC_ST_ACTIVE;
 
 		/* Tell the device to stop sending data. */
 		cmd = CMD_STOP;

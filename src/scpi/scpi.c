@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 poljar (Damir Jelić) <poljarinho@gmail.com>
  * Copyright (C) 2015 Bert Vermeulen <bert@biot.com>
@@ -21,9 +21,9 @@
 #include <config.h>
 #include <glib.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
-#include "scpi.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
+#include "../scpi.h"
 
 #define LOG_PREFIX "scpi"
 
@@ -43,19 +43,19 @@ static const char *scpi_vendors[][2] = {
 
 /**
  * Parse a string representation of a boolean-like value into a gboolean.
- * Similar to sr_parse_boolstring but rejects strings which do not represent
+ * Similar to otc_parse_boolstring but rejects strings which do not represent
  * a boolean-like value.
  *
  * @param str String to convert.
  * @param ret Pointer to a gboolean where the result of the conversion will be
  * stored.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
 static int parse_strict_bool(const char *str, gboolean *ret)
 {
 	if (!str)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (!g_strcmp0(str, "1") ||
 	    !g_ascii_strncasecmp(str, "y", 1) ||
@@ -64,7 +64,7 @@ static int parse_strict_bool(const char *str, gboolean *ret)
 	    !g_ascii_strncasecmp(str, "true", 4) ||
 	    !g_ascii_strncasecmp(str, "on", 2)) {
 		*ret = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	} else if (!g_strcmp0(str, "0") ||
 		   !g_ascii_strncasecmp(str, "n", 1) ||
 		   !g_ascii_strncasecmp(str, "f", 1) ||
@@ -72,21 +72,21 @@ static int parse_strict_bool(const char *str, gboolean *ret)
 		   !g_ascii_strncasecmp(str, "false", 5) ||
 		   !g_ascii_strncasecmp(str, "off", 3)) {
 		*ret = FALSE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
-SR_PRIV extern const struct sr_scpi_dev_inst scpi_serial_dev;
-SR_PRIV extern const struct sr_scpi_dev_inst scpi_tcp_raw_dev;
-SR_PRIV extern const struct sr_scpi_dev_inst scpi_tcp_rigol_dev;
-SR_PRIV extern const struct sr_scpi_dev_inst scpi_usbtmc_libusb_dev;
-SR_PRIV extern const struct sr_scpi_dev_inst scpi_vxi_dev;
-SR_PRIV extern const struct sr_scpi_dev_inst scpi_visa_dev;
-SR_PRIV extern const struct sr_scpi_dev_inst scpi_libgpib_dev;
+OTC_PRIV extern const struct otc_scpi_dev_inst scpi_serial_dev;
+OTC_PRIV extern const struct otc_scpi_dev_inst scpi_tcp_raw_dev;
+OTC_PRIV extern const struct otc_scpi_dev_inst scpi_tcp_rigol_dev;
+OTC_PRIV extern const struct otc_scpi_dev_inst scpi_usbtmc_libusb_dev;
+OTC_PRIV extern const struct otc_scpi_dev_inst scpi_vxi_dev;
+OTC_PRIV extern const struct otc_scpi_dev_inst scpi_visa_dev;
+OTC_PRIV extern const struct otc_scpi_dev_inst scpi_libgpib_dev;
 
-static const struct sr_scpi_dev_inst *scpi_devs[] = {
+static const struct otc_scpi_dev_inst *scpi_devs[] = {
 	&scpi_tcp_raw_dev,
 	&scpi_tcp_rigol_dev,
 #ifdef HAVE_LIBUSB_1_0
@@ -106,30 +106,30 @@ static const struct sr_scpi_dev_inst *scpi_devs[] = {
 #endif
 };
 
-static struct sr_dev_inst *sr_scpi_scan_resource(struct drv_context *drvc,
+static struct otc_dev_inst *otc_scpi_scan_resource(struct drv_context *drvc,
 		const char *resource, const char *serialcomm,
-		struct sr_dev_inst *(*probe_device)(struct sr_scpi_dev_inst *scpi))
+		struct otc_dev_inst *(*probe_device)(struct otc_scpi_dev_inst *scpi))
 {
-	struct sr_scpi_dev_inst *scpi;
-	struct sr_dev_inst *sdi;
+	struct otc_scpi_dev_inst *scpi;
+	struct otc_dev_inst *sdi;
 
 	if (!(scpi = scpi_dev_inst_new(drvc, resource, serialcomm)))
 		return NULL;
 
-	if (sr_scpi_open(scpi) != SR_OK) {
-		sr_info("Couldn't open SCPI device.");
-		sr_scpi_free(scpi);
+	if (otc_scpi_open(scpi) != OTC_OK) {
+		otc_info("Couldn't open SCPI device.");
+		otc_scpi_free(scpi);
 		return NULL;
 	};
 
 	sdi = probe_device(scpi);
 
-	sr_scpi_close(scpi);
+	otc_scpi_close(scpi);
 
 	if (sdi)
-		sdi->status = SR_ST_INACTIVE;
+		sdi->status = OTC_ST_INACTIVE;
 	else
-		sr_scpi_free(scpi);
+		otc_scpi_free(scpi);
 
 	return sdi;
 }
@@ -141,9 +141,9 @@ static struct sr_dev_inst *sr_scpi_scan_resource(struct drv_context *drvc,
  * @param format Format string.
  * @param args Argument list.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-static int scpi_send_variadic(struct sr_scpi_dev_inst *scpi,
+static int scpi_send_variadic(struct otc_scpi_dev_inst *scpi,
 			 const char *format, va_list args)
 {
 	va_list args_copy;
@@ -152,12 +152,12 @@ static int scpi_send_variadic(struct sr_scpi_dev_inst *scpi,
 
 	/* Get length of buffer required. */
 	va_copy(args_copy, args);
-	len = sr_vsnprintf_ascii(NULL, 0, format, args_copy);
+	len = otc_vsnprintf_ascii(NULL, 0, format, args_copy);
 	va_end(args_copy);
 
 	/* Allocate buffer and write out command. */
 	buf = g_malloc0(len + 2);
-	sr_vsprintf_ascii(buf, format, args);
+	otc_vsprintf_ascii(buf, format, args);
 	if (buf[len - 1] != '\n')
 		buf[len] = '\n';
 
@@ -176,9 +176,9 @@ static int scpi_send_variadic(struct sr_scpi_dev_inst *scpi,
  * @param scpi Previously initialized SCPI device structure.
  * @param format Format string, to be followed by any necessary arguments.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-static int scpi_send(struct sr_scpi_dev_inst *scpi, const char *format, ...)
+static int scpi_send(struct otc_scpi_dev_inst *scpi, const char *format, ...)
 {
 	va_list args;
 	int ret;
@@ -200,9 +200,9 @@ static int scpi_send(struct sr_scpi_dev_inst *scpi, const char *format, ...)
  * @param buf Buffer with data to send.
  * @param len Number of bytes to send.
  *
- * @return Number of bytes read, or SR_ERR upon failure.
+ * @return Number of bytes read, or OTC_ERR upon failure.
  */
-static int scpi_write_data(struct sr_scpi_dev_inst *scpi, char *buf, int maxlen)
+static int scpi_write_data(struct otc_scpi_dev_inst *scpi, char *buf, int maxlen)
 {
 	return scpi->write_data(scpi->priv, buf, maxlen);
 }
@@ -214,9 +214,9 @@ static int scpi_write_data(struct sr_scpi_dev_inst *scpi, char *buf, int maxlen)
  * @param buf Buffer to store result.
  * @param maxlen Maximum number of bytes to read.
  *
- * @return Number of bytes read, or SR_ERR upon failure.
+ * @return Number of bytes read, or OTC_ERR upon failure.
  */
-static int scpi_read_data(struct sr_scpi_dev_inst *scpi, char *buf, int maxlen)
+static int scpi_read_data(struct otc_scpi_dev_inst *scpi, char *buf, int maxlen)
 {
 	return scpi->read_data(scpi->priv, buf, maxlen);
 }
@@ -229,9 +229,9 @@ static int scpi_read_data(struct sr_scpi_dev_inst *scpi, char *buf, int maxlen)
  * @param response Buffer to which the response is appended.
  * @param abs_timeout_us Absolute timeout in microseconds
  *
- * @return read length on success, SR_ERR* on failure.
+ * @return read length on success, OTC_ERR* on failure.
  */
-static int scpi_read_response(struct sr_scpi_dev_inst *scpi,
+static int scpi_read_response(struct otc_scpi_dev_inst *scpi,
 				GString *response, gint64 abs_timeout_us)
 {
 	int len, space;
@@ -240,8 +240,8 @@ static int scpi_read_response(struct sr_scpi_dev_inst *scpi,
 	len = scpi->read_data(scpi->priv, &response->str[response->len], space);
 
 	if (len < 0) {
-		sr_err("Incompletely read SCPI response.");
-		return SR_ERR;
+		otc_err("Incompletely read SCPI response.");
+		return OTC_ERR;
 	}
 
 	if (len > 0) {
@@ -250,8 +250,8 @@ static int scpi_read_response(struct sr_scpi_dev_inst *scpi,
 	}
 
 	if (g_get_monotonic_time() > abs_timeout_us) {
-		sr_err("Timed out waiting for SCPI response.");
-		return SR_ERR_TIMEOUT;
+		otc_err("Timed out waiting for SCPI response.");
+		return OTC_ERR_TIMEOUT;
 	}
 
 	return 0;
@@ -265,9 +265,9 @@ static int scpi_read_response(struct sr_scpi_dev_inst *scpi,
  * @param command The SCPI command to send to the device.
  * @param scpi_response Pointer where to store the SCPI response.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-static int scpi_get_data(struct sr_scpi_dev_inst *scpi,
+static int scpi_get_data(struct otc_scpi_dev_inst *scpi,
 				const char *command, GString **scpi_response)
 {
 	int ret;
@@ -277,20 +277,20 @@ static int scpi_get_data(struct sr_scpi_dev_inst *scpi,
 
 	/* Optionally send caller provided command. */
 	if (command) {
-		if (scpi_send(scpi, command) != SR_OK)
-			return SR_ERR;
+		if (scpi_send(scpi, command) != OTC_OK)
+			return OTC_ERR;
 	}
 
 	/* Initiate SCPI read operation. */
-	if (sr_scpi_read_begin(scpi) != SR_OK)
-		return SR_ERR;
+	if (otc_scpi_read_begin(scpi) != OTC_OK)
+		return OTC_ERR;
 
 	/* Keep reading until completion or until timeout. */
 	timeout = g_get_monotonic_time() + scpi->read_timeout_us;
 
 	response = *scpi_response;
 
-	while (!sr_scpi_read_complete(scpi)) {
+	while (!otc_scpi_read_complete(scpi)) {
 		/* Resize the buffer when free space drops below a threshold. */
 		space = response->allocated_len - response->len;
 		if (space < 128) {
@@ -308,14 +308,14 @@ static int scpi_get_data(struct sr_scpi_dev_inst *scpi,
 			timeout = g_get_monotonic_time() + scpi->read_timeout_us;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV GSList *sr_scpi_scan(struct drv_context *drvc, GSList *options,
-		struct sr_dev_inst *(*probe_device)(struct sr_scpi_dev_inst *scpi))
+OTC_PRIV GSList *otc_scpi_scan(struct drv_context *drvc, GSList *options,
+		struct otc_dev_inst *(*probe_device)(struct otc_scpi_dev_inst *scpi))
 {
 	GSList *resources, *l, *devices;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	const char *resource, *conn;
 	const char *serialcomm, *comm;
 	gchar **res;
@@ -323,7 +323,7 @@ SR_PRIV GSList *sr_scpi_scan(struct drv_context *drvc, GSList *options,
 
 	resource = NULL;
 	serialcomm = NULL;
-	(void)sr_serial_extract_options(options, &resource, &serialcomm);
+	(void)otc_serial_extract_options(options, &resource, &serialcomm);
 
 	devices = NULL;
 	for (i = 0; i < ARRAY_SIZE(scpi_devs); i++) {
@@ -340,7 +340,7 @@ SR_PRIV GSList *sr_scpi_scan(struct drv_context *drvc, GSList *options,
 			}
 			conn = res[0];
 			comm = serialcomm ? : res[1];
-			sdi = sr_scpi_scan_resource(drvc, conn, comm, probe_device);
+			sdi = otc_scpi_scan_resource(drvc, conn, comm, probe_device);
 			if (sdi) {
 				devices = g_slist_append(devices, sdi);
 				sdi->connection_id = g_strdup(l->data);
@@ -351,7 +351,7 @@ SR_PRIV GSList *sr_scpi_scan(struct drv_context *drvc, GSList *options,
 	}
 
 	if (!devices && resource) {
-		sdi = sr_scpi_scan_resource(drvc, resource, serialcomm, probe_device);
+		sdi = otc_scpi_scan_resource(drvc, resource, serialcomm, probe_device);
 		if (sdi)
 			devices = g_slist_append(NULL, sdi);
 	}
@@ -363,26 +363,26 @@ SR_PRIV GSList *sr_scpi_scan(struct drv_context *drvc, GSList *options,
 	return devices;
 }
 
-SR_PRIV struct sr_scpi_dev_inst *scpi_dev_inst_new(struct drv_context *drvc,
+OTC_PRIV struct otc_scpi_dev_inst *scpi_dev_inst_new(struct drv_context *drvc,
 		const char *resource, const char *serialcomm)
 {
-	struct sr_scpi_dev_inst *scpi = NULL;
-	const struct sr_scpi_dev_inst *scpi_dev;
+	struct otc_scpi_dev_inst *scpi = NULL;
+	const struct otc_scpi_dev_inst *scpi_dev;
 	gchar **params;
 	unsigned i;
 
 	for (i = 0; i < ARRAY_SIZE(scpi_devs); i++) {
 		scpi_dev = scpi_devs[i];
 		if (!strncmp(resource, scpi_dev->prefix, strlen(scpi_dev->prefix))) {
-			sr_dbg("Opening %s device %s.", scpi_dev->name, resource);
+			otc_dbg("Opening %s device %s.", scpi_dev->name, resource);
 			scpi = g_malloc(sizeof(*scpi));
 			*scpi = *scpi_dev;
 			scpi->priv = g_malloc0(scpi->priv_size);
 			scpi->read_timeout_us = 1000 * 1000;
 			params = g_strsplit(resource, "/", 0);
 			if (scpi->dev_inst_new(scpi->priv, drvc, resource,
-			                       params, serialcomm) != SR_OK) {
-				sr_scpi_free(scpi);
+			                       params, serialcomm) != OTC_OK) {
+				otc_scpi_free(scpi);
 				scpi = NULL;
 			}
 			g_strfreev(params);
@@ -398,9 +398,9 @@ SR_PRIV struct sr_scpi_dev_inst *scpi_dev_inst_new(struct drv_context *drvc,
  *
  * @param scpi Previously initialized SCPI device structure.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-SR_PRIV int sr_scpi_open(struct sr_scpi_dev_inst *scpi)
+OTC_PRIV int otc_scpi_open(struct otc_scpi_dev_inst *scpi)
 {
 	g_mutex_init(&scpi->scpi_mutex);
 
@@ -416,9 +416,9 @@ SR_PRIV int sr_scpi_open(struct sr_scpi_dev_inst *scpi)
  * @param[in] scpi Previously initialized SCPI device structure.
  * @param[out] connection_id Pointer where to store the connection ID.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-SR_PRIV int sr_scpi_connection_id(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_connection_id(struct otc_scpi_dev_inst *scpi,
 		char **connection_id)
 {
 	return scpi->connection_id(scpi, connection_id);
@@ -434,12 +434,12 @@ SR_PRIV int sr_scpi_connection_id(struct sr_scpi_dev_inst *scpi,
  * @param cb Callback function to add. Must not be NULL.
  * @param cb_data Data for the callback function. Can be NULL.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments, or
- *         SR_ERR_MALLOC upon memory allocation errors.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments, or
+ *         OTC_ERR_MALLOC upon memory allocation errors.
  */
-SR_PRIV int sr_scpi_source_add(struct sr_session *session,
-		struct sr_scpi_dev_inst *scpi, int events, int timeout,
-		sr_receive_data_callback cb, void *cb_data)
+OTC_PRIV int otc_scpi_source_add(struct otc_session *session,
+		struct otc_scpi_dev_inst *scpi, int events, int timeout,
+		otc_receive_data_callback cb, void *cb_data)
 {
 	return scpi->source_add(session, scpi->priv, events, timeout, cb, cb_data);
 }
@@ -450,12 +450,12 @@ SR_PRIV int sr_scpi_source_add(struct sr_session *session,
  * @param session The session to remove the event source from.
  * @param scpi Previously initialized SCPI device structure.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments, or
- *         SR_ERR_MALLOC upon memory allocation errors, SR_ERR_BUG upon
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments, or
+ *         OTC_ERR_MALLOC upon memory allocation errors, OTC_ERR_BUG upon
  *         internal errors.
  */
-SR_PRIV int sr_scpi_source_remove(struct sr_session *session,
-		struct sr_scpi_dev_inst *scpi)
+OTC_PRIV int otc_scpi_source_remove(struct otc_session *session,
+		struct otc_scpi_dev_inst *scpi)
 {
 	return scpi->source_remove(session, scpi->priv);
 }
@@ -466,9 +466,9 @@ SR_PRIV int sr_scpi_source_remove(struct sr_session *session,
  * @param scpi Previously initialized SCPI device structure.
  * @param format Format string, to be followed by any necessary arguments.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-SR_PRIV int sr_scpi_send(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_send(struct otc_scpi_dev_inst *scpi,
 			 const char *format, ...)
 {
 	va_list args;
@@ -490,9 +490,9 @@ SR_PRIV int sr_scpi_send(struct sr_scpi_dev_inst *scpi,
  * @param format Format string.
  * @param args Argument list.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-SR_PRIV int sr_scpi_send_variadic(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_send_variadic(struct otc_scpi_dev_inst *scpi,
 			 const char *format, va_list args)
 {
 	int ret;
@@ -509,9 +509,9 @@ SR_PRIV int sr_scpi_send_variadic(struct sr_scpi_dev_inst *scpi,
  *
  * @param scpi Previously initialised SCPI device structure.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-SR_PRIV int sr_scpi_read_begin(struct sr_scpi_dev_inst *scpi)
+OTC_PRIV int otc_scpi_read_begin(struct otc_scpi_dev_inst *scpi)
 {
 	return scpi->read_begin(scpi->priv);
 }
@@ -523,9 +523,9 @@ SR_PRIV int sr_scpi_read_begin(struct sr_scpi_dev_inst *scpi)
  * @param buf Buffer to store result.
  * @param maxlen Maximum number of bytes to read.
  *
- * @return Number of bytes read, or SR_ERR upon failure.
+ * @return Number of bytes read, or OTC_ERR upon failure.
  */
-SR_PRIV int sr_scpi_read_data(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_read_data(struct otc_scpi_dev_inst *scpi,
 			char *buf, int maxlen)
 {
 	int ret;
@@ -547,9 +547,9 @@ SR_PRIV int sr_scpi_read_data(struct sr_scpi_dev_inst *scpi,
  * @param buf Buffer with data to send.
  * @param len Number of bytes to send.
  *
- * @return Number of bytes read, or SR_ERR upon failure.
+ * @return Number of bytes read, or OTC_ERR upon failure.
  */
-SR_PRIV int sr_scpi_write_data(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_write_data(struct otc_scpi_dev_inst *scpi,
 			char *buf, int maxlen)
 {
 	int ret;
@@ -568,7 +568,7 @@ SR_PRIV int sr_scpi_write_data(struct sr_scpi_dev_inst *scpi,
  *
  * @return 1 if complete, 0 otherwise.
  */
-SR_PRIV int sr_scpi_read_complete(struct sr_scpi_dev_inst *scpi)
+OTC_PRIV int otc_scpi_read_complete(struct otc_scpi_dev_inst *scpi)
 {
 	return scpi->read_complete(scpi->priv);
 }
@@ -578,9 +578,9 @@ SR_PRIV int sr_scpi_read_complete(struct sr_scpi_dev_inst *scpi)
  *
  * @param scpi Previously initialized SCPI device structure.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-SR_PRIV int sr_scpi_close(struct sr_scpi_dev_inst *scpi)
+OTC_PRIV int otc_scpi_close(struct otc_scpi_dev_inst *scpi)
 {
 	int ret;
 
@@ -598,7 +598,7 @@ SR_PRIV int sr_scpi_close(struct sr_scpi_dev_inst *scpi)
  * @param scpi Previously initialized SCPI device structure. If NULL,
  *             this function does nothing.
  */
-SR_PRIV void sr_scpi_free(struct sr_scpi_dev_inst *scpi)
+OTC_PRIV void otc_scpi_free(struct otc_scpi_dev_inst *scpi)
 {
 	if (!scpi)
 		return;
@@ -619,9 +619,9 @@ SR_PRIV void sr_scpi_free(struct sr_scpi_dev_inst *scpi)
  * @param[in] command The SCPI command to send to the device (can be NULL).
  * @param[out] scpi_response Pointer where to store the SCPI response.
  *
- * @return SR_OK on success, SR_ERR* on failure.
+ * @return OTC_OK on success, OTC_ERR* on failure.
  */
-SR_PRIV int sr_scpi_get_string(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_string(struct otc_scpi_dev_inst *scpi,
 			       const char *command, char **scpi_response)
 {
 	GString *response;
@@ -629,10 +629,10 @@ SR_PRIV int sr_scpi_get_string(struct sr_scpi_dev_inst *scpi,
 	*scpi_response = NULL;
 
 	response = g_string_sized_new(1024);
-	if (sr_scpi_get_data(scpi, command, &response) != SR_OK) {
+	if (otc_scpi_get_data(scpi, command, &response) != OTC_OK) {
 		if (response)
 			g_string_free(response, TRUE);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* Get rid of trailing linefeed if present */
@@ -643,12 +643,12 @@ SR_PRIV int sr_scpi_get_string(struct sr_scpi_dev_inst *scpi,
 	if (response->len >= 1 && response->str[response->len - 1] == '\r')
 		g_string_truncate(response, response->len - 1);
 
-	sr_spew("Got response: '%.70s', length %" G_GSIZE_FORMAT ".",
+	otc_spew("Got response: '%.70s', length %" G_GSIZE_FORMAT ".",
 		response->str, response->len);
 
 	*scpi_response = g_string_free(response, FALSE);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -659,9 +659,9 @@ SR_PRIV int sr_scpi_get_string(struct sr_scpi_dev_inst *scpi,
  * @param response Buffer to which the response is appended.
  * @param abs_timeout_us Absolute timeout in microseconds
  *
- * @return read length on success, SR_ERR* on failure.
+ * @return read length on success, OTC_ERR* on failure.
  */
-SR_PRIV int sr_scpi_read_response(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_read_response(struct otc_scpi_dev_inst *scpi,
 				  GString *response, gint64 abs_timeout_us)
 {
 	int ret;
@@ -673,7 +673,7 @@ SR_PRIV int sr_scpi_read_response(struct sr_scpi_dev_inst *scpi,
 	return ret;
 }
 
-SR_PRIV int sr_scpi_get_data(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_data(struct otc_scpi_dev_inst *scpi,
 			     const char *command, GString **scpi_response)
 {
 	int ret;
@@ -693,9 +693,9 @@ SR_PRIV int sr_scpi_get_data(struct sr_scpi_dev_inst *scpi,
  * @param command The SCPI command to send to the device (can be NULL).
  * @param scpi_response Pointer where to store the parsed result.
  *
- * @return SR_OK on success, SR_ERR* on failure.
+ * @return OTC_OK on success, OTC_ERR* on failure.
  */
-SR_PRIV int sr_scpi_get_bool(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_bool(struct otc_scpi_dev_inst *scpi,
 			     const char *command, gboolean *scpi_response)
 {
 	int ret;
@@ -703,14 +703,14 @@ SR_PRIV int sr_scpi_get_bool(struct sr_scpi_dev_inst *scpi,
 
 	response = NULL;
 
-	ret = sr_scpi_get_string(scpi, command, &response);
-	if (ret != SR_OK && !response)
+	ret = otc_scpi_get_string(scpi, command, &response);
+	if (ret != OTC_OK && !response)
 		return ret;
 
-	if (parse_strict_bool(response, scpi_response) == SR_OK)
-		ret = SR_OK;
+	if (parse_strict_bool(response, scpi_response) == OTC_OK)
+		ret = OTC_OK;
 	else
-		ret = SR_ERR_DATA;
+		ret = OTC_ERR_DATA;
 
 	g_free(response);
 
@@ -725,28 +725,28 @@ SR_PRIV int sr_scpi_get_bool(struct sr_scpi_dev_inst *scpi,
  * @param command The SCPI command to send to the device (can be NULL).
  * @param scpi_response Pointer where to store the parsed result.
  *
- * @return SR_OK on success, SR_ERR* on failure.
+ * @return OTC_OK on success, OTC_ERR* on failure.
  */
-SR_PRIV int sr_scpi_get_int(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_int(struct otc_scpi_dev_inst *scpi,
 			    const char *command, int *scpi_response)
 {
 	int ret;
-	struct sr_rational ret_rational;
+	struct otc_rational ret_rational;
 	char *response;
 
 	response = NULL;
 
-	ret = sr_scpi_get_string(scpi, command, &response);
-	if (ret != SR_OK && !response)
+	ret = otc_scpi_get_string(scpi, command, &response);
+	if (ret != OTC_OK && !response)
 		return ret;
 
-	ret = sr_parse_rational(response, &ret_rational);
-	if (ret == SR_OK && (ret_rational.p % ret_rational.q) == 0) {
+	ret = otc_parse_rational(response, &ret_rational);
+	if (ret == OTC_OK && (ret_rational.p % ret_rational.q) == 0) {
 		*scpi_response = ret_rational.p / ret_rational.q;
 	} else {
-		sr_dbg("get_int: non-integer rational=%" PRId64 "/%" PRIu64,
+		otc_dbg("get_int: non-integer rational=%" PRId64 "/%" PRIu64,
 			ret_rational.p, ret_rational.q);
-		ret = SR_ERR_DATA;
+		ret = OTC_ERR_DATA;
 	}
 
 	g_free(response);
@@ -762,9 +762,9 @@ SR_PRIV int sr_scpi_get_int(struct sr_scpi_dev_inst *scpi,
  * @param command The SCPI command to send to the device (can be NULL).
  * @param scpi_response Pointer where to store the parsed result.
  *
- * @return SR_OK on success, SR_ERR* on failure.
+ * @return OTC_OK on success, OTC_ERR* on failure.
  */
-SR_PRIV int sr_scpi_get_float(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_float(struct otc_scpi_dev_inst *scpi,
 			      const char *command, float *scpi_response)
 {
 	int ret;
@@ -772,14 +772,14 @@ SR_PRIV int sr_scpi_get_float(struct sr_scpi_dev_inst *scpi,
 
 	response = NULL;
 
-	ret = sr_scpi_get_string(scpi, command, &response);
-	if (ret != SR_OK && !response)
+	ret = otc_scpi_get_string(scpi, command, &response);
+	if (ret != OTC_OK && !response)
 		return ret;
 
-	if (sr_atof_ascii(response, scpi_response) == SR_OK)
-		ret = SR_OK;
+	if (otc_atof_ascii(response, scpi_response) == OTC_OK)
+		ret = OTC_OK;
 	else
-		ret = SR_ERR_DATA;
+		ret = OTC_ERR_DATA;
 
 	g_free(response);
 
@@ -794,9 +794,9 @@ SR_PRIV int sr_scpi_get_float(struct sr_scpi_dev_inst *scpi,
  * @param command The SCPI command to send to the device (can be NULL).
  * @param scpi_response Pointer where to store the parsed result.
  *
- * @return SR_OK on success, SR_ERR* on failure.
+ * @return OTC_OK on success, OTC_ERR* on failure.
  */
-SR_PRIV int sr_scpi_get_double(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_double(struct otc_scpi_dev_inst *scpi,
 			       const char *command, double *scpi_response)
 {
 	int ret;
@@ -804,14 +804,14 @@ SR_PRIV int sr_scpi_get_double(struct sr_scpi_dev_inst *scpi,
 
 	response = NULL;
 
-	ret = sr_scpi_get_string(scpi, command, &response);
-	if (ret != SR_OK && !response)
+	ret = otc_scpi_get_string(scpi, command, &response);
+	if (ret != OTC_OK && !response)
 		return ret;
 
-	if (sr_atod_ascii(response, scpi_response) == SR_OK)
-		ret = SR_OK;
+	if (otc_atod_ascii(response, scpi_response) == OTC_OK)
+		ret = OTC_OK;
 	else
-		ret = SR_ERR_DATA;
+		ret = OTC_ERR_DATA;
 
 	g_free(response);
 
@@ -824,22 +824,22 @@ SR_PRIV int sr_scpi_get_double(struct sr_scpi_dev_inst *scpi,
  *
  * @param scpi Previously initialised SCPI device structure.
  *
- * @return SR_OK on success, SR_ERR* on failure.
+ * @return OTC_OK on success, OTC_ERR* on failure.
  */
-SR_PRIV int sr_scpi_get_opc(struct sr_scpi_dev_inst *scpi)
+OTC_PRIV int otc_scpi_get_opc(struct otc_scpi_dev_inst *scpi)
 {
 	unsigned int i;
 	gboolean opc;
 
 	for (i = 0; i < SCPI_READ_RETRIES; i++) {
 		opc = FALSE;
-		sr_scpi_get_bool(scpi, SCPI_CMD_OPC, &opc);
+		otc_scpi_get_bool(scpi, SCPI_CMD_OPC, &opc);
 		if (opc)
-			return SR_OK;
+			return OTC_OK;
 		g_usleep(SCPI_READ_RETRY_TIMEOUT_US);
 	}
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
 /**
@@ -853,10 +853,10 @@ SR_PRIV int sr_scpi_get_opc(struct sr_scpi_dev_inst *scpi)
  * @param[in] command The SCPI command to send to the device (can be NULL).
  * @param[out] scpi_response Pointer where to store the parsed result.
  *
- * @return SR_OK upon successfully parsing all values, SR_ERR* upon a parsing
+ * @return OTC_OK upon successfully parsing all values, OTC_ERR* upon a parsing
  *         error or upon no response.
  */
-SR_PRIV int sr_scpi_get_floatv(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_floatv(struct otc_scpi_dev_inst *scpi,
 			       const char *command, GArray **scpi_response)
 {
 	int ret;
@@ -869,8 +869,8 @@ SR_PRIV int sr_scpi_get_floatv(struct sr_scpi_dev_inst *scpi,
 	*scpi_response = NULL;
 
 	response = NULL;
-	ret = sr_scpi_get_string(scpi, command, &response);
-	if (ret != SR_OK && !response)
+	ret = otc_scpi_get_string(scpi, command, &response);
+	if (ret != OTC_OK && !response)
 		return ret;
 
 	tokens = g_strsplit(response, ",", 0);
@@ -881,9 +881,9 @@ SR_PRIV int sr_scpi_get_floatv(struct sr_scpi_dev_inst *scpi,
 
 	ptr = tokens;
 	while (*ptr) {
-		ret = sr_atof_ascii(*ptr, &tmp);
-		if (ret != SR_OK) {
-			ret = SR_ERR_DATA;
+		ret = otc_atof_ascii(*ptr, &tmp);
+		if (ret != OTC_OK) {
+			ret = OTC_ERR_DATA;
 			break;
 		}
 		response_array = g_array_append_val(response_array, tmp);
@@ -892,9 +892,9 @@ SR_PRIV int sr_scpi_get_floatv(struct sr_scpi_dev_inst *scpi,
 	g_strfreev(tokens);
 	g_free(response);
 
-	if (ret != SR_OK && response_array->len == 0) {
+	if (ret != OTC_OK && response_array->len == 0) {
 		g_array_free(response_array, TRUE);
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
 	*scpi_response = response_array;
@@ -913,10 +913,10 @@ SR_PRIV int sr_scpi_get_floatv(struct sr_scpi_dev_inst *scpi,
  * @param[in] command The SCPI command to send to the device (can be NULL).
  * @param[out] scpi_response Pointer where to store the parsed result.
  *
- * @return SR_OK upon successfully parsing all values, SR_ERR* upon a parsing
+ * @return OTC_OK upon successfully parsing all values, OTC_ERR* upon a parsing
  *         error or upon no response.
  */
-SR_PRIV int sr_scpi_get_uint8v(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_uint8v(struct otc_scpi_dev_inst *scpi,
 			       const char *command, GArray **scpi_response)
 {
 	int tmp, ret;
@@ -928,8 +928,8 @@ SR_PRIV int sr_scpi_get_uint8v(struct sr_scpi_dev_inst *scpi,
 	*scpi_response = NULL;
 
 	response = NULL;
-	ret = sr_scpi_get_string(scpi, command, &response);
-	if (ret != SR_OK && !response)
+	ret = otc_scpi_get_string(scpi, command, &response);
+	if (ret != OTC_OK && !response)
 		return ret;
 
 	tokens = g_strsplit(response, ",", 0);
@@ -940,9 +940,9 @@ SR_PRIV int sr_scpi_get_uint8v(struct sr_scpi_dev_inst *scpi,
 
 	ptr = tokens;
 	while (*ptr) {
-		ret = sr_atoi(*ptr, &tmp);
-		if (ret != SR_OK) {
-			ret = SR_ERR_DATA;
+		ret = otc_atoi(*ptr, &tmp);
+		if (ret != OTC_OK) {
+			ret = OTC_ERR_DATA;
 			break;
 		}
 		response_array = g_array_append_val(response_array, tmp);
@@ -953,7 +953,7 @@ SR_PRIV int sr_scpi_get_uint8v(struct sr_scpi_dev_inst *scpi,
 
 	if (response_array->len == 0) {
 		g_array_free(response_array, TRUE);
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
 	*scpi_response = response_array;
@@ -972,10 +972,10 @@ SR_PRIV int sr_scpi_get_uint8v(struct sr_scpi_dev_inst *scpi,
  * @param[in] command The SCPI command to send to the device (can be NULL).
  * @param[out] scpi_response Pointer where to store the parsed result.
  *
- * @return SR_OK upon successfully parsing all values, SR_ERR* upon a parsing
+ * @return OTC_OK upon successfully parsing all values, OTC_ERR* upon a parsing
  *         error or upon no response.
  */
-SR_PRIV int sr_scpi_get_block(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_block(struct otc_scpi_dev_inst *scpi,
 			       const char *command, GByteArray **scpi_response)
 {
 	int ret;
@@ -991,14 +991,14 @@ SR_PRIV int sr_scpi_get_block(struct sr_scpi_dev_inst *scpi,
 	g_mutex_lock(&scpi->scpi_mutex);
 
 	if (command)
-		if (scpi_send(scpi, command) != SR_OK) {
+		if (scpi_send(scpi, command) != OTC_OK) {
 			g_mutex_unlock(&scpi->scpi_mutex);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 
-	if (sr_scpi_read_begin(scpi) != SR_OK) {
+	if (otc_scpi_read_begin(scpi) != OTC_OK) {
 		g_mutex_unlock(&scpi->scpi_mutex);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/*
@@ -1033,11 +1033,11 @@ SR_PRIV int sr_scpi_get_block(struct sr_scpi_dev_inst *scpi,
 	if (response->str[0] != '#') {
 		g_mutex_unlock(&scpi->scpi_mutex);
 		g_string_free(response, TRUE);
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 	buf[0] = response->str[1];
 	buf[1] = '\0';
-	ret = sr_atol(buf, &llen);
+	ret = otc_atol(buf, &llen);
 	/*
 	 * The form "#0..." is legal, and does not mean "empty response",
 	 * but means that the number of data bytes is not known (or was
@@ -1056,11 +1056,11 @@ SR_PRIV int sr_scpi_get_block(struct sr_scpi_dev_inst *scpi,
 	 * INDEFINITE LENGTH ARBITRARY BLOCK RESPONSE DATA. The latter
 	 * with a leading "#0" length and a trailing "NL^END" marker.
 	 */
-	if (ret == SR_OK && !llen) {
-		sr_err("unsupported INDEFINITE LENGTH ARBITRARY BLOCK RESPONSE");
-		ret = SR_ERR_NA;
+	if (ret == OTC_OK && !llen) {
+		otc_err("unsupported INDEFINITE LENGTH ARBITRARY BLOCK RESPONSE");
+		ret = OTC_ERR_NA;
 	}
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		g_mutex_unlock(&scpi->scpi_mutex);
 		g_string_free(response, TRUE);
 		return ret;
@@ -1077,8 +1077,8 @@ SR_PRIV int sr_scpi_get_block(struct sr_scpi_dev_inst *scpi,
 
 	memcpy(buf, &response->str[2], llen);
 	buf[llen] = '\0';
-	ret = sr_atol(buf, &datalen);
-	if ((ret != SR_OK) || (datalen == 0)) {
+	ret = otc_atol(buf, &datalen);
+	if ((ret != OTC_OK) || (datalen == 0)) {
 		g_mutex_unlock(&scpi->scpi_mutex);
 		g_string_free(response, TRUE);
 		return ret;
@@ -1101,7 +1101,7 @@ SR_PRIV int sr_scpi_get_block(struct sr_scpi_dev_inst *scpi,
 			/* On timeout truncate the buffer and send the partial response
 			 * instead of getting stuck on timeouts...
 			 */
-			if (ret == SR_ERR_TIMEOUT) {
+			if (ret == OTC_ERR_TIMEOUT) {
 				datalen = oldlen;
 				break;
 			}
@@ -1121,36 +1121,36 @@ SR_PRIV int sr_scpi_get_block(struct sr_scpi_dev_inst *scpi,
 	*scpi_response = g_byte_array_new_take(
 		(guint8*)g_string_free(response, FALSE), datalen);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
  * Send the *IDN? SCPI command, receive the reply, parse it and store the
- * reply as a sr_scpi_hw_info structure in the supplied scpi_response pointer.
+ * reply as a otc_scpi_hw_info structure in the supplied scpi_response pointer.
  *
  * Callers must free the allocated memory regardless of the routine's
- * return code. See @ref sr_scpi_hw_info_free().
+ * return code. See @ref otc_scpi_hw_info_free().
  *
  * @param[in] scpi Previously initialised SCPI device structure.
  * @param[out] scpi_response Pointer where to store the hw_info structure.
  *
- * @return SR_OK upon success, SR_ERR* on failure.
+ * @return OTC_OK upon success, OTC_ERR* on failure.
  */
-SR_PRIV int sr_scpi_get_hw_id(struct sr_scpi_dev_inst *scpi,
-			      struct sr_scpi_hw_info **scpi_response)
+OTC_PRIV int otc_scpi_get_hw_id(struct otc_scpi_dev_inst *scpi,
+			      struct otc_scpi_hw_info **scpi_response)
 {
 	int num_tokens, ret;
 	char *response;
 	gchar **tokens;
-	struct sr_scpi_hw_info *hw_info;
+	struct otc_scpi_hw_info *hw_info;
 	gchar *idn_substr;
 
 	*scpi_response = NULL;
 	response = NULL;
 	tokens = NULL;
 
-	ret = sr_scpi_get_string(scpi, SCPI_CMD_IDN, &response);
-	if (ret != SR_OK && !response)
+	ret = otc_scpi_get_string(scpi, SCPI_CMD_IDN, &response);
+	if (ret != OTC_OK && !response)
 		return ret;
 
 	/*
@@ -1167,13 +1167,13 @@ SR_PRIV int sr_scpi_get_hw_id(struct sr_scpi_dev_inst *scpi,
 	tokens = g_strsplit(response, ",", 0);
 	num_tokens = g_strv_length(tokens);
 	if (num_tokens < 3) {
-		sr_dbg("IDN response not according to spec: '%s'", response);
+		otc_dbg("IDN response not according to spec: '%s'", response);
 		g_strfreev(tokens);
 		g_free(response);
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 	if (num_tokens < 4) {
-		sr_warn("Short IDN response, assume missing serial number.");
+		otc_warn("Short IDN response, assume missing serial number.");
 	}
 	g_free(response);
 
@@ -1198,16 +1198,16 @@ SR_PRIV int sr_scpi_get_hw_id(struct sr_scpi_dev_inst *scpi,
 
 	*scpi_response = hw_info;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
- * Free a sr_scpi_hw_info struct.
+ * Free a otc_scpi_hw_info struct.
  *
  * @param hw_info Pointer to the struct to free. If NULL, this
  *                function does nothing.
  */
-SR_PRIV void sr_scpi_hw_info_free(struct sr_scpi_hw_info *hw_info)
+OTC_PRIV void otc_scpi_hw_info_free(struct otc_scpi_hw_info *hw_info)
 {
 	if (!hw_info)
 		return;
@@ -1228,7 +1228,7 @@ SR_PRIV void sr_scpi_hw_info_free(struct sr_scpi_hw_info *hw_info)
  *
  * @return The start of the un-quoted string.
  */
-SR_PRIV const char *sr_scpi_unquote_string(char *s)
+OTC_PRIV const char *otc_scpi_unquote_string(char *s)
 {
 	size_t s_len;
 	char quotes[3];
@@ -1261,7 +1261,7 @@ SR_PRIV const char *sr_scpi_unquote_string(char *s)
 	return s;
 }
 
-SR_PRIV const char *sr_vendor_alias(const char *raw_vendor)
+OTC_PRIV const char *otc_vendor_alias(const char *raw_vendor)
 {
 	unsigned int i;
 
@@ -1273,7 +1273,7 @@ SR_PRIV const char *sr_vendor_alias(const char *raw_vendor)
 	return raw_vendor;
 }
 
-SR_PRIV const char *sr_scpi_cmd_get(const struct scpi_command *cmdtable,
+OTC_PRIV const char *otc_scpi_cmd_get(const struct scpi_command *cmdtable,
 		int command)
 {
 	unsigned int i;
@@ -1293,12 +1293,12 @@ SR_PRIV const char *sr_scpi_cmd_get(const struct scpi_command *cmdtable,
 	return cmd;
 }
 
-SR_PRIV int sr_scpi_cmd(const struct sr_dev_inst *sdi,
+OTC_PRIV int otc_scpi_cmd(const struct otc_dev_inst *sdi,
 		const struct scpi_command *cmdtable,
 		int channel_command, const char *channel_name,
 		int command, ...)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	va_list args;
 	int ret;
 	const char *channel_cmd;
@@ -1306,22 +1306,22 @@ SR_PRIV int sr_scpi_cmd(const struct sr_dev_inst *sdi,
 
 	scpi = sdi->conn;
 
-	if (!(cmd = sr_scpi_cmd_get(cmdtable, command))) {
+	if (!(cmd = otc_scpi_cmd_get(cmdtable, command))) {
 		/* Device does not implement this command, that's OK. */
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	g_mutex_lock(&scpi->scpi_mutex);
 
 	/* Select channel. */
-	channel_cmd = sr_scpi_cmd_get(cmdtable, channel_command);
+	channel_cmd = otc_scpi_cmd_get(cmdtable, channel_command);
 	if (channel_cmd && channel_name &&
 			g_strcmp0(channel_name, scpi->actual_channel_name)) {
-		sr_spew("sr_scpi_cmd(): new channel = %s", channel_name);
+		otc_spew("otc_scpi_cmd(): new channel = %s", channel_name);
 		g_free(scpi->actual_channel_name);
 		scpi->actual_channel_name = g_strdup(channel_name);
 		ret = scpi_send(scpi, channel_cmd, channel_name);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
@@ -1334,12 +1334,12 @@ SR_PRIV int sr_scpi_cmd(const struct sr_dev_inst *sdi,
 	return ret;
 }
 
-SR_PRIV int sr_scpi_cmd_resp(const struct sr_dev_inst *sdi,
+OTC_PRIV int otc_scpi_cmd_resp(const struct otc_dev_inst *sdi,
 		const struct scpi_command *cmdtable,
 		int channel_command, const char *channel_name,
 		GVariant **gvar, const GVariantType *gvtype, int command, ...)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	va_list args;
 	const char *channel_cmd;
 	const char *cmd;
@@ -1351,36 +1351,36 @@ SR_PRIV int sr_scpi_cmd_resp(const struct sr_dev_inst *sdi,
 
 	scpi = sdi->conn;
 
-	if (!(cmd = sr_scpi_cmd_get(cmdtable, command))) {
+	if (!(cmd = otc_scpi_cmd_get(cmdtable, command))) {
 		/* Device does not implement this command. */
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
 	g_mutex_lock(&scpi->scpi_mutex);
 
 	/* Select channel. */
-	channel_cmd = sr_scpi_cmd_get(cmdtable, channel_command);
+	channel_cmd = otc_scpi_cmd_get(cmdtable, channel_command);
 	if (channel_cmd && channel_name &&
 			g_strcmp0(channel_name, scpi->actual_channel_name)) {
-		sr_spew("sr_scpi_cmd_get(): new channel = %s", channel_name);
+		otc_spew("otc_scpi_cmd_get(): new channel = %s", channel_name);
 		g_free(scpi->actual_channel_name);
 		scpi->actual_channel_name = g_strdup(channel_name);
 		ret = scpi_send(scpi, channel_cmd, channel_name);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
 	va_start(args, command);
 	ret = scpi_send_variadic(scpi, cmd, args);
 	va_end(args);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		g_mutex_unlock(&scpi->scpi_mutex);
 		return ret;
 	}
 
 	response = g_string_sized_new(1024);
 	ret = scpi_get_data(scpi, NULL, &response);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		g_mutex_unlock(&scpi->scpi_mutex);
 		if (response)
 			g_string_free(response, TRUE);
@@ -1399,18 +1399,18 @@ SR_PRIV int sr_scpi_cmd_resp(const struct sr_dev_inst *sdi,
 
 	s = g_string_free(response, FALSE);
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	if (g_variant_type_equal(gvtype, G_VARIANT_TYPE_BOOLEAN)) {
-		if ((ret = parse_strict_bool(s, &b)) == SR_OK)
+		if ((ret = parse_strict_bool(s, &b)) == OTC_OK)
 			*gvar = g_variant_new_boolean(b);
 	} else if (g_variant_type_equal(gvtype, G_VARIANT_TYPE_DOUBLE)) {
-		if ((ret = sr_atod_ascii(s, &d)) == SR_OK)
+		if ((ret = otc_atod_ascii(s, &d)) == OTC_OK)
 			*gvar = g_variant_new_double(d);
 	} else if (g_variant_type_equal(gvtype, G_VARIANT_TYPE_STRING)) {
 		*gvar = g_variant_new_string(s);
 	} else {
-		sr_err("Unable to convert to desired GVariant type.");
-		ret = SR_ERR_NA;
+		otc_err("Unable to convert to desired GVariant type.");
+		ret = OTC_ERR_NA;
 	}
 
 	g_free(s);

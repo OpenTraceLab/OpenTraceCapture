@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014-2017 Kumar Abhishek <abhishek@theembeddedkitchen.net>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "beaglelogic"
 
@@ -74,7 +74,7 @@ struct dev_context {
 	gboolean trigger_fired;
 };
 
-SR_PRIV int beaglelogic_native_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV int beaglelogic_tcp_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int beaglelogic_native_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int beaglelogic_tcp_receive_data(int fd, int revents, void *cb_data);
 
 #endif

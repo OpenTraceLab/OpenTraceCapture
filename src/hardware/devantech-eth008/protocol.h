@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2023 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -21,10 +21,10 @@
 #define LIBSIGROK_HARDWARE_DEVANTECH_ETH008_PROTOCOL_H
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <stdint.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "devantech-eth008"
 
@@ -64,20 +64,20 @@ struct dev_context {
 	uint32_t curr_di;
 };
 
-SR_PRIV int devantech_eth008_get_model(struct sr_serial_dev_inst *serial,
+OTC_PRIV int devantech_eth008_get_model(struct otc_serial_dev_inst *serial,
 	uint8_t *model_code, uint8_t *hw_version, uint8_t *fw_version);
-SR_PRIV int devantech_eth008_get_serno(struct sr_serial_dev_inst *serial,
+OTC_PRIV int devantech_eth008_get_serno(struct otc_serial_dev_inst *serial,
 	char *text_buffer, size_t text_length);
-SR_PRIV int devantech_eth008_cache_state(const struct sr_dev_inst *sdi);
-SR_PRIV int devantech_eth008_query_do(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, gboolean *on);
-SR_PRIV int devantech_eth008_setup_do(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, gboolean on);
-SR_PRIV int devantech_eth008_query_di(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, gboolean *on);
-SR_PRIV int devantech_eth008_query_ai(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, uint16_t *adc_value);
-SR_PRIV int devantech_eth008_query_supply(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, uint16_t *millivolts);
+OTC_PRIV int devantech_eth008_cache_state(const struct otc_dev_inst *sdi);
+OTC_PRIV int devantech_eth008_query_do(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, gboolean *on);
+OTC_PRIV int devantech_eth008_setup_do(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, gboolean on);
+OTC_PRIV int devantech_eth008_query_di(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, gboolean *on);
+OTC_PRIV int devantech_eth008_query_ai(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, uint16_t *adc_value);
+OTC_PRIV int devantech_eth008_query_supply(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, uint16_t *millivolts);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021 Frank Stettner <frank-stettner@gmx.net>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "hp-59306a"
 
@@ -36,7 +36,7 @@ struct channel_group_context {
 	size_t number;
 };
 
-SR_PRIV int hp_59306a_switch_cg(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, gboolean enabled);
+OTC_PRIV int hp_59306a_switch_cg(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, gboolean enabled);
 
 #endif

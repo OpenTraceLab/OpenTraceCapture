@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014-2017 Kumar Abhishek <abhishek@theembeddedkitchen.net>
  *
@@ -36,17 +36,17 @@
  * from the BeagleLogic kernel module */
 #define PACKET_SIZE	(512 * 1024)
 
-/* This implementation is zero copy from the libsigrok side.
+/* This implementation is zero copy from the libopentracecapture side.
  * It does not copy any data, just passes a pointer from the mmap'ed
  * kernel buffers appropriately. It is up to the application which is
- * using libsigrok to decide how to deal with the data.
+ * using libopentracecapture to decide how to deal with the data.
  */
-SR_PRIV int beaglelogic_native_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int beaglelogic_native_receive_data(int fd, int revents, void *cb_data)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 
 	int trigger_offset;
 	int pre_trigger_samples;
@@ -60,20 +60,20 @@ SR_PRIV int beaglelogic_native_receive_data(int fd, int revents, void *cb_data)
 	logic.unitsize = SAMPLEUNIT_TO_BYTES(devc->sampleunit);
 
 	if (revents == G_IO_IN) {
-		sr_info("In callback G_IO_IN, offset=%d", devc->offset);
+		otc_info("In callback G_IO_IN, offset=%d", devc->offset);
 
 		bytes_remaining = (devc->limit_samples * logic.unitsize) -
 				devc->bytes_read;
 
 		/* Configure data packet */
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		logic.data = devc->sample_buf + devc->offset;
 		logic.length = MIN(packetsize, bytes_remaining);
 
 		if (devc->trigger_fired) {
 			/* Send the incoming transfer to the session bus. */
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 		} else {
 			/* Check for trigger */
 			trigger_offset = soft_trigger_logic_check(devc->stl,
@@ -85,7 +85,7 @@ SR_PRIV int beaglelogic_native_receive_data(int fd, int revents, void *cb_data)
 						bytes_remaining);
 				logic.data += trigger_offset;
 
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 
 				devc->trigger_fired = TRUE;
 			}
@@ -111,18 +111,18 @@ SR_PRIV int beaglelogic_native_receive_data(int fd, int revents, void *cb_data)
 			packetsize == 0) {
 		/* Send EOA Packet, stop polling */
 		std_session_send_df_end(sdi);
-		sr_session_source_remove_pollfd(sdi->session, &devc->pollfd);
+		otc_session_source_remove_pollfd(sdi->session, &devc->pollfd);
 	}
 
 	return TRUE;
 }
 
-SR_PRIV int beaglelogic_tcp_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int beaglelogic_tcp_receive_data(int fd, int revents, void *cb_data)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 
 	int len;
 	int pre_trigger_samples;
@@ -137,12 +137,12 @@ SR_PRIV int beaglelogic_tcp_receive_data(int fd, int revents, void *cb_data)
 	logic.unitsize = SAMPLEUNIT_TO_BYTES(devc->sampleunit);
 
 	if (revents == G_IO_IN) {
-		sr_info("In callback G_IO_IN");
+		otc_info("In callback G_IO_IN");
 
 		len = recv(fd, devc->tcp_buffer, TCP_BUFFER_SIZE, 0);
 		if (len < 0) {
-			sr_err("Receive error: %s", g_strerror(errno));
-			return SR_ERR;
+			otc_err("Receive error: %s", g_strerror(errno));
+			return OTC_ERR;
 		}
 
 		packetsize = len;
@@ -151,14 +151,14 @@ SR_PRIV int beaglelogic_tcp_receive_data(int fd, int revents, void *cb_data)
 				devc->bytes_read;
 
 		/* Configure data packet */
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		logic.data = devc->tcp_buffer;
 		logic.length = MIN(packetsize, bytes_remaining);
 
 		if (devc->trigger_fired) {
 			/* Send the incoming transfer to the session bus. */
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 		} else {
 			/* Check for trigger */
 			trigger_offset = soft_trigger_logic_check(devc->stl,
@@ -170,7 +170,7 @@ SR_PRIV int beaglelogic_tcp_receive_data(int fd, int revents, void *cb_data)
 						bytes_remaining);
 				logic.data += trigger_offset;
 
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 
 				devc->trigger_fired = TRUE;
 			}
@@ -198,7 +198,7 @@ SR_PRIV int beaglelogic_tcp_receive_data(int fd, int revents, void *cb_data)
 		/* Drain the receive buffer */
 		beaglelogic_tcp_drain(devc);
 
-		sr_session_source_remove_pollfd(sdi->session, &devc->pollfd);
+		otc_session_source_remove_pollfd(sdi->session, &devc->pollfd);
 	}
 
 	return TRUE;

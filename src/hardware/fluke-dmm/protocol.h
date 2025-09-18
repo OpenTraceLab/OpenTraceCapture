@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  *
@@ -50,7 +50,7 @@ struct flukedmm_profile {
 
 struct dev_context {
 	const struct flukedmm_profile *profile;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 
 	char buf[FLUKEDMM_BUFSIZE];
 	int buflen;
@@ -58,15 +58,15 @@ struct dev_context {
 	int expect_response;
 	int meas_type;
 	int is_relative;
-	enum sr_mq mq;
-	enum sr_unit unit;
-	enum sr_mqflag mqflags;
+	enum otc_mq mq;
+	enum otc_unit unit;
+	enum otc_mqflag mqflags;
 };
 
-SR_PRIV void fluke_handle_qm_18x(const struct sr_dev_inst *sdi, char **tokens);
-SR_PRIV void fluke_handle_qm_190(const struct sr_dev_inst *sdi, char **tokens);
-SR_PRIV void fluke_handle_qm_28x(const struct sr_dev_inst *sdi, char **tokens);
+OTC_PRIV void fluke_handle_qm_18x(const struct otc_dev_inst *sdi, char **tokens);
+OTC_PRIV void fluke_handle_qm_190(const struct otc_dev_inst *sdi, char **tokens);
+OTC_PRIV void fluke_handle_qm_28x(const struct otc_dev_inst *sdi, char **tokens);
 
-SR_PRIV int fluke_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int fluke_receive_data(int fd, int revents, void *cb_data);
 
 #endif

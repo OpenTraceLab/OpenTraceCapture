@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -24,8 +24,8 @@
 #include <errno.h>
 #include <glib.h>
 #include <glib/gstdio.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "session-file"
@@ -34,7 +34,7 @@
 /**
  * @file
  *
- * Loading and saving libsigrok session files.
+ * Loading and saving libopentracecapture session files.
  */
 
 /**
@@ -44,17 +44,17 @@
  */
 
 /** @cond PRIVATE */
-extern SR_PRIV struct sr_dev_driver session_driver;
+extern OTC_PRIV struct otc_dev_driver session_driver;
 /** @endcond */
 static int session_driver_initialized = 0;
 
 #if !HAVE_ZIP_DISCARD
 /* Replacement for zip_discard() if it isn't available. */
 /** @private */
-SR_PRIV void sr_zip_discard(struct zip *archive)
+OTC_PRIV void otc_zip_discard(struct zip *archive)
 {
 	if (zip_unchange_all(archive) < 0 || zip_close(archive) < 0)
-		sr_err("Failed to discard ZIP archive: %s", zip_strerror(archive));
+		otc_err("Failed to discard ZIP archive: %s", zip_strerror(archive));
 }
 #endif
 
@@ -68,7 +68,7 @@ SR_PRIV void sr_zip_discard(struct zip *archive)
  *
  * @private
  */
-SR_PRIV GKeyFile *sr_sessionfile_read_metadata(struct zip *archive,
+OTC_PRIV GKeyFile *otc_sessionfile_read_metadata(struct zip *archive,
 			const struct zip_stat *entry)
 {
 	GKeyFile *keyfile;
@@ -78,18 +78,18 @@ SR_PRIV GKeyFile *sr_sessionfile_read_metadata(struct zip *archive,
 	int metalen;
 
 	if (entry->size > G_MAXINT || !(metabuf = g_try_malloc(entry->size))) {
-		sr_err("Metadata buffer allocation failed.");
+		otc_err("Metadata buffer allocation failed.");
 		return NULL;
 	}
 	zf = zip_fopen_index(archive, entry->index, 0);
 	if (!zf) {
-		sr_err("Failed to open metadata: %s", zip_strerror(archive));
+		otc_err("Failed to open metadata: %s", zip_strerror(archive));
 		g_free(metabuf);
 		return NULL;
 	}
 	metalen = zip_fread(zf, metabuf, entry->size);
 	if (metalen < 0) {
-		sr_err("Failed to read metadata: %s", zip_file_strerror(zf));
+		otc_err("Failed to read metadata: %s", zip_file_strerror(zf));
 		zip_fclose(zf);
 		g_free(metabuf);
 		return NULL;
@@ -103,7 +103,7 @@ SR_PRIV GKeyFile *sr_sessionfile_read_metadata(struct zip *archive,
 	g_free(metabuf);
 
 	if (error) {
-		sr_err("Failed to parse metadata: %s", error->message);
+		otc_err("Failed to parse metadata: %s", error->message);
 		g_error_free(error);
 		g_key_file_free(keyfile);
 		return NULL;
@@ -112,7 +112,7 @@ SR_PRIV GKeyFile *sr_sessionfile_read_metadata(struct zip *archive,
 }
 
 /** @private */
-SR_PRIV int sr_sessionfile_check(const char *filename)
+OTC_PRIV int otc_sessionfile_check(const char *filename)
 {
 	struct zip *archive;
 	struct zip_file *zf;
@@ -122,71 +122,71 @@ SR_PRIV int sr_sessionfile_check(const char *filename)
 	char s[11];
 
 	if (!filename)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (!g_file_test(filename, G_FILE_TEST_IS_REGULAR)) {
-		sr_err("Not a regular file: %s.", filename);
-		return SR_ERR;
+		otc_err("Not a regular file: %s.", filename);
+		return OTC_ERR;
 	}
 
 	if (!(archive = zip_open(filename, 0, NULL)))
 		/* No logging: this can be used just to check if it's
-		 * a sigrok session file or not. */
-		return SR_ERR;
+		 * a opentracelab session file or not. */
+		return OTC_ERR;
 
 	/* check "version" */
 	if (!(zf = zip_fopen(archive, "version", 0))) {
-		sr_dbg("Not a sigrok session file: no version found.");
+		otc_dbg("Not a opentracelab session file: no version found.");
 		zip_discard(archive);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	ret = zip_fread(zf, s, sizeof(s) - 1);
 	if (ret < 0) {
-		sr_err("Failed to read version file: %s",
+		otc_err("Failed to read version file: %s",
 			zip_file_strerror(zf));
 		zip_fclose(zf);
 		zip_discard(archive);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	zip_fclose(zf);
 	s[ret] = '\0';
 	version = g_ascii_strtoull(s, NULL, 10);
 	if (version == 0 || version > 2) {
-		sr_dbg("Cannot handle sigrok session file version %" PRIu64 ".",
+		otc_dbg("Cannot handle opentracelab session file version %" PRIu64 ".",
 			version);
 		zip_discard(archive);
-		return SR_ERR;
+		return OTC_ERR;
 	}
-	sr_spew("Detected sigrok session file version %" PRIu64 ".", version);
+	otc_spew("Detected opentracelab session file version %" PRIu64 ".", version);
 
 	/* read "metadata" */
 	if (zip_stat(archive, "metadata", 0, &zs) < 0) {
-		sr_dbg("Not a valid sigrok session file.");
+		otc_dbg("Not a valid opentracelab session file.");
 		zip_discard(archive);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	zip_discard(archive);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** @private */
-SR_PRIV struct sr_dev_inst *sr_session_prepare_sdi(const char *filename, struct sr_session **session)
+OTC_PRIV struct otc_dev_inst *otc_session_prepare_sdi(const char *filename, struct otc_session **session)
 {
-	struct sr_dev_inst *sdi = NULL;
+	struct otc_dev_inst *sdi = NULL;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
 	sdi->driver = &session_driver;
-	sdi->status = SR_ST_INACTIVE;
+	sdi->status = OTC_ST_INACTIVE;
 	if (!session_driver_initialized) {
 		/* first device, init the driver */
 		session_driver_initialized = 1;
 		sdi->driver->init(sdi->driver, NULL);
 	}
-	sr_dev_open(sdi);
-	sr_session_dev_add(*session, sdi);
+	otc_dev_open(sdi);
+	otc_session_dev_add(*session, sdi);
 	(*session)->owned_devs = g_slist_append((*session)->owned_devs, sdi);
-	sr_config_set(sdi, NULL, SR_CONF_SESSIONFILE,
+	otc_config_set(sdi, NULL, OTC_CONF_SESSIONFILE,
 			g_variant_new_string(filename));
 
 	return sdi;
@@ -199,45 +199,45 @@ SR_PRIV struct sr_dev_inst *sr_session_prepare_sdi(const char *filename, struct 
  * @param filename The name of the session file to load.
  * @param session The session to load the file into.
  *
- * @retval SR_OK Success
- * @retval SR_ERR_MALLOC Memory allocation error
- * @retval SR_ERR_DATA Malformed session file
- * @retval SR_ERR This is not a session file
+ * @retval OTC_OK Success
+ * @retval OTC_ERR_MALLOC Memory allocation error
+ * @retval OTC_ERR_DATA Malformed session file
+ * @retval OTC_ERR This is not a session file
  */
-SR_API int sr_session_load(struct sr_context *ctx, const char *filename,
-		struct sr_session **session)
+OTC_API int otc_session_load(struct otc_context *ctx, const char *filename,
+		struct otc_session **session)
 {
 	GKeyFile *kf;
 	GError *error;
 	struct zip *archive;
 	struct zip_stat zs;
-	struct sr_dev_inst *sdi;
-	struct sr_channel *ch;
+	struct otc_dev_inst *sdi;
+	struct otc_channel *ch;
 	int ret, i, j;
 	uint64_t tmp_u64;
 	int total_channels, total_analog, k;
 	GSList *l;
 	int unitsize;
 	char **sections, **keys, *val;
-	char channelname[SR_MAX_CHANNELNAME_LEN + 1];
+	char channelname[OTC_MAX_CHANNELNAME_LEN + 1];
 	gboolean file_has_logic;
 
-	if ((ret = sr_sessionfile_check(filename)) != SR_OK)
+	if ((ret = otc_sessionfile_check(filename)) != OTC_OK)
 		return ret;
 
 	if (!(archive = zip_open(filename, 0, NULL)))
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (zip_stat(archive, "metadata", 0, &zs) < 0) {
 		zip_discard(archive);
-		return SR_ERR;
+		return OTC_ERR;
 	}
-	kf = sr_sessionfile_read_metadata(archive, &zs);
+	kf = otc_sessionfile_read_metadata(archive, &zs);
 	zip_discard(archive);
 	if (!kf)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
-	if ((ret = sr_session_new(ctx, session)) != SR_OK) {
+	if ((ret = otc_session_new(ctx, session)) != OTC_OK) {
 		g_key_file_free(kf);
 		return ret;
 	}
@@ -245,10 +245,10 @@ SR_API int sr_session_load(struct sr_context *ctx, const char *filename,
 	total_channels = 0;
 
 	error = NULL;
-	ret = SR_OK;
+	ret = OTC_OK;
 	file_has_logic = FALSE;
 	sections = g_key_file_get_groups(kf, NULL);
-	for (i = 0; sections[i] && ret == SR_OK; i++) {
+	for (i = 0; sections[i] && ret == OTC_OK; i++) {
 		if (!strcmp(sections[i], "global"))
 			/* nothing really interesting in here yet */
 			continue;
@@ -261,7 +261,7 @@ SR_API int sr_session_load(struct sr_context *ctx, const char *filename,
 			total_analog = g_key_file_get_integer(kf, sections[i],
 					"total analog",	&error);
 			if (total_analog > 0 && !error)
-				sdi = sr_session_prepare_sdi(filename, session);
+				sdi = otc_session_prepare_sdi(filename, session);
 			g_clear_error(&error);
 
 			/* File contains logic data if a capturefile is set. */
@@ -269,8 +269,8 @@ SR_API int sr_session_load(struct sr_context *ctx, const char *filename,
 				"capturefile", &error);
 			if (val && !error) {
 				if (!sdi)
-					sdi = sr_session_prepare_sdi(filename, session);
-				sr_config_set(sdi, NULL, SR_CONF_CAPTUREFILE,
+					sdi = otc_session_prepare_sdi(filename, session);
+				otc_config_set(sdi, NULL, OTC_CONF_CAPTUREFILE,
 						g_variant_new_string(val));
 				g_free(val);
 				file_has_logic = TRUE;
@@ -281,79 +281,79 @@ SR_API int sr_session_load(struct sr_context *ctx, const char *filename,
 				if (!strcmp(keys[j], "samplerate")) {
 					val = g_key_file_get_string(kf, sections[i],
 							keys[j], &error);
-					if (!sdi || !val || sr_parse_sizestring(val,
-								&tmp_u64) != SR_OK) {
+					if (!sdi || !val || otc_parse_sizestring(val,
+								&tmp_u64) != OTC_OK) {
 						g_free(val);
-						ret = SR_ERR_DATA;
+						ret = OTC_ERR_DATA;
 						break;
 					}
 					g_free(val);
-					sr_config_set(sdi, NULL, SR_CONF_SAMPLERATE,
+					otc_config_set(sdi, NULL, OTC_CONF_SAMPLERATE,
 							g_variant_new_uint64(tmp_u64));
 				} else if (!strcmp(keys[j], "unitsize") && file_has_logic) {
 					unitsize = g_key_file_get_integer(kf, sections[i],
 							keys[j], &error);
 					if (!sdi || unitsize <= 0 || error) {
-						ret = SR_ERR_DATA;
+						ret = OTC_ERR_DATA;
 						break;
 					}
-					sr_config_set(sdi, NULL, SR_CONF_CAPTURE_UNITSIZE,
+					otc_config_set(sdi, NULL, OTC_CONF_CAPTURE_UNITSIZE,
 							g_variant_new_uint64(unitsize));
 				} else if (!strcmp(keys[j], "total probes")) {
 					total_channels = g_key_file_get_integer(kf,
 							sections[i], keys[j], &error);
 					if (!sdi || total_channels < 0 || error) {
-						ret = SR_ERR_DATA;
+						ret = OTC_ERR_DATA;
 						break;
 					}
-					sr_config_set(sdi, NULL, SR_CONF_NUM_LOGIC_CHANNELS,
+					otc_config_set(sdi, NULL, OTC_CONF_NUM_LOGIC_CHANNELS,
 							g_variant_new_int32(total_channels));
 					for (k = 0; k < total_channels; k++) {
 						g_snprintf(channelname, sizeof(channelname),
 								"%d", k);
-						sr_channel_new(sdi, k, SR_CHANNEL_LOGIC,
+						otc_channel_new(sdi, k, OTC_CHANNEL_LOGIC,
 								FALSE, channelname);
 					}
 				} else if (!strcmp(keys[j], "total analog")) {
 					total_analog = g_key_file_get_integer(kf,
 							sections[i], keys[j], &error);
 					if (!sdi || total_analog < 0 || error) {
-						ret = SR_ERR_DATA;
+						ret = OTC_ERR_DATA;
 						break;
 					}
-					sr_config_set(sdi, NULL, SR_CONF_NUM_ANALOG_CHANNELS,
+					otc_config_set(sdi, NULL, OTC_CONF_NUM_ANALOG_CHANNELS,
 							g_variant_new_int32(total_analog));
 					for (k = total_channels; k < (total_channels + total_analog); k++) {
 						g_snprintf(channelname, sizeof(channelname),
 								"%d", k);
-						sr_channel_new(sdi, k, SR_CHANNEL_ANALOG,
+						otc_channel_new(sdi, k, OTC_CHANNEL_ANALOG,
 								FALSE, channelname);
 					}
 				} else if (!strncmp(keys[j], "probe", 5)) {
 					tmp_u64 = g_ascii_strtoull(keys[j] + 5, NULL, 10);
 					if (!sdi || tmp_u64 == 0 || tmp_u64 > G_MAXINT) {
-						ret = SR_ERR_DATA;
+						ret = OTC_ERR_DATA;
 						break;
 					}
 					ch = g_slist_nth_data(sdi->channels, tmp_u64 - 1);
 					if (!ch) {
-						ret = SR_ERR_DATA;
+						ret = OTC_ERR_DATA;
 						break;
 					}
 					val = g_key_file_get_string(kf, sections[i],
 							keys[j], &error);
 					if (!val) {
-						ret = SR_ERR_DATA;
+						ret = OTC_ERR_DATA;
 						break;
 					}
-					/* sr_session_save() */
-					sr_dev_channel_name_set(ch, val);
+					/* otc_session_save() */
+					otc_dev_channel_name_set(ch, val);
 					g_free(val);
-					sr_dev_channel_enable(ch, TRUE);
+					otc_dev_channel_enable(ch, TRUE);
 				} else if (!strncmp(keys[j], "analog", 6)) {
 					tmp_u64 = g_ascii_strtoull(keys[j]+6, NULL, 10);
 					if (!sdi || tmp_u64 == 0 || tmp_u64 > G_MAXINT) {
-						ret = SR_ERR_DATA;
+						ret = OTC_ERR_DATA;
 						break;
 					}
 					ch = NULL;
@@ -365,19 +365,19 @@ SR_API int sr_session_load(struct sr_context *ctx, const char *filename,
 							ch = NULL;
 					}
 					if (!ch) {
-						ret = SR_ERR_DATA;
+						ret = OTC_ERR_DATA;
 						break;
 					}
 					val = g_key_file_get_string(kf, sections[i],
 							keys[j], &error);
 					if (!val) {
-						ret = SR_ERR_DATA;
+						ret = OTC_ERR_DATA;
 						break;
 					}
-					/* sr_session_save() */
-					sr_dev_channel_name_set(ch, val);
+					/* otc_session_save() */
+					otc_dev_channel_name_set(ch, val);
 					g_free(val);
-					sr_dev_channel_enable(ch, TRUE);
+					otc_dev_channel_enable(ch, TRUE);
 				}
 			}
 			g_strfreev(keys);
@@ -387,7 +387,7 @@ SR_API int sr_session_load(struct sr_context *ctx, const char *filename,
 	g_key_file_free(kf);
 
 	if (error) {
-		sr_err("Failed to parse metadata: %s", error->message);
+		otc_err("Failed to parse metadata: %s", error->message);
 		g_error_free(error);
 	}
 	return ret;

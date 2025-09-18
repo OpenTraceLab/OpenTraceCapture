@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Janne Huttunen <jahuttun@gmail.com>
  * Copyright (C) 2019 Gerhard Sittig <gerhard.sittig@gmx.net>
@@ -20,8 +20,8 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
@@ -124,8 +124,8 @@
  */
 
 static const double frequencies[] = {
-	SR_HZ(0), SR_HZ(100), SR_HZ(120),
-	SR_KHZ(1), SR_KHZ(10), SR_KHZ(100),
+	OTC_HZ(0), OTC_HZ(100), OTC_HZ(120),
+	OTC_KHZ(1), OTC_KHZ(10), OTC_KHZ(100),
 };
 
 static const size_t freq_code_map[] = {
@@ -137,7 +137,7 @@ static uint64_t get_frequency(size_t code)
 	uint64_t freq;
 
 	if (code >= ARRAY_SIZE(freq_code_map)) {
-		sr_err("Unknown output frequency code %zu.", code);
+		otc_err("Unknown output frequency code %zu.", code);
 		return frequencies[0];
 	}
 
@@ -156,7 +156,7 @@ static const char *const circuit_models[] = {
 static const char *get_equiv_model(size_t code)
 {
 	if (code >= ARRAY_SIZE(circuit_models)) {
-		sr_err("Unknown equivalent circuit model code %zu.", code);
+		otc_err("Unknown equivalent circuit model code %zu.", code);
 		return "NONE";
 	}
 
@@ -177,27 +177,27 @@ static int parse_mq(const uint8_t *pkt, int is_secondary, int is_parallel)
 	switch (is_secondary << 8 | buf[0]) {
 	case 0x001:
 		return is_parallel ?
-			SR_MQ_PARALLEL_INDUCTANCE : SR_MQ_SERIES_INDUCTANCE;
+			OTC_MQ_PARALLEL_INDUCTANCE : OTC_MQ_SERIES_INDUCTANCE;
 	case 0x002:
 		return is_parallel ?
-			SR_MQ_PARALLEL_CAPACITANCE : SR_MQ_SERIES_CAPACITANCE;
+			OTC_MQ_PARALLEL_CAPACITANCE : OTC_MQ_SERIES_CAPACITANCE;
 	case 0x003:
 	case 0x103:
 		return is_parallel ?
-			SR_MQ_PARALLEL_RESISTANCE : SR_MQ_SERIES_RESISTANCE;
+			OTC_MQ_PARALLEL_RESISTANCE : OTC_MQ_SERIES_RESISTANCE;
 	case 0x004:
-		return SR_MQ_RESISTANCE;
+		return OTC_MQ_RESISTANCE;
 	case 0x100:
-		return SR_MQ_DIFFERENCE;
+		return OTC_MQ_DIFFERENCE;
 	case 0x101:
-		return SR_MQ_DISSIPATION_FACTOR;
+		return OTC_MQ_DISSIPATION_FACTOR;
 	case 0x102:
-		return SR_MQ_QUALITY_FACTOR;
+		return OTC_MQ_QUALITY_FACTOR;
 	case 0x104:
-		return SR_MQ_PHASE_ANGLE;
+		return OTC_MQ_PHASE_ANGLE;
 	}
 
-	sr_err("Unknown quantity 0x%03x.", is_secondary << 8 | buf[0]);
+	otc_err("Unknown quantity 0x%03x.", is_secondary << 8 | buf[0]);
 
 	return 0;
 }
@@ -220,27 +220,27 @@ static float parse_value(const uint8_t *buf, int *digits)
 }
 
 static void parse_measurement(const uint8_t *pkt, float *floatval,
-	struct sr_datafeed_analog *analog, int is_secondary)
+	struct otc_datafeed_analog *analog, int is_secondary)
 {
 	static const struct {
 		int unit;
 		int exponent;
 	} units[] = {
-		{ SR_UNIT_UNITLESS,   0 }, /* no unit */
-		{ SR_UNIT_OHM,        0 }, /* Ohm */
-		{ SR_UNIT_OHM,        3 }, /* kOhm */
-		{ SR_UNIT_OHM,        6 }, /* MOhm */
+		{ OTC_UNIT_UNITLESS,   0 }, /* no unit */
+		{ OTC_UNIT_OHM,        0 }, /* Ohm */
+		{ OTC_UNIT_OHM,        3 }, /* kOhm */
+		{ OTC_UNIT_OHM,        6 }, /* MOhm */
 		{ -1,                 0 }, /* ??? */
-		{ SR_UNIT_HENRY,     -6 }, /* uH */
-		{ SR_UNIT_HENRY,     -3 }, /* mH */
-		{ SR_UNIT_HENRY,      0 }, /* H */
-		{ SR_UNIT_HENRY,      3 }, /* kH */
-		{ SR_UNIT_FARAD,    -12 }, /* pF */
-		{ SR_UNIT_FARAD,     -9 }, /* nF */
-		{ SR_UNIT_FARAD,     -6 }, /* uF */
-		{ SR_UNIT_FARAD,     -3 }, /* mF */
-		{ SR_UNIT_PERCENTAGE, 0 }, /* % */
-		{ SR_UNIT_DEGREE,     0 }, /* degree */
+		{ OTC_UNIT_HENRY,     -6 }, /* uH */
+		{ OTC_UNIT_HENRY,     -3 }, /* mH */
+		{ OTC_UNIT_HENRY,      0 }, /* H */
+		{ OTC_UNIT_HENRY,      3 }, /* kH */
+		{ OTC_UNIT_FARAD,    -12 }, /* pF */
+		{ OTC_UNIT_FARAD,     -9 }, /* nF */
+		{ OTC_UNIT_FARAD,     -6 }, /* uF */
+		{ OTC_UNIT_FARAD,     -3 }, /* mF */
+		{ OTC_UNIT_PERCENTAGE, 0 }, /* % */
+		{ OTC_UNIT_DEGREE,     0 }, /* degree */
 	};
 
 	const uint8_t *buf;
@@ -264,19 +264,19 @@ static void parse_measurement(const uint8_t *pkt, float *floatval,
 
 	if (!is_secondary) {
 		if (pkt[2] & 0x01)
-			analog->meaning->mqflags |= SR_MQFLAG_HOLD;
+			analog->meaning->mqflags |= OTC_MQFLAG_HOLD;
 		if (pkt[2] & 0x02)
-			analog->meaning->mqflags |= SR_MQFLAG_REFERENCE;
+			analog->meaning->mqflags |= OTC_MQFLAG_REFERENCE;
 	} else {
 		if (pkt[2] & 0x04)
-			analog->meaning->mqflags |= SR_MQFLAG_RELATIVE;
+			analog->meaning->mqflags |= OTC_MQFLAG_RELATIVE;
 	}
 
 	if ((analog->meaning->mq = parse_mq(pkt, is_secondary, pkt[2] & 0x80)) == 0)
 		return;
 
 	if ((buf[3] >> 3) >= ARRAY_SIZE(units)) {
-		sr_err("Unknown unit %u.", buf[3] >> 3);
+		otc_err("Unknown unit %u.", buf[3] >> 3);
 		analog->meaning->mq = 0;
 		return;
 	}
@@ -301,7 +301,7 @@ static const char *parse_model(const uint8_t *pkt)
 
 	if (pkt[2] & 0x40)
 		code = MODEL_AUTO;
-	else if (parse_mq(pkt, 0, 0) == SR_MQ_RESISTANCE)
+	else if (parse_mq(pkt, 0, 0) == OTC_MQ_RESISTANCE)
 		code = MODEL_NONE;
 	else
 		code = (pkt[2] & 0x80) ? MODEL_PAR : MODEL_SER;
@@ -309,7 +309,7 @@ static const char *parse_model(const uint8_t *pkt)
 	return get_equiv_model(code);
 }
 
-SR_PRIV gboolean es51919_packet_valid(const uint8_t *pkt)
+OTC_PRIV gboolean es51919_packet_valid(const uint8_t *pkt)
 {
 
 	/* Check for fixed 0x00 0x0d prefix. */
@@ -324,8 +324,8 @@ SR_PRIV gboolean es51919_packet_valid(const uint8_t *pkt)
 	return TRUE;
 }
 
-SR_PRIV int es51919_packet_parse(const uint8_t *pkt, float *val,
-	struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int es51919_packet_parse(const uint8_t *pkt, float *val,
+	struct otc_datafeed_analog *analog, void *info)
 {
 	struct lcr_parse_info *parse_info;
 
@@ -337,7 +337,7 @@ SR_PRIV int es51919_packet_parse(const uint8_t *pkt, float *val,
 	if (val && analog)
 		parse_measurement(pkt, val, analog, parse_info->ch_idx == 1);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -345,23 +345,23 @@ SR_PRIV int es51919_packet_parse(const uint8_t *pkt, float *val,
  * the _device_ driver resides in src/hardware/serial-lcr/ instead.
  */
 
-SR_PRIV int es51919_config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+OTC_PRIV int es51919_config_list(uint32_t key, GVariant **data,
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 
 	(void)sdi;
 	(void)cg;
 
 	switch (key) {
-	case SR_CONF_OUTPUT_FREQUENCY:
+	case OTC_CONF_OUTPUT_FREQUENCY:
 		*data = g_variant_new_fixed_array(G_VARIANT_TYPE_DOUBLE,
 			ARRAY_AND_SIZE(frequencies), sizeof(frequencies[0]));
-		return SR_OK;
-	case SR_CONF_EQUIV_CIRCUIT_MODEL:
+		return OTC_OK;
+	case OTC_CONF_EQUIV_CIRCUIT_MODEL:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(circuit_models));
-		return SR_OK;
+		return OTC_OK;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 	/* UNREACH */
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Janne Huttunen <jahuttun@gmail.com>
  *
@@ -25,14 +25,14 @@
 
 #include <config.h>
 #include <math.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "brymen-bm25x"
 
 #define MAX_DIGITS 4
 
-SR_PRIV gboolean sr_brymen_bm25x_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_brymen_bm25x_packet_valid(const uint8_t *buf)
 {
 	int i;
 
@@ -72,7 +72,7 @@ static int decode_digit(int num, const uint8_t *buf)
 	case 0x62: return 'n';
 	case 0x42: return 'r';
 	default:
-		sr_dbg("Unknown digit: 0x%02x.", val);
+		otc_dbg("Unknown digit: 0x%02x.", val);
 		return -1;
 	}
 }
@@ -85,7 +85,7 @@ static int decode_point(const uint8_t *buf)
 		if ((buf[11 - 2 * i] & 1) == 0)
 			continue;
 		if (p != 0) {
-			sr_spew("Multiple decimal points found!");
+			otc_spew("Multiple decimal points found!");
 			return -1;
 		}
 		p = i;
@@ -101,7 +101,7 @@ static int decode_scale(int point, int digits)
 	pos = point ? point + digits - MAX_DIGITS : 0;
 
 	if (pos < 0 || pos > 3) {
-		sr_dbg("Invalid decimal point %d (%d digits).", point, digits);
+		otc_dbg("Invalid decimal point %d (%d digits).", point, digits);
 		return 0;
 	}
 	return -pos;
@@ -142,63 +142,63 @@ special:
 	return NAN;
 }
 
-SR_PRIV int sr_brymen_bm25x_parse(const uint8_t *buf, float *floatval,
-				struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_brymen_bm25x_parse(const uint8_t *buf, float *floatval,
+				struct otc_datafeed_analog *analog, void *info)
 {
 	int exponent = 0;
 	float val;
 
 	(void)info;
 
-	analog->meaning->mq = SR_MQ_GAIN;
-	analog->meaning->unit = SR_UNIT_UNITLESS;
+	analog->meaning->mq = OTC_MQ_GAIN;
+	analog->meaning->unit = OTC_UNIT_UNITLESS;
 	analog->meaning->mqflags = 0;
 
 	if (buf[1] & 8)
-		analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 	if (buf[1] & 4)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	if (buf[1] & 2)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (buf[1] & 1)
-		analog->meaning->mqflags |= SR_MQFLAG_RELATIVE;
+		analog->meaning->mqflags |= OTC_MQFLAG_RELATIVE;
 	if (buf[11] & 8)
-		analog->meaning->mqflags |= SR_MQFLAG_HOLD;
+		analog->meaning->mqflags |= OTC_MQFLAG_HOLD;
 	if (buf[13] & 8)
-		analog->meaning->mqflags |= SR_MQFLAG_MAX;
+		analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 	if (buf[14] & 8)
-		analog->meaning->mqflags |= SR_MQFLAG_MIN;
+		analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 
 	if (buf[14] & 4) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
-		if ((analog->meaning->mqflags & (SR_MQFLAG_DC | SR_MQFLAG_AC)) == 0)
-			analog->meaning->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
+		if ((analog->meaning->mqflags & (OTC_MQFLAG_DC | OTC_MQFLAG_AC)) == 0)
+			analog->meaning->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 	}
 	if (buf[14] & 2) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 	}
 	if (buf[12] & 4) {
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 	if (buf[13] & 4) {
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 	}
 	if (buf[12] & 2) {
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 	}
 
 	if (decode_digit(3, buf) == 'C') {
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
-		analog->meaning->unit = SR_UNIT_CELSIUS;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
+		analog->meaning->unit = OTC_UNIT_CELSIUS;
 	}
 	if (decode_digit(3, buf) == 'F') {
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
-		analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
+		analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 	}
 
 	val = decode_value(buf, &exponent);
@@ -212,5 +212,5 @@ SR_PRIV int sr_brymen_bm25x_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 }

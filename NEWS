@@ -1,3 +1,20 @@
+OpenTraceCapture Fork (2024-12-19)
+-----------------------------------
+
+This marks the creation of OpenTraceCapture, a fork of libsigrok focused on
+enhanced trace capture capabilities and improved hardware support.
+
+Key changes in this fork:
+ * Enhanced trace capture functionality
+ * Improved hardware compatibility
+ * Modern build system support (Meson)
+ * Updated documentation and project structure
+
+For detailed changes, see git history from the fork point.
+
+Original libsigrok Release History
+----------------------------------
+
 0.5.0 (2017-06-12)
 ------------------
 

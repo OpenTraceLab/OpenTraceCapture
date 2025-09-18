@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2023 Mathieu Pilato <pilato.mathieu@free.fr>
  *
@@ -48,21 +48,21 @@ static const uint8_t header_magic[] = {
 };
 
 static const struct atorch_channel_desc atorch_dc_power_meter_channels[] = {
-	{ "V", { 4, BVT_BE_UINT24, }, { 100, 1e3, }, 1, SR_MQ_VOLTAGE, SR_UNIT_VOLT, SR_MQFLAG_DC, },
-	{ "I", { 7, BVT_BE_UINT24, }, { 1, 1e3, }, 3, SR_MQ_CURRENT, SR_UNIT_AMPERE, SR_MQFLAG_DC, },
-	{ "C", { 10, BVT_BE_UINT24, }, { 10, 1e3, }, 2, SR_MQ_ENERGY, SR_UNIT_AMPERE_HOUR, 0, },
-	{ "E", { 13, BVT_BE_UINT32, }, { 10, 1, }, -2, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR, 0, },
-	{ "T", { 24, BVT_BE_UINT16, }, { 1, 1, }, 0, SR_MQ_TEMPERATURE, SR_UNIT_CELSIUS, 0, },
+	{ "V", { 4, BVT_BE_UINT24, }, { 100, 1e3, }, 1, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, OTC_MQFLAG_DC, },
+	{ "I", { 7, BVT_BE_UINT24, }, { 1, 1e3, }, 3, OTC_MQ_CURRENT, OTC_UNIT_AMPERE, OTC_MQFLAG_DC, },
+	{ "C", { 10, BVT_BE_UINT24, }, { 10, 1e3, }, 2, OTC_MQ_ENERGY, OTC_UNIT_AMPERE_HOUR, 0, },
+	{ "E", { 13, BVT_BE_UINT32, }, { 10, 1, }, -2, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR, 0, },
+	{ "T", { 24, BVT_BE_UINT16, }, { 1, 1, }, 0, OTC_MQ_TEMPERATURE, OTC_UNIT_CELSIUS, 0, },
 };
 
 static const struct atorch_channel_desc atorch_usb_power_meter_channels[] = {
-	{ "V", { 4, BVT_BE_UINT24, }, { 10, 1e3, }, 2, SR_MQ_VOLTAGE, SR_UNIT_VOLT, SR_MQFLAG_DC, },
-	{ "I", { 7, BVT_BE_UINT24, }, { 10, 1e3, }, 2, SR_MQ_CURRENT, SR_UNIT_AMPERE, SR_MQFLAG_DC, },
-	{ "C", { 10, BVT_BE_UINT24, }, { 1, 1e3, }, 3, SR_MQ_ENERGY, SR_UNIT_AMPERE_HOUR, 0, },
-	{ "E", { 13, BVT_BE_UINT32, }, { 10, 1e3, }, 2, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR, 0, },
-	{ "D-", { 17, BVT_BE_UINT16, }, { 10, 1e3, }, 2, SR_MQ_VOLTAGE, SR_UNIT_VOLT, SR_MQFLAG_DC, },
-	{ "D+", { 19, BVT_BE_UINT16, }, { 10, 1e3, }, 2, SR_MQ_VOLTAGE, SR_UNIT_VOLT, SR_MQFLAG_DC, },
-	{ "T", { 21, BVT_BE_UINT16, }, { 1, 1, }, 0, SR_MQ_TEMPERATURE, SR_UNIT_CELSIUS, 0, },
+	{ "V", { 4, BVT_BE_UINT24, }, { 10, 1e3, }, 2, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, OTC_MQFLAG_DC, },
+	{ "I", { 7, BVT_BE_UINT24, }, { 10, 1e3, }, 2, OTC_MQ_CURRENT, OTC_UNIT_AMPERE, OTC_MQFLAG_DC, },
+	{ "C", { 10, BVT_BE_UINT24, }, { 1, 1e3, }, 3, OTC_MQ_ENERGY, OTC_UNIT_AMPERE_HOUR, 0, },
+	{ "E", { 13, BVT_BE_UINT32, }, { 10, 1e3, }, 2, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR, 0, },
+	{ "D-", { 17, BVT_BE_UINT16, }, { 10, 1e3, }, 2, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, OTC_MQFLAG_DC, },
+	{ "D+", { 19, BVT_BE_UINT16, }, { 10, 1e3, }, 2, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, OTC_MQFLAG_DC, },
+	{ "T", { 21, BVT_BE_UINT16, }, { 1, 1, }, 0, OTC_MQ_TEMPERATURE, OTC_UNIT_CELSIUS, 0, },
 };
 
 static const struct atorch_device_profile atorch_profiles[] = {
@@ -88,12 +88,12 @@ static void log_atorch_msg(const uint8_t *buf, size_t len)
 {
 	GString *text;
 
-	if (sr_log_loglevel_get() < SR_LOG_DBG)
+	if (otc_log_loglevel_get() < OTC_LOG_DBG)
 		return;
 
-	text = sr_hexdump_new(buf, len);
-	sr_dbg("Atorch msg: %s", text->str);
-	sr_hexdump_free(text);
+	text = otc_hexdump_new(buf, len);
+	otc_dbg("Atorch msg: %s", text->str);
+	otc_hexdump_free(text);
 }
 
 static const uint8_t *locate_next_valid_msg(struct dev_context *devc)
@@ -131,7 +131,7 @@ static const uint8_t *locate_next_valid_msg(struct dev_context *devc)
 	return NULL;
 }
 
-static const uint8_t *receive_msg(struct sr_serial_dev_inst *serial,
+static const uint8_t *receive_msg(struct otc_serial_dev_inst *serial,
 	struct dev_context *devc)
 {
 	size_t len;
@@ -171,7 +171,7 @@ static const struct atorch_device_profile *find_profile_for_device_type(uint8_t 
 	return NULL;
 }
 
-static void parse_report_msg(struct sr_dev_inst *sdi, const uint8_t *report_ptr)
+static void parse_report_msg(struct otc_dev_inst *sdi, const uint8_t *report_ptr)
 {
 	struct dev_context *devc;
 	float val;
@@ -188,12 +188,12 @@ static void parse_report_msg(struct sr_dev_inst *sdi, const uint8_t *report_ptr)
 
 	std_session_send_df_frame_end(sdi);
 
-	sr_sw_limits_update_frames_read(&devc->limits, 1);
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	otc_sw_limits_update_frames_read(&devc->limits, 1);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 }
 
-SR_PRIV int atorch_probe(struct sr_serial_dev_inst *serial, struct dev_context *devc)
+OTC_PRIV int atorch_probe(struct otc_serial_dev_inst *serial, struct dev_context *devc)
 {
 	int64_t deadline_us;
 	const struct atorch_device_profile *p;
@@ -210,20 +210,20 @@ SR_PRIV int atorch_probe(struct sr_serial_dev_inst *serial, struct dev_context *
 			p = find_profile_for_device_type(msg_ptr[PAYLOAD_START_IDX]);
 			if (p) {
 				devc->profile = p;
-				return SR_OK;
+				return OTC_OK;
 			}
-			sr_err("Unrecognized device type (0x%.4" PRIx8 ").",
+			otc_err("Unrecognized device type (0x%.4" PRIx8 ").",
 			       devc->buf[PAYLOAD_START_IDX]);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		g_usleep(100 * 1000);
 	}
-	return SR_ERR;
+	return OTC_ERR;
 }
 
-SR_PRIV int atorch_receive_data_callback(int fd, int revents, void *cb_data)
+OTC_PRIV int atorch_receive_data_callback(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	const uint8_t *msg_ptr;
 

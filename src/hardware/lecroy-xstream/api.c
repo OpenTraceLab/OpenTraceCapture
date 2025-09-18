@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017 Sven Schnelle <svens@stackframe.org>
  *
@@ -19,88 +19,88 @@
 
 #include <config.h>
 #include <stdlib.h>
-#include "scpi.h"
+#include "../../scpi.h"
 #include "protocol.h"
 
-static struct sr_dev_driver lecroy_xstream_driver_info;
+static struct otc_dev_driver lecroy_xstream_driver_info;
 
 static const char *manufacturers[] = {
 	"LECROY",
 };
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_OSCILLOSCOPE,
+	OTC_CONF_OSCILLOSCOPE,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_LIMIT_FRAMES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET,
-	SR_CONF_TIMEBASE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_NUM_HDIV | SR_CONF_GET,
-	SR_CONF_HORIZ_TRIGGERPOS | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_TRIGGER_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_SLOPE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_LIMIT_FRAMES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET,
+	OTC_CONF_TIMEBASE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_NUM_HDIV | OTC_CONF_GET,
+	OTC_CONF_HORIZ_TRIGGERPOS | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_TRIGGER_SOURCE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_TRIGGER_SLOPE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const uint32_t devopts_cg_analog[] = {
-	SR_CONF_NUM_VDIV | SR_CONF_GET,
-	SR_CONF_VDIV | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_COUPLING | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_NUM_VDIV | OTC_CONF_GET,
+	OTC_CONF_VDIV | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_COUPLING | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
-static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
+static struct otc_dev_inst *probe_device(struct otc_scpi_dev_inst *scpi)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_scpi_hw_info *hw_info;
+	struct otc_scpi_hw_info *hw_info;
 
 	sdi = NULL;
 	devc = NULL;
 	hw_info = NULL;
 
-	if (sr_scpi_get_hw_id(scpi, &hw_info) != SR_OK) {
-		sr_info("Couldn't get IDN response.");
+	if (otc_scpi_get_hw_id(scpi, &hw_info) != OTC_OK) {
+		otc_info("Couldn't get IDN response.");
 		goto fail;
 	}
 
 	if (std_str_idx_s(hw_info->manufacturer, ARRAY_AND_SIZE(manufacturers)) < 0)
 		goto fail;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
 	sdi->vendor = g_strdup(hw_info->manufacturer);
 	sdi->model = g_strdup(hw_info->model);
 	sdi->version = g_strdup(hw_info->firmware_version);
 	sdi->serial_num = g_strdup(hw_info->serial_number);
 	sdi->driver = &lecroy_xstream_driver_info;
-	sdi->inst_type = SR_INST_SCPI;
+	sdi->inst_type = OTC_INST_SCPI;
 	sdi->conn = scpi;
 
-	sr_scpi_hw_info_free(hw_info);
+	otc_scpi_hw_info_free(hw_info);
 	hw_info = NULL;
 
 	devc = g_malloc0(sizeof(struct dev_context));
 	sdi->priv = devc;
 
-	if (lecroy_xstream_init_device(sdi) != SR_OK)
+	if (lecroy_xstream_init_device(sdi) != OTC_OK)
 		goto fail;
 
 	return sdi;
 
 fail:
-	sr_scpi_hw_info_free(hw_info);
-	sr_dev_inst_free(sdi);
+	otc_scpi_hw_info_free(hw_info);
+	otc_dev_inst_free(sdi);
 	g_free(devc);
 
 	return NULL;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
-	return sr_scpi_scan(di->context, options, probe_device);
+	return otc_scpi_scan(di->context, options, probe_device);
 }
 
 static void clear_helper(struct dev_context *devc)
@@ -109,29 +109,29 @@ static void clear_helper(struct dev_context *devc)
 	g_free(devc->analog_groups);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	if (sr_scpi_open(sdi->conn) != SR_OK)
-		return SR_ERR;
+	if (otc_scpi_open(sdi->conn) != OTC_OK)
+		return OTC_ERR;
 
-	if (lecroy_xstream_state_get(sdi) != SR_OK)
-		return SR_ERR;
+	if (lecroy_xstream_state_get(sdi) != OTC_OK)
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	return sr_scpi_close(sdi->conn);
+	return otc_scpi_close(sdi->conn);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-		const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+		const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int idx;
 	struct dev_context *devc;
@@ -139,7 +139,7 @@ static int config_get(uint32_t key, GVariant **data,
 	struct scope_state *state;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
@@ -148,55 +148,55 @@ static int config_get(uint32_t key, GVariant **data,
 	*data = NULL;
 
 	switch (key) {
-	case SR_CONF_NUM_HDIV:
+	case OTC_CONF_NUM_HDIV:
 		*data = g_variant_new_int32(model->num_xdivs);
 		break;
-	case SR_CONF_TIMEBASE:
+	case OTC_CONF_TIMEBASE:
 		*data = g_variant_new("(tt)",
 				(*model->timebases)[state->timebase][0],
 				(*model->timebases)[state->timebase][1]);
 		break;
-	case SR_CONF_NUM_VDIV:
+	case OTC_CONF_NUM_VDIV:
 		if (std_cg_idx(cg, devc->analog_groups, model->analog_channels) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_int32(model->num_ydivs);
 		break;
-	case SR_CONF_VDIV:
+	case OTC_CONF_VDIV:
 		if ((idx = std_cg_idx(cg, devc->analog_groups, model->analog_channels)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new("(tt)",
 				(*model->vdivs)[state->analog_channels[idx].vdiv][0],
 				(*model->vdivs)[state->analog_channels[idx].vdiv][1]);
 		break;
-	case SR_CONF_TRIGGER_SOURCE:
+	case OTC_CONF_TRIGGER_SOURCE:
 		*data = g_variant_new_string((*model->trigger_sources)[state->trigger_source]);
 		break;
-	case SR_CONF_TRIGGER_SLOPE:
+	case OTC_CONF_TRIGGER_SLOPE:
 		*data = g_variant_new_string((*model->trigger_slopes)[state->trigger_slope]);
 		break;
-	case SR_CONF_HORIZ_TRIGGERPOS:
+	case OTC_CONF_HORIZ_TRIGGERPOS:
 		*data = g_variant_new_double(state->horiz_triggerpos);
 		break;
-	case SR_CONF_COUPLING:
+	case OTC_CONF_COUPLING:
 		if ((idx = std_cg_idx(cg, devc->analog_groups, model->analog_channels)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_string((*model->coupling_options)[state->analog_channels[idx].coupling]);
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(state->sample_rate);
 		break;
-	case SR_CONF_ENABLED:
+	case OTC_CONF_ENABLED:
 		*data = g_variant_new_boolean(FALSE);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-		const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+		const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int ret, idx, j;
 	char command[MAX_COMMAND_SIZE];
@@ -206,7 +206,7 @@ static int config_set(uint32_t key, GVariant *data,
 	double tmp_d;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
@@ -214,43 +214,43 @@ static int config_set(uint32_t key, GVariant *data,
 	state = devc->model_state;
 
 	switch (key) {
-	case SR_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_FRAMES:
 		devc->frame_limit = g_variant_get_uint64(data);
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_TRIGGER_SOURCE:
+	case OTC_CONF_TRIGGER_SOURCE:
 		if ((idx = std_str_idx(data, *model->trigger_sources, model->num_trigger_sources)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		state->trigger_source = idx;
 		g_snprintf(command, sizeof(command),
 				"TRIG_SELECT EDGE,SR,%s", (*model->trigger_sources)[idx]);
-		ret = sr_scpi_send(sdi->conn, command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
-	case SR_CONF_VDIV:
+	case OTC_CONF_VDIV:
 		if ((idx = std_u64_tuple_idx(data, *model->vdivs, model->num_vdivs)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if ((j = std_cg_idx(cg, devc->analog_groups, model->analog_channels)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		state->analog_channels[j].vdiv = idx;
 		g_snprintf(command, sizeof(command),
 				"C%d:VDIV %E", j + 1, (float) (*model->vdivs)[idx][0] / (*model->vdivs)[idx][1]);
-		if (sr_scpi_send(sdi->conn, command) != SR_OK || sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
-		ret = SR_OK;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK || otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_TIMEBASE:
+	case OTC_CONF_TIMEBASE:
 		if ((idx = std_u64_tuple_idx(data, *model->timebases, model->num_timebases)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		state->timebase = idx;
 		g_snprintf(command, sizeof(command),
 				"TIME_DIV %E", (float) (*model->timebases)[idx][0] / (*model->timebases)[idx][1]);
-		ret = sr_scpi_send(sdi->conn, command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
-	case SR_CONF_HORIZ_TRIGGERPOS:
+	case OTC_CONF_HORIZ_TRIGGERPOS:
 		tmp_d = g_variant_get_double(data);
 
 		if (tmp_d < 0.0 || tmp_d > 1.0)
-			return SR_ERR;
+			return OTC_ERR;
 
 		state->horiz_triggerpos = tmp_d;
 		tmp_d = -(tmp_d - 0.5) *
@@ -260,52 +260,52 @@ static int config_set(uint32_t key, GVariant *data,
 
 		g_snprintf(command, sizeof(command), "TRIG POS %e S", tmp_d);
 
-		ret = sr_scpi_send(sdi->conn, command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
-	case SR_CONF_TRIGGER_SLOPE:
+	case OTC_CONF_TRIGGER_SLOPE:
 		if ((idx = std_str_idx(data, *model->trigger_slopes, model->num_trigger_slopes)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		state->trigger_slope = idx;
 		g_snprintf(command, sizeof(command),
 				"%s:TRIG_SLOPE %s", (*model->trigger_sources)[state->trigger_source],
 				(*model->trigger_slopes)[idx]);
-		ret = sr_scpi_send(sdi->conn, command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
-	case SR_CONF_COUPLING:
+	case OTC_CONF_COUPLING:
 		if ((idx = std_str_idx(data, *model->coupling_options, model->num_coupling_options)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if ((j = std_cg_idx(cg, devc->analog_groups, model->analog_channels)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		state->analog_channels[j].coupling = idx;
 		g_snprintf(command, sizeof(command), "C%d:COUPLING %s",
 				j + 1, (*model->coupling_options)[idx]);
-		if (sr_scpi_send(sdi->conn, command) != SR_OK || sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
-		ret = SR_OK;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK || otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
+		ret = OTC_OK;
 		break;
 	default:
-		ret = SR_ERR_NA;
+		ret = OTC_ERR_NA;
 		break;
 	}
 
-	if (ret == SR_OK)
-		ret = sr_scpi_get_opc(sdi->conn);
+	if (ret == OTC_OK)
+		ret = otc_scpi_get_opc(sdi->conn);
 
 	return ret;
 }
 
-static int config_channel_set(const struct sr_dev_inst *sdi,
-	struct sr_channel *ch, unsigned int changes)
+static int config_channel_set(const struct otc_dev_inst *sdi,
+	struct otc_channel *ch, unsigned int changes)
 {
-	/* Currently we only handle SR_CHANNEL_SET_ENABLED. */
-	if (changes != SR_CHANNEL_SET_ENABLED)
-		return SR_ERR_NA;
+	/* Currently we only handle OTC_CHANNEL_SET_ENABLED. */
+	if (changes != OTC_CHANNEL_SET_ENABLED)
+		return OTC_ERR_NA;
 
 	return lecroy_xstream_channel_state_set(sdi, ch->index, ch->enabled);
 }
 
 static int config_list(uint32_t key, GVariant **data,
-		const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+		const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	const struct scope_config *model;
@@ -314,49 +314,49 @@ static int config_list(uint32_t key, GVariant **data,
 	model = (devc) ? devc->model_config : NULL;
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, NO_OPTS, NO_OPTS);
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		if (!cg)
 			return STD_CONFIG_LIST(key, data, sdi, cg, NO_OPTS, drvopts, devopts);
 		*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_analog));
 		break;
-	case SR_CONF_COUPLING:
+	case OTC_CONF_COUPLING:
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_strv(*model->coupling_options, model->num_coupling_options);
 		break;
-	case SR_CONF_TRIGGER_SOURCE:
+	case OTC_CONF_TRIGGER_SOURCE:
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_strv(*model->trigger_sources, model->num_trigger_sources);
 		break;
-	case SR_CONF_TRIGGER_SLOPE:
+	case OTC_CONF_TRIGGER_SLOPE:
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_strv(*model->trigger_slopes, model->num_trigger_slopes);
 		break;
-	case SR_CONF_TIMEBASE:
+	case OTC_CONF_TIMEBASE:
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = std_gvar_tuple_array(*model->timebases, model->num_timebases);
 		break;
-	case SR_CONF_VDIV:
+	case OTC_CONF_VDIV:
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = std_gvar_tuple_array(*model->vdivs, model->num_vdivs);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int lecroy_xstream_request_data(const struct sr_dev_inst *sdi)
+OTC_PRIV int lecroy_xstream_request_data(const struct otc_dev_inst *sdi)
 {
 	char command[MAX_COMMAND_SIZE];
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	struct dev_context *devc;
 
 	devc = sdi->priv;
@@ -366,25 +366,25 @@ SR_PRIV int lecroy_xstream_request_data(const struct sr_dev_inst *sdi)
 	 * already stopped but we are processing the last pending events.
 	 */
 	if (!devc->current_channel)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	ch = devc->current_channel->data;
 
-	if (ch->type != SR_CHANNEL_ANALOG)
-		return SR_ERR;
+	if (ch->type != OTC_CHANNEL_ANALOG)
+		return OTC_ERR;
 
 	g_snprintf(command, sizeof(command), "C%d:WAVEFORM?", ch->index + 1);
-	return sr_scpi_send(sdi->conn, command);
+	return otc_scpi_send(sdi->conn, command);
 }
 
-static int setup_channels(const struct sr_dev_inst *sdi)
+static int setup_channels(const struct otc_dev_inst *sdi)
 {
 	GSList *l;
 	char command[MAX_COMMAND_SIZE];
 	struct scope_state *state;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 
 	devc = sdi->priv;
 	scpi = sdi->conn;
@@ -393,33 +393,33 @@ static int setup_channels(const struct sr_dev_inst *sdi)
 	for (l = sdi->channels; l; l = l->next) {
 		ch = l->data;
 		switch (ch->type) {
-		case SR_CHANNEL_ANALOG:
+		case OTC_CHANNEL_ANALOG:
 			if (ch->enabled == state->analog_channels[ch->index].state)
 				break;
 			g_snprintf(command, sizeof(command), "C%d:TRACE %s",
 					ch->index + 1, ch->enabled ? "ON" : "OFF");
 
-			if (sr_scpi_send(scpi, command) != SR_OK)
-				return SR_ERR;
+			if (otc_scpi_send(scpi, command) != OTC_OK)
+				return OTC_ERR;
 
 			state->analog_channels[ch->index].state = ch->enabled;
 			break;
 		default:
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	GSList *l;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	struct dev_context *devc;
 	struct scope_state *state;
 	int ret;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 
 	devc = sdi->priv;
 	scpi = sdi->conn;
@@ -440,12 +440,12 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	}
 
 	if (!devc->enabled_channels)
-		return SR_ERR;
+		return OTC_ERR;
 
 	/* Configure the analog channels. */
-	if (setup_channels(sdi) != SR_OK) {
-		sr_err("Failed to setup channel configuration!");
-		ret = SR_ERR;
+	if (setup_channels(sdi) != OTC_OK) {
+		otc_err("Failed to setup channel configuration!");
+		ret = OTC_ERR;
 		goto free_enabled;
 	}
 
@@ -453,7 +453,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	 * Start acquisition on the first enabled channel. The
 	 * receive routine will continue driving the acquisition.
 	 */
-	sr_scpi_source_add(sdi->session, scpi, G_IO_IN, 50,
+	otc_scpi_source_add(sdi->session, scpi, G_IO_IN, 50,
 			lecroy_xstream_receive_data, (void *)sdi);
 
 	std_session_send_df_header(sdi);
@@ -469,10 +469,10 @@ free_enabled:
 	return ret;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 
 	std_session_send_df_end(sdi);
 
@@ -482,12 +482,12 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	g_slist_free(devc->enabled_channels);
 	devc->enabled_channels = NULL;
 	scpi = sdi->conn;
-	sr_scpi_source_remove(sdi->session, scpi);
+	otc_scpi_source_remove(sdi->session, scpi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver lecroy_xstream_driver_info = {
+static struct otc_dev_driver lecroy_xstream_driver_info = {
 	.name = "lecroy-xstream",
 	.longname = "LeCroy X-Stream",
 	.api_version = 1,
@@ -506,4 +506,4 @@ static struct sr_dev_driver lecroy_xstream_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(lecroy_xstream_driver_info);
+OTC_REGISTER_DEV_DRIVER(lecroy_xstream_driver_info);

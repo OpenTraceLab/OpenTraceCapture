@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2011 Daniel Ribeiro <drwyrm@gmail.com>
  * Copyright (C) 2012 Renato Caldas <rmsc@fe.up.pt>
@@ -26,8 +26,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "link-mso19"
 
@@ -75,7 +75,7 @@ struct dev_context {
 	/* info */
 	uint8_t hwmodel;
 	uint8_t hwrev;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 //      uint8_t num_sample_rates;
 	/* calibration */
 	double vbit;
@@ -114,28 +114,28 @@ struct dev_context {
 };
 
 /* from api.c */
-SR_PRIV uint8_t mso_calc_trigger_register(struct dev_context *devc,
+OTC_PRIV uint8_t mso_calc_trigger_register(struct dev_context *devc,
 		uint16_t threshold_value);
 
 /* from protocol.c */
-SR_PRIV int mso_parse_serial(const char *serial_num, const char *product,
+OTC_PRIV int mso_parse_serial(const char *serial_num, const char *product,
 			     struct dev_context *ctx);
-SR_PRIV int mso_read_status(struct sr_serial_dev_inst *serial,
+OTC_PRIV int mso_read_status(struct otc_serial_dev_inst *serial,
 			    uint8_t *status);
-SR_PRIV int mso_reset_adc(const struct sr_dev_inst *sdi);
-SR_PRIV int mso_clkrate_out(struct sr_serial_dev_inst *serial, uint16_t val);
-SR_PRIV int mso_configure_rate(const struct sr_dev_inst *sdi, uint32_t rate);
-SR_PRIV int mso_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV int mso_configure_trigger(const struct sr_dev_inst *sdi);
-SR_PRIV int mso_configure_threshold_level(const struct sr_dev_inst *sdi);
-SR_PRIV int mso_read_buffer(struct sr_dev_inst *sdi);
-SR_PRIV int mso_arm(const struct sr_dev_inst *sdi);
-SR_PRIV int mso_force_capture(struct sr_dev_inst *sdi);
-SR_PRIV int mso_dac_out(const struct sr_dev_inst *sdi, uint16_t val);
-SR_PRIV int mso_reset_fsm(const struct sr_dev_inst *sdi);
+OTC_PRIV int mso_reset_adc(const struct otc_dev_inst *sdi);
+OTC_PRIV int mso_clkrate_out(struct otc_serial_dev_inst *serial, uint16_t val);
+OTC_PRIV int mso_configure_rate(const struct otc_dev_inst *sdi, uint32_t rate);
+OTC_PRIV int mso_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int mso_configure_trigger(const struct otc_dev_inst *sdi);
+OTC_PRIV int mso_configure_threshold_level(const struct otc_dev_inst *sdi);
+OTC_PRIV int mso_read_buffer(struct otc_dev_inst *sdi);
+OTC_PRIV int mso_arm(const struct otc_dev_inst *sdi);
+OTC_PRIV int mso_force_capture(struct otc_dev_inst *sdi);
+OTC_PRIV int mso_dac_out(const struct otc_dev_inst *sdi, uint16_t val);
+OTC_PRIV int mso_reset_fsm(const struct otc_dev_inst *sdi);
 
-SR_PRIV int mso_configure_channels(const struct sr_dev_inst *sdi);
-SR_PRIV void stop_acquisition(const struct sr_dev_inst *sdi);
+OTC_PRIV int mso_configure_channels(const struct otc_dev_inst *sdi);
+OTC_PRIV void stop_acquisition(const struct otc_dev_inst *sdi);
 
 /* bank agnostic registers */
 #define REG_CTL2		15
@@ -230,26 +230,26 @@ struct rate_map {
 };
 
 static const struct rate_map rate_map[] = {
-	{ SR_MHZ(200), 0x0205, 0 },
-	{ SR_MHZ(100), 0x0105, 0 },
-	{ SR_MHZ(50),  0x0005, 0 },
-	{ SR_MHZ(20),  0x0303, 0 },
-	{ SR_MHZ(10),  0x0308, 0 },
-	{ SR_MHZ(5),   0x0312, 0 },
-	{ SR_MHZ(2),   0x0330, 0 },
-	{ SR_MHZ(1),   0x0362, 0 },
-	{ SR_KHZ(500), 0x03c6, 0 },
-	{ SR_KHZ(200), 0x07f2, 0 },
-	{ SR_KHZ(100), 0x0fe6, 0 },
-	{ SR_KHZ(50),  0x1fce, 0 },
-	{ SR_KHZ(20),  0x4f86, 0 },
-	{ SR_KHZ(10),  0x9f0e, 0 },
-	{ SR_KHZ(5),   0x03c7, 0x20 },
-	{ SR_KHZ(2),   0x07f3, 0x20 },
-	{ SR_KHZ(1),   0x0fe7, 0x20 },
-	{ SR_HZ(500),  0x1fcf, 0x20 },
-	{ SR_HZ(200),  0x4f87, 0x20 },
-	{ SR_HZ(100),  0x9f0f, 0x20 },
+	{ OTC_MHZ(200), 0x0205, 0 },
+	{ OTC_MHZ(100), 0x0105, 0 },
+	{ OTC_MHZ(50),  0x0005, 0 },
+	{ OTC_MHZ(20),  0x0303, 0 },
+	{ OTC_MHZ(10),  0x0308, 0 },
+	{ OTC_MHZ(5),   0x0312, 0 },
+	{ OTC_MHZ(2),   0x0330, 0 },
+	{ OTC_MHZ(1),   0x0362, 0 },
+	{ OTC_KHZ(500), 0x03c6, 0 },
+	{ OTC_KHZ(200), 0x07f2, 0 },
+	{ OTC_KHZ(100), 0x0fe6, 0 },
+	{ OTC_KHZ(50),  0x1fce, 0 },
+	{ OTC_KHZ(20),  0x4f86, 0 },
+	{ OTC_KHZ(10),  0x9f0e, 0 },
+	{ OTC_KHZ(5),   0x03c7, 0x20 },
+	{ OTC_KHZ(2),   0x07f3, 0x20 },
+	{ OTC_KHZ(1),   0x0fe7, 0x20 },
+	{ OTC_HZ(500),  0x1fcf, 0x20 },
+	{ OTC_HZ(200),  0x4f87, 0x20 },
+	{ OTC_HZ(100),  0x9f0f, 0x20 },
 };
 
 #endif

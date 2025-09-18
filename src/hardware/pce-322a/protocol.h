@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 George Hopkins <george-hopkins@null.net>
  * Copyright (C) 2016 Matthieu Guillaumin <matthieu@guillaum.in>
@@ -23,8 +23,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "pce-322a"
 
@@ -89,20 +89,20 @@ struct dev_context {
 	int buffer_skip; /* Number of bytes to skip in memory mode. */
 };
 
-SR_PRIV int pce_322a_connect(const struct sr_dev_inst *sdi);
-SR_PRIV int pce_322a_disconnect(const struct sr_dev_inst *sdi);
-SR_PRIV int pce_322a_memory_status(const struct sr_dev_inst *sdi);
-SR_PRIV int pce_322a_memory_clear(const struct sr_dev_inst *sdi);
-SR_PRIV int pce_322a_memory_block(const struct sr_dev_inst *sdi, uint16_t memblk);
-SR_PRIV int pce_322a_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV uint64_t pce_322a_weight_freq_get(const struct sr_dev_inst *sdi);
-SR_PRIV int pce_322a_weight_freq_set(const struct sr_dev_inst *sdi, uint64_t freqw);
-SR_PRIV uint64_t pce_322a_weight_time_get(const struct sr_dev_inst *sdi);
-SR_PRIV int pce_322a_weight_time_set(const struct sr_dev_inst *sdi, uint64_t timew);
-SR_PRIV int pce_322a_meas_range_get(const struct sr_dev_inst *sdi,
+OTC_PRIV int pce_322a_connect(const struct otc_dev_inst *sdi);
+OTC_PRIV int pce_322a_disconnect(const struct otc_dev_inst *sdi);
+OTC_PRIV int pce_322a_memory_status(const struct otc_dev_inst *sdi);
+OTC_PRIV int pce_322a_memory_clear(const struct otc_dev_inst *sdi);
+OTC_PRIV int pce_322a_memory_block(const struct otc_dev_inst *sdi, uint16_t memblk);
+OTC_PRIV int pce_322a_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV uint64_t pce_322a_weight_freq_get(const struct otc_dev_inst *sdi);
+OTC_PRIV int pce_322a_weight_freq_set(const struct otc_dev_inst *sdi, uint64_t freqw);
+OTC_PRIV uint64_t pce_322a_weight_time_get(const struct otc_dev_inst *sdi);
+OTC_PRIV int pce_322a_weight_time_set(const struct otc_dev_inst *sdi, uint64_t timew);
+OTC_PRIV int pce_322a_meas_range_get(const struct otc_dev_inst *sdi,
 		uint64_t *low, uint64_t *high);
-SR_PRIV int pce_322a_meas_range_set(const struct sr_dev_inst *sdi,
+OTC_PRIV int pce_322a_meas_range_set(const struct otc_dev_inst *sdi,
 		uint64_t low, uint64_t high);
-SR_PRIV int pce_322a_power_off(const struct sr_dev_inst *sdi);
+OTC_PRIV int pce_322a_power_off(const struct otc_dev_inst *sdi);
 
 #endif

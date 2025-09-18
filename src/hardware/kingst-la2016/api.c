@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2022 Gerhard Sittig <gerhard.sittig@gmx.net>
  * Copyright (C) 2020 Florian Schmidt <schmidt_florian@gmx.de>
@@ -28,52 +28,52 @@
 
 #include <config.h>
 
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <string.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_PROBE_NAMES,
+	OTC_CONF_CONN,
+	OTC_CONF_PROBE_NAMES,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
-	SR_CONF_SIGNAL_GENERATOR,
+	OTC_CONF_LOGIC_ANALYZER,
+	OTC_CONF_SIGNAL_GENERATOR,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 #if WITH_THRESHOLD_DEVCFG
-	SR_CONF_VOLTAGE_THRESHOLD | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_VOLTAGE_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 #endif
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_CONTINUOUS | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
+	OTC_CONF_CAPTURE_RATIO | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_CONTINUOUS | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t devopts_cg_logic[] = {
 #if !WITH_THRESHOLD_DEVCFG
-	SR_CONF_VOLTAGE_THRESHOLD | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_VOLTAGE_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 #endif
 };
 
 static const uint32_t devopts_cg_pwm[] = {
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OUTPUT_FREQUENCY | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_DUTY_CYCLE | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OUTPUT_FREQUENCY | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_DUTY_CYCLE | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const int32_t trigger_matches[] = {
-	SR_TRIGGER_ZERO,
-	SR_TRIGGER_ONE,
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
+	OTC_TRIGGER_ZERO,
+	OTC_TRIGGER_ONE,
+	OTC_TRIGGER_RISING,
+	OTC_TRIGGER_FALLING,
 };
 
 static const char *channel_names_logic[] = {
@@ -105,51 +105,51 @@ static const char *channel_names_pwm[] = {
  */
 
 static const uint64_t rates_500mhz[] = {
-	SR_KHZ(20),
-	SR_KHZ(50),
-	SR_KHZ(100),
-	SR_KHZ(200),
-	SR_KHZ(500),
-	SR_MHZ(1),
-	SR_MHZ(2),
-	SR_MHZ(5),
-	SR_MHZ(10),
-	SR_MHZ(20),
-	SR_MHZ(50),
-	SR_MHZ(100),
-	SR_MHZ(200),
-	SR_MHZ(500),
+	OTC_KHZ(20),
+	OTC_KHZ(50),
+	OTC_KHZ(100),
+	OTC_KHZ(200),
+	OTC_KHZ(500),
+	OTC_MHZ(1),
+	OTC_MHZ(2),
+	OTC_MHZ(5),
+	OTC_MHZ(10),
+	OTC_MHZ(20),
+	OTC_MHZ(50),
+	OTC_MHZ(100),
+	OTC_MHZ(200),
+	OTC_MHZ(500),
 };
 
 static const uint64_t rates_200mhz[] = {
-	SR_KHZ(20),
-	SR_KHZ(50),
-	SR_KHZ(100),
-	SR_KHZ(200),
-	SR_KHZ(500),
-	SR_MHZ(1),
-	SR_MHZ(2),
-	SR_MHZ(5),
-	SR_MHZ(10),
-	SR_MHZ(20),
-	SR_MHZ(50),
-	SR_MHZ(100),
-	SR_MHZ(200),
+	OTC_KHZ(20),
+	OTC_KHZ(50),
+	OTC_KHZ(100),
+	OTC_KHZ(200),
+	OTC_KHZ(500),
+	OTC_MHZ(1),
+	OTC_MHZ(2),
+	OTC_MHZ(5),
+	OTC_MHZ(10),
+	OTC_MHZ(20),
+	OTC_MHZ(50),
+	OTC_MHZ(100),
+	OTC_MHZ(200),
 };
 
 static const uint64_t rates_100mhz[] = {
-	SR_KHZ(20),
-	SR_KHZ(50),
-	SR_KHZ(100),
-	SR_KHZ(200),
-	SR_KHZ(500),
-	SR_MHZ(1),
-	SR_MHZ(2),
-	SR_MHZ(5),
-	SR_MHZ(10),
-	SR_MHZ(20),
-	SR_MHZ(50),
-	SR_MHZ(100),
+	OTC_KHZ(20),
+	OTC_KHZ(50),
+	OTC_KHZ(100),
+	OTC_KHZ(200),
+	OTC_KHZ(500),
+	OTC_MHZ(1),
+	OTC_MHZ(2),
+	OTC_MHZ(5),
+	OTC_MHZ(10),
+	OTC_MHZ(20),
+	OTC_MHZ(50),
+	OTC_MHZ(100),
 };
 
 /*
@@ -170,7 +170,7 @@ static const double threshold_ranges[][2] = {
 };
 #define LOGIC_THRESHOLD_IDX_DFLT	4
 
-static double threshold_voltage(const struct sr_dev_inst *sdi, double *high)
+static double threshold_voltage(const struct otc_dev_inst *sdi, double *high)
 {
 	struct dev_context *devc;
 	size_t idx;
@@ -196,9 +196,9 @@ static void kingst_la2016_free_devc(struct dev_context *devc)
 }
 
 /* Convenience. Release an allocated sdi from error paths. */
-static void kingst_la2016_free_sdi(struct sr_dev_inst *sdi)
+static void kingst_la2016_free_sdi(struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct dev_context *devc;
 
 	if (!sdi)
@@ -206,17 +206,17 @@ static void kingst_la2016_free_sdi(struct sr_dev_inst *sdi)
 
 	usb = sdi->conn;
 	if (usb && usb->devhdl)
-		sr_usb_close(usb);
-	sr_usb_dev_inst_free(usb);
+		otc_usb_close(usb);
+	otc_usb_dev_inst_free(usb);
 
 	devc = sdi->priv;
 	kingst_la2016_free_devc(devc);
 
-	sr_dev_inst_free(sdi);
+	otc_dev_inst_free(sdi);
 }
 
 /* Convenience. Open a USB device (including claiming an interface). */
-static int la2016_open_usb(struct sr_usb_dev_inst *usb,
+static int la2016_open_usb(struct otc_usb_dev_inst *usb,
 	libusb_device *dev, gboolean show_message)
 {
 	int ret;
@@ -224,10 +224,10 @@ static int la2016_open_usb(struct sr_usb_dev_inst *usb,
 	ret = libusb_open(dev, &usb->devhdl);
 	if (ret != 0) {
 		if (show_message) {
-			sr_err("Cannot open device: %s.",
+			otc_err("Cannot open device: %s.",
 				libusb_error_name(ret));
 		}
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
 	if (usb->address == 0xff) {
@@ -240,22 +240,22 @@ static int la2016_open_usb(struct sr_usb_dev_inst *usb,
 
 	ret = libusb_claim_interface(usb->devhdl, USB_INTERFACE);
 	if (ret == LIBUSB_ERROR_BUSY) {
-		sr_err("Cannot claim USB interface. Another program or driver using it?");
-		return SR_ERR_IO;
+		otc_err("Cannot claim USB interface. Another program or driver using it?");
+		return OTC_ERR_IO;
 	} else if (ret == LIBUSB_ERROR_NO_DEVICE) {
-		sr_err("Device has been disconnected.");
-		return SR_ERR_IO;
+		otc_err("Device has been disconnected.");
+		return OTC_ERR_IO;
 	} else if (ret != 0) {
-		sr_err("Cannot claim USB interface: %s.",
+		otc_err("Cannot claim USB interface: %s.",
 			libusb_error_name(ret));
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Convenience. Close an opened USB device (and release the interface). */
-static void la2016_close_usb(struct sr_usb_dev_inst *usb)
+static void la2016_close_usb(struct otc_usb_dev_inst *usb)
 {
 
 	if (!usb)
@@ -269,16 +269,16 @@ static void la2016_close_usb(struct sr_usb_dev_inst *usb)
 }
 
 /* Communicate to an USB device to identify the Kingst LA model. */
-static int la2016_identify_read(struct sr_dev_inst *sdi,
-	struct sr_usb_dev_inst *usb, libusb_device *dev,
+static int la2016_identify_read(struct otc_dev_inst *sdi,
+	struct otc_usb_dev_inst *usb, libusb_device *dev,
 	gboolean show_message)
 {
 	int ret;
 
 	ret = la2016_open_usb(usb, dev, show_message);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		if (show_message)
-			sr_err("Cannot communicate to MCU firmware.");
+			otc_err("Cannot communicate to MCU firmware.");
 		return ret;
 	}
 
@@ -288,7 +288,7 @@ static int la2016_identify_read(struct sr_dev_inst *sdi,
 	 * failure is considered fatal when probing for the device.
 	 */
 	ret = la2016_identify_device(sdi, show_message);
-	if (ret == SR_OK) {
+	if (ret == OTC_OK) {
 		ret = la2016_init_hardware(sdi);
 	}
 
@@ -298,11 +298,11 @@ static int la2016_identify_read(struct sr_dev_inst *sdi,
 }
 
 /* Find given conn_id in another USB enum. Identify Kingst LA model. */
-static int la2016_identify_enum(struct sr_dev_inst *sdi)
+static int la2016_identify_enum(struct otc_dev_inst *sdi)
 {
-	struct sr_dev_driver *di;
+	struct otc_dev_driver *di;
 	struct drv_context *drvc;
-	struct sr_context *ctx;
+	struct otc_context *ctx;
 	libusb_device **devlist, *dev;
 	struct libusb_device_descriptor des;
 	int ret, id_ret;
@@ -311,15 +311,15 @@ static int la2016_identify_enum(struct sr_dev_inst *sdi)
 
 	di = sdi->driver;
 	drvc = di->context;
-	ctx = drvc->sr_ctx;;
+	ctx = drvc->otc_ctx;;
 
 	ret = libusb_get_device_list(ctx->libusb_ctx, &devlist);
 	if (ret < 0)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	device_count = ret;
 	if (!device_count)
-		return SR_ERR_IO;
-	id_ret = SR_ERR_IO;
+		return OTC_ERR_IO;
+	id_ret = OTC_ERR_IO;
 	for (dev_idx = 0; dev_idx < device_count; dev_idx++) {
 		dev = devlist[dev_idx];
 		libusb_get_device_descriptor(dev, &des);
@@ -341,7 +341,7 @@ static int la2016_identify_enum(struct sr_dev_inst *sdi)
 }
 
 /* Wait for a device to re-appear after firmware upload. */
-static int la2016_identify_wait(struct sr_dev_inst *sdi)
+static int la2016_identify_wait(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint64_t reset_done, now, elapsed_ms;
@@ -349,7 +349,7 @@ static int la2016_identify_wait(struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 
-	sr_info("Waiting for device to reset after firmware upload.");
+	otc_info("Waiting for device to reset after firmware upload.");
 	now = g_get_monotonic_time();
 	reset_done = devc->fw_uploaded + RENUM_GONE_DELAY_MS * 1000;
 	if (now < reset_done)
@@ -357,32 +357,32 @@ static int la2016_identify_wait(struct sr_dev_inst *sdi)
 	do {
 		now = g_get_monotonic_time();
 		elapsed_ms = (now - devc->fw_uploaded) / 1000;
-		sr_spew("Waited %" PRIu64 "ms.", elapsed_ms);
+		otc_spew("Waited %" PRIu64 "ms.", elapsed_ms);
 		ret = la2016_identify_enum(sdi);
-		if (ret == SR_OK) {
+		if (ret == OTC_OK) {
 			devc->fw_uploaded = 0;
 			break;
 		}
 		g_usleep(RENUM_POLL_INTERVAL_MS * 1000);
 	} while (elapsed_ms < RENUM_CHECK_PERIOD_MS);
-	if (ret != SR_OK) {
-		sr_err("Device failed to re-enumerate.");
+	if (ret != OTC_OK) {
+		otc_err("Device failed to re-enumerate.");
 		return ret;
 	}
-	sr_info("Device came back after %" PRIi64 "ms.", elapsed_ms);
+	otc_info("Device came back after %" PRIi64 "ms.", elapsed_ms);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
  * Open given conn_id from another USB enum. Used by dev_open(). Similar
  * to, and should be kept in sync with la2016_identify_enum().
  */
-static int la2016_open_enum(struct sr_dev_inst *sdi)
+static int la2016_open_enum(struct otc_dev_inst *sdi)
 {
-	struct sr_dev_driver *di;
+	struct otc_dev_driver *di;
 	struct drv_context *drvc;
-	struct sr_context *ctx;
+	struct otc_context *ctx;
 	libusb_device **devlist, *dev;
 	struct libusb_device_descriptor des;
 	int ret, open_ret;
@@ -391,15 +391,15 @@ static int la2016_open_enum(struct sr_dev_inst *sdi)
 
 	di = sdi->driver;
 	drvc = di->context;
-	ctx = drvc->sr_ctx;;
+	ctx = drvc->otc_ctx;;
 
 	ret = libusb_get_device_list(ctx->libusb_ctx, &devlist);
 	if (ret < 0)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	device_count = ret;
 	if (!device_count)
-		return SR_ERR_IO;
-	open_ret = SR_ERR_IO;
+		return OTC_ERR_IO;
+	open_ret = OTC_ERR_IO;
 	for (dev_idx = 0; dev_idx < device_count; dev_idx++) {
 		dev = devlist[dev_idx];
 		libusb_get_device_descriptor(dev, &des);
@@ -420,14 +420,14 @@ static int la2016_open_enum(struct sr_dev_inst *sdi)
 	return open_ret;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct drv_context *drvc;
-	struct sr_context *ctx;
+	struct otc_context *ctx;
 	struct dev_context *devc;
-	struct sr_dev_inst *sdi;
-	struct sr_usb_dev_inst *usb;
-	struct sr_config *src;
+	struct otc_dev_inst *sdi;
+	struct otc_usb_dev_inst *usb;
+	struct otc_config *src;
 	GSList *l;
 	GSList *devices, *found_devices, *renum_devices;
 	GSList *conn_devices;
@@ -441,11 +441,11 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	char conn_id[64];
 	int ret;
 	size_t ch_off, ch_max;
-	struct sr_channel *ch;
-	struct sr_channel_group *cg;
+	struct otc_channel *ch;
+	struct otc_channel_group *cg;
 
 	drvc = di->context;
-	ctx = drvc->sr_ctx;;
+	ctx = drvc->otc_ctx;;
 
 	conn = NULL;
 	conn_devices = NULL;
@@ -453,18 +453,18 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_PROBE_NAMES:
+		case OTC_CONF_PROBE_NAMES:
 			probe_names = g_variant_get_string(src->data, NULL);
 			break;
 		}
 	}
 	if (conn)
-		conn_devices = sr_usb_find(ctx->libusb_ctx, conn);
+		conn_devices = otc_usb_find(ctx->libusb_ctx, conn);
 	if (conn && !conn_devices) {
-		sr_err("Cannot find the specified connection '%s'.", conn);
+		otc_err("Cannot find the specified connection '%s'.", conn);
 		return NULL;
 	}
 
@@ -481,7 +481,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	renum_devices = NULL;
 	ret = libusb_get_device_list(ctx->libusb_ctx, &devlist);
 	if (ret < 0) {
-		sr_err("Cannot get device list: %s.", libusb_error_name(ret));
+		otc_err("Cannot get device list: %s.", libusb_error_name(ret));
 		return devices;
 	}
 	dev_count = ret;
@@ -497,7 +497,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 				break;
 		}
 		if (conn_devices && !l) {
-			sr_spew("Bus %hhu, addr %hhu do not match specified filter.",
+			otc_spew("Bus %hhu, addr %hhu do not match specified filter.",
 				bus, addr);
 			continue;
 		}
@@ -510,14 +510,14 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		ret = usb_get_port_path(dev, conn_id, sizeof(conn_id));
 		if (ret < 0)
 			continue;
-		sr_dbg("USB enum found %04x:%04x at path %s, %d.%d.",
+		otc_dbg("USB enum found %04x:%04x at path %s, %d.%d.",
 			des.idVendor, des.idProduct, conn_id, bus, addr);
-		usb = sr_usb_dev_inst_new(bus, addr, NULL);
+		usb = otc_usb_dev_inst_new(bus, addr, NULL);
 
 		sdi = g_malloc0(sizeof(*sdi));
 		sdi->driver = di;
-		sdi->status = SR_ST_INITIALIZING;
-		sdi->inst_type = SR_INST_USB;
+		sdi->status = OTC_ST_INITIALIZING;
+		sdi->inst_type = OTC_INST_USB;
 		sdi->connection_id = g_strdup(conn_id);
 		sdi->conn = usb;
 
@@ -533,10 +533,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		devc->fw_uploaded = 0;
 		devc->usb_pid = pid;
 		if (des.iProduct != LA2016_IPRODUCT_INDEX) {
-			sr_info("Uploading MCU firmware to '%s'.", conn_id);
+			otc_info("Uploading MCU firmware to '%s'.", conn_id);
 			ret = la2016_upload_firmware(sdi, ctx, dev, FALSE);
-			if (ret != SR_OK) {
-				sr_err("MCU firmware upload failed.");
+			if (ret != OTC_OK) {
+				otc_err("MCU firmware upload failed.");
 				kingst_la2016_free_sdi(sdi);
 				continue;
 			}
@@ -546,8 +546,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			continue;
 		} else {
 			ret = la2016_upload_firmware(sdi, NULL, NULL, TRUE);
-			if (ret != SR_OK) {
-				sr_err("MCU firmware filename check failed.");
+			if (ret != OTC_OK) {
+				otc_err("MCU firmware filename check failed.");
 				kingst_la2016_free_sdi(sdi);
 				continue;
 			}
@@ -561,15 +561,15 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		 * get revisited later.
 		 */
 		ret = la2016_identify_read(sdi, usb, dev, TRUE);
-		if (ret != SR_OK || !devc->model) {
-			sr_err("Unknown or unsupported device type.");
+		if (ret != OTC_OK || !devc->model) {
+			otc_err("Unknown or unsupported device type.");
 			kingst_la2016_free_sdi(sdi);
 			continue;
 		}
 		found_devices = g_slist_append(found_devices, sdi);
 	}
 	libusb_free_device_list(devlist, 1);
-	g_slist_free_full(conn_devices, sr_usb_dev_inst_free_cb);
+	g_slist_free_full(conn_devices, otc_usb_dev_inst_free_cb);
 
 	/*
 	 * Wait for devices to re-appear after firmware upload. Append
@@ -580,8 +580,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		sdi = l->data;
 		devc = sdi->priv;
 		ret = la2016_identify_wait(sdi);
-		if (ret != SR_OK || !devc->model) {
-			sr_dbg("Skipping unusable '%s'.", sdi->connection_id);
+		if (ret != OTC_OK || !devc->model) {
+			otc_dbg("Skipping unusable '%s'.", sdi->connection_id);
 			kingst_la2016_free_sdi(sdi);
 			continue;
 		}
@@ -607,13 +607,13 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		ch_max = ARRAY_SIZE(channel_names_logic);
 		if (ch_max > devc->model->channel_count)
 			ch_max = devc->model->channel_count;
-		devc->channel_names_logic = sr_parse_probe_names(probe_names,
+		devc->channel_names_logic = otc_parse_probe_names(probe_names,
 			channel_names_logic, ch_max, ch_max, &ch_max);
-		cg = sr_channel_group_new(sdi, "Logic", NULL);
+		cg = otc_channel_group_new(sdi, "Logic", NULL);
 		devc->cg_logic = cg;
 		for (ch_idx = 0; ch_idx < ch_max; ch_idx++) {
-			ch = sr_channel_new(sdi, ch_off,
-				SR_CHANNEL_LOGIC, TRUE,
+			ch = otc_channel_new(sdi, ch_off,
+				OTC_CHANNEL_LOGIC, TRUE,
 				devc->channel_names_logic[ch_idx]);
 			ch_off++;
 			cg->channels = g_slist_append(cg->channels, ch);
@@ -624,11 +624,11 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		for (ch_idx = 0; ch_idx < ch_max; ch_idx++) {
 			const char *name;
 			name = channel_names_pwm[ch_idx];
-			cg = sr_channel_group_new(sdi, name, NULL);
+			cg = otc_channel_group_new(sdi, name, NULL);
 			if (!devc->cg_pwm)
 				devc->cg_pwm = cg;
-			ch = sr_channel_new(sdi, ch_off,
-				SR_CHANNEL_ANALOG, FALSE, name);
+			ch = otc_channel_new(sdi, ch_off,
+				OTC_CHANNEL_ANALOG, FALSE, name);
 			ch_off++;
 			cg->channels = g_slist_append(cg->channels, ch);
 		}
@@ -638,7 +638,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		 * hardware, but this device is write-only. So we have
 		 * to assign a fixed set of initial configuration values.
 		 */
-		sr_sw_limits_init(&devc->sw_limits);
+		otc_sw_limits_init(&devc->sw_limits);
 		devc->sw_limits.limit_samples = 0;
 		devc->capture_ratio = 50;
 		devc->samplerate = devc->model->samplerate;
@@ -647,16 +647,16 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		devc->threshold_voltage_idx = LOGIC_THRESHOLD_IDX_DFLT;
 		if  (ARRAY_SIZE(devc->pwm_setting) >= 1) {
 			devc->pwm_setting[0].enabled = FALSE;
-			devc->pwm_setting[0].freq = SR_KHZ(1);
+			devc->pwm_setting[0].freq = OTC_KHZ(1);
 			devc->pwm_setting[0].duty = 50;
 		}
 		if  (ARRAY_SIZE(devc->pwm_setting) >= 2) {
 			devc->pwm_setting[1].enabled = FALSE;
-			devc->pwm_setting[1].freq = SR_KHZ(100);
+			devc->pwm_setting[1].freq = OTC_KHZ(100);
 			devc->pwm_setting[1].duty = 50;
 		}
 
-		sdi->status = SR_ST_INACTIVE;
+		sdi->status = OTC_ST_INACTIVE;
 		devices = g_slist_append(devices, sdi);
 	}
 	g_slist_free(found_devices);
@@ -664,7 +664,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	return std_scan_complete(di, devices);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -673,45 +673,45 @@ static int dev_open(struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	ret = la2016_open_enum(sdi);
-	if (ret != SR_OK) {
-		sr_err("Cannot open device.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot open device.");
 		return ret;
 	}
 
 	/* Send most recent PWM configuration to the device. */
 	for (ch = 0; ch < ARRAY_SIZE(devc->pwm_setting); ch++) {
 		ret = la2016_write_pwm_config(sdi, ch);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 
 	usb = sdi->conn;
 
 	if (!usb->devhdl)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	la2016_release_resources(sdi);
 
 	if (WITH_DEINIT_IN_CLOSE)
 		la2016_deinit_hardware(sdi);
 
-	sr_info("Closing device on %d.%d (logical) / %s (physical) interface %d.",
+	otc_info("Closing device on %d.%d (logical) / %s (physical) interface %d.",
 		usb->bus, usb->address, sdi->connection_id, USB_INTERFACE);
 	la2016_close_usb(sdi->conn);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Config API helper. Get type and index of a channel group. */
-static int get_cg_index(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg,
+static int get_cg_index(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg,
 	int *type, size_t *logic, size_t *analog)
 {
 	struct dev_context *devc;
@@ -728,21 +728,21 @@ static int get_cg_index(const struct sr_dev_inst *sdi,
 
 	/* Start categorizing the received cg. */
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!cg)
-		return SR_OK;
+		return OTC_OK;
 	l = sdi->channel_groups;
 
 	/* First sdi->channelgroups item is "Logic". */
 	if (!l)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 	if (cg == l->data) {
 		if (type)
-			*type = SR_CHANNEL_LOGIC;
+			*type = OTC_CHANNEL_LOGIC;
 		if (logic)
 			*logic = 0;
-		return SR_OK;
+		return OTC_OK;
 	}
 	l = l->next;
 
@@ -754,103 +754,103 @@ static int get_cg_index(const struct sr_dev_inst *sdi,
 	}
 	if (l && idx < ARRAY_SIZE(devc->pwm_setting)) {
 		if (type)
-			*type = SR_CHANNEL_ANALOG;
+			*type = OTC_CHANNEL_ANALOG;
 		if (analog)
 			*analog = idx;
-		return SR_OK;
+		return OTC_OK;
 	}
 
-	return SR_ERR_ARG;
+	return OTC_ERR_ARG;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	int ret, cg_type;
 	size_t logic_idx, analog_idx;
 	struct pwm_setting *pwm;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	double voltage, rounded;
 
 	(void)rounded;
 	(void)voltage;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 
 	/* Check for types (and index) of channel groups. */
 	ret = get_cg_index(sdi, cg, &cg_type, &logic_idx, &analog_idx);
-	if (cg && ret != SR_OK)
-		return SR_ERR_ARG;
+	if (cg && ret != OTC_OK)
+		return OTC_ERR_ARG;
 
 	/* Handle requests for the "Logic" channel group. */
-	if (cg && cg_type == SR_CHANNEL_LOGIC) {
+	if (cg && cg_type == OTC_CHANNEL_LOGIC) {
 		switch (key) {
 #if !WITH_THRESHOLD_DEVCFG
-		case SR_CONF_VOLTAGE_THRESHOLD:
+		case OTC_CONF_VOLTAGE_THRESHOLD:
 			voltage = threshold_voltage(sdi, NULL);
 			*data = std_gvar_tuple_double(voltage, voltage);
 			break;
 #endif /* WITH_THRESHOLD_DEVCFG */
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* Handle requests for the "PWMx" channel groups. */
-	if (cg && cg_type == SR_CHANNEL_ANALOG) {
+	if (cg && cg_type == OTC_CHANNEL_ANALOG) {
 		pwm = &devc->pwm_setting[analog_idx];
 		switch (key) {
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			*data = g_variant_new_boolean(pwm->enabled);
 			break;
-		case SR_CONF_OUTPUT_FREQUENCY:
+		case OTC_CONF_OUTPUT_FREQUENCY:
 			*data = g_variant_new_double(pwm->freq);
 			break;
-		case SR_CONF_DUTY_CYCLE:
+		case OTC_CONF_DUTY_CYCLE:
 			*data = g_variant_new_double(pwm->duty);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	switch (key) {
-	case SR_CONF_CONN:
+	case OTC_CONF_CONN:
 		usb = sdi->conn;
 		*data = g_variant_new_printf("%d.%d", usb->bus, usb->address);
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(devc->samplerate);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_get(&devc->sw_limits, key, data);
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_get(&devc->sw_limits, key, data);
+	case OTC_CONF_CAPTURE_RATIO:
 		*data = g_variant_new_uint64(devc->capture_ratio);
 		break;
 #if WITH_THRESHOLD_DEVCFG
-	case SR_CONF_VOLTAGE_THRESHOLD:
+	case OTC_CONF_VOLTAGE_THRESHOLD:
 		voltage = threshold_voltage(sdi, NULL);
 		*data = std_gvar_tuple_double(voltage, voltage);
 		break;
 #endif /* WITH_THRESHOLD_DEVCFG */
-	case SR_CONF_CONTINUOUS:
+	case OTC_CONF_CONTINUOUS:
 		*data = g_variant_new_boolean(devc->continuous);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	int ret, cg_type;
@@ -864,95 +864,95 @@ static int config_set(uint32_t key, GVariant *data,
 
 	/* Check for types (and index) of channel groups. */
 	ret = get_cg_index(sdi, cg, &cg_type, &logic_idx, &analog_idx);
-	if (cg && ret != SR_OK)
-		return SR_ERR_ARG;
+	if (cg && ret != OTC_OK)
+		return OTC_ERR_ARG;
 
 	/* Handle requests for the "Logic" channel group. */
-	if (cg && cg_type == SR_CHANNEL_LOGIC) {
+	if (cg && cg_type == OTC_CHANNEL_LOGIC) {
 		switch (key) {
 #if !WITH_THRESHOLD_DEVCFG
-		case SR_CONF_LOGIC_THRESHOLD:
+		case OTC_CONF_LOGIC_THRESHOLD:
 			idx = std_double_tuple_idx(data,
 				ARRAY_AND_SIZE(threshold_ranges));
 			if (idx < 0)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			devc->threshold_voltage_idx = idx;
 			break;
 #endif /* WITH_THRESHOLD_DEVCFG */
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* Handle requests for the "PWMx" channel groups. */
-	if (cg && cg_type == SR_CHANNEL_ANALOG) {
+	if (cg && cg_type == OTC_CHANNEL_ANALOG) {
 		pwm = &devc->pwm_setting[analog_idx];
 		switch (key) {
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			pwm->enabled = g_variant_get_boolean(data);
 			ret = la2016_write_pwm_config(sdi, analog_idx);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
-		case SR_CONF_OUTPUT_FREQUENCY:
+		case OTC_CONF_OUTPUT_FREQUENCY:
 			value_f = g_variant_get_double(data);
 			if (value_f <= 0.0 || value_f > MAX_PWM_FREQ)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			pwm->freq = value_f;
 			ret = la2016_write_pwm_config(sdi, analog_idx);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
-		case SR_CONF_DUTY_CYCLE:
+		case OTC_CONF_DUTY_CYCLE:
 			value_f = g_variant_get_double(data);
 			if (value_f <= 0.0 || value_f > 100.0)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			pwm->duty = value_f;
 			ret = la2016_write_pwm_config(sdi, analog_idx);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		devc->samplerate = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_set(&devc->sw_limits, key, data);
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_set(&devc->sw_limits, key, data);
+	case OTC_CONF_CAPTURE_RATIO:
 		devc->capture_ratio = g_variant_get_uint64(data);
 		break;
 #if WITH_THRESHOLD_DEVCFG
-	case SR_CONF_VOLTAGE_THRESHOLD:
+	case OTC_CONF_VOLTAGE_THRESHOLD:
 		idx = std_double_tuple_idx(data,
 			ARRAY_AND_SIZE(threshold_ranges));
 		if (idx < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->threshold_voltage_idx = idx;
 		break;
 #endif /* WITH_THRESHOLD_DEVCFG */
-	case SR_CONF_CONTINUOUS:
+	case OTC_CONF_CONTINUOUS:
 		on = g_variant_get_boolean(data);
 		if (!devc->model->memory_bits && !on)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->continuous = on;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	int ret, cg_type;
@@ -962,84 +962,84 @@ static int config_list(uint32_t key, GVariant **data,
 
 	/* Check for types (and index) of channel groups. */
 	ret = get_cg_index(sdi, cg, &cg_type, &logic_idx, &analog_idx);
-	if (cg && ret != SR_OK)
-		return SR_ERR_ARG;
+	if (cg && ret != OTC_OK)
+		return OTC_ERR_ARG;
 
 	/* Handle requests for the "Logic" channel group. */
-	if (cg && cg_type == SR_CHANNEL_LOGIC) {
+	if (cg && cg_type == OTC_CHANNEL_LOGIC) {
 		switch (key) {
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			if (ARRAY_SIZE(devopts_cg_logic) == 0)
-				return SR_ERR_NA;
+				return OTC_ERR_NA;
 			*data = g_variant_new_fixed_array(G_VARIANT_TYPE_UINT32,
 				devopts_cg_logic, ARRAY_SIZE(devopts_cg_logic),
 				sizeof(devopts_cg_logic[0]));
 			break;
 #if !WITH_THRESHOLD_DEVCFG
-		case SR_CONF_VOLTAGE_THRESHOLD:
+		case OTC_CONF_VOLTAGE_THRESHOLD:
 			*data = std_gvar_thresholds(ARRAY_AND_SIZE(threshold_ranges));
 			break;
 #endif /* WITH_THRESHOLD_DEVCFG */
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* Handle requests for the "PWMx" channel groups. */
-	if (cg && cg_type == SR_CHANNEL_ANALOG) {
+	if (cg && cg_type == OTC_CHANNEL_ANALOG) {
 		switch (key) {
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			*data = g_variant_new_fixed_array(G_VARIANT_TYPE_UINT32,
 				devopts_cg_pwm, ARRAY_SIZE(devopts_cg_pwm),
 				sizeof(devopts_cg_pwm[0]));
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg,
 			scanopts, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		if (!sdi)
-			return SR_ERR_ARG;
-		if (devc->model->samplerate == SR_MHZ(500))
+			return OTC_ERR_ARG;
+		if (devc->model->samplerate == OTC_MHZ(500))
 			*data = std_gvar_samplerates(ARRAY_AND_SIZE(rates_500mhz));
-		else if (devc->model->samplerate == SR_MHZ(200))
+		else if (devc->model->samplerate == OTC_MHZ(200))
 			*data = std_gvar_samplerates(ARRAY_AND_SIZE(rates_200mhz));
-		else if (devc->model->samplerate == SR_MHZ(100))
+		else if (devc->model->samplerate == OTC_MHZ(100))
 			*data = std_gvar_samplerates(ARRAY_AND_SIZE(rates_100mhz));
 		else
-			return SR_ERR_BUG;
+			return OTC_ERR_BUG;
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		*data = std_gvar_tuple_u64(0, LA2016_NUM_SAMPLES_MAX);
 		break;
 #if WITH_THRESHOLD_DEVCFG
-	case SR_CONF_VOLTAGE_THRESHOLD:
+	case OTC_CONF_VOLTAGE_THRESHOLD:
 		*data = std_gvar_thresholds(ARRAY_AND_SIZE(threshold_ranges));
 		break;
 #endif /* WITH_THRESHOLD_DEVCFG */
-	case SR_CONF_TRIGGER_MATCH:
+	case OTC_CONF_TRIGGER_MATCH:
 		*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
-	struct sr_dev_driver *di;
+	struct otc_dev_driver *di;
 	struct drv_context *drvc;
-	struct sr_context *ctx;
+	struct otc_context *ctx;
 	struct dev_context *devc;
 	size_t unitsize, xfersize, repsize, seqsize;
 	double voltage;
@@ -1047,7 +1047,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 	di = sdi->driver;
 	drvc = di->context;
-	ctx = drvc->sr_ctx;;
+	ctx = drvc->otc_ctx;;
 	devc = sdi->priv;
 
 	if (!devc->feed_queue) {
@@ -1067,13 +1067,13 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			seqsize = 1 * sizeof(uint8_t);
 			xfersize = 16;
 		} else {
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		}
 		devc->feed_queue = feed_queue_logic_alloc(sdi,
 			LA2016_CONVBUFFER_SIZE, unitsize);
 		if (!devc->feed_queue) {
-			sr_err("Cannot allocate buffer for session feed.");
-			return SR_ERR_MALLOC;
+			otc_err("Cannot allocate buffer for session feed.");
+			return OTC_ERR_MALLOC;
 		}
 		devc->transfer_size = xfersize;
 		devc->sequence_size = seqsize;
@@ -1082,18 +1082,18 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		devc->packets_per_chunk /= unitsize + repsize;
 	}
 
-	sr_sw_limits_acquisition_start(&devc->sw_limits);
+	otc_sw_limits_acquisition_start(&devc->sw_limits);
 
 	voltage = threshold_voltage(sdi, NULL);
 	ret = la2016_setup_acquisition(sdi, voltage);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		feed_queue_logic_free(devc->feed_queue);
 		devc->feed_queue = NULL;
 		return ret;
 	}
 
 	ret = la2016_start_acquisition(sdi);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		la2016_abort_acquisition(sdi);
 		feed_queue_logic_free(devc->feed_queue);
 		devc->feed_queue = NULL;
@@ -1106,10 +1106,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 	std_session_send_df_header(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	int ret;
 
@@ -1118,7 +1118,7 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	return ret;
 }
 
-static struct sr_dev_driver kingst_la2016_driver_info = {
+static struct otc_dev_driver kingst_la2016_driver_info = {
 	.name = "kingst-la2016",
 	.longname = "Kingst LA2016",
 	.api_version = 1,
@@ -1136,4 +1136,4 @@ static struct sr_dev_driver kingst_la2016_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(kingst_la2016_driver_info);
+OTC_REGISTER_DEV_DRIVER(kingst_la2016_driver_info);

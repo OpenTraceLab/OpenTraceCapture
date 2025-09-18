@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  *
@@ -23,33 +23,33 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 /* The Colead SL-5868P uses this. */
 #define SERIALCOMM "2400/8n1"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_SOUNDLEVELMETER,
+	OTC_CONF_SOUNDLEVELMETER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_SET,
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct dev_context *devc;
-	struct sr_dev_inst *sdi;
-	struct sr_config *src;
+	struct otc_dev_inst *sdi;
+	struct otc_config *src;
 	GSList *l;
 	const char *conn, *serialcomm;
 
@@ -57,10 +57,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -70,22 +70,22 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	if (!serialcomm)
 		serialcomm = SERIALCOMM;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("Colead");
 	sdi->model = g_strdup("SL-5868P");
 	devc = g_malloc0(sizeof(struct dev_context));
-	sr_sw_limits_init(&devc->limits);
-	sdi->conn = sr_serial_dev_inst_new(conn, serialcomm);
-	sdi->inst_type = SR_INST_SERIAL;
+	otc_sw_limits_init(&devc->limits);
+	sdi->conn = otc_serial_dev_inst_new(conn, serialcomm);
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->priv = devc;
-	sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "P1");
+	otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, "P1");
 
 	return std_scan_complete(di, g_slist_append(NULL, sdi));
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
@@ -93,31 +93,31 @@ static int config_set(uint32_t key, GVariant *data,
 
 	devc = sdi->priv;
 
-	return sr_sw_limits_config_set(&devc->limits, key, data);
+	return otc_sw_limits_config_set(&devc->limits, key, data);
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	std_session_send_df_header(sdi);
 
 	serial = sdi->conn;
 	serial_source_add(sdi->session, serial, G_IO_IN, 150,
 			colead_slm_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver colead_slm_driver_info = {
+static struct otc_dev_driver colead_slm_driver_info = {
 	.name = "colead-slm",
 	.longname = "Colead SLM",
 	.api_version = 1,
@@ -135,4 +135,4 @@ static struct sr_dev_driver colead_slm_driver_info = {
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(colead_slm_driver_info);
+OTC_REGISTER_DEV_DRIVER(colead_slm_driver_info);

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Martin Ling <martin-git@earth.li>
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
@@ -23,8 +23,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "rigol-ds"
 
@@ -114,8 +114,8 @@ struct dev_context {
 	uint64_t num_vdivs;
 
 	/* Channel groups */
-	struct sr_channel_group **analog_groups;
-	struct sr_channel_group *digital_group;
+	struct otc_channel_group **analog_groups;
+	struct otc_channel_group *digital_group;
 
 	/* Acquisition settings */
 	GSList *enabled_channels;
@@ -165,11 +165,11 @@ struct dev_context {
 	float *data;
 };
 
-SR_PRIV int rigol_ds_config_set(const struct sr_dev_inst *sdi, const char *format, ...);
-SR_PRIV int rigol_ds_capture_start(const struct sr_dev_inst *sdi);
-SR_PRIV int rigol_ds_channel_start(const struct sr_dev_inst *sdi);
-SR_PRIV int rigol_ds_receive(int fd, int revents, void *cb_data);
-SR_PRIV int rigol_ds_get_dev_cfg(const struct sr_dev_inst *sdi);
-SR_PRIV int rigol_ds_get_dev_cfg_vertical(const struct sr_dev_inst *sdi);
+OTC_PRIV int rigol_ds_config_set(const struct otc_dev_inst *sdi, const char *format, ...);
+OTC_PRIV int rigol_ds_capture_start(const struct otc_dev_inst *sdi);
+OTC_PRIV int rigol_ds_channel_start(const struct otc_dev_inst *sdi);
+OTC_PRIV int rigol_ds_receive(int fd, int revents, void *cb_data);
+OTC_PRIV int rigol_ds_get_dev_cfg(const struct otc_dev_inst *sdi);
+OTC_PRIV int rigol_ds_get_dev_cfg_vertical(const struct otc_dev_inst *sdi);
 
 #endif

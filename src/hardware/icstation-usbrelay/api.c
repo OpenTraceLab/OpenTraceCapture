@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021-2023 Frank Stettner <frank-stettner@gmx.net>
  *
@@ -24,21 +24,21 @@
 #define SERIALCOMM "9600/8n1"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_MULTIPLEXER,
+	OTC_CONF_MULTIPLEXER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_ENABLED | SR_CONF_SET, /* Enable/disable all relays at once. */
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_ENABLED | OTC_CONF_SET, /* Enable/disable all relays at once. */
 };
 
 static const uint32_t devopts_cg[] = {
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const struct ics_usbrelay_profile supported_ics_usbrelay[] = {
@@ -47,18 +47,18 @@ static const struct ics_usbrelay_profile supported_ics_usbrelay[] = {
 	{ ICSE014A, 0xAC, "ICSE014A", 8 },
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	GSList *devices;
 	size_t i, ch_idx;
 	const char *conn, *serialcomm;
 	int ret;
 	uint8_t device_id;
 	const struct ics_usbrelay_profile *profile;
-	struct sr_channel_group *cg;
+	struct otc_channel_group *cg;
 	struct channel_group_context *cgc;
 
 	devices = NULL;
@@ -66,17 +66,17 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	/* Only scan for a device when conn= was specified. */
 	conn = NULL;
 	serialcomm = SERIALCOMM;
-	if (sr_serial_extract_options(options, &conn, &serialcomm) != SR_OK)
+	if (otc_serial_extract_options(options, &conn, &serialcomm) != OTC_OK)
 		return NULL;
 
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
 		return NULL;
 
 	/* Get device model. */
 	ret = icstation_usbrelay_identify(serial, &device_id);
-	if (ret != SR_OK) {
-		sr_err("Cannot retrieve identification details.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot retrieve identification details.");
 		serial_close(serial);
 		return NULL;
 	}
@@ -86,10 +86,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		if (device_id != profile->id)
 			continue;
 		sdi = g_malloc0(sizeof(*sdi));
-		sdi->status = SR_ST_INACTIVE;
+		sdi->status = OTC_ST_INACTIVE;
 		sdi->vendor = g_strdup("ICStation");
 		sdi->model = g_strdup(profile->modelname);
-		sdi->inst_type = SR_INST_SERIAL;
+		sdi->inst_type = OTC_INST_SERIAL;
 		sdi->conn = serial;
 		sdi->connection_id = g_strdup(conn);
 
@@ -114,15 +114,15 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	serial_close(serial);
 	if (!devices) {
-		sr_serial_dev_inst_free(serial);
-		sr_warn("Unknown device identification 0x%02hhx.", device_id);
+		otc_serial_dev_inst_free(serial);
+		otc_warn("Unknown device identification 0x%02hhx.", device_id);
 	}
 
 	return std_scan_complete(di, devices);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	struct channel_group_context *cgc;
@@ -130,110 +130,110 @@ static int config_get(uint32_t key, GVariant **data,
 	gboolean on;
 
 	if (!sdi || !data)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			*data = g_variant_new_string(sdi->connection_id);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
 	switch (key) {
-	case SR_CONF_ENABLED:
+	case OTC_CONF_ENABLED:
 		cgc = cg->priv;
 		mask = 1U << cgc->index;
 		on = devc->relay_state & mask;
 		*data = g_variant_new_boolean(on);
-		return SR_OK;
+		return OTC_OK;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	gboolean on;
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			/* Enable/disable all channels at the same time. */
 			on = g_variant_get_boolean(data);
 			return icstation_usbrelay_switch_cg(sdi, cg, on);
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		switch (key) {
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			on = g_variant_get_boolean(data);
 			return icstation_usbrelay_switch_cg(sdi, cg, on);
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_SCAN_OPTIONS:
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_SCAN_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			return STD_CONFIG_LIST(key, data, sdi, cg,
 				scanopts, drvopts, devopts);
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
 	switch (key) {
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg));
-		return SR_OK;
+		return OTC_OK;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	serial = sdi->conn;
 	if (!serial)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ret = std_serial_dev_open(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Start command mode. */
 	ret = icstation_usbrelay_start(sdi);
-	if (ret != SR_OK) {
-		sr_err("Cannot initiate command mode.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot initiate command mode.");
 		serial_close(serial);
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver icstation_usbrelay_driver_info = {
+static struct otc_dev_driver icstation_usbrelay_driver_info = {
 	.name = "icstation-usbrelay",
 	.longname = "ICStation USBRelay",
 	.api_version = 1,
@@ -251,4 +251,4 @@ static struct sr_dev_driver icstation_usbrelay_driver_info = {
 	.dev_acquisition_stop = std_dummy_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(icstation_usbrelay_driver_info);
+OTC_REGISTER_DEV_DRIVER(icstation_usbrelay_driver_info);

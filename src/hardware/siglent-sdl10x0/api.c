@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2024 Timo Boettcher <timo@timoboettcher.name>
  *
@@ -18,7 +18,7 @@
  */
 
 #include <config.h>
-#include "scpi.h"
+#include "../../scpi.h"
 #include "protocol.h"
 
 static const char *manufacturers[] = {
@@ -33,36 +33,36 @@ static const char *models[] = {
 };
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_ELECTRONIC_LOAD,
+	OTC_CONF_ELECTRONIC_LOAD,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t devopts_cg[] = {
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_REGULATION | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_POWER | SR_CONF_GET,
-	SR_CONF_POWER_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_RESISTANCE | SR_CONF_GET,
-	SR_CONF_RESISTANCE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OVER_POWER_PROTECTION_ENABLED | SR_CONF_GET,
-	SR_CONF_OVER_POWER_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_POWER_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_REGULATION | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_POWER | OTC_CONF_GET,
+	OTC_CONF_POWER_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_RESISTANCE | OTC_CONF_GET,
+	OTC_CONF_RESISTANCE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OVER_POWER_PROTECTION_ENABLED | OTC_CONF_GET,
+	OTC_CONF_OVER_POWER_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_POWER_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const char *regulation[] = {
@@ -72,22 +72,22 @@ static const char *regulation[] = {
 	"RESISTANCE"
 };
 
-static struct sr_dev_driver siglent_sdl10x0_driver_info;
+static struct otc_dev_driver siglent_sdl10x0_driver_info;
 
-static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
+static struct otc_dev_inst *probe_device(struct otc_scpi_dev_inst *scpi)
 {
-	struct sr_dev_inst *sdi;
-	struct sr_channel_group *cg;
-	struct sr_channel *ch;
+	struct otc_dev_inst *sdi;
+	struct otc_channel_group *cg;
+	struct otc_channel *ch;
 	struct dev_context *devc;
-	struct sr_scpi_hw_info *hw_info;
+	struct otc_scpi_hw_info *hw_info;
 
 	sdi = NULL;
 	devc = NULL;
 	hw_info = NULL;
 
-	if (sr_scpi_get_hw_id(scpi, &hw_info) != SR_OK) {
-		sr_info("Couldn't get IDN response.");
+	if (otc_scpi_get_hw_id(scpi, &hw_info) != OTC_OK) {
+		otc_info("Couldn't get IDN response.");
 		goto fail;
 	}
 
@@ -97,23 +97,23 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 	if (std_str_idx_s(hw_info->model, ARRAY_AND_SIZE(models)) < 0)
 		goto fail;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
 	sdi->vendor = g_strdup(hw_info->manufacturer);
 	sdi->model = g_strdup(hw_info->model);
 	sdi->version = g_strdup(hw_info->firmware_version);
 	sdi->serial_num = g_strdup(hw_info->serial_number);
 	sdi->driver = &siglent_sdl10x0_driver_info;
-	sdi->inst_type = SR_INST_SCPI;
+	sdi->inst_type = OTC_INST_SCPI;
 	sdi->conn = scpi;
 	sdi->channels = NULL;
 	sdi->channel_groups = NULL;
 
-	cg = sr_channel_group_new(sdi, "1", NULL);
+	cg = otc_channel_group_new(sdi, "1", NULL);
 
-	ch = sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "1");
+	ch = otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, "1");
 	cg->channels = g_slist_append(cg->channels, ch);
 
-	sr_scpi_hw_info_free(hw_info);
+	otc_scpi_hw_info_free(hw_info);
 	hw_info = NULL;
 
 	devc = g_malloc0(sizeof(struct dev_context));
@@ -133,30 +133,30 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 	return sdi;
 
 fail:
-	sr_scpi_hw_info_free(hw_info);
-	sr_dev_inst_free(sdi);
+	otc_scpi_hw_info_free(hw_info);
+	otc_dev_inst_free(sdi);
 	g_free(devc);
 
 	return NULL;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
-	return sr_scpi_scan(di->context, options, probe_device);
+	return otc_scpi_scan(di->context, options, probe_device);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	return sr_scpi_open(sdi->conn);
+	return otc_scpi_open(sdi->conn);
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	return sr_scpi_close(sdi->conn);
+	return otc_scpi_close(sdi->conn);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int ret;
 	float ival;
@@ -168,114 +168,114 @@ static int config_get(uint32_t key, GVariant **data,
 
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR;
+		return OTC_ERR;
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_get(&devc->limits, key, data);
-	case SR_CONF_ENABLED:
-		ret = sr_scpi_get_bool(sdi->conn, ":INPUT?", &bval);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_get(&devc->limits, key, data);
+	case OTC_CONF_ENABLED:
+		ret = otc_scpi_get_bool(sdi->conn, ":INPUT?", &bval);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_boolean(bval);
 		break;
-	case SR_CONF_REGULATION:
-		ret = sr_scpi_get_string(sdi->conn, ":FUNC?", &mode);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_REGULATION:
+		ret = otc_scpi_get_string(sdi->conn, ":FUNC?", &mode);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_string(mode);
 		break;
-	case SR_CONF_VOLTAGE:
-		ret = sr_scpi_get_float(sdi->conn, "MEAS:VOLTage?", &ival);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_VOLTAGE:
+		ret = otc_scpi_get_float(sdi->conn, "MEAS:VOLTage?", &ival);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_double((double)ival);
 		break;
-	case SR_CONF_VOLTAGE_TARGET:
-		ret = sr_scpi_get_float(sdi->conn, ":VOLTage:LEVel?", &ival);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_VOLTAGE_TARGET:
+		ret = otc_scpi_get_float(sdi->conn, ":VOLTage:LEVel?", &ival);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_double((double)ival);
 		break;
-	case SR_CONF_CURRENT:
-		ret = sr_scpi_get_float(sdi->conn, "MEAS:CURRent?", &ival);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_CURRENT:
+		ret = otc_scpi_get_float(sdi->conn, "MEAS:CURRent?", &ival);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_double((double)ival);
 		break;
-	case SR_CONF_CURRENT_LIMIT:
-		ret = sr_scpi_get_float(sdi->conn, ":CURRENT:LEVel?", &ival);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_CURRENT_LIMIT:
+		ret = otc_scpi_get_float(sdi->conn, ":CURRENT:LEVel?", &ival);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_double((double)ival);
 		break;
-	case SR_CONF_POWER:
-		ret = sr_scpi_get_float(sdi->conn, "MEAS:POWer?", &ival);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_POWER:
+		ret = otc_scpi_get_float(sdi->conn, "MEAS:POWer?", &ival);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_double((double)ival);
 		break;
-	case SR_CONF_POWER_TARGET:
-		ret = sr_scpi_get_float(sdi->conn, ":POWer:LEVel?", &ival);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_POWER_TARGET:
+		ret = otc_scpi_get_float(sdi->conn, ":POWer:LEVel?", &ival);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_double((double)ival);
 		break;
-	case SR_CONF_RESISTANCE:
-		ret = sr_scpi_get_float(sdi->conn, "MEAS:RESistance?", &ival);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_RESISTANCE:
+		ret = otc_scpi_get_float(sdi->conn, "MEAS:RESistance?", &ival);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_double((double)ival);
 		break;
-	case SR_CONF_RESISTANCE_TARGET:
-		ret = sr_scpi_get_float(sdi->conn, ":RESistance:LEVel?", &ival);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_RESISTANCE_TARGET:
+		ret = otc_scpi_get_float(sdi->conn, ":RESistance:LEVel?", &ival);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_double((double)ival);
 		break;
-	case SR_CONF_OVER_POWER_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_POWER_PROTECTION_ENABLED:
 		/* Always true */
 		*data = g_variant_new_boolean(TRUE);
 		break;
-	case SR_CONF_OVER_POWER_PROTECTION_ACTIVE:
-		ret = sr_scpi_get_bool(sdi->conn, ":POWer:PROTection:STATe?", &bval);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_OVER_POWER_PROTECTION_ACTIVE:
+		ret = otc_scpi_get_bool(sdi->conn, ":POWer:PROTection:STATe?", &bval);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_boolean(bval);
 		break;
-	case SR_CONF_OVER_POWER_PROTECTION_THRESHOLD:
-		ret = sr_scpi_get_float(sdi->conn, ":POWer:PROTection:LEVel?", &ival);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_OVER_POWER_PROTECTION_THRESHOLD:
+		ret = otc_scpi_get_float(sdi->conn, ":POWer:PROTection:LEVel?", &ival);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_double((double)ival);
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED:
 		/* Always true */
 		*data = g_variant_new_boolean(TRUE);
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE:
-		ret = sr_scpi_get_bool(sdi->conn, ":CURRent:PROTection:STATe?", &bval);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE:
+		ret = otc_scpi_get_bool(sdi->conn, ":CURRent:PROTection:STATe?", &bval);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_boolean(bval);
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
-		ret = sr_scpi_get_bool(sdi->conn, ":CURRent:PROTection:LEVel?", &bval);
-		if (ret != SR_OK)
-			return SR_ERR;
+	case OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
+		ret = otc_scpi_get_bool(sdi->conn, ":CURRent:PROTection:LEVel?", &bval);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		*data = g_variant_new_double((double)ival);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
 	return ret;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int ret;
 	double ivalue;
@@ -289,74 +289,74 @@ static int config_set(uint32_t key, GVariant *data,
 
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR;
+		return OTC_ERR;
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_set(&devc->limits, key, data);
-	case SR_CONF_ENABLED:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_set(&devc->limits, key, data);
+	case OTC_CONF_ENABLED:
 		ena = g_variant_get_boolean(data);
 		g_snprintf(command, sizeof(command), ":INPUT %s", ena ? "ON" : "OFF");
-		sr_spew("Sending '%s'.", command);
-		ret = sr_scpi_send(sdi->conn, command);
+		otc_spew("Sending '%s'.", command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
-	case SR_CONF_REGULATION:
+	case OTC_CONF_REGULATION:
 		mode_str = g_variant_get_string(data, NULL);
-		if (siglent_sdl10x0_string_to_mode(mode_str, &mode) != SR_OK) {
-			ret = SR_ERR_ARG;
+		if (siglent_sdl10x0_string_to_mode(mode_str, &mode) != OTC_OK) {
+			ret = OTC_ERR_ARG;
 			break;
 		}
 		g_snprintf(command, sizeof(command), ":FUNC %s", siglent_sdl10x0_mode_to_longstring(mode));
-		sr_spew("Sending '%s'.", command);
-		ret = sr_scpi_send(sdi->conn, command);
+		otc_spew("Sending '%s'.", command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		ivalue = g_variant_get_double(data);
 		g_snprintf(command, sizeof(command), ":VOLT:LEV:IMM %.3f", (ivalue));
-		sr_spew("Sending '%s'.", command);
-		ret = sr_scpi_send(sdi->conn, command);
+		otc_spew("Sending '%s'.", command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		ivalue = g_variant_get_double(data);
 		g_snprintf(command, sizeof(command), ":CURR:LEV:IMM %.3f", (ivalue));
-		sr_spew("Sending '%s'.", command);
-		ret = sr_scpi_send(sdi->conn, command);
+		otc_spew("Sending '%s'.", command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
-	case SR_CONF_POWER_TARGET:
+	case OTC_CONF_POWER_TARGET:
 		ivalue = g_variant_get_double(data);
 		g_snprintf(command, sizeof(command), ":POW:LEV:IMM %.3f", (ivalue));
-		sr_spew("Sending '%s'.", command);
-		ret = sr_scpi_send(sdi->conn, command);
+		otc_spew("Sending '%s'.", command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
-	case SR_CONF_RESISTANCE_TARGET:
+	case OTC_CONF_RESISTANCE_TARGET:
 		ivalue = g_variant_get_double(data);
 		g_snprintf(command, sizeof(command), ":RES:LEV:IMM %.3f", (ivalue));
-		sr_spew("Sending '%s'.", command);
-		ret = sr_scpi_send(sdi->conn, command);
+		otc_spew("Sending '%s'.", command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
-	case SR_CONF_OVER_POWER_PROTECTION_THRESHOLD:
+	case OTC_CONF_OVER_POWER_PROTECTION_THRESHOLD:
 		ivalue = g_variant_get_double(data);
 		g_snprintf(command, sizeof(command), ":POW:PROT:LEV %.3f", (ivalue));
-		sr_spew("Sending '%s'.", command);
-		ret = sr_scpi_send(sdi->conn, command);
+		otc_spew("Sending '%s'.", command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
 		ivalue = g_variant_get_double(data);
 		g_snprintf(command, sizeof(command), ":CURR:PROT:LEV %.3f", (ivalue));
-		sr_spew("Sending '%s'.", command);
-		ret = sr_scpi_send(sdi->conn, command);
+		otc_spew("Sending '%s'.", command);
+		ret = otc_scpi_send(sdi->conn, command);
 		break;
 	default:
-		ret = SR_ERR_NA;
+		ret = OTC_ERR_NA;
 	}
 
 	return ret;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 
 	struct dev_context *devc;
@@ -367,78 +367,78 @@ static int config_list(uint32_t key, GVariant **data,
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
 	} else {
 		switch (key) {
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg));
 			break;
-		case SR_CONF_REGULATION:
+		case OTC_CONF_REGULATION:
 			*data = std_gvar_array_str(ARRAY_AND_SIZE(regulation));
 			break;
-		case SR_CONF_VOLTAGE_TARGET:
+		case OTC_CONF_VOLTAGE_TARGET:
 			*data = std_gvar_min_max_step(0.0, 150.0, 0.001);
 			break;
-		case SR_CONF_CURRENT_LIMIT:
+		case OTC_CONF_CURRENT_LIMIT:
 			*data = std_gvar_min_max_step(0.0, 30.0, 0.001);
 			break;
-		case SR_CONF_POWER_TARGET:
+		case OTC_CONF_POWER_TARGET:
 			if (!devc) {
 				*data = std_gvar_min_max_step(0.0, 200.0, 0.001);
 			} else {
 				*data = std_gvar_min_max_step(0.0, devc->maxpower, 0.001);
 			}
 			break;
-		case SR_CONF_RESISTANCE_TARGET:
+		case OTC_CONF_RESISTANCE_TARGET:
 			*data = std_gvar_min_max_step(0.03, 10000.0, 0.01);
 			break;
-		case SR_CONF_OVER_POWER_PROTECTION_THRESHOLD:
+		case OTC_CONF_OVER_POWER_PROTECTION_THRESHOLD:
 			if (!devc) {
 				*data = std_gvar_min_max_step(0.0, 200.0, 0.001);
 			} else {
 				*data = std_gvar_min_max_step(0.0, devc->maxpower, 0.001);
 			}
 			break;
-		case SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
+		case OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
 			*data = std_gvar_min_max_step(0.0, 30.0, 0.001);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	struct dev_context *devc;
 
 	scpi = sdi->conn;
 	devc = sdi->priv;
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	std_session_send_df_header(sdi);
 
 	/*
 	 * Start acquisition. The receive routine will continue
 	 * driving the acquisition.
 	 */
-	sr_scpi_send(scpi, "MEAS:VOLT?");
+	otc_scpi_send(scpi, "MEAS:VOLT?");
 	devc->acq_state = ACQ_REQUESTED_VOLTAGE;
-	return sr_scpi_source_add(sdi->session, scpi, G_IO_IN, 100, siglent_sdl10x0_handle_events, (void *)sdi);
+	return otc_scpi_source_add(sdi->session, scpi, G_IO_IN, 100, siglent_sdl10x0_handle_events, (void *)sdi);
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 
 	scpi = sdi->conn;
 
-	sr_scpi_source_remove(sdi->session, scpi);
+	otc_scpi_source_remove(sdi->session, scpi);
 	std_session_send_df_end(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver siglent_sdl10x0_driver_info = {
+static struct otc_dev_driver siglent_sdl10x0_driver_info = {
 	.name = "siglent-sdl10x0",
 	.longname = "SIGLENT SDL10x0",
 	.api_version = 1,
@@ -456,4 +456,4 @@ static struct sr_dev_driver siglent_sdl10x0_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(siglent_sdl10x0_driver_info);
+OTC_REGISTER_DEV_DRIVER(siglent_sdl10x0_driver_info);

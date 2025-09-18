@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017-2021 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -90,7 +90,7 @@
  * - The Omega specific data layout differs from Sigma, comes in
  *   different formats (streamable, legacy), and is kept in several
  *   ZIP member files. Omega Test Files are currently not covered by
- *   this sigrok input module.
+ *   this opentracelab input module.
  * - All numbers in binary data are kept in little endian format.
  * - All TS count in the units which correspond to the 16bit sample
  *   items in raw memory. When these 16bit items carry multiple 8bit
@@ -100,8 +100,8 @@
 #include <config.h>
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include <libsigrok-internal.h>
+#include <opentracecapture/libopentracecapture.h>
+#include <libopentracecapture-internal.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -205,18 +205,18 @@ struct context {
 	} submit;
 };
 
-static void keep_header_for_reread(const struct sr_input *in)
+static void keep_header_for_reread(const struct otc_input *in)
 {
 	struct context *inc;
 
 	inc = in->priv;
 
-	g_slist_free_full(inc->keep.prev_sr_channels, sr_channel_free_cb);
+	g_slist_free_full(inc->keep.prev_sr_channels, otc_channel_free_cb);
 	inc->keep.prev_sr_channels = in->sdi->channels;
 	in->sdi->channels = NULL;
 }
 
-static gboolean check_header_in_reread(const struct sr_input *in)
+static gboolean check_header_in_reread(const struct otc_input *in)
 {
 	struct context *inc;
 	GSList *prev, *curr;
@@ -231,12 +231,12 @@ static gboolean check_header_in_reread(const struct sr_input *in)
 
 	prev = inc->keep.prev_sr_channels;
 	curr = in->sdi->channels;
-	if (sr_channel_lists_differ(prev, curr)) {
-		sr_err("Channel list change not supported for file re-read.");
+	if (otc_channel_lists_differ(prev, curr)) {
+		otc_err("Channel list change not supported for file re-read.");
 		return FALSE;
 	}
 
-	g_slist_free_full(curr, sr_channel_free_cb);
+	g_slist_free_full(curr, otc_channel_free_cb);
 	in->sdi->channels = prev;
 	inc->keep.prev_sr_channels = NULL;
 
@@ -261,7 +261,7 @@ static void free_channel(void *data)
 	g_free(ch);
 }
 
-static int add_channel(const struct sr_input *in, char *name, size_t input_id)
+static int add_channel(const struct otc_input *in, char *name, size_t input_id)
 {
 	struct context *inc;
 	char *perc;
@@ -269,7 +269,7 @@ static int add_channel(const struct sr_input *in, char *name, size_t input_id)
 	struct stf_channel *stf_ch;
 
 	inc = in->priv;
-	sr_dbg("Header: Adding channel, idx %zu, name %s, ID %zu.",
+	otc_dbg("Header: Adding channel, idx %zu, name %s, ID %zu.",
 		inc->channel_count, name, input_id);
 
 	/*
@@ -278,12 +278,12 @@ static int add_channel(const struct sr_input *in, char *name, size_t input_id)
 	 */
 	if (!name || !*name) {
 		if (!inc->header.sigma_inputs)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		if (input_id >= inc->header.input_count)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		name = inc->header.sigma_inputs[input_id];
 		if (!name || !*name)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 	}
 
 	/*
@@ -295,7 +295,7 @@ static int add_channel(const struct sr_input *in, char *name, size_t input_id)
 	perc = name;
 	while ((perc = strchr(perc, '%')) != NULL) {
 		if (!g_ascii_isxdigit(perc[1]) || !g_ascii_isxdigit(perc[2])) {
-			sr_warn("Could not unescape channel name '%s'.", name);
+			otc_warn("Could not unescape channel name '%s'.", name);
 			break;
 		}
 		conv_value = 0;
@@ -317,15 +317,15 @@ static int add_channel(const struct sr_input *in, char *name, size_t input_id)
 	stf_ch->dst_bitmask = 1U << stf_ch->dst_bitpos;
 	inc->channels = g_slist_append(inc->channels, stf_ch);
 
-	sr_channel_new(in->sdi, inc->channel_count,
-		SR_CHANNEL_LOGIC, TRUE, name);
+	otc_channel_new(in->sdi, inc->channel_count,
+		OTC_CHANNEL_LOGIC, TRUE, name);
 	inc->channel_count++;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* End of header was seen. Postprocess previously accumulated data. */
-static int eval_header(const struct sr_input *in)
+static int eval_header(const struct otc_input *in)
 {
 	struct context *inc;
 	uint64_t scale, large_num, p, q;
@@ -344,8 +344,8 @@ static int eval_header(const struct sr_input *in)
 	 * the name assignment logic in another location.
 	 */
 	if (!inc->header.sigma_inputs) {
-		sr_err("Header: 'Inputs' information missing.");
-		return SR_ERR_DATA;
+		otc_err("Header: 'Inputs' information missing.");
+		return OTC_ERR_DATA;
 	}
 	inc->header.input_count = g_strv_length(inc->header.sigma_inputs);
 
@@ -357,7 +357,7 @@ static int eval_header(const struct sr_input *in)
 	 */
 	inc->submit.sample_count = inc->header.length_ts + 1;
 	inc->submit.sample_count -= inc->header.first_ts;
-	sr_dbg("Header: TS first %" PRIu64 ", last %" PRIu64 ", count %" PRIu64 ".",
+	otc_dbg("Header: TS first %" PRIu64 ", last %" PRIu64 ", count %" PRIu64 ".",
 		inc->header.first_ts, inc->header.length_ts,
 		inc->submit.sample_count);
 	if (inc->header.trigger_ts) {
@@ -366,12 +366,12 @@ static int eval_header(const struct sr_input *in)
 		if (inc->header.trigger_ts > inc->header.length_ts)
 			inc->header.trigger_ts = 0;
 		if (!inc->header.trigger_ts)
-			sr_dbg("Header: ignoring out-of-range trigger TS.");
+			otc_dbg("Header: ignoring out-of-range trigger TS.");
 	}
 	if (inc->header.trigger_ts) {
 		inc->submit.samples_to_trigger = inc->header.trigger_ts;
 		inc->submit.samples_to_trigger -= inc->header.first_ts;
-		sr_dbg("Header: TS trigger %" PRIu64 ", samples to trigger %" PRIu64 ".",
+		otc_dbg("Header: TS trigger %" PRIu64 ", samples to trigger %" PRIu64 ".",
 			inc->header.trigger_ts, inc->submit.samples_to_trigger);
 	}
 
@@ -385,8 +385,8 @@ static int eval_header(const struct sr_input *in)
 	 * an extra divider.
 	 */
 	if (!inc->header.sigma_clksrc) {
-		sr_err("Header: Failed to parse 'ClockSource' information.");
-		return SR_ERR_DATA;
+		otc_err("Header: Failed to parse 'ClockSource' information.");
+		return OTC_ERR_DATA;
 	}
 	scheme = -1;
 	period = 1;
@@ -404,10 +404,10 @@ static int eval_header(const struct sr_input *in)
 		}
 	}
 	if (scheme < 0) {
-		sr_err("Header: Unsupported 'ClockSource' detail.");
-		return SR_ERR_DATA;
+		otc_err("Header: Unsupported 'ClockSource' detail.");
+		return OTC_ERR_DATA;
 	}
-	sr_dbg("Header: ClockScheme %d, Period %d.", scheme, period);
+	otc_dbg("Header: ClockScheme %d, Period %d.", scheme, period);
 	switch (scheme) {
 	case 0:	/* 50MHz, 1x 16bits per sample, 20ns period and divider. */
 		inc->header.clk_div = period;
@@ -420,7 +420,7 @@ static int eval_header(const struct sr_input *in)
 		inc->submit.bits_per_sample = 8;
 		scale = 16 / inc->submit.bits_per_sample;
 		inc->submit.sample_count *= scale;
-		sr_dbg("Header: 100MHz -> 2x sample count: %" PRIu64 ".",
+		otc_dbg("Header: 100MHz -> 2x sample count: %" PRIu64 ".",
 			inc->submit.sample_count);
 		inc->submit.samples_to_trigger *= scale;
 		break;
@@ -429,13 +429,13 @@ static int eval_header(const struct sr_input *in)
 		inc->submit.bits_per_sample = 4;
 		scale = 16 / inc->submit.bits_per_sample;
 		inc->submit.sample_count *= scale;
-		sr_dbg("Header: 200MHz -> 4x sample count: %" PRIu64 ".",
+		otc_dbg("Header: 200MHz -> 4x sample count: %" PRIu64 ".",
 			inc->submit.sample_count);
 		inc->submit.samples_to_trigger *= scale;
 		break;
 	default: /* "Async", not implemented. */
-		sr_err("Header: Unsupported 'ClockSource' detail.");
-		return SR_ERR_NA;
+		otc_err("Header: Unsupported 'ClockSource' detail.");
+		return OTC_ERR_NA;
 	}
 
 	/*
@@ -453,7 +453,7 @@ static int eval_header(const struct sr_input *in)
 	do {
 		inc->submit.sample_rate = inc->keep.sample_rate;
 		if (inc->submit.sample_rate) {
-			sr_dbg("Header: rate %" PRIu64 " (user).",
+			otc_dbg("Header: rate %" PRIu64 " (user).",
 				inc->submit.sample_rate);
 			break;
 		}
@@ -464,11 +464,11 @@ static int eval_header(const struct sr_input *in)
 			break;
 		large_num /= CLK_TIME_PU_PER1NS;
 		snprintf(num_txt, sizeof(num_txt), "%" PRIu64 "ns", large_num);
-		rc = sr_parse_period(num_txt, &p, &q);
-		if (rc != SR_OK)
+		rc = otc_parse_period(num_txt, &p, &q);
+		if (rc != OTC_OK)
 			return rc;
 		inc->submit.sample_rate = q / p;
-		sr_dbg("Header: period %s -> rate %" PRIu64 " (calc).",
+		otc_dbg("Header: period %s -> rate %" PRIu64 " (calc).",
 			num_txt, inc->submit.sample_rate);
 	} while (0);
 
@@ -480,8 +480,8 @@ static int eval_header(const struct sr_input *in)
 	 * references.
 	 */
 	if (!inc->header.trace_specs) {
-		sr_err("Header: Failed to parse 'Trace' information.");
-		return SR_ERR_DATA;
+		otc_err("Header: Failed to parse 'Trace' information.");
+		return OTC_ERR_DATA;
 	}
 	for (spec_idx = 0; inc->header.trace_specs[spec_idx]; spec_idx++) {
 		spec = inc->header.trace_specs[spec_idx];
@@ -517,18 +517,18 @@ static int eval_header(const struct sr_input *in)
 		}
 		rc = add_channel(in, name, strtoul(id, NULL, 0));
 		g_strfreev(items);
-		if (rc != SR_OK)
+		if (rc != OTC_OK)
 			return rc;
 	}
 
 	if (!check_header_in_reread(in))
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Preare datafeed submission in the DATA phase. */
-static int data_enter(const struct sr_input *in)
+static int data_enter(const struct otc_input *in)
 {
 	struct context *inc;
 	GVariant *var;
@@ -543,12 +543,12 @@ static int data_enter(const struct sr_input *in)
 	 */
 	inc = in->priv;
 	if (inc->header_sent)
-		return SR_OK;
-	sr_dbg("Data: entering data phase.");
+		return OTC_OK;
+	otc_dbg("Data: entering data phase.");
 	std_session_send_df_header(in->sdi);
 	if (inc->submit.sample_rate) {
 		var = g_variant_new_uint64(inc->submit.sample_rate);
-		(void)sr_session_send_meta(in->sdi, SR_CONF_SAMPLERATE, var);
+		(void)otc_session_send_meta(in->sdi, OTC_CONF_SAMPLERATE, var);
 	}
 	inc->header_sent = TRUE;
 
@@ -556,18 +556,18 @@ static int data_enter(const struct sr_input *in)
 	 * Arrange for buffered submission of samples to the session feed.
 	 */
 	if (!inc->channel_count)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	inc->submit.unit_size = (inc->channel_count + 8 - 1) / 8;
 	inc->submit.feed = feed_queue_logic_alloc(in->sdi,
 		CHUNKSIZE, inc->submit.unit_size);
 	if (!inc->submit.feed)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Terminate datafeed submission of the DATA phase. */
-static void data_leave(const struct sr_input *in)
+static void data_leave(const struct otc_input *in)
 {
 	struct context *inc;
 
@@ -575,7 +575,7 @@ static void data_leave(const struct sr_input *in)
 	if (!inc->header_sent)
 		return;
 
-	sr_dbg("Data: leaving data phase.");
+	otc_dbg("Data: leaving data phase.");
 	(void)feed_queue_logic_flush(inc->submit.feed);
 	feed_queue_logic_free(inc->submit.feed);
 	inc->submit.feed = NULL;
@@ -586,7 +586,7 @@ static void data_leave(const struct sr_input *in)
 }
 
 /* Forward (repetitions of) sample data, optionally mark trigger location. */
-static void add_sample(const struct sr_input *in, uint16_t data, size_t count)
+static void add_sample(const struct otc_input *in, uint16_t data, size_t count)
 {
 	struct context *inc;
 	uint8_t unit_buffer[sizeof(data)];
@@ -599,9 +599,9 @@ static void add_sample(const struct sr_input *in, uint16_t data, size_t count)
 
 	/* Also enforce the total sample count limit here. */
 	if (inc->submit.submit_count + count > inc->submit.sample_count) {
-		sr_dbg("Samples: large app submit count %zu, capping.", count);
+		otc_dbg("Samples: large app submit count %zu, capping.", count);
 		count = inc->submit.sample_count - inc->submit.submit_count;
-		sr_dbg("Samples: capped to %zu.", count);
+		otc_dbg("Samples: capped to %zu.", count);
 	}
 
 	/*
@@ -627,7 +627,7 @@ static void add_sample(const struct sr_input *in, uint16_t data, size_t count)
 			unit_buffer, send_first);
 		inc->submit.submit_count += send_first;
 		inc->submit.samples_to_trigger -= send_first;
-		sr_dbg("Trigger: sending DF packet, at %" PRIu64 ".",
+		otc_dbg("Trigger: sending DF packet, at %" PRIu64 ".",
 			inc->submit.submit_count);
 		feed_queue_logic_send_trigger(inc->submit.feed);
 	}
@@ -644,18 +644,18 @@ static int match_magic(GString *buf)
 {
 
 	if (!buf || !buf->str)
-		return SR_ERR;
+		return OTC_ERR;
 	if (buf->len < STF_MAGIC_LENGTH)
-		return SR_ERR;
+		return OTC_ERR;
 	if (strncmp(buf->str, STF_MAGIC_SIGMA, STF_MAGIC_LENGTH) == 0)
-		return SR_OK;
+		return OTC_OK;
 	if (strncmp(buf->str, STF_MAGIC_OMEGA, STF_MAGIC_LENGTH) == 0)
-		return SR_OK;
-	return SR_ERR;
+		return OTC_OK;
+	return OTC_ERR;
 }
 
 /* Check the leading magic marker at the top of the file. */
-static int parse_magic(struct sr_input *in)
+static int parse_magic(struct otc_input *in)
 {
 	struct context *inc;
 
@@ -667,24 +667,24 @@ static int parse_magic(struct sr_input *in)
 	 */
 	inc = in->priv;
 	if (in->buf->len < STF_MAGIC_LENGTH)
-		return SR_OK;
+		return OTC_OK;
 	if (strncmp(in->buf->str, STF_MAGIC_SIGMA, STF_MAGIC_LENGTH) == 0) {
 		inc->file_format = STF_FORMAT_SIGMA;
 		g_string_erase(in->buf, 0, STF_MAGIC_LENGTH);
-		sr_dbg("Magic check: Detected SIGMA file format.");
+		otc_dbg("Magic check: Detected SIGMA file format.");
 		inc->file_stage = STF_STAGE_HEADER;
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (strncmp(in->buf->str, STF_MAGIC_OMEGA, STF_MAGIC_LENGTH) == 0) {
 		inc->file_format = STF_FORMAT_OMEGA;
 		g_string_erase(in->buf, 0, STF_MAGIC_LENGTH);
-		sr_dbg("Magic check: Detected OMEGA file format.");
-		sr_err("OMEGA format not supported by STF input module.");
+		otc_dbg("Magic check: Detected OMEGA file format.");
+		otc_err("OMEGA format not supported by STF input module.");
 		inc->file_stage = STF_STAGE_DONE;
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
-	sr_err("Could not identify STF input format.");
-	return SR_ERR_NA;
+	otc_err("Could not identify STF input format.");
+	return OTC_ERR_NA;
 }
 
 /* Parse a single text line of the header section. */
@@ -711,7 +711,7 @@ static void parse_header_line(struct context *inc, char *line, size_t len)
 		inc->header.length_ts = strtoull(value, NULL, 0);
 	} else if (strcmp(key, "TestTriggerTS") == 0) {
 		inc->header.trigger_ts = strtoull(value, NULL, 0);
-		sr_dbg("Trigger: text '%s' -> num %." PRIu64,
+		otc_dbg("Trigger: text '%s' -> num %." PRIu64,
 			value, inc->header.trigger_ts);
 	} else if (strcmp(key, "TestCLKTime") == 0) {
 		inc->header.clk_pu = strtoull(value, NULL, 0);
@@ -729,7 +729,7 @@ static void parse_header_line(struct context *inc, char *line, size_t len)
 }
 
 /* Parse the content of the "settings" section of the file. */
-static int parse_header(struct sr_input *in)
+static int parse_header(struct otc_input *in)
 {
 	struct context *inc;
 	int rc;
@@ -751,29 +751,29 @@ static int parse_header(struct sr_input *in)
 	while (in->buf->len) {
 		if (in->buf->str[0] == '\0') {
 			g_string_erase(in->buf, 0, 1);
-			sr_dbg("Header: End of section seen.");
+			otc_dbg("Header: End of section seen.");
 			rc = eval_header(in);
-			if (rc != SR_OK)
+			if (rc != OTC_OK)
 				return rc;
 			inc->file_stage = STF_STAGE_DATA;
-			return SR_OK;
+			return OTC_OK;
 		}
 
 		line = in->buf->str;
 		len = in->buf->len;
 		eol = g_strstr_len(line, len, STF_HEADER_EOL);
 		if (!eol) {
-			sr_dbg("Header: Need more receive data.");
-			return SR_OK;
+			otc_dbg("Header: Need more receive data.");
+			return OTC_OK;
 		}
 		*eol = '\0';		/* Trim off EOL. */
 		len = eol - line;	/* Excludes EOL from parse call. */
-		sr_spew("Header: Got a line, len %zd, text: %s.", len, line);
+		otc_spew("Header: Got a line, len %zd, text: %s.", len, line);
 
 		parse_header_line(inc, line, len);
 		g_string_erase(in->buf, 0, len + strlen(STF_HEADER_EOL));
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -817,8 +817,8 @@ static uint16_t get_sample_bits_4(uint16_t indata, int idx)
 	return outdata;
 }
 
-/* Map from Sigma file bit position to sigrok channel bit position. */
-static uint16_t map_input_chans(struct sr_input *in, uint16_t bits)
+/* Map from Sigma file bit position to opentracelab channel bit position. */
+static uint16_t map_input_chans(struct otc_input *in, uint16_t bits)
 {
 	struct context *inc;
 	uint16_t data;
@@ -836,7 +836,7 @@ static uint16_t map_input_chans(struct sr_input *in, uint16_t bits)
 }
 
 /* Forward one 16bit entity to the session feed. */
-static void xlat_send_sample_data(struct sr_input *in, uint16_t indata)
+static void xlat_send_sample_data(struct otc_input *in, uint16_t indata)
 {
 	struct context *inc;
 	uint16_t bits, data;
@@ -890,7 +890,7 @@ static void xlat_send_sample_data(struct sr_input *in, uint16_t indata)
 }
 
 /* Parse one "chunk" of a "record" of the file. */
-static int stf_parse_data_chunk(struct sr_input *in,
+static int stf_parse_data_chunk(struct otc_input *in,
 	const uint8_t *info, const uint8_t *stamps, const uint8_t *samples)
 {
 	struct context *inc;
@@ -906,23 +906,23 @@ static int stf_parse_data_chunk(struct sr_input *in,
 	first_ts = read_u64le(&info[8]);
 	last_ts = read_u64le(&info[16]);
 	chunk_len = read_u64le(&info[24]);
-	sr_spew("Chunk info: id %08x, first %" PRIu64 ", last %" PRIu64 ", len %." PRIu64,
+	otc_spew("Chunk info: id %08x, first %" PRIu64 ", last %" PRIu64 ", len %." PRIu64,
 		chunk_id, first_ts, last_ts, chunk_len);
 
 	if (first_ts < inc->submit.last_submit_ts) {
 		/* Leap backwards? Cannot be valid input data. */
-		sr_dbg("Chunk: TS %" PRIu64 " before last submit TS %" PRIu64 ", stopping.",
+		otc_dbg("Chunk: TS %" PRIu64 " before last submit TS %" PRIu64 ", stopping.",
 			first_ts, inc->submit.last_submit_ts);
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
 	if (!inc->submit.last_submit_ts) {
-		sr_dbg("Chunk: First seen TS %" PRIu64 ".", first_ts);
+		otc_dbg("Chunk: First seen TS %" PRIu64 ".", first_ts);
 		inc->submit.last_submit_ts = first_ts;
 	}
 	if (inc->submit.submit_count >= inc->submit.sample_count) {
-		sr_dbg("Chunk: Sample count reached, stopping.");
-		return SR_OK;
+		otc_dbg("Chunk: Sample count reached, stopping.");
+		return OTC_OK;
 	}
 	for (cluster = 0; cluster < STF_CHUNK_CLUSTER_COUNT; cluster++) {
 		ts = read_u64le_inc(&stamps);
@@ -933,18 +933,18 @@ static int stf_parse_data_chunk(struct sr_input *in,
 			 * range. Cease processing after submitting the
 			 * last seen sample up to the last valid TS.
 			 */
-			sr_dbg("Data: Cluster TS %" PRIu64 " past header's last, flushing.", ts);
+			otc_dbg("Data: Cluster TS %" PRIu64 " past header's last, flushing.", ts);
 			ts_diff = inc->header.length_ts;
 			ts_diff -= inc->submit.last_submit_ts;
 			if (!ts_diff)
-				return SR_OK;
+				return OTC_OK;
 			ts_diff *= 16 / inc->submit.bits_per_sample;
 			add_sample(in, inc->submit.curr_data, ts_diff);
-			return SR_OK;
+			return OTC_OK;
 		}
 		if (ts < inc->submit.last_submit_ts) {
-			sr_dbg("Data: Cluster TS %" PRIu64 " before last submit TS, stopping.", ts);
-			return SR_OK;
+			otc_dbg("Data: Cluster TS %" PRIu64 " before last submit TS, stopping.", ts);
+			return OTC_OK;
 		}
 		sample_count = STF_CHUNK_SAMPLE_SIZE / sizeof(uint16_t);
 		if (ts + sample_count < inc->header.first_ts) {
@@ -964,7 +964,7 @@ static int stf_parse_data_chunk(struct sr_input *in,
 		}
 		ts_diff = ts - inc->submit.last_submit_ts;
 		if (ts_diff) {
-			sr_spew("Cluster: TS %" PRIu64 ", need to skip %" PRIu64 ".",
+			otc_spew("Cluster: TS %" PRIu64 ", need to skip %" PRIu64 ".",
 				ts, ts_diff);
 			ts_diff *= 16 / inc->submit.bits_per_sample;
 			add_sample(in, inc->submit.curr_data, ts_diff);
@@ -975,17 +975,17 @@ static int stf_parse_data_chunk(struct sr_input *in,
 			xlat_send_sample_data(in, sample_data);
 		}
 		if (inc->submit.submit_count >= inc->submit.sample_count) {
-			sr_dbg("Cluster: Sample count reached, stopping.");
-			return SR_OK;
+			otc_dbg("Cluster: Sample count reached, stopping.");
+			return OTC_OK;
 		}
 	}
-	sr_spew("Chunk done.");
+	otc_spew("Chunk done.");
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Parse a "record" of the file which contains several "chunks". */
-static int stf_parse_data_record(struct sr_input *in, struct stf_record *rec)
+static int stf_parse_data_record(struct otc_input *in, struct stf_record *rec)
 {
 	size_t chunk_count, chunk_idx;
 	const uint8_t *rdpos, *info, *stamps, *samples;
@@ -994,10 +994,10 @@ static int stf_parse_data_record(struct sr_input *in, struct stf_record *rec)
 
 	chunk_count = rec->len / STF_CHUNK_TOTAL_SIZE;
 	if (chunk_count * STF_CHUNK_TOTAL_SIZE != rec->len) {
-		sr_err("Unexpected record length, not a multiple of chunks.");
-		return SR_ERR_DATA;
+		otc_err("Unexpected record length, not a multiple of chunks.");
+		return OTC_ERR_DATA;
 	}
-	sr_dbg("Data: Processing record, len %zu, chunks %zu, remain %zu.",
+	otc_dbg("Data: Processing record, len %zu, chunks %zu, remain %zu.",
 		rec->len, chunk_count, rec->len % STF_CHUNK_TOTAL_SIZE);
 	rdpos = &rec->raw[0];
 	info = rdpos;
@@ -1008,24 +1008,24 @@ static int stf_parse_data_record(struct sr_input *in, struct stf_record *rec)
 	rdpos += chunk_count * STF_CHUNK_CLUSTER_COUNT * STF_CHUNK_SAMPLE_SIZE;
 	rec_len = rdpos - &rec->raw[0];
 	if (rec_len != rec->len) {
-		sr_err("Unexpected record length, info/stamp/samples sizes.");
-		return SR_ERR_DATA;
+		otc_err("Unexpected record length, info/stamp/samples sizes.");
+		return OTC_ERR_DATA;
 	}
 
 	for (chunk_idx = 0; chunk_idx < chunk_count; chunk_idx++) {
 		ret = stf_parse_data_chunk(in, info, stamps, samples);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		info += STF_CHUNK_INFO_SIZE;
 		stamps += STF_CHUNK_CLUSTER_COUNT * STF_CHUNK_STAMP_SIZE;
 		samples += STF_CHUNK_CLUSTER_COUNT * STF_CHUNK_SAMPLE_SIZE;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Parse the "data" section of the file (sample data). */
-static int parse_file_data(struct sr_input *in)
+static int parse_file_data(struct otc_input *in)
 {
 	struct context *inc;
 	size_t len, final_len;
@@ -1039,7 +1039,7 @@ static int parse_file_data(struct sr_input *in)
 	inc = in->priv;
 
 	rc = data_enter(in);
-	if (rc != SR_OK)
+	if (rc != OTC_OK)
 		return rc;
 
 	/*
@@ -1066,37 +1066,37 @@ static int parse_file_data(struct sr_input *in)
 		 */
 		have_len = in->buf->len;
 		if (have_len < STF_DATA_REC_HDRLEN) {
-			sr_dbg("Data: Need more receive data (header).");
-			return SR_OK;
+			otc_dbg("Data: Need more receive data (header).");
+			return OTC_OK;
 		}
 		read_ptr = (const uint8_t *)in->buf->str;
 		len = read_u32le_inc(&read_ptr);
 		crc = read_u32le_inc(&read_ptr);
 		if (len == final_len && !crc) {
-			sr_dbg("Data: Last record seen.");
+			otc_dbg("Data: Last record seen.");
 			g_string_erase(in->buf, 0, STF_DATA_REC_HDRLEN);
 			inc->file_stage = STF_STAGE_DONE;
-			return SR_OK;
+			return OTC_OK;
 		}
-		sr_dbg("Data: Record header, len %zu, crc 0x%08lx.",
+		otc_dbg("Data: Record header, len %zu, crc 0x%08lx.",
 			len, (unsigned long)crc);
 		if (len > STF_DATA_REC_PLMAX) {
-			sr_err("Data: Illegal record length %zu.", len);
-			return SR_ERR_DATA;
+			otc_err("Data: Illegal record length %zu.", len);
+			return OTC_ERR_DATA;
 		}
 		inc->record_data.len = len;
 		inc->record_data.crc = crc;
 		want_len = inc->record_data.len;
 		if (have_len < STF_DATA_REC_HDRLEN + want_len) {
-			sr_dbg("Data: Need more receive data (payload).");
-			return SR_OK;
+			otc_dbg("Data: Need more receive data (payload).");
+			return OTC_OK;
 		}
 		crc_calc = crc32(0, read_ptr, want_len);
-		sr_spew("DBG: CRC32 calc comp 0x%08lx.",
+		otc_spew("DBG: CRC32 calc comp 0x%08lx.",
 			(unsigned long)crc_calc);
 		if (crc_calc != inc->record_data.crc) {
-			sr_err("Data: Record payload CRC mismatch.");
-			return SR_ERR_DATA;
+			otc_err("Data: Record payload CRC mismatch.");
+			return OTC_ERR_DATA;
 		}
 
 		/*
@@ -1110,26 +1110,26 @@ static int parse_file_data(struct sr_input *in)
 			inc->record_data.raw, &raw_len, NULL);
 		g_string_erase(in->buf, 0, STF_DATA_REC_HDRLEN + want_len);
 		if (rc) {
-			sr_err("Data: Decompression error %d.", rc);
-			return SR_ERR_DATA;
+			otc_err("Data: Decompression error %d.", rc);
+			return OTC_ERR_DATA;
 		}
 		if (raw_len > sizeof(inc->record_data.raw)) {
-			sr_err("Data: Excessive decompressed size %zu.",
+			otc_err("Data: Excessive decompressed size %zu.",
 				(size_t)raw_len);
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		inc->record_data.len = raw_len;
-		sr_spew("Data: Uncompressed record, len %zu.",
+		otc_spew("Data: Uncompressed record, len %zu.",
 			inc->record_data.len);
 		rc = stf_parse_data_record(in, &inc->record_data);
-		if (rc != SR_OK)
+		if (rc != OTC_OK)
 			return rc;
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Process previously queued file content, invoked from receive() and end(). */
-static int process_data(struct sr_input *in)
+static int process_data(struct otc_input *in)
 {
 	struct context *inc;
 	int ret;
@@ -1149,30 +1149,30 @@ static int process_data(struct sr_input *in)
 	 *
 	 * Note that it's essential to set sdi_ready and return from
 	 * receive() after the channels got created, and before data
-	 * gets submitted to the sigrok session.
+	 * gets submitted to the opentracelab session.
 	 */
 	inc = in->priv;
 	if (inc->file_stage == STF_STAGE_MAGIC) {
 		ret = parse_magic(in);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 	if (inc->file_stage == STF_STAGE_HEADER) {
 		ret = parse_header(in);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (inc->file_stage == STF_STAGE_DATA && !in->sdi_ready) {
 			in->sdi_ready = TRUE;
-			return SR_OK;
+			return OTC_OK;
 		}
 	}
 	if (inc->file_stage == STF_STAGE_DATA) {
 		ret = parse_file_data(in);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 	/* Nothing to be done for STF_STAGE_DONE. */
-	return SR_OK;
+	return OTC_OK;
 }
 
 static const char *stf_extensions[] = { "stf", NULL, };
@@ -1216,30 +1216,30 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 
 	/* Check the filename (its extension). */
 	fn = (const char *)g_hash_table_lookup(metadata,
-		GINT_TO_POINTER(SR_INPUT_META_FILENAME));
-	sr_dbg("Format Match: filename %s.", fn);
+		GINT_TO_POINTER(OTC_INPUT_META_FILENAME));
+	otc_dbg("Format Match: filename %s.", fn);
 	if (is_stf_extension(fn)) {
 		*confidence = 100;
 		found = TRUE;
-		sr_dbg("Format Match: weak match found (filename).");
+		otc_dbg("Format Match: weak match found (filename).");
 	}
 
 	/* Check the part of the file content (leading magic). */
 	buf = (GString *)g_hash_table_lookup(metadata,
-		GINT_TO_POINTER(SR_INPUT_META_HEADER));
-	if (match_magic(buf) == SR_OK) {
+		GINT_TO_POINTER(OTC_INPUT_META_HEADER));
+	if (match_magic(buf) == OTC_OK) {
 		*confidence = 10;
 		found = TRUE;
-		sr_dbg("Format Match: strong match found (magic).");
+		otc_dbg("Format Match: strong match found (magic).");
 	}
 
 	if (found)
-		return SR_OK;
-	return SR_ERR;
+		return OTC_OK;
+	return OTC_ERR;
 }
 
 /* Initialize the input module. Inspect user specified options. */
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	GVariant *var;
 	struct context *inc;
@@ -1248,24 +1248,24 @@ static int init(struct sr_input *in, GHashTable *options)
 	/* Allocate input module context. */
 	inc = g_malloc0(sizeof(*inc));
 	if (!inc)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	in->priv = inc;
 
 	/* Allocate input device instance data. */
 	in->sdi = g_malloc0(sizeof(*in->sdi));
 	if (!in->sdi)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
 	/* Preset values from caller specified options. */
 	var = g_hash_table_lookup(options, "samplerate");
 	sample_rate = g_variant_get_uint64(var);
 	inc->keep.sample_rate = sample_rate;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Process another chunk of the input stream (file content). */
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 
 	/*
@@ -1279,7 +1279,7 @@ static int receive(struct sr_input *in, GString *buf)
 }
 
 /* Process the end of the input stream (file content). */
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	int ret;
 
@@ -1289,16 +1289,16 @@ static int end(struct sr_input *in)
 	 * session end packet if a session start was sent before.
 	 */
 	ret = process_data(in);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	data_leave(in);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Release previously allocated resources. */
-static void cleanup(struct sr_input *in)
+static void cleanup(struct otc_input *in)
 {
 	struct context *inc;
 
@@ -1319,7 +1319,7 @@ static void cleanup(struct sr_input *in)
 	inc->header.trace_specs = NULL;
 }
 
-static int reset(struct sr_input *in)
+static int reset(struct otc_input *in)
 {
 	struct context *inc;
 	struct keep_specs keep;
@@ -1332,7 +1332,7 @@ static int reset(struct sr_input *in)
 	g_string_truncate(in->buf, 0);
 	inc->keep = keep;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 enum option_index {
@@ -1340,7 +1340,7 @@ enum option_index {
 	OPT_MAX,
 };
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	[OPT_SAMPLERATE] = {
 		"samplerate", "Samplerate (Hz)",
 		"The input data's sample rate in Hz. No default value.",
@@ -1349,7 +1349,7 @@ static struct sr_option options[] = {
 	ALL_ZERO,
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	GVariant *var;
 
@@ -1361,14 +1361,14 @@ static const struct sr_option *get_options(void)
 	return options;
 }
 
-SR_PRIV struct sr_input_module input_stf = {
+OTC_PRIV struct otc_input_module input_stf = {
 	.id = "stf",
 	.name = "STF",
 	.desc = "Sigma Test File (Asix Sigma/Omega)",
 	.exts = stf_extensions,
 	.metadata = {
-		SR_INPUT_META_FILENAME | SR_INPUT_META_REQUIRED,
-		SR_INPUT_META_HEADER | SR_INPUT_META_REQUIRED,
+		OTC_INPUT_META_FILENAME | OTC_INPUT_META_REQUIRED,
+		OTC_INPUT_META_HEADER | OTC_INPUT_META_REQUIRED,
 	},
 	.options = get_options,
 	.format_match = format_match,

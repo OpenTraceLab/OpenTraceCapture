@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  *
@@ -23,8 +23,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "analog"
@@ -49,84 +49,84 @@ struct unit_mq_string {
 	const char *str;
 };
 
-/* Please use the same order as in enum sr_unit (libsigrok.h). */
+/* Please use the same order as in enum otc_unit (libopentracecapture.h). */
 static struct unit_mq_string unit_strings[] = {
-	{ SR_UNIT_VOLT, "V" },
-	{ SR_UNIT_AMPERE, "A" },
-	{ SR_UNIT_OHM, "\xe2\x84\xa6" },
-	{ SR_UNIT_FARAD, "F" },
-	{ SR_UNIT_KELVIN, "K" },
-	{ SR_UNIT_CELSIUS, "\xc2\xb0""C" },
-	{ SR_UNIT_FAHRENHEIT, "\xc2\xb0""F" },
-	{ SR_UNIT_HERTZ, "Hz" },
-	{ SR_UNIT_PERCENTAGE, "%" },
-	{ SR_UNIT_BOOLEAN, "" },
-	{ SR_UNIT_SECOND, "s" },
-	{ SR_UNIT_SIEMENS, "S" },
-	{ SR_UNIT_DECIBEL_MW, "dBm" },
-	{ SR_UNIT_DECIBEL_VOLT, "dBV" },
-	{ SR_UNIT_UNITLESS, "" },
-	{ SR_UNIT_DECIBEL_SPL, "dB" },
-	{ SR_UNIT_CONCENTRATION, "ppm" },
-	{ SR_UNIT_REVOLUTIONS_PER_MINUTE, "RPM" },
-	{ SR_UNIT_VOLT_AMPERE, "VA" },
-	{ SR_UNIT_WATT, "W" },
-	{ SR_UNIT_WATT_HOUR, "Wh" },
-	{ SR_UNIT_METER_SECOND, "m/s" },
-	{ SR_UNIT_HECTOPASCAL, "hPa" },
-	{ SR_UNIT_HUMIDITY_293K, "%rF" },
-	{ SR_UNIT_DEGREE, "\xc2\xb0" },
-	{ SR_UNIT_HENRY, "H" },
-	{ SR_UNIT_GRAM, "g" },
-	{ SR_UNIT_CARAT, "ct" },
-	{ SR_UNIT_OUNCE, "oz" },
-	{ SR_UNIT_TROY_OUNCE, "oz t" },
-	{ SR_UNIT_POUND, "lb" },
-	{ SR_UNIT_PENNYWEIGHT, "dwt" },
-	{ SR_UNIT_GRAIN, "gr" },
-	{ SR_UNIT_TAEL, "tael" },
-	{ SR_UNIT_MOMME, "momme" },
-	{ SR_UNIT_TOLA, "tola" },
-	{ SR_UNIT_PIECE, "pcs" },
-	{ SR_UNIT_JOULE, "J" },
-	{ SR_UNIT_COULOMB, "C" },
-	{ SR_UNIT_AMPERE_HOUR, "Ah" },
+	{ OTC_UNIT_VOLT, "V" },
+	{ OTC_UNIT_AMPERE, "A" },
+	{ OTC_UNIT_OHM, "\xe2\x84\xa6" },
+	{ OTC_UNIT_FARAD, "F" },
+	{ OTC_UNIT_KELVIN, "K" },
+	{ OTC_UNIT_CELSIUS, "\xc2\xb0""C" },
+	{ OTC_UNIT_FAHRENHEIT, "\xc2\xb0""F" },
+	{ OTC_UNIT_HERTZ, "Hz" },
+	{ OTC_UNIT_PERCENTAGE, "%" },
+	{ OTC_UNIT_BOOLEAN, "" },
+	{ OTC_UNIT_SECOND, "s" },
+	{ OTC_UNIT_SIEMENS, "S" },
+	{ OTC_UNIT_DECIBEL_MW, "dBm" },
+	{ OTC_UNIT_DECIBEL_VOLT, "dBV" },
+	{ OTC_UNIT_UNITLESS, "" },
+	{ OTC_UNIT_DECIBEL_SPL, "dB" },
+	{ OTC_UNIT_CONCENTRATION, "ppm" },
+	{ OTC_UNIT_REVOLUTIONS_PER_MINUTE, "RPM" },
+	{ OTC_UNIT_VOLT_AMPERE, "VA" },
+	{ OTC_UNIT_WATT, "W" },
+	{ OTC_UNIT_WATT_HOUR, "Wh" },
+	{ OTC_UNIT_METER_SECOND, "m/s" },
+	{ OTC_UNIT_HECTOPASCAL, "hPa" },
+	{ OTC_UNIT_HUMIDITY_293K, "%rF" },
+	{ OTC_UNIT_DEGREE, "\xc2\xb0" },
+	{ OTC_UNIT_HENRY, "H" },
+	{ OTC_UNIT_GRAM, "g" },
+	{ OTC_UNIT_CARAT, "ct" },
+	{ OTC_UNIT_OUNCE, "oz" },
+	{ OTC_UNIT_TROY_OUNCE, "oz t" },
+	{ OTC_UNIT_POUND, "lb" },
+	{ OTC_UNIT_PENNYWEIGHT, "dwt" },
+	{ OTC_UNIT_GRAIN, "gr" },
+	{ OTC_UNIT_TAEL, "tael" },
+	{ OTC_UNIT_MOMME, "momme" },
+	{ OTC_UNIT_TOLA, "tola" },
+	{ OTC_UNIT_PIECE, "pcs" },
+	{ OTC_UNIT_JOULE, "J" },
+	{ OTC_UNIT_COULOMB, "C" },
+	{ OTC_UNIT_AMPERE_HOUR, "Ah" },
 	ALL_ZERO
 };
 
-/* Please use the same order as in enum sr_mqflag (libsigrok.h). */
+/* Please use the same order as in enum otc_mqflag (libopentracecapture.h). */
 static struct unit_mq_string mq_strings[] = {
-	{ SR_MQFLAG_AC, " AC" },
-	{ SR_MQFLAG_DC, " DC" },
-	{ SR_MQFLAG_RMS, " RMS" },
-	{ SR_MQFLAG_DIODE, " DIODE" },
-	{ SR_MQFLAG_HOLD, " HOLD" },
-	{ SR_MQFLAG_MAX, " MAX" },
-	{ SR_MQFLAG_MIN, " MIN" },
-	{ SR_MQFLAG_AUTORANGE, " AUTO" },
-	{ SR_MQFLAG_RELATIVE, " REL" },
-	{ SR_MQFLAG_SPL_FREQ_WEIGHT_A, "(A)" },
-	{ SR_MQFLAG_SPL_FREQ_WEIGHT_C, "(C)" },
-	{ SR_MQFLAG_SPL_FREQ_WEIGHT_Z, "(Z)" },
-	{ SR_MQFLAG_SPL_FREQ_WEIGHT_FLAT, "(SPL)" },
-	{ SR_MQFLAG_SPL_TIME_WEIGHT_S, " S" },
-	{ SR_MQFLAG_SPL_TIME_WEIGHT_F, " F" },
-	{ SR_MQFLAG_SPL_LAT, " LAT" },
+	{ OTC_MQFLAG_AC, " AC" },
+	{ OTC_MQFLAG_DC, " DC" },
+	{ OTC_MQFLAG_RMS, " RMS" },
+	{ OTC_MQFLAG_DIODE, " DIODE" },
+	{ OTC_MQFLAG_HOLD, " HOLD" },
+	{ OTC_MQFLAG_MAX, " MAX" },
+	{ OTC_MQFLAG_MIN, " MIN" },
+	{ OTC_MQFLAG_AUTORANGE, " AUTO" },
+	{ OTC_MQFLAG_RELATIVE, " REL" },
+	{ OTC_MQFLAG_SPL_FREQ_WEIGHT_A, "(A)" },
+	{ OTC_MQFLAG_SPL_FREQ_WEIGHT_C, "(C)" },
+	{ OTC_MQFLAG_SPL_FREQ_WEIGHT_Z, "(Z)" },
+	{ OTC_MQFLAG_SPL_FREQ_WEIGHT_FLAT, "(SPL)" },
+	{ OTC_MQFLAG_SPL_TIME_WEIGHT_S, " S" },
+	{ OTC_MQFLAG_SPL_TIME_WEIGHT_F, " F" },
+	{ OTC_MQFLAG_SPL_LAT, " LAT" },
 	/* Not a standard function for SLMs, so this is a made-up notation. */
-	{ SR_MQFLAG_SPL_PCT_OVER_ALARM, "%oA" },
-	{ SR_MQFLAG_DURATION, " DURATION" },
-	{ SR_MQFLAG_AVG, " AVG" },
-	{ SR_MQFLAG_REFERENCE, " REF" },
-	{ SR_MQFLAG_UNSTABLE, " UNSTABLE" },
-	{ SR_MQFLAG_FOUR_WIRE, " 4-WIRE" },
+	{ OTC_MQFLAG_SPL_PCT_OVER_ALARM, "%oA" },
+	{ OTC_MQFLAG_DURATION, " DURATION" },
+	{ OTC_MQFLAG_AVG, " AVG" },
+	{ OTC_MQFLAG_REFERENCE, " REF" },
+	{ OTC_MQFLAG_UNSTABLE, " UNSTABLE" },
+	{ OTC_MQFLAG_FOUR_WIRE, " 4-WIRE" },
 	ALL_ZERO
 };
 
 /** @private */
-SR_PRIV int sr_analog_init(struct sr_datafeed_analog *analog,
-		struct sr_analog_encoding *encoding,
-		struct sr_analog_meaning *meaning,
-		struct sr_analog_spec *spec,
+OTC_PRIV int otc_analog_init(struct otc_datafeed_analog *analog,
+		struct otc_analog_encoding *encoding,
+		struct otc_analog_meaning *meaning,
+		struct otc_analog_spec *spec,
 		int digits)
 {
 	memset(analog, 0, sizeof(*analog));
@@ -154,7 +154,7 @@ SR_PRIV int sr_analog_init(struct sr_datafeed_analog *analog,
 
 	spec->spec_digits = digits;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -168,13 +168,13 @@ SR_PRIV int sr_analog_init(struct sr_datafeed_analog *analog,
  *                   must not be NULL.
  * @param[out] outbuf Memory where to store the result. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Unsupported encoding.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Unsupported encoding.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @since 0.4.0
  */
-SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
+OTC_API int otc_analog_to_float(const struct otc_datafeed_analog *analog,
 		float *outbuf)
 {
 	size_t count;
@@ -187,9 +187,9 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
 	char type_text[10];
 
 	if (!analog || !analog->data || !analog->meaning || !analog->encoding)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!outbuf)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	count = analog->num_samples * g_slist_length(analog->meaning->channels);
 
@@ -240,7 +240,7 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
 				outbuf++;
 			}
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/*
@@ -268,7 +268,7 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
 			value += offset;
 			*outbuf++ = value;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (input_float && input_unitsize == sizeof(double)) {
 		double (*reader)(const uint8_t **p);
@@ -282,14 +282,14 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
 			value += offset;
 			*outbuf++ = value;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (input_float) {
 		snprintf(type_text, sizeof(type_text), "%c%zu%s",
 			'f', input_unitsize * 8, input_bigendian ? "be" : "le");
-		sr_err("Unsupported type for analog-to-float conversion: %s.",
+		otc_err("Unsupported type for analog-to-float conversion: %s.",
 			type_text);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if (input_unitsize == sizeof(uint8_t) && input_signed) {
@@ -301,7 +301,7 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
 			value += offset;
 			*outbuf++ = value;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (input_unitsize == sizeof(uint8_t)) {
 		uint8_t (*reader)(const uint8_t **p);
@@ -312,7 +312,7 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
 			value += offset;
 			*outbuf++ = value;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (input_unitsize == sizeof(uint16_t) && input_signed) {
 		int16_t (*reader)(const uint8_t **p);
@@ -326,7 +326,7 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
 			value += offset;
 			*outbuf++ = value;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (input_unitsize == sizeof(uint16_t)) {
 		uint16_t (*reader)(const uint8_t **p);
@@ -340,7 +340,7 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
 			value += offset;
 			*outbuf++ = value;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (input_unitsize == sizeof(uint32_t) && input_signed) {
 		int32_t (*reader)(const uint8_t **p);
@@ -354,7 +354,7 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
 			value += offset;
 			*outbuf++ = value;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (input_unitsize == sizeof(uint32_t)) {
 		uint32_t (*reader)(const uint8_t **p);
@@ -368,14 +368,14 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
 			value += offset;
 			*outbuf++ = value;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 	snprintf(type_text, sizeof(type_text), "%c%zu%s",
 		input_float ? 'f' : input_signed ? 'i' : 'u',
 		input_unitsize * 8, input_bigendian ? "be" : "le");
-	sr_err("Unsupported type for analog-to-float conversion: %s.",
+	otc_err("Unsupported type for analog-to-float conversion: %s.",
 		type_text);
-	return SR_ERR;
+	return OTC_ERR;
 }
 
 /**
@@ -388,7 +388,7 @@ SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
  *
  * @since 0.5.0
  */
-SR_API const char *sr_analog_si_prefix(float *value, int *digits)
+OTC_API const char *otc_analog_si_prefix(float *value, int *digits)
 {
 /** @cond PRIVATE */
 #define NEG_PREFIX_COUNT 5 /* number of prefixes below unity */
@@ -418,8 +418,8 @@ SR_API const char *sr_analog_si_prefix(float *value, int *digits)
 /**
  * Check if a unit "accepts" an SI prefix.
  *
- * E.g. SR_UNIT_VOLT is SI prefix friendly while SR_UNIT_DECIBEL_MW or
- * SR_UNIT_PERCENTAGE are not.
+ * E.g. OTC_UNIT_VOLT is SI prefix friendly while OTC_UNIT_DECIBEL_MW or
+ * OTC_UNIT_PERCENTAGE are not.
  *
  * @param[in] unit The unit to check for SI prefix "friendliness".
  *
@@ -427,23 +427,23 @@ SR_API const char *sr_analog_si_prefix(float *value, int *digits)
  *
  * @since 0.5.0
  */
-SR_API gboolean sr_analog_si_prefix_friendly(enum sr_unit unit)
+OTC_API gboolean otc_analog_si_prefix_friendly(enum otc_unit unit)
 {
-	static const enum sr_unit prefix_friendly_units[] = {
-		SR_UNIT_VOLT,
-		SR_UNIT_AMPERE,
-		SR_UNIT_OHM,
-		SR_UNIT_FARAD,
-		SR_UNIT_KELVIN,
-		SR_UNIT_HERTZ,
-		SR_UNIT_SECOND,
-		SR_UNIT_SIEMENS,
-		SR_UNIT_VOLT_AMPERE,
-		SR_UNIT_WATT,
-		SR_UNIT_WATT_HOUR,
-		SR_UNIT_METER_SECOND,
-		SR_UNIT_HENRY,
-		SR_UNIT_GRAM
+	static const enum otc_unit prefix_friendly_units[] = {
+		OTC_UNIT_VOLT,
+		OTC_UNIT_AMPERE,
+		OTC_UNIT_OHM,
+		OTC_UNIT_FARAD,
+		OTC_UNIT_KELVIN,
+		OTC_UNIT_HERTZ,
+		OTC_UNIT_SECOND,
+		OTC_UNIT_SIEMENS,
+		OTC_UNIT_VOLT_AMPERE,
+		OTC_UNIT_WATT,
+		OTC_UNIT_WATT_HOUR,
+		OTC_UNIT_METER_SECOND,
+		OTC_UNIT_HENRY,
+		OTC_UNIT_GRAM
 	};
 	unsigned int i;
 
@@ -464,19 +464,19 @@ SR_API gboolean sr_analog_si_prefix_friendly(enum sr_unit unit)
  *                   Must not be NULL. analog->meaning must not be NULL.
  * @param[out] result Pointer to store result. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @since 0.4.0
  */
-SR_API int sr_analog_unit_to_string(const struct sr_datafeed_analog *analog,
+OTC_API int otc_analog_unit_to_string(const struct otc_datafeed_analog *analog,
 		char **result)
 {
 	int i;
 	GString *buf;
 
 	if (!analog || !(analog->meaning) || !result)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	buf = g_string_new(NULL);
 
@@ -494,11 +494,11 @@ SR_API int sr_analog_unit_to_string(const struct sr_datafeed_analog *analog,
 
 	*result = g_string_free(buf, FALSE);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
- * Set sr_rational r to the given value.
+ * Set otc_rational r to the given value.
  *
  * @param[out] r Rational number struct to set. Must not be NULL.
  * @param[in] p Numerator.
@@ -506,7 +506,7 @@ SR_API int sr_analog_unit_to_string(const struct sr_datafeed_analog *analog,
  *
  * @since 0.4.0
  */
-SR_API void sr_rational_set(struct sr_rational *r, int64_t p, uint64_t q)
+OTC_API void otc_rational_set(struct otc_rational *r, int64_t p, uint64_t q)
 {
 	if (!r)
 		return;
@@ -516,17 +516,17 @@ SR_API void sr_rational_set(struct sr_rational *r, int64_t p, uint64_t q)
 }
 
 #ifndef HAVE___INT128_T
-struct sr_int128_t {
+struct otc_int128_t {
 	int64_t high;
 	uint64_t low;
 };
 
-struct sr_uint128_t {
+struct otc_uint128_t {
 	uint64_t high;
 	uint64_t low;
 };
 
-static void mult_int64(struct sr_int128_t *res, const int64_t a,
+static void mult_int64(struct otc_int128_t *res, const int64_t a,
 	const int64_t b)
 {
 	uint64_t t1, t2, t3, t4;
@@ -542,7 +542,7 @@ static void mult_int64(struct sr_int128_t *res, const int64_t a,
 	res->high += ((int64_t)t2 >> 32) + ((int64_t)t3 >> 32) + t4;
 }
 
-static void mult_uint64(struct sr_uint128_t *res, const uint64_t a,
+static void mult_uint64(struct otc_uint128_t *res, const uint64_t a,
 	const uint64_t b)
 {
 	uint64_t t1, t2, t3, t4;
@@ -561,7 +561,7 @@ static void mult_uint64(struct sr_uint128_t *res, const uint64_t a,
 #endif
 
 /**
- * Compare two sr_rational for equality.
+ * Compare two otc_rational for equality.
  *
  * The values are compared for numerical equality, i.e. 2/10 == 1/5.
  *
@@ -573,7 +573,7 @@ static void mult_uint64(struct sr_uint128_t *res, const uint64_t a,
  *
  * @since 0.5.0
  */
-SR_API int sr_rational_eq(const struct sr_rational *a, const struct sr_rational *b)
+OTC_API int otc_rational_eq(const struct otc_rational *a, const struct otc_rational *b)
 {
 #ifdef HAVE___INT128_T
 	__int128_t m1, m2;
@@ -585,7 +585,7 @@ SR_API int sr_rational_eq(const struct sr_rational *a, const struct sr_rational 
 	return (m1 == m2);
 
 #else
-	struct sr_int128_t m1, m2;
+	struct otc_int128_t m1, m2;
 
 	mult_int64(&m1, a->q, b->p);
 	mult_int64(&m2, a->p, b->q);
@@ -595,7 +595,7 @@ SR_API int sr_rational_eq(const struct sr_rational *a, const struct sr_rational 
 }
 
 /**
- * Multiply two sr_rational.
+ * Multiply two otc_rational.
  *
  * The resulting nominator/denominator are reduced if the result would not fit
  * otherwise. If the resulting nominator/denominator are relatively prime,
@@ -607,13 +607,13 @@ SR_API int sr_rational_eq(const struct sr_rational *a, const struct sr_rational 
  * @param[in] b Second value.
  * @param[out] res Result.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Resulting value too large.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Resulting value too large.
  *
  * @since 0.5.0
  */
-SR_API int sr_rational_mult(struct sr_rational *res, const struct sr_rational *a,
-	const struct sr_rational *b)
+OTC_API int otc_rational_mult(struct otc_rational *res, const struct otc_rational *a,
+	const struct otc_rational *b)
 {
 #ifdef HAVE___INT128_T
 	__int128_t p;
@@ -631,17 +631,17 @@ SR_API int sr_rational_mult(struct sr_rational *res, const struct sr_rational *a
 
 	if ((p > INT64_MAX) || (p < INT64_MIN) || (q > UINT64_MAX)) {
 		// TODO: determine gcd to do further reduction
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
 	res->p = (int64_t)p;
 	res->q = (uint64_t)q;
 
-	return SR_OK;
+	return OTC_OK;
 
 #else
-	struct sr_int128_t p;
-	struct sr_uint128_t q;
+	struct otc_int128_t p;
+	struct otc_uint128_t q;
 
 	mult_int64(&p, a->p, b->p);
 	mult_uint64(&q, a->q, b->q);
@@ -658,16 +658,16 @@ SR_API int sr_rational_mult(struct sr_rational *res, const struct sr_rational *a
 	}
 
 	if (q.high)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if ((p.high >= 0) && (p.low > INT64_MAX))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (p.high < -1)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	res->p = (int64_t)p.low;
 	res->q = q.low;
 
-	return SR_OK;
+	return OTC_OK;
 #endif
 }
 
@@ -684,21 +684,21 @@ SR_API int sr_rational_mult(struct sr_rational *res, const struct sr_rational *a
  * @param[in] div Divisor.
  * @param[out] res Result.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Division by zero, denominator of divisor too large,
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Division by zero, denominator of divisor too large,
  *                    or resulting value too large.
  *
  * @since 0.5.0
  */
-SR_API int sr_rational_div(struct sr_rational *res, const struct sr_rational *num,
-	const struct sr_rational *div)
+OTC_API int otc_rational_div(struct otc_rational *res, const struct otc_rational *num,
+	const struct otc_rational *div)
 {
-	struct sr_rational t;
+	struct otc_rational t;
 
 	if (div->q > INT64_MAX)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (div->p == 0)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (div->p > 0) {
 		t.p = div->q;
@@ -708,7 +708,7 @@ SR_API int sr_rational_div(struct sr_rational *res, const struct sr_rational *nu
 		t.q = -div->p;
 	}
 
-	return sr_rational_mult(res, num, &t);
+	return otc_rational_mult(res, num, &t);
 }
 
 /** @} */

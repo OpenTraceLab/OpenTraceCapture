@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010-2012 Bert Vermeulen <bert@biot.com>
  *
@@ -28,31 +28,31 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 #define LOG_PREFIX "ezusb"
 
 #define FW_CHUNKSIZE (4 * 1024)
 
-SR_PRIV int ezusb_reset(struct libusb_device_handle *hdl, int set_clear)
+OTC_PRIV int ezusb_reset(struct libusb_device_handle *hdl, int set_clear)
 {
 	int ret;
 	unsigned char buf[1];
 
-	sr_info("setting CPU reset mode %s...",
+	otc_info("setting CPU reset mode %s...",
 		set_clear ? "on" : "off");
 	buf[0] = set_clear ? 1 : 0;
 	ret = libusb_control_transfer(hdl, LIBUSB_REQUEST_TYPE_VENDOR, 0xa0,
 				      0xe600, 0x0000, buf, 1, 100);
 	if (ret < 0)
-		sr_err("Unable to send control request: %s.",
+		otc_err("Unable to send control request: %s.",
 				libusb_error_name(ret));
 
 	return ret;
 }
 
-SR_PRIV int ezusb_install_firmware(struct sr_context *ctx,
+OTC_PRIV int ezusb_install_firmware(struct otc_context *ctx,
 				   libusb_device_handle *hdl,
 				   const char *name)
 {
@@ -63,14 +63,14 @@ SR_PRIV int ezusb_install_firmware(struct sr_context *ctx,
 	/* Max size is 64 kiB since the value field of the setup packet,
 	 * which holds the firmware offset, is only 16 bit wide.
 	 */
-	firmware = sr_resource_load(ctx, SR_RESOURCE_FIRMWARE,
+	firmware = otc_resource_load(ctx, OTC_RESOURCE_FIRMWARE,
 			name, &length, 1 << 16);
 	if (!firmware)
-		return SR_ERR;
+		return OTC_ERR;
 
-	sr_info("Uploading firmware '%s'.", name);
+	otc_info("Uploading firmware '%s'.", name);
 
-	result = SR_OK;
+	result = OTC_OK;
 	offset = 0;
 	while (offset < length) {
 		chunksize = MIN(length - offset, FW_CHUNKSIZE);
@@ -80,33 +80,33 @@ SR_PRIV int ezusb_install_firmware(struct sr_context *ctx,
 					      0x0000, firmware + offset,
 					      chunksize, 100);
 		if (ret < 0) {
-			sr_err("Unable to send firmware to device: %s.",
+			otc_err("Unable to send firmware to device: %s.",
 					libusb_error_name(ret));
 			g_free(firmware);
-			return SR_ERR;
+			return OTC_ERR;
 		}
-		sr_info("Uploaded %zu bytes.", chunksize);
+		otc_info("Uploaded %zu bytes.", chunksize);
 		offset += chunksize;
 	}
 	g_free(firmware);
 
-	sr_info("Firmware upload done.");
+	otc_info("Firmware upload done.");
 
 	return result;
 }
 
-SR_PRIV int ezusb_upload_firmware(struct sr_context *ctx, libusb_device *dev,
+OTC_PRIV int ezusb_upload_firmware(struct otc_context *ctx, libusb_device *dev,
 				  int configuration, const char *name)
 {
 	struct libusb_device_handle *hdl;
 	int ret;
 
-	sr_info("uploading firmware to device on %d.%d",
+	otc_info("uploading firmware to device on %d.%d",
 		libusb_get_bus_number(dev), libusb_get_device_address(dev));
 
 	if ((ret = libusb_open(dev, &hdl)) < 0) {
-		sr_err("failed to open device: %s.", libusb_error_name(ret));
-		return SR_ERR;
+		otc_err("failed to open device: %s.", libusb_error_name(ret));
+		return OTC_ERR;
 	}
 
 /*
@@ -116,29 +116,29 @@ SR_PRIV int ezusb_upload_firmware(struct sr_context *ctx, libusb_device *dev,
 #if !defined(__APPLE__)
 	if (libusb_kernel_driver_active(hdl, 0) == 1) {
 		if ((ret = libusb_detach_kernel_driver(hdl, 0)) < 0) {
-			sr_err("failed to detach kernel driver: %s",
+			otc_err("failed to detach kernel driver: %s",
 					libusb_error_name(ret));
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	}
 #endif
 
 	if ((ret = libusb_set_configuration(hdl, configuration)) < 0) {
-		sr_err("Unable to set configuration: %s",
+		otc_err("Unable to set configuration: %s",
 				libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if ((ezusb_reset(hdl, 1)) < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (ezusb_install_firmware(ctx, hdl, name) < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
 	if ((ezusb_reset(hdl, 0)) < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
 	libusb_close(hdl);
 
-	return SR_OK;
+	return OTC_OK;
 }

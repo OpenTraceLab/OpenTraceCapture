@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2024 Filip Kosecek <filip.kosecek@gmail.com>
  *
@@ -55,8 +55,8 @@
 #include <math.h>
 #include <errno.h>
 #include <limits.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "input/isf"
 
@@ -246,11 +246,11 @@ static int find_encoding(const char *buf, size_t buflen)
 
 	/* "BIN" and "BINARY" are accepted. */
 	if ((strcmp(value, "BINARY") != 0) && (strcmp(value, "BIN") != 0)) {
-		sr_err("Only binary encoding supported.");
-		return SR_ERR_NA;
+		otc_err("Only binary encoding supported.");
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Extract waveform type from the header. */
@@ -265,9 +265,9 @@ static int find_waveform_type(struct context *inc, const char *buf, size_t bufle
 	else if (strcmp(value, "RF_FD") == 0)
 		inc->wfmtype = RF_FD;
 	else
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Check whether the item is bounded by ';' character. */
@@ -352,27 +352,27 @@ static int process_header_item(const char *buf, size_t buflen, struct context *i
 	switch (item) {
 	case YOFF:
 		if (!str_to_float(buf, buflen, &inc->yoff))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		break;
 
 	case YZERO:
 		if (!str_to_float(buf, buflen, &inc->yzero))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		break;
 
 	case YMULT:
 		if (!str_to_float(buf, buflen, &inc->ymult))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		break;
 
 	case XINCR:
 		if (!str_to_float(buf, buflen, &inc->xincr))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		break;
 
 	case BYTNR:
 		if (!str_to_uint(buf, buflen, &inc->bytnr))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		break;
 
 	case BYTE_ORDER:
@@ -382,7 +382,7 @@ static int process_header_item(const char *buf, size_t buflen, struct context *i
 		else if (strcmp(byte_order_buf, "MSB") == 0)
 			inc->byte_order = MSB;
 		else
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		break;
 
 	case BN_FMT:
@@ -394,7 +394,7 @@ static int process_header_item(const char *buf, size_t buflen, struct context *i
 		else if (strcmp(format_buf, "FP") == 0)
 			inc->bn_fmt = FP;
 		else
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		break;
 
 	case WFID:
@@ -403,20 +403,20 @@ static int process_header_item(const char *buf, size_t buflen, struct context *i
 
 	case WFMTYPE:
 		ret = find_waveform_type(inc, buf, buflen);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		break;
 
 	case ENCODING:
 		ret = find_encoding(buf, buflen);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		break;
 	default:
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Parse the input file header. */
@@ -427,11 +427,11 @@ static int parse_isf_header(GString *buf, struct context *inc)
 	size_t item_offset, data_section_offset;
 
 	if (inc == NULL)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	data_section = find_data_section(buf);
 	if (data_section == NULL)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	data_section_offset = (size_t)(data_section - buf->str);
 
@@ -441,7 +441,7 @@ static int parse_isf_header(GString *buf, struct context *inc)
 		if (pattern == NULL) {
 			/* Return an error if a mandatory item is not found. */
 			if (i <= ENCODING)
-				return SR_ERR_DATA;
+				return OTC_ERR_DATA;
 			continue;
 		}
 
@@ -452,14 +452,14 @@ static int parse_isf_header(GString *buf, struct context *inc)
 		item_offset = (size_t)(pattern - buf->str);
 		item_offset += strlen(header_items[i]);
 		if (item_offset >= data_section_offset)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 
 		ret = process_header_item(buf->str + item_offset, data_section_offset - item_offset, inc, i);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -477,27 +477,27 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	char *fn;
 	size_t fn_len;
 
-	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(SR_INPUT_META_HEADER));
+	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(OTC_INPUT_META_HEADER));
 	/* Check if the header contains NR_PT item. */
 	if ((buf == NULL) || (g_strstr_len(buf->str, buf->len, nr_pt) == NULL))
-		return SR_ERR;
+		return OTC_ERR;
 
 	/* The header contains NR_PT item, the confidence is high. */
 	*confidence = 50;
 
 	/* Increase the confidence if the extension is '.isf'. */
-	fn = g_hash_table_lookup(metadata, GINT_TO_POINTER(SR_INPUT_META_FILENAME));
+	fn = g_hash_table_lookup(metadata, GINT_TO_POINTER(OTC_INPUT_META_FILENAME));
 	if (fn != NULL) {
 		fn_len = strlen(fn);
 		if (fn_len >= strlen(default_extension) &&
 			g_ascii_strcasecmp(fn + fn_len - strlen(default_extension), default_extension) == 0)
 			*confidence += 10;
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Initialize the ISF module. */
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	struct context *inc;
 
@@ -509,7 +509,7 @@ static int init(struct sr_input *in, GHashTable *options)
 	inc = in->priv;
 	inc->create_channel = TRUE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -518,7 +518,7 @@ static int init(struct sr_input *in, GHashTable *options)
  * in a signed 64-bit integer. Therefore a negative integer extension
  * might be needed.
  */
-static float read_int_sample(struct sr_input *in, size_t offset)
+static float read_int_sample(struct otc_input *in, size_t offset)
 {
 	struct context *inc;
 	unsigned int bytnr;
@@ -561,7 +561,7 @@ static float read_int_sample(struct sr_input *in, size_t offset)
  * The amount of bytes per sample may vary and a sample
  * is stored in an unsigned 64-bit integer.
  */
-static float read_unsigned_int_sample(struct sr_input *in, size_t offset)
+static float read_unsigned_int_sample(struct otc_input *in, size_t offset)
 {
 	struct context *inc;
 	uint64_t value = 0;
@@ -594,7 +594,7 @@ static float read_unsigned_int_sample(struct sr_input *in, size_t offset)
  * The value is stored as a 32-bit integer representing
  * a single precision value.
  */
-static float read_float_sample(struct sr_input *in, size_t offset)
+static float read_float_sample(struct otc_input *in, size_t offset)
 {
 	struct context *inc;
 	union floating_point fp;
@@ -626,14 +626,14 @@ static float read_float_sample(struct sr_input *in, size_t offset)
 	return fp.f;
 }
 
-/* Send a sample chunk to the sigrok session. */
-static void send_chunk(struct sr_input *in, size_t initial_offset, size_t num_samples)
+/* Send a sample chunk to the opentracelab session. */
+static void send_chunk(struct otc_input *in, size_t initial_offset, size_t num_samples)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	struct context *inc;
 	float *fdata;
 	size_t offset, i;
@@ -656,8 +656,8 @@ static void send_chunk(struct sr_input *in, size_t initial_offset, size_t num_sa
 			fdata[i] = 10 * log10f(1000 * fdata[i]);
 	}
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 2);
-	packet.type = SR_DF_ANALOG;
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 2);
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
 	analog.num_samples = num_samples;
 	analog.data = fdata;
@@ -666,12 +666,12 @@ static void send_chunk(struct sr_input *in, size_t initial_offset, size_t num_sa
 	analog.meaning->mqflags = 0;
 	analog.meaning->unit = 0;
 
-	sr_session_send(in->sdi, &packet);
+	otc_session_send(in->sdi, &packet);
 	g_free(fdata);
 }
 
 /* Process the buffer data. */
-static int process_buffer(struct sr_input *in)
+static int process_buffer(struct otc_input *in)
 {
 	struct context *inc;
 	char *data;
@@ -682,7 +682,7 @@ static int process_buffer(struct sr_input *in)
 	if (!inc->started) {
 		std_session_send_df_header(in->sdi);
 		/* Send samplerate. */
-		(void) sr_session_send_meta(in->sdi, SR_CONF_SAMPLERATE, g_variant_new_uint64((uint64_t)(1 / inc->xincr)));
+		(void) otc_session_send_meta(in->sdi, OTC_CONF_SAMPLERATE, g_variant_new_uint64((uint64_t)(1 / inc->xincr)));
 		inc->started = TRUE;
 	}
 
@@ -690,8 +690,8 @@ static int process_buffer(struct sr_input *in)
 	if (!inc->found_data_section) {
 		data = find_data_section(in->buf);
 		if (data == NULL) {
-			sr_err("Couldn't find data section.");
-			return SR_ERR;
+			otc_err("Couldn't find data section.");
+			return OTC_ERR;
 		}
 		offset = data - in->buf->str;
 		inc->found_data_section = TRUE;
@@ -721,11 +721,11 @@ static int process_buffer(struct sr_input *in)
 	else
 		g_string_truncate(in->buf, 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Process received data. */
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 	struct context *inc;
 	int ret;
@@ -740,26 +740,26 @@ static int receive(struct sr_input *in, GString *buf)
 			 * and couldn't locate the "CURVE#" string.
 			 */
 			if (in->buf->len > MAX_HEADER_SIZE)
-				return SR_ERR_DATA;
-			return SR_OK;
+				return OTC_ERR_DATA;
+			return OTC_OK;
 		}
 
 		/* Set optional items to default values and parse the header. */
 		inc->wfmtype = ANALOG;
 		ret = parse_isf_header(in->buf, inc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		/* Check bytnr value. */
 		if ((inc->bn_fmt == RI || inc->bn_fmt == RP) && inc->bytnr > MAX_INT_BYTNR) {
-			sr_err("This value of byte number per sample is unsupported.");
-			return SR_ERR_NA;
+			otc_err("This value of byte number per sample is unsupported.");
+			return OTC_ERR_NA;
 		}
 
 		if (inc->bn_fmt == FP &&
 			(inc->bytnr != FLOAT_BYTNR || sizeof(float) != FLOAT_BYTNR)) {
-			sr_err("This value of byte number per sample is unsupported.");
-			return SR_ERR_NA;
+			otc_err("This value of byte number per sample is unsupported.");
+			return OTC_ERR_NA;
 		}
 
 		/* Set default channel name if WFID couldn't be found. */
@@ -768,19 +768,19 @@ static int receive(struct sr_input *in, GString *buf)
 
 		/* Create channel if not yet created. */
 		if (inc->create_channel) {
-			sr_channel_new(in->sdi, 0, SR_CHANNEL_ANALOG, TRUE, inc->channel_name);
+			otc_channel_new(in->sdi, 0, OTC_CHANNEL_ANALOG, TRUE, inc->channel_name);
 			inc->create_channel = FALSE;
 		}
 
 		in->sdi_ready = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	return process_buffer(in);
 }
 
 /* Finish the processing. */
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	struct context *inc;
 	int ret;
@@ -788,7 +788,7 @@ static int end(struct sr_input *in)
 	if (in->sdi_ready)
 		ret = process_buffer(in);
 	else
-		ret = SR_OK;
+		ret = OTC_OK;
 
 	inc = in->priv;
 	if (inc->started)
@@ -798,19 +798,19 @@ static int end(struct sr_input *in)
 }
 
 /* Clear the buffer and metadata. */
-static int reset(struct sr_input *in) {
+static int reset(struct otc_input *in) {
 	memset(in->priv, 0, sizeof(struct context));
 
 	g_string_truncate(in->buf, 0);
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_input_module input_isf = {
+OTC_PRIV struct otc_input_module input_isf = {
 		.id = "isf",
 		.name = "ISF",
 		.desc = "Tektronix isf format",
 		.exts = (const char *[]) {"isf", NULL},
-		.metadata = {SR_INPUT_META_FILENAME, SR_INPUT_META_HEADER | SR_INPUT_META_REQUIRED},
+		.metadata = {OTC_INPUT_META_FILENAME, OTC_INPUT_META_HEADER | OTC_INPUT_META_REQUIRED},
 		.format_match = format_match,
 		.init = init,
 		.receive = receive,

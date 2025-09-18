@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  *
@@ -21,8 +21,8 @@
 #define LIBSIGROK_HARDWARE_COLEAD_SLM_PROTOCOL_H
 
 #include <stdint.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "colead-slm"
 
@@ -32,13 +32,13 @@ enum {
 };
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 
 	int state;
 	char buf[10];
 	int buflen;
 };
 
-SR_PRIV int colead_slm_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int colead_slm_receive_data(int fd, int revents, void *cb_data);
 
 #endif

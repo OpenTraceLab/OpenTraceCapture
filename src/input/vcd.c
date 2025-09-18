@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Petteri Aimonen <jpa@sr.mail.kapsi.fi>
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
@@ -23,9 +23,9 @@
  * The VCD input module has the following options. See the options[]
  * declaration near the bottom of the input module's source file.
  *
- * numchannels: Maximum number of sigrok channels to create. VCD signals
+ * numchannels: Maximum number of opentracelab channels to create. VCD signals
  *   are detected in their order of declaration in the VCD file header,
- *   and mapped to sigrok channels.
+ *   and mapped to opentracelab channels.
  *
  * skip: Allows to skip data at the start of the input file. This can
  *   speed up operation on long captures.
@@ -57,7 +57,7 @@
  *   precision float number)
  * - real variables (analog signals, passed on with single precision,
  *   arbitrary digits value, not user adjustable)
- * - nested $scope, results in prefixed sigrok channel names
+ * - nested $scope, results in prefixed opentracelab channel names
  *
  * Most important unsupported features:
  * - $dumpvars initial value declaration (is not an issue if generators
@@ -72,8 +72,8 @@
  * words on text lines, and pooling previously allocated buffers.
  *
  * TODO (in arbitrary order)
- * - Map VCD scopes to sigrok channel groups?
- *   - Does libsigrok support nested channel groups? Or is this feature
+ * - Map VCD scopes to opentracelab channel groups?
+ *   - Does libopentracecapture support nested channel groups? Or is this feature
  *     exclusive to Pulseview?
  * - Check VCD input to VCD output behaviour. Verify that export and
  *   re-import results in identical data (well, VCD's constraints on
@@ -84,7 +84,7 @@
  *   timescale values in the pico or even femto seconds range. Which
  *   results in huge sample counts after import, and potentially even
  *   terminates the application due to resource exhaustion. This issue
- *   only will vanish when common libsigrok infrastructure no longer
+ *   only will vanish when common libopentracecapture infrastructure no longer
  *   depends on constant rate streams of samples at discrete points
  *   in time. The current input module implementation has code in place
  *   to gather timestamp statistics, but the most appropriate condition
@@ -112,8 +112,8 @@
 #include <config.h>
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -125,7 +125,7 @@
 
 struct context {
 	struct vcd_user_opt {
-		size_t maxchannels; /* sigrok channels (output) */
+		size_t maxchannels; /* opentracelab channels (output) */
 		uint64_t samplerate;
 		uint64_t downsample;
 		uint64_t compress;
@@ -169,8 +169,8 @@ struct context {
 		size_t early_last_emitted;
 	} ts_stats;
 	struct vcd_prev {
-		GSList *sr_channels;
-		GSList *sr_groups;
+		GSList *otc_channels;
+		GSList *otc_groups;
 	} prev;
 };
 
@@ -178,7 +178,7 @@ struct vcd_channel {
 	char *name;
 	char *identifier;
 	size_t size;
-	enum sr_channeltype type;
+	enum otc_channeltype type;
 	size_t array_index;
 	size_t byte_idx;
 	uint8_t bit_mask;
@@ -294,13 +294,13 @@ static void ts_stats_check_early(struct ts_stats *stats)
 		if (stats->total_ts_seen != cp->count)
 			continue;
 		/* First occurance of that timestamp count. Check the value. */
-		sr_dbg("TS early chk: total %zu, min delta %" PRIu64 " / %" PRIu64 ".",
+		otc_dbg("TS early chk: total %zu, min delta %" PRIu64 " / %" PRIu64 ".",
 			cp->count, seen_delta, check_delta);
 		if (check_delta < cp->delta)
 			return;
-		sr_warn("Low change rate? (weak estimate, min TS delta %" PRIu64 " after %zu timestamps)",
+		otc_warn("Low change rate? (weak estimate, min TS delta %" PRIu64 " after %zu timestamps)",
 			seen_delta, stats->total_ts_seen);
-		sr_warn("Consider using the downsample=N option, or increasing its value.");
+		otc_warn("Consider using the downsample=N option, or increasing its value.");
 		stats->early_last_emitted = stats->total_ts_seen;
 		return;
 	}
@@ -324,7 +324,7 @@ static int ts_stats_prep(struct context *inc)
 	}
 	stats->early_check_shift = down_sample_shift;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Inspect another timestamp that was received. */
@@ -336,7 +336,7 @@ static int ts_stats_check(struct ts_stats *stats, uint64_t curr_ts)
 	stats->last_ts_value = curr_ts;
 	stats->total_ts_seen++;
 	if (stats->total_ts_seen < 2)
-		return SR_OK;
+		return OTC_OK;
 
 	delta = curr_ts - last_ts;
 	stats->last_ts_delta = delta;
@@ -344,7 +344,7 @@ static int ts_stats_check(struct ts_stats *stats, uint64_t curr_ts)
 
 	ts_stats_check_early(stats);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Postprocess internal timestamp tracker state. */
@@ -353,7 +353,7 @@ static int ts_stats_post(struct context *inc, gboolean ignore_terminal)
 	struct ts_stats *stats;
 	size_t min_idx;
 	uint64_t delta, over_sample, over_sample_scaled, suggest_factor;
-	enum sr_loglevel log_level;
+	enum otc_loglevel log_level;
 	gboolean is_suspicious, has_downsample;
 
 	stats = &inc->ts_stats;
@@ -384,7 +384,7 @@ static int ts_stats_post(struct context *inc, gboolean ignore_terminal)
 		min_idx++;
 	} while (0);
 	if (min_idx >= stats->min_count)
-		return SR_OK;
+		return OTC_OK;
 
 	/*
 	 * TODO Refine the condition whether to notify the user, and
@@ -399,11 +399,11 @@ static int ts_stats_post(struct context *inc, gboolean ignore_terminal)
 	 */
 	over_sample = stats->min_items[min_idx].delta;
 	over_sample_scaled = over_sample / inc->options.downsample;
-	sr_dbg("TS post stats: oversample unscaled %" PRIu64 ", scaled %" PRIu64,
+	otc_dbg("TS post stats: oversample unscaled %" PRIu64 ", scaled %" PRIu64,
 		over_sample, over_sample_scaled);
 	if (over_sample_scaled < 10) {
-		sr_dbg("TS post stats: Low oversampling ratio, good.");
-		return SR_OK;
+		otc_dbg("TS post stats: Low oversampling ratio, good.");
+		return OTC_OK;
 	}
 
 	/*
@@ -412,14 +412,14 @@ static int ts_stats_post(struct context *inc, gboolean ignore_terminal)
 	 * complete sentences instead, and accept the redundancy in the
 	 * user's interest.
 	 */
-	log_level = (over_sample_scaled > 20) ? SR_LOG_WARN : SR_LOG_INFO;
+	log_level = (over_sample_scaled > 20) ? OTC_LOG_WARN : OTC_LOG_INFO;
 	is_suspicious = over_sample_scaled > 20;
 	if (is_suspicious) {
-		sr_log(log_level, LOG_PREFIX ": "
+		otc_log(log_level, LOG_PREFIX ": "
 			"Suspiciously low overall change rate (total min TS delta %" PRIu64 ").",
 			over_sample_scaled);
 	} else {
-		sr_log(log_level, LOG_PREFIX ": "
+		otc_log(log_level, LOG_PREFIX ": "
 			"Low overall change rate (total min TS delta %" PRIu64 ").",
 			over_sample_scaled);
 	}
@@ -430,16 +430,16 @@ static int ts_stats_post(struct context *inc, gboolean ignore_terminal)
 		over_sample_scaled /= 10;
 	}
 	if (has_downsample) {
-		sr_log(log_level, LOG_PREFIX ": "
+		otc_log(log_level, LOG_PREFIX ": "
 			"Suggest higher downsample value, like %" PRIu64 ".",
 			suggest_factor);
 	} else {
-		sr_log(log_level, LOG_PREFIX ": "
+		otc_log(log_level, LOG_PREFIX ": "
 			"Suggest to downsample, value like %" PRIu64 ".",
 			suggest_factor);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void check_remove_bom(GString *buf)
@@ -562,28 +562,28 @@ static int parse_timescale(struct context *inc, char *contents)
 	uint64_t p, q;
 
 	if (inc->options.samplerate != 0) {
-		sr_info("Ignoring timescale section as the samplerate was manually overwritten!");
-		return SR_OK;
+		otc_info("Ignoring timescale section as the samplerate was manually overwritten!");
+		return OTC_OK;
 	}
 
 	/*
 	 * The standard allows for values 1, 10 or 100
 	 * and units s, ms, us, ns, ps and fs.
 	 */
-	if (sr_parse_period(contents, &p, &q) != SR_OK) {
-		sr_err("Parsing $timescale failed.");
-		return SR_ERR_DATA;
+	if (otc_parse_period(contents, &p, &q) != OTC_OK) {
+		otc_err("Parsing $timescale failed.");
+		return OTC_ERR_DATA;
 	}
 
 	inc->samplerate = q / p;
-	sr_dbg("Samplerate: %" PRIu64, inc->samplerate);
+	otc_dbg("Samplerate: %" PRIu64, inc->samplerate);
 	if (q % p != 0) {
 		/* Does not happen unless time value is non-standard */
-		sr_warn("Inexact rounding of samplerate, %" PRIu64 " / %" PRIu64 " to %" PRIu64 " Hz.",
+		otc_warn("Inexact rounding of samplerate, %" PRIu64 " / %" PRIu64 " to %" PRIu64 " Hz.",
 			q, p, inc->samplerate);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -591,7 +591,7 @@ static int parse_timescale(struct context *inc, char *contents)
  * input signals have a "base name", which may be ambiguous within the
  * file. These names get declared within potentially nested scopes, which
  * this implementation uses to create longer but hopefully unique and
- * thus more usable sigrok channel names.
+ * thus more usable opentracelab channel names.
  *
  * Track the currently effective scopes in a string variable to simplify
  * the channel name creation. Start from an empty string, then append the
@@ -643,29 +643,29 @@ static int parse_scope(struct context *inc, char *contents, gboolean is_up)
 		length = name_pos - inc->scope_prefix->str;
 		g_string_truncate(inc->scope_prefix, length);
 		g_string_append_c(inc->scope_prefix, '\0');
-		sr_dbg("$upscope, prefix now: \"%s\"", inc->scope_prefix->str);
-		return SR_OK;
+		otc_dbg("$upscope, prefix now: \"%s\"", inc->scope_prefix->str);
+		return OTC_OK;
 	}
 
 	/*
 	 * The 'scope' case, add another scope level. But skip our own
 	 * package name, assuming that this is an artificial node which
-	 * was emitted by libsigrok's VCD output module.
+	 * was emitted by libopentracecapture's VCD output module.
 	 */
-	sr_spew("$scope, got: \"%s\"", contents);
-	type_pos = sr_text_next_word(contents, &contents);
+	otc_spew("$scope, got: \"%s\"", contents);
+	type_pos = otc_text_next_word(contents, &contents);
 	if (!type_pos) {
-		sr_err("Cannot parse 'scope' directive");
-		return SR_ERR_DATA;
+		otc_err("Cannot parse 'scope' directive");
+		return OTC_ERR_DATA;
 	}
-	name_pos = sr_text_next_word(contents, &contents);
+	name_pos = otc_text_next_word(contents, &contents);
 	if (!name_pos || contents) {
-		sr_err("Cannot parse 'scope' directive");
-		return SR_ERR_DATA;
+		otc_err("Cannot parse 'scope' directive");
+		return OTC_ERR_DATA;
 	}
 
 	if (strcmp(name_pos, PACKAGE_NAME) == 0) {
-		sr_info("Skipping scope with application's package name: %s",
+		otc_info("Skipping scope with application's package name: %s",
 			name_pos);
 		*name_pos = '\0';
 	}
@@ -675,9 +675,9 @@ static int parse_scope(struct context *inc, char *contents, gboolean is_up)
 		g_string_append_printf(inc->scope_prefix,
 			"%s%c%c", name_pos, SCOPE_SEP, '\0');
 	}
-	sr_dbg("$scope, prefix now: \"%s\"", inc->scope_prefix->str);
+	otc_dbg("$scope, prefix now: \"%s\"", inc->scope_prefix->str);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -691,7 +691,7 @@ static int parse_header_var(struct context *inc, char *contents)
 	char *type, *size_txt, *id, *ref, *idx;
 	gboolean is_reg, is_wire, is_logic, is_real, is_int;
 	gboolean is_str;
-	enum sr_channeltype ch_type;
+	enum otc_channeltype ch_type;
 	size_t size, next_size;
 	struct vcd_channel *vcd_ch;
 
@@ -699,16 +699,16 @@ static int parse_header_var(struct context *inc, char *contents)
 	 * Format of $var or $reg header specs:
 	 * $var type size identifier reference [opt-index] $end
 	 */
-	type = sr_text_next_word(contents, &contents);
-	size_txt = sr_text_next_word(contents, &contents);
-	id = sr_text_next_word(contents, &contents);
-	ref = sr_text_next_word(contents, &contents);
-	idx = sr_text_next_word(contents, &contents);
+	type = otc_text_next_word(contents, &contents);
+	size_txt = otc_text_next_word(contents, &contents);
+	id = otc_text_next_word(contents, &contents);
+	ref = otc_text_next_word(contents, &contents);
+	idx = otc_text_next_word(contents, &contents);
 	if (idx && !*idx)
 		idx = NULL;
 	if (!type || !size_txt || !id || !ref || contents) {
-		sr_warn("$var section should have 4 or 5 items");
-		return SR_ERR_DATA;
+		otc_warn("$var section should have 4 or 5 items");
+		return OTC_ERR_DATA;
 	}
 
 	is_reg = g_strcmp0(type, "reg") == 0;
@@ -719,22 +719,22 @@ static int parse_header_var(struct context *inc, char *contents)
 	is_str = g_strcmp0(type, "string") == 0;
 
 	if (is_reg || is_wire || is_logic) {
-		ch_type = SR_CHANNEL_LOGIC;
+		ch_type = OTC_CHANNEL_LOGIC;
 	} else if (is_real || is_int) {
-		ch_type = SR_CHANNEL_ANALOG;
+		ch_type = OTC_CHANNEL_ANALOG;
 	} else if (is_str) {
-		sr_warn("Skipping id %s, name '%s%s', unsupported type '%s'.",
+		otc_warn("Skipping id %s, name '%s%s', unsupported type '%s'.",
 			id, ref, idx ? idx : "", type);
 		inc->ignored_signals = g_slist_append(inc->ignored_signals,
 			g_strdup(id));
-		return SR_OK;
+		return OTC_OK;
 	} else {
-		sr_err("Unsupported signal type: '%s'", type);
-		return SR_ERR_DATA;
+		otc_err("Unsupported signal type: '%s'", type);
+		return OTC_ERR_DATA;
 	}
 
 	size = strtol(size_txt, NULL, 10);
-	if (ch_type == SR_CHANNEL_ANALOG) {
+	if (ch_type == OTC_CHANNEL_ANALOG) {
 		if (is_real && size != 32 && size != 64) {
 			/*
 			 * The VCD input module does not depend on the
@@ -745,27 +745,27 @@ static int parse_header_var(struct context *inc, char *contents)
 			 *
 			 * Strictly speaking we might warn for 64bit
 			 * (double precision) declarations, because
-			 * sigrok internally uses single precision
+			 * opentracelab internally uses single precision
 			 * (32bit) only.
 			 */
-			sr_info("Unexpected real width: '%s'", size_txt);
+			otc_info("Unexpected real width: '%s'", size_txt);
 		}
 		/* Simplify code paths below, by assuming size 1. */
 		size = 1;
 	}
 	if (!size) {
-		sr_warn("Unsupported signal size: '%s'", size_txt);
-		return SR_ERR_DATA;
+		otc_warn("Unsupported signal size: '%s'", size_txt);
+		return OTC_ERR_DATA;
 	}
 	if (inc->conv_bits.max_bits < size)
 		inc->conv_bits.max_bits = size;
 	next_size = inc->logic_count + inc->analog_count + size;
 	if (inc->options.maxchannels && next_size > inc->options.maxchannels) {
-		sr_warn("Skipping '%s%s', exceeds requested channel count %zu.",
+		otc_warn("Skipping '%s%s', exceeds requested channel count %zu.",
 			ref, idx ? idx : "", inc->options.maxchannels);
 		inc->ignored_signals = g_slist_append(inc->ignored_signals,
 			g_strdup(id));
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	vcd_ch = g_malloc0(sizeof(*vcd_ch));
@@ -774,31 +774,31 @@ static int parse_header_var(struct context *inc, char *contents)
 	vcd_ch->size = size;
 	vcd_ch->type = ch_type;
 	switch (ch_type) {
-	case SR_CHANNEL_LOGIC:
+	case OTC_CHANNEL_LOGIC:
 		vcd_ch->array_index = inc->logic_count;
 		vcd_ch->byte_idx = vcd_ch->array_index / 8;
 		vcd_ch->bit_mask = 1 << (vcd_ch->array_index % 8);
 		inc->logic_count += size;
 		break;
-	case SR_CHANNEL_ANALOG:
+	case OTC_CHANNEL_ANALOG:
 		vcd_ch->array_index = inc->analog_count++;
 		/* TODO: Use proper 'digits' value for this input module. */
 		vcd_ch->submit_digits = is_real ? 2 : 0;
 		break;
 	}
 	inc->vcdsignals++;
-	sr_spew("VCD signal %zu '%s' ID '%s' (size %zu), sr type %s, idx %zu.",
+	otc_spew("VCD signal %zu '%s' ID '%s' (size %zu), sr type %s, idx %zu.",
 		inc->vcdsignals, vcd_ch->name,
 		vcd_ch->identifier, vcd_ch->size,
-		vcd_ch->type == SR_CHANNEL_ANALOG ? "A" : "L",
+		vcd_ch->type == OTC_CHANNEL_ANALOG ? "A" : "L",
 		vcd_ch->array_index);
 	inc->channels = g_slist_append(inc->channels, vcd_ch);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
- * Construct the name of the nth sigrok channel for a VCD signal.
+ * Construct the name of the nth opentracelab channel for a VCD signal.
  *
  * Uses the VCD signal name for scalar types and single-bit signals.
  * Uses "signal.idx" for multi-bit VCD signals without a range spec in
@@ -806,10 +806,10 @@ static int parse_header_var(struct context *inc, char *contents)
  * verified.
  *
  * @param[in] vcd_ch The VCD signal's description.
- * @param[in] idx The sigrok channel's index within the VCD signal's group.
+ * @param[in] idx The opentracelab channel's index within the VCD signal's group.
  *
  * @return An allocated text buffer which callers need to release, #NULL
- *   upon failure to create a sigrok channel name.
+ *   upon failure to create a opentracelab channel name.
  */
 static char *get_channel_name(struct vcd_channel *vcd_ch, size_t idx)
 {
@@ -889,7 +889,7 @@ static char *get_channel_name(struct vcd_channel *vcd_ch, size_t idx)
 		return g_strdup_printf("%s.%zu", vcd_ch->name, idx);
 
 	/*
-	 * Create a sigrok channel name with just the bit's index in
+	 * Create a opentracelab channel name with just the bit's index in
 	 * brackets. This avoids "name[7:0].3" results, instead results
 	 * in "name[3]".
 	 */
@@ -899,8 +899,8 @@ static char *get_channel_name(struct vcd_channel *vcd_ch, size_t idx)
 }
 
 /*
- * Create (analog or logic) sigrok channels for the VCD signals. Create
- * multiple sigrok channels for vector input since sigrok has no concept
+ * Create (analog or logic) opentracelab channels for the VCD signals. Create
+ * multiple opentracelab channels for vector input since opentracelab has no concept
  * of multi-bit signals. Create a channel group for the vector's bits
  * though to reflect that they form a unit. This is beneficial when UIs
  * support optional "collapsed" displays of channel groups (like
@@ -911,8 +911,8 @@ static char *get_channel_name(struct vcd_channel *vcd_ch, size_t idx)
  * analog channels get created. This avoids issues with the mapping of
  * channel indices to bitmap positions in the sample buffer.
  */
-static void create_channels(const struct sr_input *in,
-	struct sr_dev_inst *sdi, enum sr_channeltype ch_type)
+static void create_channels(const struct otc_input *in,
+	struct otc_dev_inst *sdi, enum otc_channeltype ch_type)
 {
 	struct context *inc;
 	size_t ch_idx;
@@ -920,15 +920,15 @@ static void create_channels(const struct sr_input *in,
 	struct vcd_channel *vcd_ch;
 	size_t size_idx;
 	char *ch_name;
-	struct sr_channel_group *cg;
-	struct sr_channel *ch;
+	struct otc_channel_group *cg;
+	struct otc_channel *ch;
 
 	inc = in->priv;
 
 	ch_idx = 0;
-	if (ch_type > SR_CHANNEL_LOGIC)
+	if (ch_type > OTC_CHANNEL_LOGIC)
 		ch_idx += inc->logic_count;
-	if (ch_type > SR_CHANNEL_ANALOG)
+	if (ch_type > OTC_CHANNEL_ANALOG)
 		ch_idx += inc->analog_count;
 	for (l = inc->channels; l; l = l->next) {
 		vcd_ch = l->data;
@@ -936,13 +936,13 @@ static void create_channels(const struct sr_input *in,
 			continue;
 		cg = NULL;
 		if (vcd_ch->size != 1)
-			cg = sr_channel_group_new(sdi, vcd_ch->name, NULL);
+			cg = otc_channel_group_new(sdi, vcd_ch->name, NULL);
 		for (size_idx = 0; size_idx < vcd_ch->size; size_idx++) {
 			ch_name = get_channel_name(vcd_ch, size_idx);
-			sr_dbg("sigrok channel idx %zu, name %s, type %s, en %d.",
+			otc_dbg("opentracelab channel idx %zu, name %s, type %s, en %d.",
 				ch_idx, ch_name,
-				ch_type == SR_CHANNEL_ANALOG ? "A" : "L", TRUE);
-			ch = sr_channel_new(sdi, ch_idx, ch_type, TRUE, ch_name);
+				ch_type == OTC_CHANNEL_ANALOG ? "A" : "L", TRUE);
+			ch = otc_channel_new(sdi, ch_idx, ch_type, TRUE, ch_name);
 			g_free(ch_name);
 			ch_idx++;
 			if (cg)
@@ -951,13 +951,13 @@ static void create_channels(const struct sr_input *in,
 	}
 }
 
-static void create_feeds(const struct sr_input *in)
+static void create_feeds(const struct otc_input *in)
 {
 	struct context *inc;
 	GSList *l;
 	struct vcd_channel *vcd_ch;
 	size_t ch_idx;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 
 	inc = in->priv;
 
@@ -971,7 +971,7 @@ static void create_feeds(const struct sr_input *in)
 	/* Create one feed per analog channel. */
 	for (l = inc->channels; l; l = l->next) {
 		vcd_ch = l->data;
-		if (vcd_ch->type != SR_CHANNEL_ANALOG)
+		if (vcd_ch->type != OTC_CHANNEL_ANALOG)
 			continue;
 		ch_idx = vcd_ch->array_index;
 		ch_idx += inc->logic_count;
@@ -986,18 +986,18 @@ static void create_feeds(const struct sr_input *in)
  * Keep track of a previously created channel list, in preparation of
  * re-reading the input file. Gets called from reset()/cleanup() paths.
  */
-static void keep_header_for_reread(const struct sr_input *in)
+static void keep_header_for_reread(const struct otc_input *in)
 {
 	struct context *inc;
 
 	inc = in->priv;
 
-	g_slist_free_full(inc->prev.sr_groups, sr_channel_group_free_cb);
-	inc->prev.sr_groups = in->sdi->channel_groups;
+	g_slist_free_full(inc->prev.otc_groups, otc_channel_group_free_cb);
+	inc->prev.otc_groups = in->sdi->channel_groups;
 	in->sdi->channel_groups = NULL;
 
-	g_slist_free_full(inc->prev.sr_channels, sr_channel_free_cb);
-	inc->prev.sr_channels = in->sdi->channels;
+	g_slist_free_full(inc->prev.otc_channels, otc_channel_free_cb);
+	inc->prev.otc_channels = in->sdi->channels;
 	in->sdi->channels = NULL;
 }
 
@@ -1014,7 +1014,7 @@ static void keep_header_for_reread(const struct sr_input *in)
  * re-read file, then make sure to keep using the previous channel list,
  * applications may still reference them.
  */
-static gboolean check_header_in_reread(const struct sr_input *in)
+static gboolean check_header_in_reread(const struct otc_input *in)
 {
 	struct context *inc;
 
@@ -1023,27 +1023,27 @@ static gboolean check_header_in_reread(const struct sr_input *in)
 	inc = in->priv;
 	if (!inc)
 		return FALSE;
-	if (!inc->prev.sr_channels)
+	if (!inc->prev.otc_channels)
 		return TRUE;
 
-	if (sr_channel_lists_differ(inc->prev.sr_channels, in->sdi->channels)) {
-		sr_err("Channel list change not supported for file re-read.");
+	if (otc_channel_lists_differ(inc->prev.otc_channels, in->sdi->channels)) {
+		otc_err("Channel list change not supported for file re-read.");
 		return FALSE;
 	}
 
-	g_slist_free_full(in->sdi->channel_groups, sr_channel_group_free_cb);
-	in->sdi->channel_groups = inc->prev.sr_groups;
-	inc->prev.sr_groups = NULL;
+	g_slist_free_full(in->sdi->channel_groups, otc_channel_group_free_cb);
+	in->sdi->channel_groups = inc->prev.otc_groups;
+	inc->prev.otc_groups = NULL;
 
-	g_slist_free_full(in->sdi->channels, sr_channel_free_cb);
-	in->sdi->channels = inc->prev.sr_channels;
-	inc->prev.sr_channels = NULL;
+	g_slist_free_full(in->sdi->channels, otc_channel_free_cb);
+	in->sdi->channels = inc->prev.otc_channels;
+	inc->prev.otc_channels = NULL;
 
 	return TRUE;
 }
 
 /* Parse VCD file header sections (rate and variables declarations). */
-static int parse_header(const struct sr_input *in, GString *buf)
+static int parse_header(const struct otc_input *in, GString *buf)
 {
 	struct context *inc;
 	gboolean enddef_seen, header_valid;
@@ -1059,29 +1059,29 @@ static int parse_header(const struct sr_input *in, GString *buf)
 	name = contents = NULL;
 	inc->conv_bits.max_bits = 1;
 	while (parse_section(buf, &name, &contents)) {
-		sr_dbg("Section '%s', contents '%s'.", name, contents);
+		otc_dbg("Section '%s', contents '%s'.", name, contents);
 
 		if (g_strcmp0(name, "enddefinitions") == 0) {
 			enddef_seen = TRUE;
 			goto done_section;
 		}
 		if (g_strcmp0(name, "timescale") == 0) {
-			if (parse_timescale(inc, contents) != SR_OK)
+			if (parse_timescale(inc, contents) != OTC_OK)
 				header_valid = FALSE;
 			goto done_section;
 		}
 		if (g_strcmp0(name, "scope") == 0) {
-			if (parse_scope(inc, contents, FALSE) != SR_OK)
+			if (parse_scope(inc, contents, FALSE) != OTC_OK)
 				header_valid = FALSE;
 			goto done_section;
 		}
 		if (g_strcmp0(name, "upscope") == 0) {
-			if (parse_scope(inc, NULL, TRUE) != SR_OK)
+			if (parse_scope(inc, NULL, TRUE) != OTC_OK)
 				header_valid = FALSE;
 			goto done_section;
 		}
 		if (g_strcmp0(name, "var") == 0) {
-			if (parse_header_var(inc, contents) != SR_OK)
+			if (parse_header_var(inc, contents) != OTC_OK)
 				header_valid = FALSE;
 			goto done_section;
 		}
@@ -1100,13 +1100,13 @@ done_section:
 
 	inc->got_header = enddef_seen && header_valid;
 	if (!inc->got_header)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
-	/* Create sigrok channels here, late, logic before analog. */
-	create_channels(in, in->sdi, SR_CHANNEL_LOGIC);
-	create_channels(in, in->sdi, SR_CHANNEL_ANALOG);
+	/* Create opentracelab channels here, late, logic before analog. */
+	create_channels(in, in->sdi, OTC_CHANNEL_LOGIC);
+	create_channels(in, in->sdi, OTC_CHANNEL_ANALOG);
 	if (!check_header_in_reread(in))
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	create_feeds(in);
 
 	/*
@@ -1119,31 +1119,31 @@ done_section:
 	 * value changes. Upon reception of VCD timestamps, the buffer can
 	 * provide the previously received values, to "fill in the gaps"
 	 * in the generation of a continuous stream of samples for the
-	 * sigrok session.
+	 * opentracelab session.
 	 */
 	size = (inc->conv_bits.max_bits + 7) / 8;
 	inc->conv_bits.unit_size = size;
 	inc->conv_bits.value = g_malloc0(size);
 	if (!inc->conv_bits.value)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
 	size = (inc->logic_count + 7) / 8;
 	inc->unit_size = size;
 	inc->current_logic = g_malloc0(size);
 	if (inc->unit_size && !inc->current_logic)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	size = sizeof(inc->current_floats[0]) * inc->analog_count;
 	inc->current_floats = g_malloc0(size);
 	if (size && !inc->current_floats)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	for (size = 0; size < inc->analog_count; size++)
 		inc->current_floats[size] = 0.;
 
 	ret = ts_stats_prep(inc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1151,7 +1151,7 @@ done_section:
  * subsequent value changes will update the data buffer. Locally buffer
  * sample data to minimize the number of send() calls.
  */
-static void add_samples(const struct sr_input *in, size_t count, gboolean flush)
+static void add_samples(const struct otc_input *in, size_t count, gboolean flush)
 {
 	struct context *inc;
 	GSList *ch_list;
@@ -1169,7 +1169,7 @@ static void add_samples(const struct sr_input *in, size_t count, gboolean flush)
 	}
 	for (ch_list = inc->channels; ch_list; ch_list = ch_list->next) {
 		vcd_ch = ch_list->data;
-		if (vcd_ch->type != SR_CHANNEL_ANALOG)
+		if (vcd_ch->type != OTC_CHANNEL_ANALOG)
 			continue;
 		q = vcd_ch->feed_analog;
 		if (!q)
@@ -1197,7 +1197,7 @@ static gboolean is_ignored(struct context *inc, const char *id)
 /*
  * Get an analog channel's value from a bit pattern (VCD 'integer' type).
  * The implementation assumes a maximum integer width (64bit), the API
- * doesn't (beyond the return data type). The use of SR_CHANNEL_ANALOG
+ * doesn't (beyond the return data type). The use of OTC_CHANNEL_ANALOG
  * channels may further constraint the number of significant digits
  * (current asumption: float -> 23bit).
  */
@@ -1222,8 +1222,8 @@ static float get_int_val(uint8_t *in_bits_data, size_t in_bits_count)
 
 /*
  * Set a logic channel's level depending on the VCD signal's identifier
- * and parsed value. Multi-bit VCD values will affect several sigrok
- * channels. One VCD signal name can translate to several sigrok channels.
+ * and parsed value. Multi-bit VCD values will affect several opentracelab
+ * channels. One VCD signal name can translate to several opentracelab channels.
  */
 static void process_bits(struct context *inc, char *identifier,
 	uint8_t *in_bits_data, size_t in_bits_count)
@@ -1245,7 +1245,7 @@ static void process_bits(struct context *inc, char *identifier,
 		vcd_ch = l->data;
 		if (g_strcmp0(identifier, vcd_ch->identifier) != 0)
 			continue;
-		if (vcd_ch->type == SR_CHANNEL_ANALOG) {
+		if (vcd_ch->type == OTC_CHANNEL_ANALOG) {
 			/* Special case for 'integer' VCD signal types. */
 			size = vcd_ch->size; /* Flag for "VCD signal found". */
 			if (!have_int) {
@@ -1255,9 +1255,9 @@ static void process_bits(struct context *inc, char *identifier,
 			inc->current_floats[vcd_ch->array_index] = int_val;
 			continue;
 		}
-		if (vcd_ch->type != SR_CHANNEL_LOGIC)
+		if (vcd_ch->type != OTC_CHANNEL_LOGIC)
 			continue;
-		sr_spew("Processing %s data, id '%s', ch %zu sz %zu",
+		otc_spew("Processing %s data, id '%s', ch %zu sz %zu",
 			(size == 1) ? "bit" : "vector",
 			identifier, vcd_ch->array_index, vcd_ch->size);
 
@@ -1269,9 +1269,9 @@ static void process_bits(struct context *inc, char *identifier,
 		out_bit_mask = vcd_ch->bit_mask;
 
 		/*
-		 * Pass VCD input bit(s) to sigrok logic bits. Conversion
+		 * Pass VCD input bit(s) to opentracelab logic bits. Conversion
 		 * must be done repeatedly because one VCD signal name
-		 * can translate to several sigrok channels, and shifting
+		 * can translate to several opentracelab channels, and shifting
 		 * a previously computed bit field to another channel's
 		 * position in the buffer would be nearly as expensive,
 		 * and certain would increase complexity of the code.
@@ -1301,12 +1301,12 @@ static void process_bits(struct context *inc, char *identifier,
 		}
 	}
 	if (!size && !is_ignored(inc, identifier))
-		sr_warn("VCD signal not found for ID '%s'.", identifier);
+		otc_warn("VCD signal not found for ID '%s'.", identifier);
 }
 
 /*
  * Set an analog channel's value from a floating point number. One
- * VCD signal name can translate to several sigrok channels.
+ * VCD signal name can translate to several opentracelab channels.
  */
 static void process_real(struct context *inc, char *identifier, float real_val)
 {
@@ -1317,19 +1317,19 @@ static void process_real(struct context *inc, char *identifier, float real_val)
 	found = FALSE;
 	for (l = inc->channels; l; l = l->next) {
 		vcd_ch = l->data;
-		if (vcd_ch->type != SR_CHANNEL_ANALOG)
+		if (vcd_ch->type != OTC_CHANNEL_ANALOG)
 			continue;
 		if (g_strcmp0(identifier, vcd_ch->identifier) != 0)
 			continue;
 
 		/* Found our (analog) channel. */
 		found = TRUE;
-		sr_spew("Processing real data, id '%s', ch %zu, val %.16g",
+		otc_spew("Processing real data, id '%s', ch %zu, val %.16g",
 			identifier, vcd_ch->array_index, real_val);
 		inc->current_floats[vcd_ch->array_index] = real_val;
 	}
 	if (!found && !is_ignored(inc, identifier))
-		sr_warn("VCD signal not found for ID '%s'.", identifier);
+		otc_warn("VCD signal not found for ID '%s'.", identifier);
 }
 
 /*
@@ -1395,7 +1395,7 @@ static uint8_t vcd_char_to_value(char bit_char, int *warn)
  * the text end. The string value may be empty, but must not be NULL.
  *
  * This implementation assumes an ASCII based platform for simplicity
- * and readability. Should be a given on sigrok supported platforms.
+ * and readability. Should be a given on opentracelab supported platforms.
  */
 static gboolean vcd_string_valid(const char *s)
 {
@@ -1467,7 +1467,7 @@ static gboolean vcd_string_valid(const char *s)
 }
 
 /* Parse one text line of the data section. */
-static int parse_textline(const struct sr_input *in, char *line)
+static int parse_textline(const struct otc_input *in, char *line)
 {
 	struct context *inc;
 	int ret;
@@ -1496,13 +1496,13 @@ static int parse_textline(const struct sr_input *in, char *line)
 	 * valid in VCD, we'd accept it here; if generators don't create
 	 * such input, then support for it does not harm).
 	 */
-	ret = SR_OK;
+	ret = OTC_OK;
 	while (line) {
 		/*
 		 * Lookup one word here which is mandatory. Locations
 		 * below conditionally lookup another word as needed.
 		 */
-		curr_word = sr_text_next_word(line, &line);
+		curr_word = otc_text_next_word(line, &line);
 		if (!curr_word)
 			break;
 		if (!*curr_word)
@@ -1520,16 +1520,16 @@ static int parse_textline(const struct sr_input *in, char *line)
 		if (inc->skip_until_end) {
 			if (strcmp(curr_word, "$end") == 0) {
 				/* Done with unhandled/unknown section. */
-				sr_dbg("done skipping until $end");
+				otc_dbg("done skipping until $end");
 				inc->skip_until_end = FALSE;
 			} else {
-				sr_spew("skipping word: %s", curr_word);
+				otc_spew("skipping word: %s", curr_word);
 			}
 			continue;
 		}
 		if (inc->ignore_end_keyword) {
 			if (strcmp(curr_word, "$end") == 0) {
-				sr_dbg("done ignoring $end keyword");
+				otc_dbg("done ignoring $end keyword");
 				inc->ignore_end_keyword = FALSE;
 				continue;
 			}
@@ -1552,11 +1552,11 @@ static int parse_textline(const struct sr_input *in, char *line)
 			inspect_data |= g_strcmp0(curr_word, "$dumpoff") == 0;
 			if (inspect_data) {
 				/* Ignore keywords, yet parse contents. */
-				sr_dbg("%s section, will parse content", curr_word);
+				otc_dbg("%s section, will parse content", curr_word);
 				inc->ignore_end_keyword = TRUE;
 			} else {
 				/* Ignore section from here up to $end. */
-				sr_dbg("%s section, will skip until $end", curr_word);
+				otc_dbg("%s section, will skip until $end", curr_word);
 				inc->skip_until_end = TRUE;
 			}
 			continue;
@@ -1564,7 +1564,7 @@ static int parse_textline(const struct sr_input *in, char *line)
 
 		/*
 		 * Numbers prefixed by '#' are timestamps, which translate
-		 * to sigrok sample numbers. Apply optional downsampling,
+		 * to opentracelab sample numbers. Apply optional downsampling,
 		 * and apply the 'skip' logic. Check the recent timestamp
 		 * for plausibility. Submit the corresponding number of
 		 * samples of previously accumulated data values to the
@@ -1575,17 +1575,17 @@ static int parse_textline(const struct sr_input *in, char *line)
 			endptr = NULL;
 			timestamp = strtoull(&curr_word[1], &endptr, 10);
 			if (!endptr || *endptr) {
-				sr_err("Invalid timestamp: %s.", curr_word);
-				ret = SR_ERR_DATA;
+				otc_err("Invalid timestamp: %s.", curr_word);
+				ret = OTC_ERR_DATA;
 				break;
 			}
-			sr_spew("Got timestamp: %" PRIu64, timestamp);
+			otc_spew("Got timestamp: %" PRIu64, timestamp);
 			ret = ts_stats_check(&inc->ts_stats, timestamp);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				break;
 			if (inc->options.downsample > 1) {
 				timestamp /= inc->options.downsample;
-				sr_spew("Downsampled timestamp: %" PRIu64, timestamp);
+				otc_spew("Downsampled timestamp: %" PRIu64, timestamp);
 			}
 
 			/*
@@ -1594,45 +1594,45 @@ static int parse_textline(const struct sr_input *in, char *line)
 			 * Skip > 0 => skip until timestamp >= skip.
 			 */
 			if (inc->options.skip_specified && !inc->use_skip) {
-				sr_dbg("Seeding skip from user spec %" PRIu64,
+				otc_dbg("Seeding skip from user spec %" PRIu64,
 					inc->options.skip_starttime);
 				inc->prev_timestamp = inc->options.skip_starttime;
 				inc->use_skip = TRUE;
 			}
 			if (!inc->use_skip) {
-				sr_dbg("Seeding skip from first timestamp");
+				otc_dbg("Seeding skip from first timestamp");
 				inc->options.skip_starttime = timestamp;
 				inc->prev_timestamp = timestamp;
 				inc->use_skip = TRUE;
 				continue;
 			}
 			if (inc->options.skip_starttime && timestamp < inc->options.skip_starttime) {
-				sr_spew("Timestamp skipped, before user spec");
+				otc_spew("Timestamp skipped, before user spec");
 				inc->prev_timestamp = inc->options.skip_starttime;
 				continue;
 			}
 			if (timestamp == inc->prev_timestamp) {
 				/*
-				 * Ignore repeated timestamps (e.g. sigrok
+				 * Ignore repeated timestamps (e.g. opentracelab
 				 * outputs these). Can also happen when
 				 * downsampling makes distinct input values
 				 * end up at the same scaled down value.
 				 * Also transparently covers the initial
 				 * timestamp.
 				 */
-				sr_spew("Timestamp is identical to previous timestamp");
+				otc_spew("Timestamp is identical to previous timestamp");
 				continue;
 			}
 			if (timestamp < inc->prev_timestamp) {
-				sr_err("Invalid timestamp: %" PRIu64 " (leap backwards).", timestamp);
-				ret = SR_ERR_DATA;
+				otc_err("Invalid timestamp: %" PRIu64 " (leap backwards).", timestamp);
+				ret = OTC_ERR_DATA;
 				break;
 			}
 			if (inc->options.compress) {
 				/* Compress long idle periods */
 				count = timestamp - inc->prev_timestamp;
 				if (count > inc->options.compress) {
-					sr_dbg("Long idle period, compressing");
+					otc_dbg("Long idle period, compressing");
 					count = timestamp - inc->options.compress;
 					inc->prev_timestamp = count;
 				}
@@ -1640,7 +1640,7 @@ static int parse_textline(const struct sr_input *in, char *line)
 
 			/* Generate samples from prev_timestamp up to timestamp - 1. */
 			count = timestamp - inc->prev_timestamp;
-			sr_spew("Got a new timestamp, feeding %zu samples", count);
+			otc_spew("Got a new timestamp, feeding %zu samples", count);
 			add_samples(in, count, FALSE);
 			inc->prev_timestamp = timestamp;
 			inc->data_after_timestamp = FALSE;
@@ -1669,8 +1669,8 @@ static int parse_textline(const struct sr_input *in, char *line)
 		 *
 		 * Things to note:
 		 * - Individual bits can be 0/1 which is supported by
-		 *   libsigrok, or x or z which is treated like 0 here
-		 *   (sigrok lacks support for ternary logic, neither is
+		 *   libopentracecapture, or x or z which is treated like 0 here
+		 *   (opentracelab lacks support for ternary logic, neither is
 		 *   there support for the full IEEE set of values).
 		 * - Single-bit values typically won't be separated from
 		 *   the signal identifer, multi-bit values and floats
@@ -1690,17 +1690,17 @@ static int parse_textline(const struct sr_input *in, char *line)
 			float real_val;
 
 			real_text = &curr_word[1];
-			identifier = sr_text_next_word(line, &line);
+			identifier = otc_text_next_word(line, &line);
 			if (!*real_text || !identifier || !*identifier) {
-				sr_err("Unexpected real format.");
-				ret = SR_ERR_DATA;
+				otc_err("Unexpected real format.");
+				ret = OTC_ERR_DATA;
 				break;
 			}
-			sr_spew("Got real data %s for id '%s'.",
+			otc_spew("Got real data %s for id '%s'.",
 				real_text, identifier);
-			if (sr_atof_ascii(real_text, &real_val) != SR_OK) {
-				sr_err("Cannot convert value: %s.", real_text);
-				ret = SR_ERR_DATA;
+			if (otc_atof_ascii(real_text, &real_val) != OTC_OK) {
+				otc_err("Cannot convert value: %s.", real_text);
+				ret = OTC_ERR_DATA;
 				break;
 			}
 			process_real(inc, identifier, real_val);
@@ -1724,14 +1724,14 @@ static int parse_textline(const struct sr_input *in, char *line)
 			 * we may never unify code paths at all here.
 			 */
 			bits_text = &curr_word[1];
-			identifier = sr_text_next_word(line, &line);
+			identifier = otc_text_next_word(line, &line);
 
 			if (!*bits_text || !identifier || !*identifier) {
-				sr_err("Unexpected integer/vector format.");
-				ret = SR_ERR_DATA;
+				otc_err("Unexpected integer/vector format.");
+				ret = OTC_ERR_DATA;
 				break;
 			}
-			sr_spew("Got integer/vector data %s for id '%s'.",
+			otc_spew("Got integer/vector data %s for id '%s'.",
 				bits_text, identifier);
 
 			/*
@@ -1752,9 +1752,9 @@ static int parse_textline(const struct sr_input *in, char *line)
 			bits_text += strlen(bits_text);
 			bit_count = bits_text - bits_text_start;
 			if (bit_count > inc->conv_bits.max_bits) {
-				sr_err("Value exceeds conversion buffer: %s",
+				otc_err("Value exceeds conversion buffer: %s",
 					bits_text_start);
-				ret = SR_ERR_DATA;
+				ret = OTC_ERR_DATA;
 				break;
 			}
 			memset(inc->conv_bits.value, 0, inc->conv_bits.unit_size);
@@ -1780,16 +1780,16 @@ static int parse_textline(const struct sr_input *in, char *line)
 				}
 			}
 			if (!inc->conv_bits.sig_count) {
-				sr_err("Unexpected vector format: %s",
+				otc_err("Unexpected vector format: %s",
 					bits_text_start);
-				ret = SR_ERR_DATA;
+				ret = OTC_ERR_DATA;
 				break;
 			}
-			if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
-				bits_val_text = sr_hexdump_new(inc->conv_bits.value,
+			if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
+				bits_val_text = otc_hexdump_new(inc->conv_bits.value,
 					value_ptr - inc->conv_bits.value + 1);
-				sr_spew("Vector value: %s.", bits_val_text->str);
-				sr_hexdump_free(bits_val_text);
+				otc_spew("Vector value: %s.", bits_val_text->str);
+				otc_hexdump_free(bits_val_text);
 			}
 
 			process_bits(inc, identifier,
@@ -1804,24 +1804,24 @@ static int parse_textline(const struct sr_input *in, char *line)
 			bits_text = &curr_word[0];
 			bit_char = *bits_text;
 			if (!bit_char) {
-				sr_err("Bit value missing.");
-				ret = SR_ERR_DATA;
+				otc_err("Bit value missing.");
+				ret = OTC_ERR_DATA;
 				break;
 			}
 			identifier = ++bits_text;
 			if (!*identifier)
-				identifier = sr_text_next_word(line, &line);
+				identifier = otc_text_next_word(line, &line);
 			if (!identifier || !*identifier) {
-				sr_err("Identifier missing.");
-				ret = SR_ERR_DATA;
+				otc_err("Identifier missing.");
+				ret = OTC_ERR_DATA;
 				break;
 			}
 
 			/* Convert value text to single-bit number. */
 			bit_value = vcd_char_to_value(bit_char, NULL);
 			if (bit_value != 0 && bit_value != 1) {
-				sr_err("Unsupported bit value '%c'.", bit_char);
-				ret = SR_ERR_DATA;
+				otc_err("Unsupported bit value '%c'.", bit_char);
+				ret = OTC_ERR_DATA;
 				break;
 			}
 			inc->conv_bits.value[0] = bit_value;
@@ -1832,38 +1832,38 @@ static int parse_textline(const struct sr_input *in, char *line)
 			const char *str_value;
 
 			str_value = &curr_word[1];
-			identifier = sr_text_next_word(line, &line);
+			identifier = otc_text_next_word(line, &line);
 			if (!vcd_string_valid(str_value)) {
-				sr_err("Invalid string data: %s", str_value);
-				ret = SR_ERR_DATA;
+				otc_err("Invalid string data: %s", str_value);
+				ret = OTC_ERR_DATA;
 				break;
 			}
 			if (!identifier || !*identifier) {
-				sr_err("String value without identifier.");
-				ret = SR_ERR_DATA;
+				otc_err("String value without identifier.");
+				ret = OTC_ERR_DATA;
 				break;
 			}
-			sr_spew("Got string data, id '%s', value \"%s\".",
+			otc_spew("Got string data, id '%s', value \"%s\".",
 				identifier, str_value);
 			if (!is_ignored(inc, identifier)) {
-				sr_err("String value for identifier '%s'.",
+				otc_err("String value for identifier '%s'.",
 					identifier);
-				ret = SR_ERR_DATA;
+				ret = OTC_ERR_DATA;
 				break;
 			}
 			continue;
 		}
 
 		/* Design choice: Consider unsupported input fatal. */
-		sr_err("Unknown token '%s'.", curr_word);
-		ret = SR_ERR_DATA;
+		otc_err("Unknown token '%s'.", curr_word);
+		ret = OTC_ERR_DATA;
 		break;
 	}
 
 	return ret;
 }
 
-static int process_buffer(struct sr_input *in, gboolean is_eof)
+static int process_buffer(struct otc_input *in, gboolean is_eof)
 {
 	struct context *inc;
 	uint64_t samplerate;
@@ -1875,7 +1875,7 @@ static int process_buffer(struct sr_input *in, gboolean is_eof)
 	inc = in->priv;
 
 	if (!inc->got_header)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	/* Send feed header and samplerate (once) before sample data. */
 	if (!inc->started) {
@@ -1884,7 +1884,7 @@ static int process_buffer(struct sr_input *in, gboolean is_eof)
 		samplerate = inc->samplerate / inc->options.downsample;
 		if (samplerate) {
 			gvar = g_variant_new_uint64(samplerate);
-			sr_session_send_meta(in->sdi, SR_CONF_SAMPLERATE, gvar);
+			otc_session_send_meta(in->sdi, OTC_CONF_SAMPLERATE, gvar);
 		}
 
 		inc->started = TRUE;
@@ -1899,18 +1899,18 @@ static int process_buffer(struct sr_input *in, gboolean is_eof)
 		g_string_append_c(in->buf, '\n');
 
 	/* Find and process complete text lines in the input data. */
-	ret = SR_OK;
+	ret = OTC_OK;
 	rdptr = in->buf->str;
 	taken = 0;
 	while (rdptr) {
 		rdlen = &in->buf->str[in->buf->len] - rdptr;
-		line = sr_text_next_line(rdptr, rdlen, &rdptr, &taken);
+		line = otc_text_next_line(rdptr, rdlen, &rdptr, &taken);
 		if (!line)
 			break;
 		if (!*line)
 			continue;
 		ret = parse_textline(in, line);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 	}
 	g_string_erase(in->buf, 0, taken);
@@ -1925,7 +1925,7 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	char *name, *contents;
 
 	buf = g_hash_table_lookup(metadata,
-		GINT_TO_POINTER(SR_INPUT_META_HEADER));
+		GINT_TO_POINTER(OTC_INPUT_META_HEADER));
 	tmpbuf = g_string_new_len(buf->str, buf->len);
 
 	/*
@@ -1939,13 +1939,13 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	g_free(contents);
 
 	if (!status)
-		return SR_ERR;
+		return OTC_ERR;
 
 	*confidence = 1;
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	struct context *inc;
 	GVariant *data;
@@ -1987,10 +1987,10 @@ static int init(struct sr_input *in, GHashTable *options)
 
 	inc->scope_prefix = g_string_new("\0");
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 	struct context *inc;
 	int ret;
@@ -2005,13 +2005,13 @@ static int receive(struct sr_input *in, GString *buf)
 	/* Must complete reception of the VCD header first. */
 	if (!inc->got_header) {
 		if (!have_header(in->buf))
-			return SR_OK;
+			return OTC_OK;
 		ret = parse_header(in, in->buf);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		/* sdi is ready, notify frontend. */
 		in->sdi_ready = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* Process sample data. */
@@ -2020,7 +2020,7 @@ static int receive(struct sr_input *in, GString *buf)
 	return ret;
 }
 
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	struct context *inc;
 	int ret;
@@ -2032,10 +2032,10 @@ static int end(struct sr_input *in)
 	if (in->sdi_ready)
 		ret = process_buffer(in, TRUE);
 	else
-		ret = SR_OK;
+		ret = OTC_OK;
 
 	/* Flush most recently queued sample data when EOF is seen. */
-	if (inc->got_header && ret == SR_OK) {
+	if (inc->got_header && ret == OTC_OK) {
 		count = inc->data_after_timestamp ? 1 : 0;
 		add_samples(in, count, TRUE);
 	}
@@ -2051,7 +2051,7 @@ static int end(struct sr_input *in)
 	return ret;
 }
 
-static void cleanup(struct sr_input *in)
+static void cleanup(struct otc_input *in)
 {
 	struct context *inc;
 
@@ -2075,7 +2075,7 @@ static void cleanup(struct sr_input *in)
 	inc->ignored_signals = NULL;
 }
 
-static int reset(struct sr_input *in)
+static int reset(struct otc_input *in)
 {
 	struct context *inc;
 	struct vcd_user_opt save;
@@ -2095,7 +2095,7 @@ static int reset(struct sr_input *in)
 	inc->prev = prev;
 	inc->scope_prefix = g_string_new("\0");
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 enum vcd_option_t {
@@ -2107,10 +2107,10 @@ enum vcd_option_t {
 	OPT_MAX,
 };
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	[OPT_NUM_CHANS] = {
-		"numchannels", "Max number of sigrok channels",
-		"The maximum number of sigrok channels to create for VCD input signals.",
+		"numchannels", "Max number of opentracelab channels",
+		"The maximum number of opentracelab channels to create for VCD input signals.",
 		NULL, NULL,
 	},
 	[OPT_SAMPLERATE] = {
@@ -2141,7 +2141,7 @@ static struct sr_option options[] = {
 	[OPT_MAX] = ALL_ZERO,
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	if (!options[0].def) {
 		options[OPT_NUM_CHANS].def = g_variant_ref_sink(g_variant_new_uint32(0));
@@ -2154,12 +2154,12 @@ static const struct sr_option *get_options(void)
 	return options;
 }
 
-SR_PRIV struct sr_input_module input_vcd = {
+OTC_PRIV struct otc_input_module input_vcd = {
 	.id = "vcd",
 	.name = "VCD",
 	.desc = "Value Change Dump data",
 	.exts = (const char*[]){"vcd", NULL},
-	.metadata = { SR_INPUT_META_HEADER | SR_INPUT_META_REQUIRED },
+	.metadata = { OTC_INPUT_META_HEADER | OTC_INPUT_META_REQUIRED },
 	.options = get_options,
 	.format_match = format_match,
 	.init = init,

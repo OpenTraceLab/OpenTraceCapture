@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017 Soeren Apel <soeren@apelpie.net>
  *
@@ -23,8 +23,8 @@
  * Conversion helper functions.
  */
 
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "conv"
@@ -39,9 +39,9 @@
  *                    space for count bytes.
  * @param[in] count The number of samples to process.
  *
- * @return SR_OK on success or SR_ERR on failure.
+ * @return OTC_OK on success or OTC_ERR on failure.
  */
-SR_API int sr_a2l_threshold(const struct sr_datafeed_analog *analog,
+OTC_API int otc_a2l_threshold(const struct otc_datafeed_analog *analog,
 		float threshold, uint8_t *output, uint64_t count)
 {
 	float *input;
@@ -49,9 +49,9 @@ SR_API int sr_a2l_threshold(const struct sr_datafeed_analog *analog,
 	if (!analog->encoding->is_float) {
 		input = g_try_malloc(sizeof(float) * count);
 		if (!input)
-			return SR_ERR;
+			return OTC_ERR;
 
-		sr_analog_to_float(analog, input);
+		otc_analog_to_float(analog, input);
 	} else
 		input = analog->data;
 
@@ -61,7 +61,7 @@ SR_API int sr_a2l_threshold(const struct sr_datafeed_analog *analog,
 	if (!analog->encoding->is_float)
 		g_free(input);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -76,9 +76,9 @@ SR_API int sr_a2l_threshold(const struct sr_datafeed_analog *analog,
  *        space for count bytes.
  * @param count The number of samples to process.
  *
- * @return SR_OK on success or SR_ERR on failure.
+ * @return OTC_OK on success or OTC_ERR on failure.
  */
-SR_API int sr_a2l_schmitt_trigger(const struct sr_datafeed_analog *analog,
+OTC_API int otc_a2l_schmitt_trigger(const struct otc_datafeed_analog *analog,
 		float lo_thr, float hi_thr, uint8_t *state, uint8_t *output,
 		uint64_t count)
 {
@@ -87,9 +87,9 @@ SR_API int sr_a2l_schmitt_trigger(const struct sr_datafeed_analog *analog,
 	if (!analog->encoding->is_float) {
 		input = g_try_malloc(sizeof(float) * count);
 		if (!input)
-			return SR_ERR;
+			return OTC_ERR;
 
-		sr_analog_to_float(analog, input);
+		otc_analog_to_float(analog, input);
 	} else
 		input = analog->data;
 
@@ -105,5 +105,5 @@ SR_API int sr_a2l_schmitt_trigger(const struct sr_datafeed_analog *analog,
 	if (!analog->encoding->is_float)
 		g_free(input);
 
-	return SR_OK;
+	return OTC_OK;
 }

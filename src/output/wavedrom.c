@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Marc Jacobi <obiwanjacobi@hotmail.com>
  *
@@ -19,14 +19,14 @@
 
 #include <config.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "output/wavedrom"
 
 struct context {
 	uint32_t channel_count;
-	struct sr_channel **channels;
+	struct otc_channel **channels;
 	GString **channel_outputs; /* output strings */
 };
 
@@ -70,7 +70,7 @@ static GString *wavedrom_render(const struct context *ctx)
 }
 
 static void process_logic(const struct context *ctx,
-	const struct sr_datafeed_logic *logic)
+	const struct otc_datafeed_logic *logic)
 {
 	size_t sample_count, ch, i;
 	uint8_t *sample, bit;
@@ -118,41 +118,41 @@ static void process_logic(const struct context *ctx,
 	}
 }
 
-static int receive(const struct sr_output *o,
-	const struct sr_datafeed_packet *packet, GString **out)
+static int receive(const struct otc_output *o,
+	const struct otc_datafeed_packet *packet, GString **out)
 {
 	struct context *ctx;
 
 	*out = NULL;
 
 	if (!o || !o->sdi || !o->priv)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ctx = o->priv;
 
 	switch (packet->type) {
-	case SR_DF_LOGIC:
+	case OTC_DF_LOGIC:
 		process_logic(ctx, packet->payload);
 		break;
-	case SR_DF_END:
+	case OTC_DF_END:
 		*out = wavedrom_render(ctx);
 		break;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int init(struct sr_output *o, GHashTable *options)
+static int init(struct otc_output *o, GHashTable *options)
 {
 	struct context *ctx;
-	struct sr_channel *channel;
+	struct otc_channel *channel;
 	GSList *l;
 	size_t i;
 
 	(void)options;
 
 	if (!o || !o->sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	o->priv = ctx = g_malloc0(sizeof(*ctx));
 
@@ -164,22 +164,22 @@ static int init(struct sr_output *o, GHashTable *options)
 
 	for (i = 0, l = o->sdi->channels; l; l = l->next, i++) {
 		channel = l->data;
-		if (channel->enabled && channel->type == SR_CHANNEL_LOGIC) {
+		if (channel->enabled && channel->type == OTC_CHANNEL_LOGIC) {
 			ctx->channels[i] = channel;
 			ctx->channel_outputs[i] = g_string_new(NULL);
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int cleanup(struct sr_output *o)
+static int cleanup(struct otc_output *o)
 {
 	struct context *ctx;
 	GString *s;
 
 	if (!o)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ctx = o->priv;
 	o->priv = NULL;
@@ -195,10 +195,10 @@ static int cleanup(struct sr_output *o)
 		g_free(ctx);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_output_module output_wavedrom = {
+OTC_PRIV struct otc_output_module output_wavedrom = {
 	.id = "wavedrom",
 	.name = "WaveDrom",
 	.desc = "WaveDrom.com file format",

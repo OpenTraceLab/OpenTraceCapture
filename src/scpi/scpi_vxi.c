@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Aurelien Jacobs <aurel@gnuage.org>
  *
@@ -24,9 +24,9 @@
 /* vxi.h must the first #include after config.h See commit d40b8557. */
 #include "vxi.h"
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
-#include "scpi.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
+#include "../scpi.h"
 
 #define LOG_PREFIX "scpi_vxi"
 #define VXI_DEFAULT_TIMEOUT_MS 2000
@@ -50,18 +50,18 @@ static int scpi_vxi_dev_inst_new(void *priv, struct drv_context *drvc,
 	(void)serialcomm;
 
 	if (!params || !params[1]) {
-		sr_err("Invalid parameters.");
-		return SR_ERR;
+		otc_err("Invalid parameters.");
+		return OTC_ERR;
 	}
 
 	vxi = priv;
 	vxi->address    = g_strdup(params[1]);
 	vxi->instrument = g_strdup(params[2] ? params[2] : "inst0");
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_vxi_open(struct sr_scpi_dev_inst *scpi)
+static int scpi_vxi_open(struct otc_scpi_dev_inst *scpi)
 {
 	struct scpi_vxi *vxi;
 	Create_LinkParms link_parms;
@@ -71,8 +71,8 @@ static int scpi_vxi_open(struct sr_scpi_dev_inst *scpi)
 	vxi->client = clnt_create(vxi->address,
 		DEVICE_CORE, DEVICE_CORE_VERSION, "tcp");
 	if (!vxi->client) {
-		sr_err("Client creation failed for %s", vxi->address);
-		return SR_ERR;
+		otc_err("Client creation failed for %s", vxi->address);
+		return OTC_ERR;
 	}
 
 	/* Set link parameters */
@@ -83,8 +83,8 @@ static int scpi_vxi_open(struct sr_scpi_dev_inst *scpi)
 
 	link_resp = create_link_1(&link_parms, vxi->client);
 	if (!link_resp) {
-		sr_err("Link creation failed for %s", vxi->address);
-		return SR_ERR;
+		otc_err("Link creation failed for %s", vxi->address);
+		return OTC_ERR;
 	}
 	vxi->link = link_resp->lid;
 	vxi->max_send_size = link_resp->maxRecvSize;
@@ -93,10 +93,10 @@ static int scpi_vxi_open(struct sr_scpi_dev_inst *scpi)
 	if (vxi->max_send_size <= 0)
 		vxi->max_send_size = 4096;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_vxi_connection_id(struct sr_scpi_dev_inst *scpi,
+static int scpi_vxi_connection_id(struct otc_scpi_dev_inst *scpi,
 		char **connection_id)
 {
 	struct scpi_vxi *vxi;
@@ -104,23 +104,23 @@ static int scpi_vxi_connection_id(struct sr_scpi_dev_inst *scpi,
 	vxi = scpi->priv;
 	*connection_id = g_strdup_printf("%s/%s", scpi->prefix, vxi->address);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_vxi_source_add(struct sr_session *session, void *priv,
-		int events, int timeout, sr_receive_data_callback cb, void *cb_data)
+static int scpi_vxi_source_add(struct otc_session *session, void *priv,
+		int events, int timeout, otc_receive_data_callback cb, void *cb_data)
 {
 	(void)priv;
 
 	/* Hook up a dummy handler to receive data from the device. */
-	return sr_session_source_add(session, -1, events, timeout, cb, cb_data);
+	return otc_session_source_add(session, -1, events, timeout, cb, cb_data);
 }
 
-static int scpi_vxi_source_remove(struct sr_session *session, void *priv)
+static int scpi_vxi_source_remove(struct otc_session *session, void *priv)
 {
 	(void)priv;
 
-	return sr_session_source_remove(session, -1);
+	return otc_session_source_remove(session, -1);
 }
 
 /* Operation Flags */
@@ -147,19 +147,19 @@ static int scpi_vxi_send(void *priv, const char *command)
 
 	write_resp = device_write_1(&write_parms, vxi->client);
 	if (!write_resp || write_resp->error) {
-		sr_err("Device write failed for %s with error %ld",
+		otc_err("Device write failed for %s with error %ld",
 		       vxi->address, write_resp ? write_resp->error : 0);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if (write_resp->size < len) {
-		sr_dbg("Only sent %lu/%lu bytes of SCPI command: '%s'.",
+		otc_dbg("Only sent %lu/%lu bytes of SCPI command: '%s'.",
 		       write_resp->size, len, command);
 	} else {
-		sr_spew("Successfully sent SCPI command: '%s'.", command);
+		otc_spew("Successfully sent SCPI command: '%s'.", command);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int scpi_vxi_read_begin(void *priv)
@@ -169,7 +169,7 @@ static int scpi_vxi_read_begin(void *priv)
 	vxi = priv;
 	vxi->read_complete = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Read Response Reason Flags */
@@ -193,13 +193,13 @@ static int scpi_vxi_read_data(void *priv, char *buf, int maxlen)
 
 	read_resp = device_read_1(&read_parms, vxi->client);
 	if (!read_resp || read_resp->error) {
-		sr_err("Device read failed for %s with error %ld",
+		otc_err("Device read failed for %s with error %ld",
 		       vxi->address, read_resp ? read_resp->error : 0);
 		if (read_resp) {
 			g_free(read_resp->data.data_val);
 			read_resp->data.data_val = NULL;
 		}
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	memcpy(buf, read_resp->data.data_val, read_resp->data.data_len);
@@ -216,25 +216,25 @@ static int scpi_vxi_read_complete(void *priv)
 	return vxi->read_complete;
 }
 
-static int scpi_vxi_close(struct sr_scpi_dev_inst *scpi)
+static int scpi_vxi_close(struct otc_scpi_dev_inst *scpi)
 {
 	struct scpi_vxi *vxi;
 	Device_Error *dev_error;
 
 	vxi = scpi->priv;
 	if (!vxi->client)
-		return SR_ERR;
+		return OTC_ERR;
 
 	dev_error = destroy_link_1(&vxi->link, vxi->client);
 	if (!dev_error) {
-		sr_err("Link destruction failed for %s", vxi->address);
-		return SR_ERR;
+		otc_err("Link destruction failed for %s", vxi->address);
+		return OTC_ERR;
 	}
 
 	clnt_destroy(vxi->client);
 	vxi->client = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void scpi_vxi_free(void *priv)
@@ -246,7 +246,7 @@ static void scpi_vxi_free(void *priv)
 	g_free(vxi->instrument);
 }
 
-SR_PRIV const struct sr_scpi_dev_inst scpi_vxi_dev = {
+OTC_PRIV const struct otc_scpi_dev_inst scpi_vxi_dev = {
 	.name          = "VXI",
 	.prefix        = "vxi",
 	.transport     = SCPI_TRANSPORT_VXI,

@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2014 Matthias Heidbrink <m-sigrok@heidbrink.biz>
+ * Copyright (C) 2014 Matthias Heidbrink <m-opentracelab@heidbrink.biz>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,27 +26,27 @@
  * @param[in] cmd Command
  * @param[in] param Parameter (0..999, depending on command).
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
- * @retval SR_ERR Error.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
+ * @retval OTC_ERR Error.
  */
-SR_PRIV int send_msg1(const struct sr_dev_inst *sdi, char cmd, int param)
+OTC_PRIV int send_msg1(const struct otc_dev_inst *sdi, char cmd, int param)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	char buf[5];
 
 	if (!sdi || !(serial = sdi->conn))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	snprintf(buf, sizeof(buf), "%c%03d", cmd, param);
 	buf[4] = '\r';
 
-	sr_spew("send_msg1(): %c%c%c%c\\r", buf[0], buf[1], buf[2], buf[3]);
+	otc_spew("send_msg1(): %c%c%c%c\\r", buf[0], buf[1], buf[2], buf[3]);
 
 	if (serial_write_blocking(serial, buf, sizeof(buf),
 			serial_timeout(serial, sizeof(buf))) < (int)sizeof(buf)) {
-		sr_err("Write error for cmd=%c", cmd);
-		return SR_ERR;
+		otc_err("Write error for cmd=%c", cmd);
+		return OTC_ERR;
 	}
 
 	/*
@@ -55,5 +55,5 @@ SR_PRIV int send_msg1(const struct sr_dev_inst *sdi, char cmd, int param)
 	 */
 	g_usleep(50 * 1000);
 
-	return SR_OK;
+	return OTC_OK;
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "uni-t-ut32x"
 
@@ -43,12 +43,12 @@ enum ut32x_cmd_code {
 };
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	enum ut32x_data_source data_source;
 	uint8_t packet[PACKET_SIZE];
 	size_t packet_len;
 };
 
-SR_PRIV int ut32x_handle_events(int fd, int revents, void *cb_data);
+OTC_PRIV int ut32x_handle_events(int fd, int revents, void *cb_data);
 
 #endif

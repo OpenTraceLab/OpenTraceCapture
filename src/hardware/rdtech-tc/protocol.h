@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2020 Andreas Sandberg <andreas@sandberg.pp.se>
  *
@@ -20,8 +20,8 @@
 #ifndef LIBSIGROK_HARDWARE_RDTECH_TC_PROTOCOL_H
 #define LIBSIGROK_HARDWARE_RDTECH_TC_PROTOCOL_H
 
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "rdtech-tc"
 
@@ -45,10 +45,10 @@ struct rdtech_dev_info {
 struct rdtech_tc_channel_desc {
 	const char *name;
 	struct binary_value_spec spec;
-	struct sr_rational scale;
+	struct otc_rational scale;
 	int digits;
-	enum sr_mq mq;
-	enum sr_unit unit;
+	enum otc_mq mq;
+	enum otc_unit unit;
 };
 
 struct dev_context {
@@ -58,15 +58,15 @@ struct dev_context {
 	const struct rdtech_tc_channel_desc *channels;
 	size_t channel_count;
 	struct feed_queue_analog **feeds;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	uint8_t buf[RDTECH_TC_RSPBUFSIZE];
 	size_t rdlen;
 	int64_t cmd_sent_at;
 	size_t rx_after_tx;
 };
 
-SR_PRIV int rdtech_tc_probe(struct sr_serial_dev_inst *serial, struct dev_context *devc);
-SR_PRIV int rdtech_tc_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV int rdtech_tc_poll(const struct sr_dev_inst *sdi, gboolean force);
+OTC_PRIV int rdtech_tc_probe(struct otc_serial_dev_inst *serial, struct dev_context *devc);
+OTC_PRIV int rdtech_tc_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int rdtech_tc_poll(const struct otc_dev_inst *sdi, gboolean force);
 
 #endif

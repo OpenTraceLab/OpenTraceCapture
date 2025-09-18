@@ -20,78 +20,78 @@
 #include <config.h>
 #include <stdlib.h>
 #include <check.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libsigrok.h>
 #include "lib.h"
 
 /* Check whether at least one transform module is available. */
 START_TEST(test_transform_available)
 {
-	const struct sr_transform_module **transforms;
+	const struct otc_transform_module **transforms;
 
-	transforms = sr_transform_list();
+	transforms = otc_transform_list();
 	fail_unless(transforms != NULL, "No transform modules found.");
 }
 END_TEST
 
-/* Check whether sr_transform_id_get() works. */
+/* Check whether otc_transform_id_get() works. */
 START_TEST(test_transform_id)
 {
-	const struct sr_transform_module **transforms;
+	const struct otc_transform_module **transforms;
 	const char *id;
 
-	transforms = sr_transform_list();
+	transforms = otc_transform_list();
 
-	id = sr_transform_id_get(transforms[0]);
+	id = otc_transform_id_get(transforms[0]);
 	fail_unless(id != NULL, "No ID found in transform module.");
 }
 END_TEST
 
-/* Check whether sr_transform_name_get() works. */
+/* Check whether otc_transform_name_get() works. */
 START_TEST(test_transform_name)
 {
-	const struct sr_transform_module **transforms;
+	const struct otc_transform_module **transforms;
 	const char *name;
 
-	transforms = sr_transform_list();
+	transforms = otc_transform_list();
 
-	name = sr_transform_name_get(transforms[0]);
+	name = otc_transform_name_get(transforms[0]);
 	fail_unless(name != NULL, "No name found in transform module.");
 }
 END_TEST
 
-/* Check whether sr_transform_description_get() works. */
+/* Check whether otc_transform_description_get() works. */
 START_TEST(test_transform_desc)
 {
-	const struct sr_transform_module **transforms;
+	const struct otc_transform_module **transforms;
 	const char *desc;
 
-	transforms = sr_transform_list();
+	transforms = otc_transform_list();
 
-	desc = sr_transform_description_get(transforms[0]);
+	desc = otc_transform_description_get(transforms[0]);
 	fail_unless(desc != NULL, "No description found in transform module.");
 }
 END_TEST
 
-/* Check whether sr_transform_find() works. */
+/* Check whether otc_transform_find() works. */
 START_TEST(test_transform_find)
 {
-	const struct sr_transform_module *tmod;
+	const struct otc_transform_module *tmod;
 	const char *id;
 
-	tmod = sr_transform_find("nop");
+	tmod = otc_transform_find("nop");
 	fail_unless(tmod != NULL, "Couldn't find the 'nop' transform module.");
-	id = sr_transform_id_get(tmod);
+	id = otc_transform_id_get(tmod);
 	fail_unless(id != NULL, "No ID found in transform module.");
 	fail_unless(!strcmp(id, "nop"), "That is not the 'nop' module!");
 }
 END_TEST
 
-/* Check whether sr_transform_options_get() works. */
+/* Check whether otc_transform_options_get() works. */
 START_TEST(test_transform_options)
 {
-	const struct sr_option **opt;
+	const struct otc_option **opt;
 
-	opt = sr_transform_options_get(sr_transform_find("nop"));
+	opt = otc_transform_options_get(otc_transform_find("nop"));
 	fail_unless(opt == NULL, "Transform module 'nop' doesn't have options.");
 }
 END_TEST

@@ -1,8 +1,8 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 poljar (Damir Jelić) <poljarinho@gmail.com>
- * Copyright (C) 2013 Martin Ling <martin-sigrok@earth.li>
+ * Copyright (C) 2013 Martin Ling <martin-opentracelab@earth.li>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,16 +22,16 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
-#include "scpi.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
+#include "../scpi.h"
 
 #define LOG_PREFIX "scpi_serial"
 
 #ifdef HAVE_SERIAL_COMM
 
 struct scpi_serial {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	gboolean got_newline;
 };
 
@@ -60,7 +60,7 @@ static GSList *scpi_serial_scan(struct drv_context *drvc)
 	(void)drvc;
 
 	for (i = 0; i < ARRAY_SIZE(scpi_serial_usb_ids); i++) {
-		if (!(l = sr_serial_find_usb(scpi_serial_usb_ids[i].vendor_id,
+		if (!(l = otc_serial_find_usb(scpi_serial_usb_ids[i].vendor_id,
 					scpi_serial_usb_ids[i].product_id)))
 			continue;
 		for (r = l; r; r = r->next) {
@@ -94,7 +94,7 @@ static int scpi_serial_dev_inst_new(void *priv, struct drv_context *drvc,
 	 */
 	if (!serialcomm) {
 		for (i = 0; i < ARRAY_SIZE(scpi_serial_usb_ids); i++) {
-			if (!(l = sr_serial_find_usb(scpi_serial_usb_ids[i].vendor_id,
+			if (!(l = otc_serial_find_usb(scpi_serial_usb_ids[i].vendor_id,
 						scpi_serial_usb_ids[i].product_id)))
 				continue;
 			for (r = l; r; r = r->next)
@@ -104,48 +104,48 @@ static int scpi_serial_dev_inst_new(void *priv, struct drv_context *drvc,
 		}
 	}
 
-	sscpi->serial = sr_serial_dev_inst_new(resource, serialcomm);
+	sscpi->serial = otc_serial_dev_inst_new(resource, serialcomm);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_serial_open(struct sr_scpi_dev_inst *scpi)
+static int scpi_serial_open(struct otc_scpi_dev_inst *scpi)
 {
 	struct scpi_serial *sscpi = scpi->priv;
-	struct sr_serial_dev_inst *serial = sscpi->serial;
+	struct otc_serial_dev_inst *serial = sscpi->serial;
 
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
-		return SR_ERR;
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
+		return OTC_ERR;
 
 	sscpi->got_newline = FALSE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_serial_connection_id(struct sr_scpi_dev_inst *scpi,
+static int scpi_serial_connection_id(struct otc_scpi_dev_inst *scpi,
 		char **connection_id)
 {
 	struct scpi_serial *sscpi = scpi->priv;
-	struct sr_serial_dev_inst *serial = sscpi->serial;
+	struct otc_serial_dev_inst *serial = sscpi->serial;
 
 	*connection_id = g_strdup(serial->port);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_serial_source_add(struct sr_session *session, void *priv,
-		int events, int timeout, sr_receive_data_callback cb, void *cb_data)
+static int scpi_serial_source_add(struct otc_session *session, void *priv,
+		int events, int timeout, otc_receive_data_callback cb, void *cb_data)
 {
 	struct scpi_serial *sscpi = priv;
-	struct sr_serial_dev_inst *serial = sscpi->serial;
+	struct otc_serial_dev_inst *serial = sscpi->serial;
 
 	return serial_source_add(session, serial, events, timeout, cb, cb_data);
 }
 
-static int scpi_serial_source_remove(struct sr_session *session, void *priv)
+static int scpi_serial_source_remove(struct otc_session *session, void *priv)
 {
 	struct scpi_serial *sscpi = priv;
-	struct sr_serial_dev_inst *serial = sscpi->serial;
+	struct otc_serial_dev_inst *serial = sscpi->serial;
 
 	return serial_source_remove(session, serial);
 }
@@ -154,18 +154,18 @@ static int scpi_serial_send(void *priv, const char *command)
 {
 	int result;
 	struct scpi_serial *sscpi = priv;
-	struct sr_serial_dev_inst *serial = sscpi->serial;
+	struct otc_serial_dev_inst *serial = sscpi->serial;
 
 	result = serial_write_blocking(serial, command, strlen(command), 0);
 	if (result < 0) {
-		sr_err("Error while sending SCPI command '%s': %d.",
+		otc_err("Error while sending SCPI command '%s': %d.",
 			command, result);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	sr_spew("Successfully sent SCPI command: '%s'.", command);
+	otc_spew("Successfully sent SCPI command: '%s'.", command);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int scpi_serial_read_begin(void *priv)
@@ -173,7 +173,7 @@ static int scpi_serial_read_begin(void *priv)
 	struct scpi_serial *sscpi = priv;
 	sscpi->got_newline = FALSE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int scpi_serial_read_data(void *priv, char *buf, int maxlen)
@@ -194,11 +194,11 @@ static int scpi_serial_read_data(void *priv, char *buf, int maxlen)
 	sscpi->got_newline = FALSE;
 	if (ret >= 1 && buf[ret - 1] == '\n') {
 		sscpi->got_newline = TRUE;
-		sr_spew("Received NL terminator");
+		otc_spew("Received NL terminator");
 	} else if (ret >= 2 && buf[ret - 2] == '\n' && buf[ret - 1] == '\r') {
 		ret--;
 		sscpi->got_newline = TRUE;
-		sr_spew("Received NL+CR terminator");
+		otc_spew("Received NL+CR terminator");
 	}
 
 	return ret;
@@ -211,7 +211,7 @@ static int scpi_serial_read_complete(void *priv)
 	return sscpi->got_newline;
 }
 
-static int scpi_serial_close(struct sr_scpi_dev_inst *scpi)
+static int scpi_serial_close(struct otc_scpi_dev_inst *scpi)
 {
 	struct scpi_serial *sscpi = scpi->priv;
 
@@ -222,10 +222,10 @@ static void scpi_serial_free(void *priv)
 {
 	struct scpi_serial *sscpi = priv;
 
-	sr_serial_dev_inst_free(sscpi->serial);
+	otc_serial_dev_inst_free(sscpi->serial);
 }
 
-SR_PRIV const struct sr_scpi_dev_inst scpi_serial_dev = {
+OTC_PRIV const struct otc_scpi_dev_inst scpi_serial_dev = {
 	.name          = "serial",
 	.prefix        = "",
 	.transport     = SCPI_TRANSPORT_SERIAL,

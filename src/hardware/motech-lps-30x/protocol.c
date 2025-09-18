@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2014 Matthias Heidbrink <m-sigrok@heidbrink.biz>
+ * Copyright (C) 2014 Matthias Heidbrink <m-opentracelab@heidbrink.biz>
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com> (code from atten-pps3xxx)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,52 +24,52 @@
 #include "protocol.h"
 
 /** Send data packets for current measurements. */
-static void send_data(struct sr_dev_inst *sdi)
+static void send_data(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	int i;
 	float data[MAX_CHANNELS];
 
 	devc = sdi->priv;
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
 
 	/* Note: digits/spec_digits will be overridden later. */
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 
 	analog.meaning->channels = sdi->channels;
 	analog.num_samples = 1;
-	analog.meaning->mq = SR_MQ_VOLTAGE;
-	analog.meaning->unit = SR_UNIT_VOLT;
-	analog.meaning->mqflags = SR_MQFLAG_DC;
+	analog.meaning->mq = OTC_MQ_VOLTAGE;
+	analog.meaning->unit = OTC_UNIT_VOLT;
+	analog.meaning->mqflags = OTC_MQFLAG_DC;
 	analog.encoding->digits = 3;
 	analog.spec->spec_digits = 2;
 	analog.data = data;
 
 	for (i = 0; i < devc->model->num_channels; i++)
 		((float *)analog.data)[i] = devc->channel_status[i].output_voltage_last; /* Value always 3.3 or 5 for channel 3, if present! */
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
-	analog.meaning->mq = SR_MQ_CURRENT;
-	analog.meaning->unit = SR_UNIT_AMPERE;
+	analog.meaning->mq = OTC_MQ_CURRENT;
+	analog.meaning->unit = OTC_UNIT_AMPERE;
 	analog.meaning->mqflags = 0;
 	analog.encoding->digits = 4;
 	analog.spec->spec_digits = 3;
 	analog.data = data;
 	for (i = 0; i < devc->model->num_channels; i++)
 		((float *)analog.data)[i] = devc->channel_status[i].output_current_last; /* Value always 0 for channel 3, if present! */
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 }
 
 /** Process a complete line (without CR/LF) in buf. */
-static void process_line(struct sr_dev_inst *sdi)
+static void process_line(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	double dbl;
@@ -90,16 +90,16 @@ static void process_line(struct sr_dev_inst *sdi)
 		case AQ_I1:
 		case AQ_I2:
 			dbl = 0.0;
-			if (sr_atod_ascii(devc->buf, &dbl) != SR_OK) {
-				sr_err("Failed to convert '%s' to double, errno=%d %s",
+			if (otc_atod_ascii(devc->buf, &dbl) != OTC_OK) {
+				otc_err("Failed to convert '%s' to double, errno=%d %s",
 					devc->buf, errno, g_strerror(errno));
 				dbl = 0.0;
 			}
 			break;
 		case AQ_STATUS:
 			auxint = 0;
-			if (sr_atoi(devc->buf, &auxint) != SR_OK) {
-				sr_err("Failed to convert '%s' to int, errno=%d %s",
+			if (otc_atoi(devc->buf, &auxint) != OTC_OK) {
+				otc_err("Failed to convert '%s' to int, errno=%d %s",
 					devc->buf, errno, g_strerror(errno));
 				auxint = 0;
 			}
@@ -122,7 +122,7 @@ static void process_line(struct sr_dev_inst *sdi)
 			devc->channel_status[1].output_current_last = dbl;
 			break;
 		case AQ_STATUS: /* Process status and generate data. */
-			if (lps_process_status(sdi, auxint) == SR_OK) {
+			if (lps_process_status(sdi, auxint) == OTC_OK) {
 				send_data(sdi);
 			}
 			break;
@@ -134,7 +134,7 @@ static void process_line(struct sr_dev_inst *sdi)
 		break;
 	case 2: /* Waiting for OK after request */
 		if (strcmp(devc->buf, "OK")) {
-			sr_err("Unexpected reply while waiting for OK: '%s'", devc->buf);
+			otc_err("Unexpected reply while waiting for OK: '%s'", devc->buf);
 		}
 		devc->acq_req_pending = 0;
 		break;
@@ -144,11 +144,11 @@ static void process_line(struct sr_dev_inst *sdi)
 	devc->buflen = 0;
 }
 
-SR_PRIV int motech_lps_30x_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int motech_lps_30x_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int len;
 
 	(void)fd;
@@ -182,23 +182,23 @@ SR_PRIV int motech_lps_30x_receive_data(int fd, int revents, void *cb_data)
 				devc->buflen--;
 				devc->buf[devc->buflen] = '\0';
 
-				sr_spew("Line complete: \"%s\"", devc->buf);
+				otc_spew("Line complete: \"%s\"", devc->buf);
 				process_line(sdi);
 			}
 		}
 	}
 
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 
 	/* Only request the next packet if required. */
-	if (!((sdi->status == SR_ST_ACTIVE) && (devc->acq_running)))
+	if (!((sdi->status == OTC_ST_ACTIVE) && (devc->acq_running)))
 		return TRUE;
 
 	if (devc->acq_req_pending) {
 		int64_t elapsed_us = g_get_monotonic_time() - devc->req_sent_at;
 		if (elapsed_us > (REQ_TIMEOUT_MS * 1000)) {
-			sr_spew("Request timeout: req=%d t=%" PRIi64 "us",
+			otc_spew("Request timeout: req=%d t=%" PRIi64 "us",
 				(int)devc->acq_req, elapsed_us);
 			devc->acq_req_pending = 0;
 		}
@@ -233,8 +233,8 @@ SR_PRIV int motech_lps_30x_receive_data(int fd, int revents, void *cb_data)
 			lps_send_req(serial, "STATUS");
 			break;
 		default:
-			sr_err("Illegal devc->acq_req=%d", devc->acq_req);
-			return SR_ERR;
+			otc_err("Illegal devc->acq_req=%d", devc->acq_req);
+			return OTC_ERR;
 		}
 		devc->req_sent_at = g_get_real_time();
 		devc->acq_req_pending = 1;

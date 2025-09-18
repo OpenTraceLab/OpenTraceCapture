@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  *
@@ -19,30 +19,30 @@
 
 #include <config.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "soft-trigger"
 /** @endcond */
 
-SR_PRIV int logic_channel_unitsize(GSList *channels)
+OTC_PRIV int logic_channel_unitsize(GSList *channels)
 {
 	int number = 0;
-	struct sr_channel *channel;
+	struct otc_channel *channel;
 	GSList *l;
 
 	for (l = channels; l; l = l->next) {
 		channel = l->data;
-		if (channel->type == SR_CHANNEL_LOGIC)
+		if (channel->type == OTC_CHANNEL_LOGIC)
 			number++;
 	}
 
 	return (number + 7) / 8;
 }
 
-SR_PRIV struct soft_trigger_logic *soft_trigger_logic_new(
-		const struct sr_dev_inst *sdi, struct sr_trigger *trigger,
+OTC_PRIV struct soft_trigger_logic *soft_trigger_logic_new(
+		const struct otc_dev_inst *sdi, struct otc_trigger *trigger,
 		int pre_trigger_samples)
 {
 	struct soft_trigger_logic *stl;
@@ -73,7 +73,7 @@ SR_PRIV struct soft_trigger_logic *soft_trigger_logic_new(
 	return stl;
 }
 
-SR_PRIV void soft_trigger_logic_free(struct soft_trigger_logic *stl)
+OTC_PRIV void soft_trigger_logic_free(struct soft_trigger_logic *stl)
 {
 	g_free(stl->pre_trigger_buffer);
 	g_free(stl->prev_sample);
@@ -110,10 +110,10 @@ static void pre_trigger_append(struct soft_trigger_logic *stl,
 static void pre_trigger_send(struct soft_trigger_logic *stl,
 		int *pre_trigger_samples)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 
-	packet.type = SR_DF_LOGIC;
+	packet.type = OTC_DF_LOGIC;
 	packet.payload = &logic;
 	logic.unitsize = stl->unitsize;
 
@@ -130,7 +130,7 @@ static void pre_trigger_send(struct soft_trigger_logic *stl,
 		                  - stl->pre_trigger_head, stl->pre_trigger_fill);
 		logic.length = size;
 		logic.data = stl->pre_trigger_head;
-		sr_session_send(stl->sdi, &packet);
+		otc_session_send(stl->sdi, &packet);
 		stl->pre_trigger_head = stl->pre_trigger_buffer;
 		stl->pre_trigger_fill -= size;
 		if (pre_trigger_samples)
@@ -139,7 +139,7 @@ static void pre_trigger_send(struct soft_trigger_logic *stl,
 }
 
 static gboolean logic_check_match(struct soft_trigger_logic *stl,
-		uint8_t *sample, struct sr_trigger_match *match)
+		uint8_t *sample, struct otc_trigger_match *match)
 {
 	int bit, prev_bit;
 	gboolean result;
@@ -148,9 +148,9 @@ static gboolean logic_check_match(struct soft_trigger_logic *stl,
 	result = FALSE;
 	bit = *(sample + match->channel->index / 8)
 			& (1 << (match->channel->index % 8));
-	if (match->match == SR_TRIGGER_ZERO)
+	if (match->match == OTC_TRIGGER_ZERO)
 		result = bit == 0;
-	else if (match->match == SR_TRIGGER_ONE)
+	else if (match->match == OTC_TRIGGER_ONE)
 		result = bit != 0;
 	else {
 		/* Edge matches. */
@@ -159,11 +159,11 @@ static gboolean logic_check_match(struct soft_trigger_logic *stl,
 			return FALSE;
 		prev_bit = *(stl->prev_sample + match->channel->index / 8)
 				& (1 << (match->channel->index % 8));
-		if (match->match == SR_TRIGGER_RISING)
+		if (match->match == OTC_TRIGGER_RISING)
 			result = prev_bit == 0 && bit != 0;
-		else if (match->match == SR_TRIGGER_FALLING)
+		else if (match->match == OTC_TRIGGER_FALLING)
 			result = prev_bit != 0 && bit == 0;
-		else if (match->match == SR_TRIGGER_EDGE)
+		else if (match->match == OTC_TRIGGER_EDGE)
 			result = prev_bit != bit;
 	}
 
@@ -172,11 +172,11 @@ static gboolean logic_check_match(struct soft_trigger_logic *stl,
 
 /* Returns the offset (in samples) within buf of where the trigger
  * occurred, or -1 if not triggered. */
-SR_PRIV int soft_trigger_logic_check(struct soft_trigger_logic *stl,
+OTC_PRIV int soft_trigger_logic_check(struct soft_trigger_logic *stl,
 		uint8_t *buf, int len, int *pre_trigger_samples)
 {
-	struct sr_trigger_stage *stage;
-	struct sr_trigger_match *match;
+	struct otc_trigger_stage *stage;
+	struct otc_trigger_match *match;
 	GSList *l, *l_stage;
 	int offset;
 	int i;
@@ -188,7 +188,7 @@ SR_PRIV int soft_trigger_logic_check(struct soft_trigger_logic *stl,
 		stage = l_stage->data;
 		if (!stage->matches)
 			/* No matches supplied, client error. */
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 
 		match_found = TRUE;
 		for (l = stage->matches; l; l = l->next) {

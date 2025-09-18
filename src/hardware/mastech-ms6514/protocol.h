@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Dave Buechi <db@pflutsch.ch>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "mastech-ms6514"
 
@@ -42,14 +42,14 @@ enum mastech_ms6614_command {
 };
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	enum mastech_ms6614_data_source data_source;
 	unsigned int buf_len;
 	uint8_t buf[MASTECH_MS6514_BUF_SIZE];
 	unsigned int log_buf_len;
 };
 
-SR_PRIV int mastech_ms6514_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV gboolean mastech_ms6514_packet_valid(const uint8_t *buf);
+OTC_PRIV int mastech_ms6514_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV gboolean mastech_ms6514_packet_valid(const uint8_t *buf);
 
 #endif

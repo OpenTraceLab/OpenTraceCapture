@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021 LUMERIIX
  * Copyright (C) 2024 Daniel Anselmi <danselmi@gmx.ch>
@@ -24,21 +24,21 @@
 #define SERIALCOMM "9600/8n1/dtr=1/rts=0"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_FREQUENCY_COUNTER,
+	OTC_CONF_FREQUENCY_COUNTER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_GATE_TIME     | SR_CONF_SET |SR_CONF_GET| SR_CONF_LIST,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_SET,
-	SR_CONF_DATA_SOURCE   | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_GATE_TIME     | OTC_CONF_SET |OTC_CONF_GET| OTC_CONF_LIST,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_SET,
+	OTC_CONF_DATA_SOURCE   | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
-static struct sr_dev_driver bkprecision_1856d_driver_info;
+static struct otc_dev_driver bkprecision_1856d_driver_info;
 
 const uint64_t timebases[][2] = {
 	/*miliseconds*/
@@ -53,18 +53,18 @@ static const char *data_sources[] = {
 	"A", "C",
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct dev_context *devc;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	GSList *opt;
 	const char *conn;
 
 	conn = NULL;
 	for (opt = options; opt; opt = opt->next) {
-		struct sr_config *src = opt->data;
+		struct otc_config *src = opt->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -72,16 +72,16 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	if (!conn)
 		return NULL;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("BK Precision");
 	sdi->model = g_strdup("bk-1856d");
 	devc = g_malloc0(sizeof(struct dev_context));
-	sr_sw_limits_init(&(devc->sw_limits));
-	sdi->conn = sr_serial_dev_inst_new(conn, SERIALCOMM);
-	sdi->inst_type = SR_INST_SERIAL;
+	otc_sw_limits_init(&(devc->sw_limits));
+	sdi->conn = otc_serial_dev_inst_new(conn, SERIALCOMM);
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->priv = devc;
-	sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "P1");
+	otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, "P1");
 	devc->sel_input = InputC;
 	devc->curr_sel_input = InputC;
 	devc->gate_time = 0;
@@ -90,39 +90,39 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	(void)cg;
 
 	if (!(devc = sdi->priv))
-		return SR_ERR;
+		return OTC_ERR;
 
 	switch (key) {
-	case SR_CONF_GATE_TIME:
+	case OTC_CONF_GATE_TIME:
 		*data = g_variant_new("(tt)",
 				timebases[devc->gate_time][0],
 				timebases[devc->gate_time][1]);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
-		sr_sw_limits_config_get(&(devc->sw_limits), key, data);
+	case OTC_CONF_LIMIT_SAMPLES:
+		otc_sw_limits_config_get(&(devc->sw_limits), key, data);
 		break;
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_DATA_SOURCE:
 		if (devc->sel_input == InputA)
 			*data = g_variant_new_string(data_sources[0]);
 		else
 			*data = g_variant_new_string(data_sources[1]);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int idx;
 	struct dev_context *devc;
@@ -130,10 +130,10 @@ static int config_set(uint32_t key, GVariant *data,
 	(void)cg;
 
 	if (!(devc = sdi->priv))
-		return SR_ERR;
+		return OTC_ERR;
 
 	switch (key) {
-	case SR_CONF_GATE_TIME:
+	case OTC_CONF_GATE_TIME:
 		{
 			uint64_t p, q;
 			g_variant_get(data, "(tt)", &p, &q);
@@ -146,23 +146,23 @@ static int config_set(uint32_t key, GVariant *data,
 			else if (p == 10 && q == 1)
 				bkprecision_1856d_set_gate_time(devc, 3);
 			else
-				return SR_ERR_NA;
+				return OTC_ERR_NA;
 		}
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
-		sr_sw_limits_config_set(&(devc->sw_limits),key, data);
+	case OTC_CONF_LIMIT_SAMPLES:
+		otc_sw_limits_config_set(&(devc->sw_limits),key, data);
 		break;
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_DATA_SOURCE:
 		idx = std_str_idx(data, ARRAY_AND_SIZE(data_sources));
 		if (idx < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		bkprecision_1856d_select_input(devc, idx);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static GVariant *build_tuples(const uint64_t (*array)[][2], unsigned int n)
@@ -183,27 +183,27 @@ static GVariant *build_tuples(const uint64_t (*array)[][2], unsigned int n)
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_GATE_TIME:
+	case OTC_CONF_GATE_TIME:
 		*data = build_tuples(&timebases, ARRAY_SIZE(timebases));
 		break;
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_DATA_SOURCE:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(data_sources));
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	std_session_send_df_header(sdi);
 
@@ -213,10 +213,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 	bkprecision_1856d_init(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver bkprecision_1856d_driver_info = {
+static struct otc_dev_driver bkprecision_1856d_driver_info = {
 	.name = "bkprecision-1856d",
 	.longname = "B&K Precision 1856D",
 	.api_version = 1,
@@ -234,4 +234,4 @@ static struct sr_dev_driver bkprecision_1856d_driver_info = {
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(bkprecision_1856d_driver_info);
+OTC_REGISTER_DEV_DRIVER(bkprecision_1856d_driver_info);

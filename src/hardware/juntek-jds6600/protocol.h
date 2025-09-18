@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2023 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -21,10 +21,10 @@
 #define LIBSIGROK_HARDWARE_JUNTEK_JDS6600_PROTOCOL_H
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <stdint.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "juntek-jds6600"
 
@@ -57,23 +57,23 @@ struct dev_context {
 	GString *quick_req;
 };
 
-SR_PRIV int jds6600_identify(struct sr_dev_inst *sdi);
-SR_PRIV int jds6600_setup_devc(struct sr_dev_inst *sdi);
+OTC_PRIV int jds6600_identify(struct otc_dev_inst *sdi);
+OTC_PRIV int jds6600_setup_devc(struct otc_dev_inst *sdi);
 
-SR_PRIV int jds6600_get_chans_enable(const struct sr_dev_inst *sdi);
-SR_PRIV int jds6600_get_waveform(const struct sr_dev_inst *sdi, size_t ch_idx);
-SR_PRIV int jds6600_get_frequency(const struct sr_dev_inst *sdi, size_t ch_idx);
-SR_PRIV int jds6600_get_amplitude(const struct sr_dev_inst *sdi, size_t ch_idx);
-SR_PRIV int jds6600_get_offset(const struct sr_dev_inst *sdi, size_t ch_idx);
-SR_PRIV int jds6600_get_dutycycle(const struct sr_dev_inst *sdi, size_t ch_idx);
-SR_PRIV int jds6600_get_phase_chans(const struct sr_dev_inst *sdi);
+OTC_PRIV int jds6600_get_chans_enable(const struct otc_dev_inst *sdi);
+OTC_PRIV int jds6600_get_waveform(const struct otc_dev_inst *sdi, size_t ch_idx);
+OTC_PRIV int jds6600_get_frequency(const struct otc_dev_inst *sdi, size_t ch_idx);
+OTC_PRIV int jds6600_get_amplitude(const struct otc_dev_inst *sdi, size_t ch_idx);
+OTC_PRIV int jds6600_get_offset(const struct otc_dev_inst *sdi, size_t ch_idx);
+OTC_PRIV int jds6600_get_dutycycle(const struct otc_dev_inst *sdi, size_t ch_idx);
+OTC_PRIV int jds6600_get_phase_chans(const struct otc_dev_inst *sdi);
 
-SR_PRIV int jds6600_set_chans_enable(const struct sr_dev_inst *sdi);
-SR_PRIV int jds6600_set_waveform(const struct sr_dev_inst *sdi, size_t ch_idx);
-SR_PRIV int jds6600_set_frequency(const struct sr_dev_inst *sdi, size_t ch_idx);
-SR_PRIV int jds6600_set_amplitude(const struct sr_dev_inst *sdi, size_t ch_idx);
-SR_PRIV int jds6600_set_offset(const struct sr_dev_inst *sdi, size_t ch_idx);
-SR_PRIV int jds6600_set_dutycycle(const struct sr_dev_inst *sdi, size_t ch_idx);
-SR_PRIV int jds6600_set_phase_chans(const struct sr_dev_inst *sdi);
+OTC_PRIV int jds6600_set_chans_enable(const struct otc_dev_inst *sdi);
+OTC_PRIV int jds6600_set_waveform(const struct otc_dev_inst *sdi, size_t ch_idx);
+OTC_PRIV int jds6600_set_frequency(const struct otc_dev_inst *sdi, size_t ch_idx);
+OTC_PRIV int jds6600_set_amplitude(const struct otc_dev_inst *sdi, size_t ch_idx);
+OTC_PRIV int jds6600_set_offset(const struct otc_dev_inst *sdi, size_t ch_idx);
+OTC_PRIV int jds6600_set_dutycycle(const struct otc_dev_inst *sdi, size_t ch_idx);
+OTC_PRIV int jds6600_set_phase_chans(const struct otc_dev_inst *sdi);
 
 #endif

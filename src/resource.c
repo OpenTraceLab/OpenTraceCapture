@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Daniel Elstner <daniel.kitta@gmail.com>
  *
@@ -22,8 +22,8 @@
 #include <stdio.h>
 #include <glib.h>
 #include <glib/gstdio.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "resource"
@@ -44,15 +44,15 @@
  *
  * @since 0.6.0
  */
-SR_API GSList *sr_resourcepaths_get(int res_type)
+OTC_API GSList *otc_resourcepaths_get(int res_type)
 {
 	const char *subdir = NULL;
 	GSList *l = NULL;
 	const char *env;
 	const char *const *datadirs;
 
-	if (res_type == SR_RESOURCE_FIRMWARE) {
-		subdir = "sigrok-firmware";
+	if (res_type == OTC_RESOURCE_FIRMWARE) {
+		subdir = "opentracelab-firmware";
 
 		env = g_getenv("SIGROK_FIRMWARE_DIR");
 		if (env)
@@ -75,7 +75,7 @@ SR_API GSList *sr_resourcepaths_get(int res_type)
 	l = g_slist_append(l, g_build_filename(g_get_user_data_dir(), subdir, NULL));
 
 #ifdef FIRMWARE_DIR
-	if (res_type == SR_RESOURCE_FIRMWARE) {
+	if (res_type == OTC_RESOURCE_FIRMWARE) {
 		/*
 		 * Scan the hard-coded directory before the system directories to
 		 * avoid picking up possibly outdated files from a system install.
@@ -105,7 +105,7 @@ SR_API GSList *sr_resourcepaths_get(int res_type)
  *
  * @private
  */
-SR_PRIV int64_t sr_file_get_size(FILE *file)
+OTC_PRIV int64_t otc_file_get_size(FILE *file)
 {
 	off_t filepos, filesize;
 
@@ -147,16 +147,16 @@ static FILE *try_open_file(const char *datadir, const char *subdir,
 	file = g_fopen(filename, "rb");
 
 	if (file)
-		sr_info("Opened '%s'.", filename);
+		otc_info("Opened '%s'.", filename);
 	else
-		sr_spew("Attempt to open '%s' failed: %s",
+		otc_spew("Attempt to open '%s' failed: %s",
 			filename, g_strerror(errno));
 	g_free(filename);
 
 	return file;
 }
 
-static int resource_open_default(struct sr_resource *res,
+static int resource_open_default(struct otc_resource *res,
 		const char *name, void *cb_data)
 {
 	GSList *paths, *p = NULL;
@@ -165,12 +165,12 @@ static int resource_open_default(struct sr_resource *res,
 
 	(void)cb_data;
 
-	paths = sr_resourcepaths_get(res->type);
+	paths = otc_resourcepaths_get(res->type);
 
-	/* Currently, the enum only defines SR_RESOURCE_FIRMWARE. */
-	if (res->type != SR_RESOURCE_FIRMWARE) {
-		sr_err("%s: unknown type %d.", __func__, res->type);
-		return SR_ERR_ARG;
+	/* Currently, the enum only defines OTC_RESOURCE_FIRMWARE. */
+	if (res->type != OTC_RESOURCE_FIRMWARE) {
+		otc_err("%s: unknown type %d.", __func__, res->type);
+		return OTC_ERR_ARG;
 	}
 
 	p = paths;
@@ -181,24 +181,24 @@ static int resource_open_default(struct sr_resource *res,
 	g_slist_free_full(paths, g_free);
 
 	if (!file) {
-		sr_dbg("Failed to locate '%s'.", name);
-		return SR_ERR;
+		otc_dbg("Failed to locate '%s'.", name);
+		return OTC_ERR;
 	}
 
-	filesize = sr_file_get_size(file);
+	filesize = otc_file_get_size(file);
 	if (filesize < 0) {
-		sr_err("Failed to obtain size of '%s': %s",
+		otc_err("Failed to obtain size of '%s': %s",
 			name, g_strerror(errno));
 		fclose(file);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	res->size = filesize;
 	res->handle = file;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int resource_close_default(struct sr_resource *res, void *cb_data)
+static int resource_close_default(struct otc_resource *res, void *cb_data)
 {
 	FILE *file;
 
@@ -206,20 +206,20 @@ static int resource_close_default(struct sr_resource *res, void *cb_data)
 
 	file = res->handle;
 	if (!file) {
-		sr_err("%s: invalid handle.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: invalid handle.", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	if (fclose(file) < 0) {
-		sr_err("Failed to close file: %s", g_strerror(errno));
-		return SR_ERR;
+		otc_err("Failed to close file: %s", g_strerror(errno));
+		return OTC_ERR;
 	}
 	res->handle = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static gssize resource_read_default(const struct sr_resource *res,
+static gssize resource_read_default(const struct otc_resource *res,
 		void *buf, size_t count, void *cb_data)
 {
 	FILE *file;
@@ -229,19 +229,19 @@ static gssize resource_read_default(const struct sr_resource *res,
 
 	file = res->handle;
 	if (!file) {
-		sr_err("%s: invalid handle.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: invalid handle.", __func__);
+		return OTC_ERR_ARG;
 	}
 	if (count > G_MAXSSIZE) {
-		sr_err("%s: count %zu too large.", __func__, count);
-		return SR_ERR_ARG;
+		otc_err("%s: count %zu too large.", __func__, count);
+		return OTC_ERR_ARG;
 	}
 
 	n_read = fread(buf, 1, count, file);
 
 	if (n_read != count && ferror(file)) {
-		sr_err("Failed to read resource file: %s", g_strerror(errno));
-		return SR_ERR;
+		otc_err("Failed to read resource file: %s", g_strerror(errno));
+		return OTC_ERR;
 	}
 	return n_read;
 }
@@ -249,25 +249,25 @@ static gssize resource_read_default(const struct sr_resource *res,
 /**
  * Install resource access hooks.
  *
- * @param ctx libsigrok context. Must not be NULL.
+ * @param ctx libopentracecapture context. Must not be NULL.
  * @param open_cb Resource open callback, or NULL to unset.
  * @param close_cb Resource close callback, or NULL to unset.
  * @param read_cb Resource read callback, or NULL to unset.
  * @param cb_data User data pointer passed to callbacks.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  *
  * @since 0.4.0
  */
-SR_API int sr_resource_set_hooks(struct sr_context *ctx,
-		sr_resource_open_callback open_cb,
-		sr_resource_close_callback close_cb,
-		sr_resource_read_callback read_cb, void *cb_data)
+OTC_API int otc_resource_set_hooks(struct otc_context *ctx,
+		otc_resource_open_callback open_cb,
+		otc_resource_close_callback close_cb,
+		otc_resource_read_callback read_cb, void *cb_data)
 {
 	if (!ctx) {
-		sr_err("%s: ctx was NULL.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: ctx was NULL.", __func__);
+		return OTC_ERR_ARG;
 	}
 	if (open_cb && close_cb && read_cb) {
 		ctx->resource_open_cb = open_cb;
@@ -280,28 +280,28 @@ SR_API int sr_resource_set_hooks(struct sr_context *ctx,
 		ctx->resource_read_cb = &resource_read_default;
 		ctx->resource_cb_data = ctx;
 	} else {
-		sr_err("%s: inconsistent callback pointers.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: inconsistent callback pointers.", __func__);
+		return OTC_ERR_ARG;
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
  * Open resource.
  *
- * @param ctx libsigrok context. Must not be NULL.
+ * @param ctx libopentracecapture context. Must not be NULL.
  * @param[out] res Resource descriptor to fill in. Must not be NULL.
  * @param type Resource type ID.
  * @param name Name of the resource. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
- * @retval SR_ERR Other error.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
+ * @retval OTC_ERR Other error.
  *
  * @private
  */
-SR_PRIV int sr_resource_open(struct sr_context *ctx,
-		struct sr_resource *res, int type, const char *name)
+OTC_PRIV int otc_resource_open(struct otc_context *ctx,
+		struct otc_resource *res, int type, const char *name)
 {
 	int ret;
 
@@ -311,8 +311,8 @@ SR_PRIV int sr_resource_open(struct sr_context *ctx,
 
 	ret = (*ctx->resource_open_cb)(res, name, ctx->resource_cb_data);
 
-	if (ret != SR_OK)
-		sr_err("Failed to open resource '%s' (use loglevel 5/spew for"
+	if (ret != OTC_OK)
+		otc_err("Failed to open resource '%s' (use loglevel 5/spew for"
 		       " details).", name);
 
 	return ret;
@@ -321,23 +321,23 @@ SR_PRIV int sr_resource_open(struct sr_context *ctx,
 /**
  * Close resource.
  *
- * @param ctx libsigrok context. Must not be NULL.
+ * @param ctx libopentracecapture context. Must not be NULL.
  * @param[inout] res Resource descriptor. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
- * @retval SR_ERR Other error.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
+ * @retval OTC_ERR Other error.
  *
  * @private
  */
-SR_PRIV int sr_resource_close(struct sr_context *ctx, struct sr_resource *res)
+OTC_PRIV int otc_resource_close(struct otc_context *ctx, struct otc_resource *res)
 {
 	int ret;
 
 	ret = (*ctx->resource_close_cb)(res, ctx->resource_cb_data);
 
-	if (ret != SR_OK)
-		sr_err("Failed to close resource.");
+	if (ret != OTC_OK)
+		otc_err("Failed to close resource.");
 
 	return ret;
 }
@@ -345,26 +345,26 @@ SR_PRIV int sr_resource_close(struct sr_context *ctx, struct sr_resource *res)
 /**
  * Read resource data.
  *
- * @param ctx libsigrok context. Must not be NULL.
+ * @param ctx libopentracecapture context. Must not be NULL.
  * @param[in] res Resource descriptor. Must not be NULL.
  * @param[out] buf Buffer to store @a count bytes into. Must not be NULL.
  * @param count Number of bytes to read.
  *
  * @return The number of bytes actually read, or a negative value on error.
- * @retval SR_ERR_ARG Invalid argument.
- * @retval SR_ERR Other error.
+ * @retval OTC_ERR_ARG Invalid argument.
+ * @retval OTC_ERR Other error.
  *
  * @private
  */
-SR_PRIV gssize sr_resource_read(struct sr_context *ctx,
-		const struct sr_resource *res, void *buf, size_t count)
+OTC_PRIV gssize otc_resource_read(struct otc_context *ctx,
+		const struct otc_resource *res, void *buf, size_t count)
 {
 	gssize n_read;
 
 	n_read = (*ctx->resource_read_cb)(res, buf, count,
 			ctx->resource_cb_data);
 	if (n_read < 0)
-		sr_err("Failed to read resource.");
+		otc_err("Failed to read resource.");
 
 	return n_read;
 }
@@ -372,7 +372,7 @@ SR_PRIV gssize sr_resource_read(struct sr_context *ctx,
 /**
  * Load a resource into memory.
  *
- * @param ctx libsigrok context. Must not be NULL.
+ * @param ctx libopentracecapture context. Must not be NULL.
  * @param type Resource type ID.
  * @param name Name of the resource. Must not be NULL.
  * @param[out] size Size in bytes of the returned buffer. Must not be NULL.
@@ -383,38 +383,38 @@ SR_PRIV gssize sr_resource_read(struct sr_context *ctx,
  *
  * @private
  */
-SR_PRIV void *sr_resource_load(struct sr_context *ctx,
+OTC_PRIV void *otc_resource_load(struct otc_context *ctx,
 		int type, const char *name, size_t *size, size_t max_size)
 {
-	struct sr_resource res;
+	struct otc_resource res;
 	void *buf;
 	size_t res_size;
 	gssize n_read;
 
-	if (sr_resource_open(ctx, &res, type, name) != SR_OK)
+	if (otc_resource_open(ctx, &res, type, name) != OTC_OK)
 		return NULL;
 
 	if (res.size > max_size) {
-		sr_err("Size %" PRIu64 " of '%s' exceeds limit %zu.",
+		otc_err("Size %" PRIu64 " of '%s' exceeds limit %zu.",
 			res.size, name, max_size);
-		sr_resource_close(ctx, &res);
+		otc_resource_close(ctx, &res);
 		return NULL;
 	}
 	res_size = res.size;
 
 	buf = g_try_malloc(res_size);
 	if (!buf) {
-		sr_err("Failed to allocate buffer for '%s'.", name);
-		sr_resource_close(ctx, &res);
+		otc_err("Failed to allocate buffer for '%s'.", name);
+		otc_resource_close(ctx, &res);
 		return NULL;
 	}
 
-	n_read = sr_resource_read(ctx, &res, buf, res_size);
-	sr_resource_close(ctx, &res);
+	n_read = otc_resource_read(ctx, &res, buf, res_size);
+	otc_resource_close(ctx, &res);
 
 	if (n_read < 0 || (size_t)n_read != res_size) {
 		if (n_read >= 0)
-			sr_err("Failed to read '%s': premature end of file.",
+			otc_err("Failed to read '%s': premature end of file.",
 				name);
 		g_free(buf);
 		return NULL;

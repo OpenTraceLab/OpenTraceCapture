@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -98,8 +98,8 @@
 #include <math.h>
 #include <string.h>
 #include <strings.h>
-#include "libsigrok/libsigrok.h"
-#include "libsigrok-internal.h"
+#include "opentracecapture/libopentracecapture.h"
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "eev121gw"
 
@@ -304,7 +304,7 @@ enum acdc_codes {
 	ACDC_ACDC,
 };
 
-SR_PRIV const char *eev121gw_channel_formats[EEV121GW_DISPLAY_COUNT] = {
+OTC_PRIV const char *eev121gw_channel_formats[EEV121GW_DISPLAY_COUNT] = {
 	/*
  	 * TODO:
 	 * The "main", "sub", "bar" names were taken from the packet
@@ -321,7 +321,7 @@ SR_PRIV const char *eev121gw_channel_formats[EEV121GW_DISPLAY_COUNT] = {
  */
 struct mode_range_item {
 	const char *desc; /* Description, for diagnostics. */
-	int digits; /* Number of significant digits, see @ref sr_analog_encoding. */
+	int digits; /* Number of significant digits, see @ref otc_analog_encoding. */
 	int factor; /* Factor to convert the uint to a float. */
 };
 
@@ -633,7 +633,7 @@ static const struct mode_range_item *mode_range_get_scale(
 	return NULL;
 }
 
-SR_PRIV gboolean sr_eev121gw_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_eev121gw_packet_valid(const uint8_t *buf)
 {
 	uint8_t csum;
 	size_t idx;
@@ -663,11 +663,11 @@ SR_PRIV gboolean sr_eev121gw_packet_valid(const uint8_t *buf)
 		csum ^= buf[idx];
 	if (csum != buf[OFF_CHECKSUM]) {
 		/* Non-critical condition, almost expected to see invalid data. */
-		sr_spew("Packet csum: want %02x, got %02x.", csum, buf[OFF_CHECKSUM]);
+		otc_spew("Packet csum: want %02x, got %02x.", csum, buf[OFF_CHECKSUM]);
 		return FALSE;
 	}
 
-	sr_spew("Packet valid.");
+	otc_spew("Packet valid.");
 
 	return TRUE;
 }
@@ -679,18 +679,18 @@ SR_PRIV gboolean sr_eev121gw_packet_valid(const uint8_t *buf)
  * @param[out] floatval Pointer to a float variable. That variable will be
  *             modified in-place depending on the protocol packet.
  *             Must not be NULL.
- * @param[out] analog Pointer to a struct sr_datafeed_analog. The struct will
+ * @param[out] analog Pointer to a struct otc_datafeed_analog. The struct will
  *             be filled with data according to the protocol packet.
  *             Must not be NULL.
  * @param[out] info Pointer to a struct eevblog_121gw_info. The struct will be
  *             filled with data according to the protocol packet.
  *             Must not be NULL.
  *
- * @return SR_OK upon success, SR_ERR upon failure. Upon errors, the
+ * @return OTC_OK upon success, OTC_ERR upon failure. Upon errors, the
  *         'analog' variable contents are undefined and should not be used.
  */
-static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
-		struct sr_datafeed_analog *analog, void *info)
+static int otc_eev121gw_parse(const uint8_t *buf, float *floatval,
+		struct otc_datafeed_analog *analog, void *info)
 {
 	struct eev121gw_info *info_local;
 	enum eev121gw_display display;
@@ -761,7 +761,7 @@ static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
 		ser_year = FIELD_NL(raw_serial, SERIAL_YEAR);
 		ser_mon = FIELD_NL(raw_serial, SERIAL_MONTH);
 		ser_nr = FIELD_NL(raw_serial, SERIAL_NUMBER);
-		sr_spew("Packet: Y-M %x-%x, nr %x.", ser_year, ser_mon, ser_nr);
+		otc_spew("Packet: Y-M %x-%x, nr %x.", ser_year, ser_mon, ser_nr);
 	} else {
 		(void)raw_serial;	/* Silence compiler warning. */
 	}
@@ -781,7 +781,7 @@ static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
 		scale = mode_range_get_scale(EEV121GW_DISPLAY_MAIN,
 			main_mode, main_range);
 		if (!scale)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		info_local->factor = scale->factor;
 		info_local->digits = scale->digits;
 
@@ -956,7 +956,7 @@ static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
 			break;
 		/* Modes 100-199 only apply to the secondary display. */
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 
 		/*
@@ -1015,7 +1015,7 @@ static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
 		if (FIELD_NB(raw_icon_stat_3, ICON_STS3_DC))
 			info_local->is_dc = TRUE;
 
-		sr_spew("Disp '%s', value: %lu (ov %d, neg %d), mode %d, range %d.",
+		otc_spew("Disp '%s', value: %lu (ov %d, neg %d), mode %d, range %d.",
 			channel_name,
 			(unsigned long)info_local->uint_value,
 			info_local->is_ofl, info_local->is_neg,
@@ -1041,7 +1041,7 @@ static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
 		scale = mode_range_get_scale(EEV121GW_DISPLAY_SUB,
 			sub_mode, sub_range);
 		if (!scale)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		info_local->factor = scale->factor;
 		info_local->digits = scale->digits;
 
@@ -1125,7 +1125,7 @@ static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
 			 * This "display value" is only seen during setup
 			 * but not during regular operation of continuity
 			 * mode. :( In theory we could somehow pass the
-			 * 30/300 ohm limit to sigrok, but that'd be of
+			 * 30/300 ohm limit to opentracelab, but that'd be of
 			 * somewhat limited use.
 			 */
 			cont_code = sub_mode - MODE_SUB_CONT_PARM_0;
@@ -1150,14 +1150,14 @@ static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
 		case MODE_SUB_YEAR:
 		case MODE_SUB_DATE:
 		case MODE_SUB_TIME:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 
 		/* Unknown / unsupported sub display mode. */
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 
-		sr_spew("disp '%s', value: %lu (ov %d, neg %d), mode %d, range %d",
+		otc_spew("disp '%s', value: %lu (ov %d, neg %d), mode %d, range %d",
 			channel_name,
 			(unsigned long)info_local->uint_value,
 			info_local->is_ofl, info_local->is_neg,
@@ -1176,9 +1176,9 @@ static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
 		 * values, we refuse to use the bargraph value then.
 		 */
 		if (FIELD_NB(raw_bar_status, BAR_STATUS_USE))
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if (FIELD_NB(raw_bar_value, BAR_VALUE_RSV_5))
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		uint_value = FIELD_NL(raw_bar_value, BAR_VALUE_VALUE);
 		if (uint_value > BAR_VALUE_MAX)
 			uint_value = BAR_VALUE_MAX;
@@ -1209,19 +1209,19 @@ static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
 			info_local->digits = -1;
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 		info_local->uint_value = uint_value;
 		info_local->is_unitless = TRUE;
-		sr_spew("Disp '%s', value: %u.", channel_name,
+		otc_spew("Disp '%s', value: %u.", channel_name,
 			(unsigned int)info_local->uint_value);
 		/* Advance to the number and units conversion below. */
 		break;
 
 	default:
 		/* Unknown display, programmer's error, ShouldNotHappen(TM). */
-		sr_err("Disp '-?-'.");
-		return SR_ERR_ARG;
+		otc_err("Disp '-?-'.");
+		return OTC_ERR_ARG;
 	}
 
 	/*
@@ -1246,91 +1246,91 @@ static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
 	 */
 	/* Determine the quantity itself. */
 	if (info_local->is_voltage)
-		analog->meaning->mq = SR_MQ_VOLTAGE;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
 	if (info_local->is_current)
-		analog->meaning->mq = SR_MQ_CURRENT;
+		analog->meaning->mq = OTC_MQ_CURRENT;
 	if (info_local->is_power)
-		analog->meaning->mq = SR_MQ_POWER;
+		analog->meaning->mq = OTC_MQ_POWER;
 	if (info_local->is_gain)
-		analog->meaning->mq = SR_MQ_GAIN;
+		analog->meaning->mq = OTC_MQ_GAIN;
 	if (info_local->is_resistance)
-		analog->meaning->mq = SR_MQ_RESISTANCE;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
 	if (info_local->is_capacitance)
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
 	if (info_local->is_diode)
-		analog->meaning->mq = SR_MQ_VOLTAGE;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
 	if (info_local->is_temperature)
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
 	if (info_local->is_continuity)
-		analog->meaning->mq = SR_MQ_CONTINUITY;
+		analog->meaning->mq = OTC_MQ_CONTINUITY;
 	if (info_local->is_frequency)
-		analog->meaning->mq = SR_MQ_FREQUENCY;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
 	if (info_local->is_period)
-		analog->meaning->mq = SR_MQ_TIME;
+		analog->meaning->mq = OTC_MQ_TIME;
 	if (info_local->is_duty_cycle)
-		analog->meaning->mq = SR_MQ_DUTY_CYCLE;
+		analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
 	if (info_local->is_unitless)
-		analog->meaning->mq = SR_MQ_COUNT;
+		analog->meaning->mq = OTC_MQ_COUNT;
 	/* Add AC / DC / DC+AC flags. */
 	if (info_local->is_ac)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (info_local->is_dc)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	/* Specify units. */
 	if (info_local->is_ampere)
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 	if (info_local->is_volt)
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	if (info_local->is_volt_ampere)
-		analog->meaning->unit = SR_UNIT_VOLT_AMPERE;
+		analog->meaning->unit = OTC_UNIT_VOLT_AMPERE;
 	if (info_local->is_dbm)
-		analog->meaning->unit = SR_UNIT_DECIBEL_VOLT;
+		analog->meaning->unit = OTC_UNIT_DECIBEL_VOLT;
 	if (info_local->is_ohm)
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	if (info_local->is_farad)
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 	if (info_local->is_celsius)
-		analog->meaning->unit = SR_UNIT_CELSIUS;
+		analog->meaning->unit = OTC_UNIT_CELSIUS;
 	if (info_local->is_fahrenheit)
-		analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+		analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 	if (info_local->is_hertz)
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 	if (info_local->is_seconds)
-		analog->meaning->unit = SR_UNIT_SECOND;
+		analog->meaning->unit = OTC_UNIT_SECOND;
 	if (info_local->is_percent)
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 	if (info_local->is_loop_current)
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 	if (info_local->is_unitless)
-		analog->meaning->unit = SR_UNIT_UNITLESS;
+		analog->meaning->unit = OTC_UNIT_UNITLESS;
 	if (info_local->is_logic)
-		analog->meaning->unit = SR_UNIT_UNITLESS;
+		analog->meaning->unit = OTC_UNIT_UNITLESS;
 	/* Add other indicator flags. */
 	if (info_local->is_diode) {
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE;
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	}
 	if (info_local->is_min)
-		analog->meaning->mqflags |= SR_MQFLAG_MIN;
+		analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 	if (info_local->is_max)
-		analog->meaning->mqflags |= SR_MQFLAG_MAX;
+		analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 	if (info_local->is_avg)
-		analog->meaning->mqflags |= SR_MQFLAG_AVG;
+		analog->meaning->mqflags |= OTC_MQFLAG_AVG;
 	/* TODO: How to communicate info_local->is_1ms_peak? */
 	if (info_local->is_rel)
-		analog->meaning->mqflags |= SR_MQFLAG_RELATIVE;
+		analog->meaning->mqflags |= OTC_MQFLAG_RELATIVE;
 	if (info_local->is_hold)
-		analog->meaning->mqflags |= SR_MQFLAG_HOLD;
+		analog->meaning->mqflags |= OTC_MQFLAG_HOLD;
 	/* TODO: How to communicate info_local->is_low_pass? */
 	if (info_local->is_mem)	/* XXX Is REF appropriate here? */
-		analog->meaning->mqflags |= SR_MQFLAG_REFERENCE;
+		analog->meaning->mqflags |= OTC_MQFLAG_REFERENCE;
 	if (info_local->is_auto_range)
-		analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 	/* TODO: How to communicate info->is_test? What's its meaning at all? */
 	/* TODO: How to communicate info->is_auto_poweroff? */
 	/* TODO: How to communicate info->is_low_batt? */
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1339,8 +1339,8 @@ static int sr_eev121gw_parse(const uint8_t *buf, float *floatval,
  * to keep the channel index in place, even if the parse routine will
  * clear the info structure.
  */
-SR_PRIV int sr_eev121gw_3displays_parse(const uint8_t *buf, float *floatval,
-		struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_eev121gw_3displays_parse(const uint8_t *buf, float *floatval,
+		struct otc_datafeed_analog *analog, void *info)
 {
 	struct eev121gw_info *info_local;
 	size_t ch_idx;
@@ -1348,7 +1348,7 @@ SR_PRIV int sr_eev121gw_3displays_parse(const uint8_t *buf, float *floatval,
 
 	info_local = info;
 	ch_idx = info_local->ch_idx;
-	rc = sr_eev121gw_parse(buf, floatval, analog, info);
+	rc = otc_eev121gw_parse(buf, floatval, analog, info);
 	info_local->ch_idx = ch_idx + 1;
 
 	return rc;

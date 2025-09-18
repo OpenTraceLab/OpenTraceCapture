@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2014 Matthias Heidbrink <m-sigrok@heidbrink.biz>
+ * Copyright (C) 2014 Matthias Heidbrink <m-opentracelab@heidbrink.biz>
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com> (code from atten-pps3xxx)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,43 +24,43 @@
 #include <string.h>
 #include "protocol.h"
 
-SR_PRIV int lps_read_reply(struct sr_serial_dev_inst *serial, char **buf, int *buflen);
-SR_PRIV int lps_send_va(struct sr_serial_dev_inst *serial, const char *fmt, va_list args);
-SR_PRIV int lps_cmd_ok(struct sr_serial_dev_inst *serial, const char *fmt, ...);
-SR_PRIV int lps_cmd_reply(char *reply, struct sr_serial_dev_inst *serial, const char *fmt, ...);
-SR_PRIV int lps_query_status(struct sr_dev_inst *sdi);
+OTC_PRIV int lps_read_reply(struct otc_serial_dev_inst *serial, char **buf, int *buflen);
+OTC_PRIV int lps_send_va(struct otc_serial_dev_inst *serial, const char *fmt, va_list args);
+OTC_PRIV int lps_cmd_ok(struct otc_serial_dev_inst *serial, const char *fmt, ...);
+OTC_PRIV int lps_cmd_reply(char *reply, struct otc_serial_dev_inst *serial, const char *fmt, ...);
+OTC_PRIV int lps_query_status(struct otc_dev_inst *sdi);
 
 #define SERIALCOMM "2400/8n1/dtr=1/rts=1/flow=0"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_POWER_SUPPLY,
+	OTC_CONF_POWER_SUPPLY,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_CHANNEL_CONFIG | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_CHANNEL_CONFIG | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 /** Hardware capabilities channel 1, 2. */
 static const uint32_t devopts_cg_ch12[] = {
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 /** Hardware capabilities channel 3 (LPS-304/305 only). */
 static const uint32_t devopts_cg_ch3[] = {
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const char *channel_modes[] = {
@@ -116,7 +116,7 @@ static const struct lps_modelspec models[] = {
 };
 
 /** Send command to device with va_list. */
-SR_PRIV int lps_send_va(struct sr_serial_dev_inst *serial, const char *fmt, va_list args)
+OTC_PRIV int lps_send_va(struct otc_serial_dev_inst *serial, const char *fmt, va_list args)
 {
 	int retc;
 	char auxfmt[LINELEN_MAX];
@@ -125,19 +125,19 @@ SR_PRIV int lps_send_va(struct sr_serial_dev_inst *serial, const char *fmt, va_l
 	snprintf(auxfmt, sizeof(auxfmt), "%s\r\n", fmt);
 	vsnprintf(buf, sizeof(buf), auxfmt, args);
 
-	sr_spew("lps_send_va: \"%s\"", buf);
+	otc_spew("lps_send_va: \"%s\"", buf);
 
 	retc = serial_write_blocking(serial, buf, strlen(buf),
 			serial_timeout(serial, strlen(buf)));
 
 	if (retc < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** Send command to device. */
-SR_PRIV int lps_send_req(struct sr_serial_dev_inst *serial, const char *fmt, ...)
+OTC_PRIV int lps_send_req(struct otc_serial_dev_inst *serial, const char *fmt, ...)
 {
 	int retc;
 	va_list args;
@@ -150,7 +150,7 @@ SR_PRIV int lps_send_req(struct sr_serial_dev_inst *serial, const char *fmt, ...
 }
 
 /** Send command and consume simple OK reply. */
-SR_PRIV int lps_cmd_ok(struct sr_serial_dev_inst *serial, const char *fmt, ...)
+OTC_PRIV int lps_cmd_ok(struct otc_serial_dev_inst *serial, const char *fmt, ...)
 {
 	int retc;
 	va_list args;
@@ -163,25 +163,25 @@ SR_PRIV int lps_cmd_ok(struct sr_serial_dev_inst *serial, const char *fmt, ...)
 	retc = lps_send_va(serial, fmt, args);
 	va_end(args);
 
-	if (retc != SR_OK)
-		return SR_ERR;
+	if (retc != OTC_OK)
+		return OTC_ERR;
 
 	/* Read reply */
 	buf[0] = '\0';
 	bufptr = buf;
 	buflen = sizeof(buf);
 	retc = lps_read_reply(serial, &bufptr, &buflen);
-	if ((retc == SR_OK) && (buflen == 0))
-		return SR_OK;
+	if ((retc == OTC_OK) && (buflen == 0))
+		return OTC_OK;
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
 /**
  * Send command and read reply string.
  * @param reply Pointer to buffer of size LINELEN_MAX. Will be NUL-terminated.
  */
-SR_PRIV int lps_cmd_reply(char *reply, struct sr_serial_dev_inst *serial, const char *fmt, ...)
+OTC_PRIV int lps_cmd_reply(char *reply, struct otc_serial_dev_inst *serial, const char *fmt, ...)
 {
 	int retc;
 	va_list args;
@@ -196,36 +196,36 @@ SR_PRIV int lps_cmd_reply(char *reply, struct sr_serial_dev_inst *serial, const 
 	retc = lps_send_va(serial, fmt, args);
 	va_end(args);
 
-	if (retc != SR_OK)
-		return SR_ERR;
+	if (retc != OTC_OK)
+		return OTC_ERR;
 
 	/* Read reply */
 	buf[0] = '\0';
 	bufptr = buf;
 	buflen = sizeof(buf);
 	retc = lps_read_reply(serial, &bufptr, &buflen);
-	if ((retc == SR_OK) && (buflen > 0)) {
+	if ((retc == OTC_OK) && (buflen > 0)) {
 		strcpy(reply, buf);
-		return SR_OK;
+		return OTC_OK;
 	}
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
 /** Process integer value returned by STATUS command. */
-SR_PRIV int lps_process_status(struct sr_dev_inst *sdi, int stat)
+OTC_PRIV int lps_process_status(struct otc_dev_inst *sdi, int stat)
 {
 	struct dev_context *devc;
 	int tracking_mode;
 
 	devc = sdi->priv;
 
-	sr_spew("Status: %d", stat);
+	otc_spew("Status: %d", stat);
 	devc->channel_status[0].cc_mode = (stat & 0x01) != 0;
-	sr_spew("Channel 1 %s mode", devc->channel_status[0].cc_mode?"CC":"CV");
+	otc_spew("Channel 1 %s mode", devc->channel_status[0].cc_mode?"CC":"CV");
 	if (devc->model->num_channels > 1) {
 		devc->channel_status[1].cc_mode = (stat & 0x02) != 0;
-		sr_spew("Channel 2 %s mode", devc->channel_status[1].cc_mode?"CC":"CV");
+		otc_spew("Channel 2 %s mode", devc->channel_status[1].cc_mode?"CC":"CV");
 
 		tracking_mode = (stat & 0x0c) >> 2;
 		switch (tracking_mode) {
@@ -236,30 +236,30 @@ SR_PRIV int lps_process_status(struct sr_dev_inst *sdi, int stat)
 		case 3: devc->tracking_mode = 2;
 			break;
 		default:
-			sr_err("Illegal channel tracking mode %d!", tracking_mode);
+			otc_err("Illegal channel tracking mode %d!", tracking_mode);
 			devc->tracking_mode = 0;
 			break;
 		}
 
-		sr_spew("Channel tracking: %d", devc->tracking_mode);
+		otc_spew("Channel tracking: %d", devc->tracking_mode);
 	}
 	devc->channel_status[0].output_enabled = devc->channel_status[1].output_enabled = stat&0x040?TRUE:FALSE;
-	sr_spew("Channel 1%s output: %s", devc->model->num_channels > 1?"+2":"", devc->channel_status[0].output_enabled?"ON":"OFF");
+	otc_spew("Channel 1%s output: %s", devc->model->num_channels > 1?"+2":"", devc->channel_status[0].output_enabled?"ON":"OFF");
 	if (devc->model->num_channels > 2) {
 		devc->channel_status[2].output_enabled = stat&0x010?TRUE:FALSE;
 		devc->channel_status[2].output_voltage_last = stat&0x020?3.3:5;
-		sr_spew("Channel 3 output: %s, U=%02f V, overload=%d",
+		otc_spew("Channel 3 output: %s, U=%02f V, overload=%d",
 			devc->channel_status[2].output_enabled?"ON":"OFF",
 			devc->channel_status[2].output_voltage_last,
 			stat&0x080?1:0);
 	}
-	sr_spew("Fan=%d, beep=%d, CC output compensated=%d", stat&0x0100?1:0, stat&0x0200?1:0, stat&0x0400?1:0);
+	otc_spew("Fan=%d, beep=%d, CC output compensated=%d", stat&0x0100?1:0, stat&0x0200?1:0, stat&0x0400?1:0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** Send STATUS commend and process status string. */
-SR_PRIV int lps_query_status(struct sr_dev_inst *sdi)
+OTC_PRIV int lps_query_status(struct otc_dev_inst *sdi)
 {
 	char buf[LINELEN_MAX];
 	int stat, ret;
@@ -270,13 +270,13 @@ SR_PRIV int lps_query_status(struct sr_dev_inst *sdi)
 	devc->req_sent_at = g_get_real_time();
 
 	if ((ret = lps_cmd_reply(buf, sdi->conn, "STATUS")) < 0) {
-		sr_err("%s: Failed to read status: %s.", __func__,
-			sr_strerror(ret));
-		return SR_ERR;
+		otc_err("%s: Failed to read status: %s.", __func__,
+			otc_strerror(ret));
+		return OTC_ERR;
 	}
 
-	if (sr_atoi(buf, &stat) != SR_OK)
-		return SR_ERR;
+	if (otc_atoi(buf, &stat) != OTC_OK)
+		return OTC_ERR;
 
 	return lps_process_status(sdi, stat);
 }
@@ -294,10 +294,10 @@ static gint64 calc_timeout_ms(gint64 start_us)
 /**
  * Read message into buf until "OK" received.
  *
- * @retval SR_OK Msg received; buf and buflen contain result, if any except OK.
- * @retval SR_ERR Error, including timeout.
+ * @retval OTC_OK Msg received; buf and buflen contain result, if any except OK.
+ * @retval OTC_ERR Error, including timeout.
 */
-SR_PRIV int lps_read_reply(struct sr_serial_dev_inst *serial, char **buf, int *buflen)
+OTC_PRIV int lps_read_reply(struct otc_serial_dev_inst *serial, char **buf, int *buflen)
 {
 	int retries;
 	char buf2[LINELEN_MAX];
@@ -314,12 +314,12 @@ SR_PRIV int lps_read_reply(struct sr_serial_dev_inst *serial, char **buf, int *b
 	 * call, but device sends up to 4 in a row. */
 	for (retries = 0; retries < 5; retries++) {
 		*buflen = buf2len;
-		if (serial_readline(serial, buf, buflen, calc_timeout_ms(timeout_start)) != SR_OK)
-			return SR_ERR;
+		if (serial_readline(serial, buf, buflen, calc_timeout_ms(timeout_start)) != OTC_OK)
+			return OTC_ERR;
 		if (!strcmp(*buf, "OK")) { /* We got an OK! */
 			*buf[0] = '\0';
 			*buflen = 0;
-			return SR_OK;
+			return OTC_OK;
 		}
 		if (*buflen > 0) /* We got a msg! */
 			break;
@@ -330,31 +330,31 @@ SR_PRIV int lps_read_reply(struct sr_serial_dev_inst *serial, char **buf, int *b
 	buf2ptr = buf2;
 	for (retries = 0; retries < 5; retries++) {
 		buf2len = sizeof(buf2);
-		if (serial_readline(serial, &buf2ptr, &buf2len, calc_timeout_ms(timeout_start)) != SR_OK)
-			return SR_ERR;
+		if (serial_readline(serial, &buf2ptr, &buf2len, calc_timeout_ms(timeout_start)) != OTC_OK)
+			return OTC_ERR;
 
 		if (!strcmp(buf2ptr, "OK")) { /* We got an OK! */
 			if (!strcmp(*buf, "ERROR")) { /* OK came after msg ERROR! */
-				sr_spew("ERROR found!");
+				otc_spew("ERROR found!");
 				*buf[0] = '\0';
 				*buflen = 0;
-				return SR_ERR;
+				return OTC_ERR;
 			}
-			return SR_OK;
+			return OTC_OK;
 		}
 	}
 
-	return SR_ERR; /* Timeout! */
+	return OTC_ERR; /* Timeout! */
 }
 
 /** Scan for LPS-300 series device. */
-static GSList *do_scan(lps_modelid modelid, struct sr_dev_driver *drv, GSList *options)
+static GSList *do_scan(lps_modelid modelid, struct otc_dev_driver *drv, GSList *options)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
-	struct sr_channel *ch;
-	struct sr_channel_group *cg;
+	struct otc_serial_dev_inst *serial;
+	struct otc_channel *ch;
+	struct otc_channel_group *cg;
 	const char *conn, *serialcomm;
 	int cnt, ret;
 	gchar buf[LINELEN_MAX];
@@ -367,22 +367,22 @@ static GSList *do_scan(lps_modelid modelid, struct sr_dev_driver *drv, GSList *o
 	/* Process and check options. */
 	conn = NULL;
 	serialcomm = SERIALCOMM;
-	if (sr_serial_extract_options(options, &conn, &serialcomm) != SR_OK)
+	if (otc_serial_extract_options(options, &conn, &serialcomm) != OTC_OK)
 		return NULL;
 
 	/* Init serial port. */
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
 
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
 		goto exit_err;
 
 	/* Query and verify model string. */
-	if (lps_cmd_reply(buf, serial, "MODEL") != SR_OK)
+	if (lps_cmd_reply(buf, serial, "MODEL") != OTC_OK)
 		return NULL;
 
 	/* Check model string. */
 	if (strncmp(buf, "LPS-", 4)) {
-		sr_spew("Unknown model code \"%s\"!", buf);
+		otc_spew("Unknown model code \"%s\"!", buf);
 		return NULL;
 	}
 
@@ -396,16 +396,16 @@ static GSList *do_scan(lps_modelid modelid, struct sr_dev_driver *drv, GSList *o
 			}
 		}
 		if (modelid == LPS_UNKNOWN) {
-			sr_err("Unable to detect model from model string '%s'!", buf);
+			otc_err("Unable to detect model from model string '%s'!", buf);
 			return NULL;
 		}
 	}
 
 	/* Query version */
 	verstr = NULL;
-	if ((ret = lps_cmd_reply(buf, serial, "VERSION")) == SR_OK) {
+	if ((ret = lps_cmd_reply(buf, serial, "VERSION")) == OTC_OK) {
 		if (strncmp(buf, "Ver-", 4)) {
-			sr_spew("Version string %s not recognized.", buf);
+			otc_spew("Version string %s not recognized.", buf);
 			goto exit_err;
 		}
 
@@ -414,19 +414,19 @@ static GSList *do_scan(lps_modelid modelid, struct sr_dev_driver *drv, GSList *o
 	}
 	else /* Bug in device FW 1.17: Querying version string fails while output is active.
 		Therefore just print an error message, but do not exit with error. */
-		sr_err("Failed to query for hardware version: %s.",
-			sr_strerror(ret));
+		otc_err("Failed to query for hardware version: %s.",
+			otc_strerror(ret));
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("Motech");
 	sdi->model = g_strdup(models[modelid].modelstr);
 	sdi->version = g_strdup(verstr);
-	sdi->inst_type = SR_INST_SERIAL;
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->conn = serial;
 
 	devc = g_malloc0(sizeof(struct dev_context));
-	sr_sw_limits_init(&devc->limits);
+	otc_sw_limits_init(&devc->limits);
 	devc->model = &models[modelid];
 
 	sdi->priv = devc;
@@ -434,17 +434,17 @@ static GSList *do_scan(lps_modelid modelid, struct sr_dev_driver *drv, GSList *o
 	/* Setup channels and channel groups. */
 	for (cnt = 0; cnt < models[modelid].num_channels; cnt++) {
 		snprintf(channel, sizeof(channel), "CH%d", cnt + 1);
-		ch = sr_channel_new(sdi, cnt, SR_CHANNEL_ANALOG, TRUE, channel);
+		ch = otc_channel_new(sdi, cnt, OTC_CHANNEL_ANALOG, TRUE, channel);
 
 		devc->channel_status[cnt].info = g_slist_append(NULL, ch);
 
 		snprintf(channel, sizeof(channel), "CG%d", cnt + 1);
-		cg = sr_channel_group_new(sdi, channel, NULL);
+		cg = otc_channel_group_new(sdi, channel, NULL);
 		cg->channels = g_slist_append(NULL, ch);
 	}
 
 	/* Query status */
-	if (lps_query_status(sdi) != SR_OK)
+	if (lps_query_status(sdi) != OTC_OK)
 		goto exit_err;
 
 	serial_close(serial);
@@ -452,19 +452,19 @@ static GSList *do_scan(lps_modelid modelid, struct sr_dev_driver *drv, GSList *o
 	return std_scan_complete(drv, g_slist_append(NULL, sdi));
 
 exit_err:
-	sr_info("%s: Error!", __func__);
+	otc_info("%s: Error!", __func__);
 
 	if (serial)
 		serial_close(serial);
-	sr_serial_dev_inst_free(serial);
+	otc_serial_dev_inst_free(serial);
 	g_free(devc);
-	sr_dev_inst_free(sdi);
+	otc_dev_inst_free(sdi);
 
 	return NULL;
 }
 
 /** Scan for LPS-301 device. */
-static GSList *scan_lps301(struct sr_dev_driver *di, GSList *options)
+static GSList *scan_lps301(struct otc_dev_driver *di, GSList *options)
 {
 	return do_scan(LPS_301, di, options);
 }
@@ -478,33 +478,33 @@ static void clear_helper(struct dev_context *devc)
 		g_slist_free(devc->channel_status[ch_idx].info);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	int ch_idx;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_LIMIT_SAMPLES:
-		case SR_CONF_LIMIT_MSEC:
-			return sr_sw_limits_config_get(&devc->limits, key, data);
-		case SR_CONF_CHANNEL_CONFIG:
+		case OTC_CONF_LIMIT_SAMPLES:
+		case OTC_CONF_LIMIT_MSEC:
+			return otc_sw_limits_config_get(&devc->limits, key, data);
+		case OTC_CONF_CHANNEL_CONFIG:
 			*data = g_variant_new_string(channel_modes[devc->tracking_mode]);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		/* We only ever have one channel per channel group in this driver. */
@@ -512,34 +512,34 @@ static int config_get(uint32_t key, GVariant **data,
 		ch_idx = ch->index;
 
 		switch (key) {
-		case SR_CONF_VOLTAGE:
+		case OTC_CONF_VOLTAGE:
 			*data = g_variant_new_double(devc->channel_status[ch_idx].output_voltage_last);
 			break;
-		case SR_CONF_VOLTAGE_TARGET:
+		case OTC_CONF_VOLTAGE_TARGET:
 			*data = g_variant_new_double(devc->channel_status[ch_idx].output_voltage_max);
 			break;
-		case SR_CONF_CURRENT:
+		case OTC_CONF_CURRENT:
 			*data = g_variant_new_double(devc->channel_status[ch_idx].output_current_last);
 			break;
-		case SR_CONF_CURRENT_LIMIT:
+		case OTC_CONF_CURRENT_LIMIT:
 			*data = g_variant_new_double(devc->channel_status[ch_idx].output_current_max);
 			break;
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			*data = g_variant_new_boolean(devc->channel_status[ch_idx].output_enabled);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	gdouble dval;
 	int ch_idx;
 	gboolean bval;
@@ -550,16 +550,16 @@ static int config_set(uint32_t key, GVariant *data,
 	/* Cannot change settings while acquisition active, would cause a mess with commands.
 	 * Changing this would be possible, but tricky. */
 	if (devc->acq_running)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_LIMIT_MSEC:
-		case SR_CONF_LIMIT_SAMPLES:
-			return sr_sw_limits_config_set(&devc->limits, key, data);
-		case SR_CONF_CHANNEL_CONFIG:
+		case OTC_CONF_LIMIT_MSEC:
+		case OTC_CONF_LIMIT_SAMPLES:
+			return otc_sw_limits_config_set(&devc->limits, key, data);
+		case OTC_CONF_CHANNEL_CONFIG:
 			if ((idx = std_str_idx(data, ARRAY_AND_SIZE(channel_modes))) < 0)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			if (devc->model->modelid <= LPS_303 && idx != 0)
 				break; /* Only first setting possible for smaller models. */
 			if (devc->tracking_mode == idx)
@@ -569,7 +569,7 @@ static int config_set(uint32_t key, GVariant *data,
 				return lps_cmd_ok(sdi->conn, "TRACK%1d", devc->tracking_mode);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		/* We only ever have one channel per channel group in this driver. */
@@ -577,19 +577,19 @@ static int config_set(uint32_t key, GVariant *data,
 		ch_idx = ch->index;
 
 		switch (key) {
-		case SR_CONF_VOLTAGE_TARGET:
+		case OTC_CONF_VOLTAGE_TARGET:
 			dval = g_variant_get_double(data);
 			if (dval < 0 || dval > devc->model->channels[ch_idx].voltage[1])
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			if (ch_idx == 2) {
 				if (devc->model->modelid < LPS_304)
-					return SR_ERR_ARG;
+					return OTC_ERR_ARG;
 
 				if (fabs(dval - 5.000) <= 0.001)
 					dval = 5.0;
 				else if ((devc->model->modelid >= LPS_305) && (fabs(dval - 3.300) <= 0.001))
 					dval = 3.3;
-				else return SR_ERR_ARG;
+				else return OTC_ERR_ARG;
 			}
 
 			devc->channel_status[ch_idx].output_voltage_max = dval;
@@ -598,15 +598,15 @@ static int config_set(uint32_t key, GVariant *data,
 			else
 				return lps_cmd_ok(sdi->conn, "VSET%d %05.3f", ch_idx+1, dval);
 			break;
-		case SR_CONF_CURRENT_LIMIT:
+		case OTC_CONF_CURRENT_LIMIT:
 			dval = g_variant_get_double(data);
 			if (dval < 0 || dval > devc->model->channels[ch_idx].current[1])
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			if (ch_idx == 2) /* No current setting for CH3. */
-				return SR_ERR_NA;
+				return OTC_ERR_NA;
 			devc->channel_status[ch_idx].output_current_max = dval;
 			return lps_cmd_ok(sdi->conn, "ISET%d %05.4f", ch_idx+1, dval);
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			bval = g_variant_get_boolean(data);
 			if (bval == devc->channel_status[ch_idx].output_enabled) /* Nothing to do. */
 				break;
@@ -622,30 +622,30 @@ static int config_set(uint32_t key, GVariant *data,
 			}
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	int ch_idx;
 
 	devc = (sdi) ? sdi->priv : NULL;
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_SCAN_OPTIONS:
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_SCAN_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-		case SR_CONF_CHANNEL_CONFIG:
+		case OTC_CONF_CHANNEL_CONFIG:
 			if (!devc || !devc->model)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			if (devc->model->modelid <= LPS_303) {
 				/* The 1-channel models. */
 				*data = g_variant_new_strv(channel_modes, 1);
@@ -653,9 +653,9 @@ static int config_list(uint32_t key, GVariant **data,
 				/* The other models support all modes. */
 				*data = g_variant_new_strv(ARRAY_AND_SIZE(channel_modes));
 			}
-			return SR_OK;
+			return OTC_OK;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
@@ -664,33 +664,33 @@ static int config_list(uint32_t key, GVariant **data,
 	ch_idx = ch->index;
 
 	switch (key) {
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		if ((ch_idx == 0) || (ch_idx == 1)) /* CH1, CH2 */
 			*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_ch12));
 		else /* Must be CH3 */
 			*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg_ch3));
 		break;
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		if (!devc || !devc->model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = std_gvar_min_max_step_array(devc->model->channels[ch_idx].voltage);
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		if (!devc || !devc->model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = std_gvar_min_max_step_array(devc->model->channels[ch_idx].current);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 
@@ -701,15 +701,15 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			motech_lps_30x_receive_data, (void *)sdi);
 	std_session_send_df_header(sdi);
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 
 	devc->acq_req = AQ_NONE;
 	/* Do not start polling device here, the read function will do it in 50 ms. */
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver motech_lps_301_driver_info = {
+static struct otc_dev_driver motech_lps_301_driver_info = {
 	.name = "motech-lps-301",
 	.longname = "Motech LPS-301",
 	.api_version = 1,
@@ -727,4 +727,4 @@ static struct sr_dev_driver motech_lps_301_driver_info = {
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(motech_lps_301_driver_info);
+OTC_REGISTER_DEV_DRIVER(motech_lps_301_driver_info);

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 abraxa (Soeren Apel) <soeren@apelpie.net>
  * Based on the Hameg HMO driver by poljar (Damir Jelić) <poljarinho@gmail.com>
@@ -26,8 +26,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol_wrappers.h"
 
 #define LOG_PREFIX "yokogawa-dlm"
@@ -100,8 +100,8 @@ struct dev_context {
 	const void *model_config;
 	void *model_state;
 
-	struct sr_channel_group **analog_groups;
-	struct sr_channel_group **digital_groups;
+	struct otc_channel_group **analog_groups;
+	struct otc_channel_group **digital_groups;
 
 	GSList *enabled_channels;
 	GSList *current_channel;
@@ -113,15 +113,15 @@ struct dev_context {
 	gboolean data_pending;
 };
 
-SR_PRIV int dlm_channel_state_set(const struct sr_dev_inst *sdi,
+OTC_PRIV int dlm_channel_state_set(const struct otc_dev_inst *sdi,
 		const int ch_index, gboolean state);
-SR_PRIV int dlm_data_request(const struct sr_dev_inst *sdi);
-SR_PRIV int dlm_model_get(char *model_id, char **model_name, int *model_index);
-SR_PRIV int dlm_device_init(struct sr_dev_inst *sdi, int model_index);
-SR_PRIV int dlm_data_receive(int fd, int revents, void *cb_data);
-SR_PRIV void dlm_scope_state_destroy(struct scope_state *state);
-SR_PRIV int dlm_scope_state_query(struct sr_dev_inst *sdi);
-SR_PRIV int dlm_sample_rate_query(const struct sr_dev_inst *sdi);
-SR_PRIV int dlm_channel_data_request(const struct sr_dev_inst *sdi);
+OTC_PRIV int dlm_data_request(const struct otc_dev_inst *sdi);
+OTC_PRIV int dlm_model_get(char *model_id, char **model_name, int *model_index);
+OTC_PRIV int dlm_device_init(struct otc_dev_inst *sdi, int model_index);
+OTC_PRIV int dlm_data_receive(int fd, int revents, void *cb_data);
+OTC_PRIV void dlm_scope_state_destroy(struct scope_state *state);
+OTC_PRIV int dlm_scope_state_query(struct otc_dev_inst *sdi);
+OTC_PRIV int dlm_sample_rate_query(const struct otc_dev_inst *sdi);
+OTC_PRIV int dlm_channel_data_request(const struct otc_dev_inst *sdi);
 
 #endif

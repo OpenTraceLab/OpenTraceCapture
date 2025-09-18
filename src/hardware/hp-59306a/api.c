@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021 Frank Stettner <frank-stettner@gmx.net>
  *
@@ -18,35 +18,35 @@
  */
 
 #include <config.h>
-#include "scpi.h"
+#include "../../scpi.h"
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_MULTIPLEXER,
+	OTC_CONF_MULTIPLEXER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_ENABLED | SR_CONF_SET,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_ENABLED | OTC_CONF_SET,
 };
 
 static const uint32_t devopts_cg[] = {
-	SR_CONF_ENABLED | SR_CONF_SET,
+	OTC_CONF_ENABLED | OTC_CONF_SET,
 };
 
-static struct sr_dev_driver hp_59306a_driver_info;
+static struct otc_dev_driver hp_59306a_driver_info;
 
-static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
+static struct otc_dev_inst *probe_device(struct otc_scpi_dev_inst *scpi)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct channel_group_context *cgc;
 	size_t idx, nr;
-	struct sr_channel_group *cg;
+	struct otc_channel_group *cg;
 	char cg_name[24];
 
 	/*
@@ -62,8 +62,8 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 	sdi->model = g_strdup("59306A");
 	sdi->conn = scpi;
 	sdi->driver = &hp_59306a_driver_info;
-	sdi->inst_type = SR_INST_SCPI;
-	if (sr_scpi_connection_id(scpi, &sdi->connection_id) != SR_OK) {
+	sdi->inst_type = OTC_INST_SCPI;
+	if (otc_scpi_connection_id(scpi, &sdi->connection_id) != OTC_OK) {
 		g_free(sdi->connection_id);
 		sdi->connection_id = NULL;
 	}
@@ -77,108 +77,108 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 		snprintf(cg_name, sizeof(cg_name), "R%zu", nr);
 		cgc = g_malloc0(sizeof(*cgc));
 		cgc->number = nr;
-		cg = sr_channel_group_new(sdi, cg_name, cgc);
+		cg = otc_channel_group_new(sdi, cg_name, cgc);
 		(void)cg;
 	}
 
 	return sdi;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	const char *conn;
 
 	/* Only scan for a device when conn= was specified. */
 	conn = NULL;
-	(void)sr_serial_extract_options(options, &conn, NULL);
+	(void)otc_serial_extract_options(options, &conn, NULL);
 	if (!conn)
 		return NULL;
 
-	return sr_scpi_scan(di->context, options, probe_device);
+	return otc_scpi_scan(di->context, options, probe_device);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	return sr_scpi_open(sdi->conn);
+	return otc_scpi_open(sdi->conn);
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	return sr_scpi_close(sdi->conn);
+	return otc_scpi_close(sdi->conn);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	(void)cg;
 
 	if (!sdi || !data)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	switch (key) {
-	case SR_CONF_CONN:
+	case OTC_CONF_CONN:
 		*data = g_variant_new_string(sdi->connection_id);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	gboolean on;
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			/* Enable/disable all channels at the same time. */
 			on = g_variant_get_boolean(data);
 			return hp_59306a_switch_cg(sdi, cg, on);
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		switch (key) {
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			on = g_variant_get_boolean(data);
 			return hp_59306a_switch_cg(sdi, cg, on);
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_SCAN_OPTIONS:
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_SCAN_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			return STD_CONFIG_LIST(key, data, sdi, cg,
 				scanopts, drvopts, devopts);
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		switch (key) {
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg));
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver hp_59306a_driver_info = {
+static struct otc_dev_driver hp_59306a_driver_info = {
 	.name = "hp-59306a",
 	.longname = "HP 59306A",
 	.api_version = 1,
@@ -196,4 +196,4 @@ static struct sr_dev_driver hp_59306a_driver_info = {
 	.dev_acquisition_stop = std_dummy_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(hp_59306a_driver_info);
+OTC_REGISTER_DEV_DRIVER(hp_59306a_driver_info);

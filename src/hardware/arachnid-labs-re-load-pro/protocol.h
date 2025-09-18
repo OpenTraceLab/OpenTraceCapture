@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015-2016 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -22,15 +22,15 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "arachnid-labs-re-load-pro"
 
 #define RELOADPRO_BUFSIZE 100
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 
 	char buf[RELOADPRO_BUFSIZE];
 	int buflen;
@@ -50,17 +50,17 @@ struct dev_context {
 	GCond uvc_threshold_cond;
 };
 
-SR_PRIV int reloadpro_set_current_limit(const struct sr_dev_inst *sdi,
+OTC_PRIV int reloadpro_set_current_limit(const struct otc_dev_inst *sdi,
 		float current);
-SR_PRIV int reloadpro_set_on_off(const struct sr_dev_inst *sdi, gboolean on);
-SR_PRIV int reloadpro_set_under_voltage_threshold(const struct sr_dev_inst *sdi,
+OTC_PRIV int reloadpro_set_on_off(const struct otc_dev_inst *sdi, gboolean on);
+OTC_PRIV int reloadpro_set_under_voltage_threshold(const struct otc_dev_inst *sdi,
 		float uvc_threshold);
-SR_PRIV int reloadpro_get_current_limit(const struct sr_dev_inst *sdi,
+OTC_PRIV int reloadpro_get_current_limit(const struct otc_dev_inst *sdi,
 		float *current_limit);
-SR_PRIV int reloadpro_get_under_voltage_threshold(const struct sr_dev_inst *sdi,
+OTC_PRIV int reloadpro_get_under_voltage_threshold(const struct otc_dev_inst *sdi,
 		float *uvc_threshold);
-SR_PRIV int reloadpro_get_voltage_current(const struct sr_dev_inst *sdi,
+OTC_PRIV int reloadpro_get_voltage_current(const struct otc_dev_inst *sdi,
 		float *voltage, float *current);
-SR_PRIV int reloadpro_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int reloadpro_receive_data(int fd, int revents, void *cb_data);
 
 #endif

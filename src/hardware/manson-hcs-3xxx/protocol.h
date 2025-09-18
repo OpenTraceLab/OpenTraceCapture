@@ -1,8 +1,8 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Uwe Hermann <uwe@hermann-uwe.de>
- * Copyright (C) 2014 Matthias Heidbrink <m-sigrok@heidbrink.biz>
+ * Copyright (C) 2014 Matthias Heidbrink <m-opentracelab@heidbrink.biz>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,8 +25,8 @@
 #include <string.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "manson-hcs-3xxx"
 
@@ -61,7 +61,7 @@ struct hcs_model {
 struct dev_context {
 	const struct hcs_model *model; /**< Model information. */
 
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	int64_t req_sent_at;
 	gboolean reply_pending;
 
@@ -79,9 +79,9 @@ struct dev_context {
 	int buflen;
 };
 
-SR_PRIV int hcs_parse_volt_curr_mode(struct sr_dev_inst *sdi, char **tokens);
-SR_PRIV int hcs_read_reply(struct sr_serial_dev_inst *serial, int lines, char *buf, int buflen);
-SR_PRIV int hcs_send_cmd(struct sr_serial_dev_inst *serial, const char *cmd, ...);
-SR_PRIV int hcs_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int hcs_parse_volt_curr_mode(struct otc_dev_inst *sdi, char **tokens);
+OTC_PRIV int hcs_read_reply(struct otc_serial_dev_inst *serial, int lines, char *buf, int buflen);
+OTC_PRIV int hcs_send_cmd(struct otc_serial_dev_inst *serial, const char *cmd, ...);
+OTC_PRIV int hcs_receive_data(int fd, int revents, void *cb_data);
 
 #endif

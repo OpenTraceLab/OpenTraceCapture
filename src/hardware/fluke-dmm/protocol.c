@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  *
@@ -22,26 +22,26 @@
 #include <math.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
-static void handle_line(const struct sr_dev_inst *sdi)
+static void handle_line(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int n;
 	char cmd[16], **tokens;
 	int ret;
 
 	devc = sdi->priv;
 	serial = sdi->conn;
-	sr_spew("Received line '%s' (%d).", devc->buf, devc->buflen);
+	otc_spew("Received line '%s' (%d).", devc->buf, devc->buflen);
 
 	if (devc->buflen == 1) {
 		if (devc->buf[0] != '0') {
 			/* Not just a CMD_ACK from the query command. */
-			sr_dbg("Got CMD_ACK '%c'.", devc->buf[0]);
+			otc_dbg("Got CMD_ACK '%c'.", devc->buf[0]);
 			devc->expect_response = FALSE;
 		}
 		devc->buflen = 0;
@@ -70,7 +70,7 @@ static void handle_line(const struct sr_dev_inst *sdi)
 				ret = serial_write_blocking(serial,
 					cmd, n, SERIAL_WRITE_TIMEOUT_MS);
 				if (ret < 0)
-					sr_err("Cannot send QM (measurement).");
+					otc_err("Cannot send QM (measurement).");
 			}
 			break;
 		case FLUKE_287:
@@ -84,11 +84,11 @@ static void handle_line(const struct sr_dev_inst *sdi)
 	devc->buflen = 0;
 }
 
-SR_PRIV int fluke_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int fluke_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int len;
 	int64_t now, elapsed;
 
@@ -117,8 +117,8 @@ SR_PRIV int fluke_receive_data(int fd, int revents, void *cb_data)
 		}
 	}
 
-	if (sr_sw_limits_check(&devc->limits)) {
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits)) {
+		otc_dev_acquisition_stop(sdi);
 		return TRUE;
 	}
 
@@ -130,7 +130,7 @@ SR_PRIV int fluke_receive_data(int fd, int revents, void *cb_data)
 	if ((devc->expect_response == FALSE && elapsed > devc->profile->poll_period)
 			|| elapsed > devc->profile->timeout) {
 		if (serial_write_blocking(serial, "QM\r", 3, SERIAL_WRITE_TIMEOUT_MS) < 0)
-			sr_err("Unable to send QM.");
+			otc_err("Unable to send QM.");
 		devc->cmd_sent_at = now;
 		devc->expect_response = TRUE;
 	}

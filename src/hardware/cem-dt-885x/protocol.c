@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -62,20 +62,20 @@ static int find_token_payload_len(unsigned char c)
 }
 
 /* Process measurement or setting (0xa5 command). */
-static void process_mset(const struct sr_dev_inst *sdi)
+static void process_mset(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	GString *dbg;
 	float fvalue;
 	int i;
 
 	devc = sdi->priv;
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
 		dbg = g_string_sized_new(128);
 		g_string_printf(dbg, "got command 0x%.2x token 0x%.2x",
 				devc->cmd, devc->token);
@@ -84,37 +84,37 @@ static void process_mset(const struct sr_dev_inst *sdi)
 			for (i = 0; i < devc->buf_len; i++)
 				g_string_append_printf(dbg, " %.2x", devc->buf[i]);
 		}
-		sr_spew("%s", dbg->str);
+		otc_spew("%s", dbg->str);
 		g_string_free(dbg, TRUE);
 	}
 
 	switch (devc->token) {
 	case TOKEN_WEIGHT_TIME_FAST:
-		devc->cur_mqflags |= SR_MQFLAG_SPL_TIME_WEIGHT_F;
-		devc->cur_mqflags &= ~SR_MQFLAG_SPL_TIME_WEIGHT_S;
+		devc->cur_mqflags |= OTC_MQFLAG_SPL_TIME_WEIGHT_F;
+		devc->cur_mqflags &= ~OTC_MQFLAG_SPL_TIME_WEIGHT_S;
 		break;
 	case TOKEN_WEIGHT_TIME_SLOW:
-		devc->cur_mqflags |= SR_MQFLAG_SPL_TIME_WEIGHT_S;
-		devc->cur_mqflags &= ~SR_MQFLAG_SPL_TIME_WEIGHT_F;
+		devc->cur_mqflags |= OTC_MQFLAG_SPL_TIME_WEIGHT_S;
+		devc->cur_mqflags &= ~OTC_MQFLAG_SPL_TIME_WEIGHT_F;
 		break;
 	case TOKEN_WEIGHT_FREQ_A:
-		devc->cur_mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_A;
-		devc->cur_mqflags &= ~SR_MQFLAG_SPL_FREQ_WEIGHT_C;
+		devc->cur_mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_A;
+		devc->cur_mqflags &= ~OTC_MQFLAG_SPL_FREQ_WEIGHT_C;
 		break;
 	case TOKEN_WEIGHT_FREQ_C:
-		devc->cur_mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_C;
-		devc->cur_mqflags &= ~SR_MQFLAG_SPL_FREQ_WEIGHT_A;
+		devc->cur_mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_C;
+		devc->cur_mqflags &= ~OTC_MQFLAG_SPL_FREQ_WEIGHT_A;
 		break;
 	case TOKEN_HOLD_MAX:
-		devc->cur_mqflags |= SR_MQFLAG_HOLD | SR_MQFLAG_MAX;
-		devc->cur_mqflags &= ~SR_MQFLAG_MIN;
+		devc->cur_mqflags |= OTC_MQFLAG_HOLD | OTC_MQFLAG_MAX;
+		devc->cur_mqflags &= ~OTC_MQFLAG_MIN;
 		break;
 	case TOKEN_HOLD_MIN:
-		devc->cur_mqflags |= SR_MQFLAG_HOLD | SR_MQFLAG_MIN;
-		devc->cur_mqflags &= ~SR_MQFLAG_MAX;
+		devc->cur_mqflags |= OTC_MQFLAG_HOLD | OTC_MQFLAG_MIN;
+		devc->cur_mqflags &= ~OTC_MQFLAG_MAX;
 		break;
 	case TOKEN_HOLD_NONE:
-		devc->cur_mqflags &= ~(SR_MQFLAG_MAX | SR_MQFLAG_MIN | SR_MQFLAG_HOLD);
+		devc->cur_mqflags &= ~(OTC_MQFLAG_MAX | OTC_MQFLAG_MIN | OTC_MQFLAG_HOLD);
 		break;
 	case TOKEN_MEASUREMENT:
 		fvalue = ((devc->buf[0] & 0xf0) >> 4) * 100;
@@ -125,7 +125,7 @@ static void process_mset(const struct sr_dev_inst *sdi)
 		break;
 	case TOKEN_MEAS_WAS_READOUT:
 	case TOKEN_MEAS_WAS_BARGRAPH:
-		if (devc->cur_mqflags & (SR_MQFLAG_MAX | SR_MQFLAG_MIN)) {
+		if (devc->cur_mqflags & (OTC_MQFLAG_MAX | OTC_MQFLAG_MIN)) {
 			if (devc->token == TOKEN_MEAS_WAS_BARGRAPH) {
 				/* The device still sends bargraph measurements even
 				 * when in max/min hold mode. Suppress them here, unless
@@ -134,20 +134,20 @@ static void process_mset(const struct sr_dev_inst *sdi)
 				break;
 			}
 		}
-		sr_analog_init(&analog, &encoding, &meaning, &spec, 1);
-		analog.meaning->mq = SR_MQ_SOUND_PRESSURE_LEVEL;
+		otc_analog_init(&analog, &encoding, &meaning, &spec, 1);
+		analog.meaning->mq = OTC_MQ_SOUND_PRESSURE_LEVEL;
 		analog.meaning->mqflags = devc->cur_mqflags;
-		analog.meaning->unit = SR_UNIT_DECIBEL_SPL;
+		analog.meaning->unit = OTC_UNIT_DECIBEL_SPL;
 		analog.meaning->channels = sdi->channels;
 		analog.num_samples = 1;
 		analog.data = &devc->last_spl;
-		packet.type = SR_DF_ANALOG;
+		packet.type = OTC_DF_ANALOG;
 		packet.payload = &analog;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 
 		devc->num_samples++;
 		if (devc->limit_samples && devc->num_samples >= devc->limit_samples)
-			sr_dev_acquisition_stop((struct sr_dev_inst *)sdi);
+			otc_dev_acquisition_stop((struct otc_dev_inst *)sdi);
 		break;
 	case TOKEN_RECORDING_ON:
 		devc->recording = TRUE;
@@ -169,21 +169,21 @@ static void process_mset(const struct sr_dev_inst *sdi)
 	case TOKEN_MEAS_RANGE_OK:
 	case TOKEN_MEAS_RANGE_OVER:
 	case TOKEN_MEAS_RANGE_UNDER:
-		/* Not useful, or not expressible in sigrok. */
+		/* Not useful, or not expressible in opentracelab. */
 		break;
 	}
 
 }
 
-static void send_data(const struct sr_dev_inst *sdi, unsigned char *data,
+static void send_data(const struct otc_dev_inst *sdi, unsigned char *data,
 		uint64_t num_samples)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	float fbuf[SAMPLES_PER_PACKET];
 	unsigned int i;
 
@@ -195,31 +195,31 @@ static void send_data(const struct sr_dev_inst *sdi, unsigned char *data,
 		fbuf[i] += ((data[i * 2 + 1] & 0xf0) >> 4);
 		fbuf[i] += (data[i * 2 + 1] & 0x0f) / 10.0;
 	}
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 1);
-	analog.meaning->mq = SR_MQ_SOUND_PRESSURE_LEVEL;
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 1);
+	analog.meaning->mq = OTC_MQ_SOUND_PRESSURE_LEVEL;
 	analog.meaning->mqflags = devc->cur_mqflags;
-	analog.meaning->unit = SR_UNIT_DECIBEL_SPL;
+	analog.meaning->unit = OTC_UNIT_DECIBEL_SPL;
 	analog.meaning->channels = sdi->channels;
 	analog.num_samples = num_samples;
 	analog.data = fbuf;
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
 	devc->num_samples += analog.num_samples;
 	if (devc->limit_samples && devc->num_samples >= devc->limit_samples)
-		sr_dev_acquisition_stop((struct sr_dev_inst *)sdi);
+		otc_dev_acquisition_stop((struct otc_dev_inst *)sdi);
 
 	return;
 }
 
-static void process_byte(const struct sr_dev_inst *sdi, const unsigned char c,
+static void process_byte(const struct otc_dev_inst *sdi, const unsigned char c,
 		int handle_packets)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_meta meta;
-	struct sr_config *src;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_meta meta;
+	struct otc_config *src;
 	gint64 cur_time;
 	int len;
 
@@ -228,7 +228,7 @@ static void process_byte(const struct sr_dev_inst *sdi, const unsigned char c,
 
 	if (c == 0xff) {
 		/* Device is in hold mode */
-		devc->cur_mqflags |= SR_MQFLAG_HOLD;
+		devc->cur_mqflags |= OTC_MQFLAG_HOLD;
 
 		if (devc->hold_last_sent == 0) {
 			/* First hold notification. */
@@ -249,7 +249,7 @@ static void process_byte(const struct sr_dev_inst *sdi, const unsigned char c,
 
 		return;
 	}
-	devc->cur_mqflags &= ~SR_MQFLAG_HOLD;
+	devc->cur_mqflags &= ~OTC_MQFLAG_HOLD;
 	devc->hold_last_sent = 0;
 
 	if (devc->state == ST_INIT) {
@@ -261,7 +261,7 @@ static void process_byte(const struct sr_dev_inst *sdi, const unsigned char c,
 			devc->cmd = c;
 			devc->buf_len = 0;
 			devc->state = ST_GET_LOG_HEADER;
-			sr_dbg("got command 0xbb");
+			otc_dbg("got command 0xbb");
 		}
 	} else if (devc->state == ST_GET_TOKEN) {
 		devc->token = c;
@@ -279,7 +279,7 @@ static void process_byte(const struct sr_dev_inst *sdi, const unsigned char c,
 		len = find_token_payload_len(devc->token);
 		if (len == -1) {
 			/* We don't know this token. */
-			sr_dbg("Unknown 0xa5 token 0x%.2x", devc->token);
+			otc_dbg("Unknown 0xa5 token 0x%.2x", devc->token);
 			if (c == 0xa5 || c == 0xbb) {
 				/* Looks like a new command however. */
 				if (handle_packets)
@@ -304,24 +304,24 @@ static void process_byte(const struct sr_dev_inst *sdi, const unsigned char c,
 			}
 		}
 	} else if (devc->state == ST_GET_LOG_HEADER) {
-		sr_dbg("log header: 0x%.2x", c);
+		otc_dbg("log header: 0x%.2x", c);
 		if (devc->buf_len < 2)
 			devc->buf[devc->buf_len++] = c;
 		if (devc->buf_len == 2) {
-			sr_dbg("Device says it has %d bytes stored.",
+			otc_dbg("Device says it has %d bytes stored.",
 					((devc->buf[0] << 8) + devc->buf[1]) - 100);
 			devc->buf_len = 0;
 			devc->state = ST_GET_LOG_RECORD_META;
 		}
 	} else if (devc->state == ST_GET_LOG_RECORD_META) {
-		sr_dbg("log meta: 0x%.2x", c);
+		otc_dbg("log meta: 0x%.2x", c);
 		if (c == RECORD_END) {
 			devc->state = ST_INIT;
 			/* Stop acquisition after transferring all stored
 			 * records. Otherwise the frontend would have no
 			 * way to tell where stored data ends and live
 			 * measurements begin. */
-			sr_dev_acquisition_stop((struct sr_dev_inst *)sdi);
+			otc_dev_acquisition_stop((struct otc_dev_inst *)sdi);
 		} else if (c == RECORD_DATA) {
 			devc->buf_len = 0;
 			devc->state = ST_GET_LOG_RECORD_DATA;
@@ -332,26 +332,26 @@ static void process_byte(const struct sr_dev_inst *sdi, const unsigned char c,
 				/* Keep filling up the record header. */
 				return;
 			if (devc->buf[0] == RECORD_DBA)
-				devc->cur_mqflags = SR_MQFLAG_SPL_FREQ_WEIGHT_A;
+				devc->cur_mqflags = OTC_MQFLAG_SPL_FREQ_WEIGHT_A;
 			else if (devc->buf[0] == RECORD_DBC)
-				devc->cur_mqflags = SR_MQFLAG_SPL_FREQ_WEIGHT_C;
+				devc->cur_mqflags = OTC_MQFLAG_SPL_FREQ_WEIGHT_C;
 			else {
 				/* Shouldn't happen. */
-				sr_dbg("Unknown record token 0x%.2x", c);
+				otc_dbg("Unknown record token 0x%.2x", c);
 				return;
 			}
-			packet.type = SR_DF_META;
+			packet.type = OTC_DF_META;
 			packet.payload = &meta;
-			src = sr_config_new(SR_CONF_SAMPLE_INTERVAL,
+			src = otc_config_new(OTC_CONF_SAMPLE_INTERVAL,
 					g_variant_new_uint64(devc->buf[7] * 1000));
 			meta.config = g_slist_append(NULL, src);
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 			g_slist_free(meta.config);
-			sr_config_free(src);
+			otc_config_free(src);
 			devc->buf_len = 0;
 		}
 	} else if (devc->state == ST_GET_LOG_RECORD_DATA) {
-		sr_dbg("log data: 0x%.2x", c);
+		otc_dbg("log data: 0x%.2x", c);
 		if (c == RECORD_DBA || c == RECORD_DBC || c == RECORD_DATA || c == RECORD_END) {
 			/* Work around off-by-one bug in device firmware. This
 			 * happens only on the last record, i.e. before RECORD_END */
@@ -375,11 +375,11 @@ static void process_byte(const struct sr_dev_inst *sdi, const unsigned char c,
 
 }
 
-SR_PRIV int cem_dt_885x_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int cem_dt_885x_receive_data(int fd, int revents, void *cb_data)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	unsigned char c, cmd;
 
 	(void)fd;
@@ -409,10 +409,10 @@ SR_PRIV int cem_dt_885x_receive_data(int fd, int revents, void *cb_data)
 	return TRUE;
 }
 
-static int wait_for_token(const struct sr_dev_inst *sdi, int8_t *tokens, int timeout)
+static int wait_for_token(const struct otc_dev_inst *sdi, int8_t *tokens, int timeout)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	gint64 start_time;
 	int i;
 	unsigned char c;
@@ -424,31 +424,31 @@ static int wait_for_token(const struct sr_dev_inst *sdi, int8_t *tokens, int tim
 	while (TRUE) {
 		if (serial_read_nonblocking(serial, &c, 1) != 1)
 			/* Device might have gone away. */
-			return SR_ERR;
+			return OTC_ERR;
 		process_byte(sdi, c, FALSE);
 		if (devc->state != ST_INIT)
 			/* Wait for a whole packet to get processed. */
 			continue;
 		for (i = 0; tokens[i] != -1; i++) {
 			if (devc->token == tokens[i]) {
-				sr_spew("wait_for_token: got token 0x%.2x", devc->token);
-				return SR_OK;
+				otc_spew("wait_for_token: got token 0x%.2x", devc->token);
+				return OTC_OK;
 			}
 		}
 		if (timeout && g_get_monotonic_time() / 1000 - start_time > timeout)
-			return SR_ERR_TIMEOUT;
+			return OTC_ERR_TIMEOUT;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* cmd is the command to send, tokens are the tokens that denote the state
  * which the command affects. The first token is the desired state. */
-static int cem_dt_885x_toggle(const struct sr_dev_inst *sdi, uint8_t cmd,
+static int cem_dt_885x_toggle(const struct otc_dev_inst *sdi, uint8_t cmd,
 		int8_t *tokens, int timeout)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	serial = sdi->conn;
 	devc = sdi->priv;
@@ -458,18 +458,18 @@ static int cem_dt_885x_toggle(const struct sr_dev_inst *sdi, uint8_t cmd,
 	 * whether the command worked or not, and resend if needed. */
 	while (TRUE) {
 		if (serial_write_blocking(serial, (const void *)&cmd, 1, 0) < 0)
-			return SR_ERR;
-		if (wait_for_token(sdi, tokens, timeout) == SR_ERR)
-			return SR_ERR;
+			return OTC_ERR;
+		if (wait_for_token(sdi, tokens, timeout) == OTC_ERR)
+			return OTC_ERR;
 		if (devc->token == tokens[0])
 			/* It worked. */
 			break;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV gboolean cem_dt_885x_recording_get(const struct sr_dev_inst *sdi,
+OTC_PRIV gboolean cem_dt_885x_recording_get(const struct otc_dev_inst *sdi,
 		int *state)
 {
 	struct dev_context *devc;
@@ -481,15 +481,15 @@ SR_PRIV gboolean cem_dt_885x_recording_get(const struct sr_dev_inst *sdi,
 		tokens[0] = TOKEN_RECORDING_ON;
 		tokens[1] = TOKEN_RECORDING_OFF;
 		tokens[2] = -1;
-		if (wait_for_token(sdi, tokens, 510) != SR_OK)
-			return SR_ERR;
+		if (wait_for_token(sdi, tokens, 510) != OTC_OK)
+			return OTC_ERR;
 	}
 	*state = devc->token == TOKEN_RECORDING_ON;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int cem_dt_885x_recording_set(const struct sr_dev_inst *sdi,
+OTC_PRIV int cem_dt_885x_recording_set(const struct otc_dev_inst *sdi,
 		gboolean state)
 {
 	struct dev_context *devc;
@@ -510,14 +510,14 @@ SR_PRIV int cem_dt_885x_recording_set(const struct sr_dev_inst *sdi,
 
 	if (devc->recording == -1) {
 		/* Didn't pick up device state yet. */
-		if (wait_for_token(sdi, tokens, 0) != SR_OK)
-			return SR_ERR;
+		if (wait_for_token(sdi, tokens, 0) != OTC_OK)
+			return OTC_ERR;
 		if (devc->token == tokens[0])
 			/* Nothing to do. */
-			return SR_OK;
+			return OTC_OK;
 	} else if (devc->recording == state)
 		/* Nothing to do. */
-		return SR_OK;
+		return OTC_OK;
 
 	/* Recording state notifications are sent at 2Hz, so allow just over
 	 * that, 510ms, for the state to come in. */
@@ -526,7 +526,7 @@ SR_PRIV int cem_dt_885x_recording_set(const struct sr_dev_inst *sdi,
 	return ret;
 }
 
-SR_PRIV int cem_dt_885x_weight_freq_get(const struct sr_dev_inst *sdi)
+OTC_PRIV int cem_dt_885x_weight_freq_get(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int cur_setting;
@@ -534,23 +534,23 @@ SR_PRIV int cem_dt_885x_weight_freq_get(const struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 
-	cur_setting = devc->cur_mqflags & (SR_MQFLAG_SPL_FREQ_WEIGHT_A | SR_MQFLAG_SPL_FREQ_WEIGHT_C);
+	cur_setting = devc->cur_mqflags & (OTC_MQFLAG_SPL_FREQ_WEIGHT_A | OTC_MQFLAG_SPL_FREQ_WEIGHT_C);
 	if (cur_setting == 0) {
 		/* Didn't pick up device state yet. */
 		tokens[0] = TOKEN_WEIGHT_FREQ_A;
 		tokens[1] = TOKEN_WEIGHT_FREQ_C;
 		tokens[2] = -1;
-		if (wait_for_token(sdi, tokens, 0) != SR_OK)
-			return SR_ERR;
+		if (wait_for_token(sdi, tokens, 0) != OTC_OK)
+			return OTC_ERR;
 		if (devc->token == TOKEN_WEIGHT_FREQ_A)
-			return SR_MQFLAG_SPL_FREQ_WEIGHT_A;
+			return OTC_MQFLAG_SPL_FREQ_WEIGHT_A;
 		else
-			return SR_MQFLAG_SPL_FREQ_WEIGHT_C;
+			return OTC_MQFLAG_SPL_FREQ_WEIGHT_C;
 	} else
 		return cur_setting;
 }
 
-SR_PRIV int cem_dt_885x_weight_freq_set(const struct sr_dev_inst *sdi, int freqw)
+OTC_PRIV int cem_dt_885x_weight_freq_set(const struct otc_dev_inst *sdi, int freqw)
 {
 	struct dev_context *devc;
 	int cur_setting, ret;
@@ -558,13 +558,13 @@ SR_PRIV int cem_dt_885x_weight_freq_set(const struct sr_dev_inst *sdi, int freqw
 
 	devc = sdi->priv;
 
-	cur_setting = devc->cur_mqflags & (SR_MQFLAG_SPL_FREQ_WEIGHT_A | SR_MQFLAG_SPL_FREQ_WEIGHT_C);
+	cur_setting = devc->cur_mqflags & (OTC_MQFLAG_SPL_FREQ_WEIGHT_A | OTC_MQFLAG_SPL_FREQ_WEIGHT_C);
 	if (cur_setting == freqw)
 		/* Already set to this frequency weighting. */
-		return SR_OK;
+		return OTC_OK;
 
 	/* The toggle below needs the desired state in first position. */
-	if (freqw == SR_MQFLAG_SPL_FREQ_WEIGHT_A) {
+	if (freqw == OTC_MQFLAG_SPL_FREQ_WEIGHT_A) {
 		tokens[0] = TOKEN_WEIGHT_FREQ_A;
 		tokens[1] = TOKEN_WEIGHT_FREQ_C;
 	} else {
@@ -575,11 +575,11 @@ SR_PRIV int cem_dt_885x_weight_freq_set(const struct sr_dev_inst *sdi, int freqw
 
 	if (cur_setting == 0) {
 		/* Didn't pick up device state yet. */
-		if (wait_for_token(sdi, tokens, 0) != SR_OK)
-			return SR_ERR;
+		if (wait_for_token(sdi, tokens, 0) != OTC_OK)
+			return OTC_ERR;
 		if (devc->token == tokens[0])
 			/* Nothing to do. */
-			return SR_OK;
+			return OTC_OK;
 	}
 
 	/* 10ms timeout seems to work best for this. */
@@ -588,7 +588,7 @@ SR_PRIV int cem_dt_885x_weight_freq_set(const struct sr_dev_inst *sdi, int freqw
 	return ret;
 }
 
-SR_PRIV int cem_dt_885x_weight_time_get(const struct sr_dev_inst *sdi)
+OTC_PRIV int cem_dt_885x_weight_time_get(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int cur_setting;
@@ -596,23 +596,23 @@ SR_PRIV int cem_dt_885x_weight_time_get(const struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 
-	cur_setting = devc->cur_mqflags & (SR_MQFLAG_SPL_TIME_WEIGHT_F | SR_MQFLAG_SPL_TIME_WEIGHT_S);
+	cur_setting = devc->cur_mqflags & (OTC_MQFLAG_SPL_TIME_WEIGHT_F | OTC_MQFLAG_SPL_TIME_WEIGHT_S);
 	if (cur_setting == 0) {
 		/* Didn't pick up device state yet. */
 		tokens[0] = TOKEN_WEIGHT_TIME_FAST;
 		tokens[1] = TOKEN_WEIGHT_TIME_SLOW;
 		tokens[2] = -1;
-		if (wait_for_token(sdi, tokens, 0) != SR_OK)
-			return SR_ERR;
+		if (wait_for_token(sdi, tokens, 0) != OTC_OK)
+			return OTC_ERR;
 		if (devc->token == TOKEN_WEIGHT_TIME_FAST)
-			return SR_MQFLAG_SPL_TIME_WEIGHT_F;
+			return OTC_MQFLAG_SPL_TIME_WEIGHT_F;
 		else
-			return SR_MQFLAG_SPL_TIME_WEIGHT_S;
+			return OTC_MQFLAG_SPL_TIME_WEIGHT_S;
 	} else
 		return cur_setting;
 }
 
-SR_PRIV int cem_dt_885x_weight_time_set(const struct sr_dev_inst *sdi, int timew)
+OTC_PRIV int cem_dt_885x_weight_time_set(const struct otc_dev_inst *sdi, int timew)
 {
 	struct dev_context *devc;
 	int cur_setting, ret;
@@ -620,13 +620,13 @@ SR_PRIV int cem_dt_885x_weight_time_set(const struct sr_dev_inst *sdi, int timew
 
 	devc = sdi->priv;
 
-	cur_setting = devc->cur_mqflags & (SR_MQFLAG_SPL_TIME_WEIGHT_F | SR_MQFLAG_SPL_TIME_WEIGHT_S);
+	cur_setting = devc->cur_mqflags & (OTC_MQFLAG_SPL_TIME_WEIGHT_F | OTC_MQFLAG_SPL_TIME_WEIGHT_S);
 	if (cur_setting == timew)
 		/* Already set to this time weighting. */
-		return SR_OK;
+		return OTC_OK;
 
 	/* The toggle below needs the desired state in first position. */
-	if (timew == SR_MQFLAG_SPL_TIME_WEIGHT_F) {
+	if (timew == OTC_MQFLAG_SPL_TIME_WEIGHT_F) {
 		tokens[0] = TOKEN_WEIGHT_TIME_FAST;
 		tokens[1] = TOKEN_WEIGHT_TIME_SLOW;
 	} else {
@@ -637,11 +637,11 @@ SR_PRIV int cem_dt_885x_weight_time_set(const struct sr_dev_inst *sdi, int timew
 
 	if (cur_setting == 0) {
 		/* Didn't pick up device state yet. */
-		if (wait_for_token(sdi, tokens, 0) != SR_OK)
-			return SR_ERR;
+		if (wait_for_token(sdi, tokens, 0) != OTC_OK)
+			return OTC_ERR;
 		if (devc->token == tokens[0])
 			/* Nothing to do. */
-			return SR_OK;
+			return OTC_OK;
 	}
 
 	/* 51ms timeout seems to work best for this. */
@@ -650,7 +650,7 @@ SR_PRIV int cem_dt_885x_weight_time_set(const struct sr_dev_inst *sdi, int timew
 	return ret;
 }
 
-SR_PRIV int cem_dt_885x_holdmode_get(const struct sr_dev_inst *sdi,
+OTC_PRIV int cem_dt_885x_holdmode_get(const struct otc_dev_inst *sdi,
 		gboolean *holdmode)
 {
 	struct dev_context *devc;
@@ -663,19 +663,19 @@ SR_PRIV int cem_dt_885x_holdmode_get(const struct sr_dev_inst *sdi,
 		tokens[1] = TOKEN_HOLD_MIN;
 		tokens[2] = TOKEN_HOLD_NONE;
 		tokens[3] = -1;
-		if (wait_for_token(sdi, tokens, 0) != SR_OK)
-			return SR_ERR;
+		if (wait_for_token(sdi, tokens, 0) != OTC_OK)
+			return OTC_ERR;
 		if (devc->token == TOKEN_HOLD_MAX)
-			devc->cur_mqflags = SR_MQFLAG_MAX;
+			devc->cur_mqflags = OTC_MQFLAG_MAX;
 		else if (devc->token == TOKEN_HOLD_MIN)
-			devc->cur_mqflags = SR_MQFLAG_MIN;
+			devc->cur_mqflags = OTC_MQFLAG_MIN;
 	}
-	*holdmode = devc->cur_mqflags & (SR_MQFLAG_MAX | SR_MQFLAG_MIN);
+	*holdmode = devc->cur_mqflags & (OTC_MQFLAG_MAX | OTC_MQFLAG_MIN);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int cem_dt_885x_holdmode_set(const struct sr_dev_inst *sdi, int holdmode)
+OTC_PRIV int cem_dt_885x_holdmode_set(const struct otc_dev_inst *sdi, int holdmode)
 {
 	struct dev_context *devc;
 	int cur_setting, ret;
@@ -684,11 +684,11 @@ SR_PRIV int cem_dt_885x_holdmode_set(const struct sr_dev_inst *sdi, int holdmode
 	devc = sdi->priv;
 
 	/* The toggle below needs the desired state in first position. */
-	if (holdmode == SR_MQFLAG_MAX) {
+	if (holdmode == OTC_MQFLAG_MAX) {
 		tokens[0] = TOKEN_HOLD_MAX;
 		tokens[1] = TOKEN_HOLD_MIN;
 		tokens[2] = TOKEN_HOLD_NONE;
-	} else if (holdmode == SR_MQFLAG_MIN) {
+	} else if (holdmode == OTC_MQFLAG_MIN) {
 		tokens[0] = TOKEN_HOLD_MIN;
 		tokens[1] = TOKEN_HOLD_MAX;
 		tokens[2] = TOKEN_HOLD_NONE;
@@ -701,16 +701,16 @@ SR_PRIV int cem_dt_885x_holdmode_set(const struct sr_dev_inst *sdi, int holdmode
 
 	if (devc->cur_mqflags == 0) {
 		/* Didn't pick up device state yet. */
-		if (wait_for_token(sdi, tokens, 0) != SR_OK)
-			return SR_ERR;
+		if (wait_for_token(sdi, tokens, 0) != OTC_OK)
+			return OTC_ERR;
 		if (devc->token == tokens[0])
 			/* Nothing to do. */
-			return SR_OK;
+			return OTC_OK;
 	} else {
-		cur_setting = devc->cur_mqflags & (SR_MQFLAG_MAX | SR_MQFLAG_MIN);
+		cur_setting = devc->cur_mqflags & (OTC_MQFLAG_MAX | OTC_MQFLAG_MIN);
 		if (cur_setting == holdmode)
 			/* Already set correctly. */
-			return SR_OK;
+			return OTC_OK;
 	}
 
 	/* 51ms timeout seems to work best for this. */
@@ -719,7 +719,7 @@ SR_PRIV int cem_dt_885x_holdmode_set(const struct sr_dev_inst *sdi, int holdmode
 	return ret;
 }
 
-SR_PRIV int cem_dt_885x_meas_range_get(const struct sr_dev_inst *sdi,
+OTC_PRIV int cem_dt_885x_meas_range_get(const struct otc_dev_inst *sdi,
 		uint64_t *low, uint64_t *high)
 {
 	struct dev_context *devc;
@@ -732,8 +732,8 @@ SR_PRIV int cem_dt_885x_meas_range_get(const struct sr_dev_inst *sdi,
 		tokens[2] = TOKEN_MEAS_RANGE_50_100;
 		tokens[3] = TOKEN_MEAS_RANGE_80_130;
 		tokens[4] = -1;
-		if (wait_for_token(sdi, tokens, 0) != SR_OK)
-			return SR_ERR;
+		if (wait_for_token(sdi, tokens, 0) != OTC_OK)
+			return OTC_ERR;
 		devc->cur_meas_range = devc->token;
 	}
 
@@ -755,13 +755,13 @@ SR_PRIV int cem_dt_885x_meas_range_get(const struct sr_dev_inst *sdi,
 		*high = 130;
 		break;
 	default:
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int cem_dt_885x_meas_range_set(const struct sr_dev_inst *sdi,
+OTC_PRIV int cem_dt_885x_meas_range_set(const struct otc_dev_inst *sdi,
 		uint64_t low, uint64_t high)
 {
 	struct dev_context *devc;
@@ -778,9 +778,9 @@ SR_PRIV int cem_dt_885x_meas_range_set(const struct sr_dev_inst *sdi,
 	else if (low == 80 && high == 130)
 		token = TOKEN_MEAS_RANGE_80_130;
 	else
-		return SR_ERR;
+		return OTC_ERR;
 
-	sr_dbg("want 0x%.2x", token);
+	otc_dbg("want 0x%.2x", token);
 	/* The toggle below needs the desired state in first position. */
 	tokens[0] = token;
 	tokens[1] = TOKEN_MEAS_RANGE_30_130;
@@ -791,14 +791,14 @@ SR_PRIV int cem_dt_885x_meas_range_set(const struct sr_dev_inst *sdi,
 
 	if (devc->cur_meas_range == 0) {
 		/* 110ms should be enough for two of these announcements */
-		if (wait_for_token(sdi, tokens, 110) != SR_OK)
-			return SR_ERR;
+		if (wait_for_token(sdi, tokens, 110) != OTC_OK)
+			return OTC_ERR;
 		devc->cur_meas_range = devc->token;
 	}
 
 	if (devc->cur_meas_range == token)
 		/* Already set to this range. */
-		return SR_OK;
+		return OTC_OK;
 
 	/* For measurement range, it works best to ignore announcements of the
 	 * current setting and keep resending the toggle quickly. */
@@ -808,9 +808,9 @@ SR_PRIV int cem_dt_885x_meas_range_set(const struct sr_dev_inst *sdi,
 	return ret;
 }
 
-SR_PRIV int cem_dt_885x_power_off(const struct sr_dev_inst *sdi)
+OTC_PRIV int cem_dt_885x_power_off(const struct otc_dev_inst *sdi)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	char c, cmd;
 
 	serial = sdi->conn;
@@ -819,7 +819,7 @@ SR_PRIV int cem_dt_885x_power_off(const struct sr_dev_inst *sdi)
 	while (TRUE) {
 		serial_flush(serial);
 		if (serial_write_blocking(serial, (const void *)&cmd, 1, 0) < 0)
-			return SR_ERR;
+			return OTC_ERR;
 		/* It never takes more than 23ms for the next token to arrive. */
 		g_usleep(25 * 1000);
 		if (serial_read_nonblocking(serial, &c, 1) != 1)
@@ -832,5 +832,5 @@ SR_PRIV int cem_dt_885x_power_off(const struct sr_dev_inst *sdi)
 	serial_close(serial);
 	serial_open(serial, SERIAL_RDWR);
 
-	return SR_OK;
+	return OTC_OK;
 }

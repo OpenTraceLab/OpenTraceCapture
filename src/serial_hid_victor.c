@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -35,8 +35,8 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 #include "serial_hid.h"
 #include <string.h>
 
@@ -92,10 +92,10 @@ static int victor_unobfuscate(uint8_t *rx_buf, size_t rx_len,
 	int is_zero;
 	size_t idx, to_idx;
 
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
-		txt = sr_hexdump_new(rx_buf, rx_len);
-		sr_spew("Received %zu bytes: %s.", rx_len, txt->str);
-		sr_hexdump_free(txt);
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
+		txt = otc_hexdump_new(rx_buf, rx_len);
+		otc_spew("Received %zu bytes: %s.", rx_len, txt->str);
+		otc_hexdump_free(txt);
 	}
 
 	/* Pass unexpected data in verbatim form. */
@@ -111,7 +111,7 @@ static int victor_unobfuscate(uint8_t *rx_buf, size_t rx_len,
 			is_zero = 0;
 	}
 	if (is_zero) {
-		sr_dbg("Received all zeroes packet, discarding.");
+		otc_dbg("Received all zeroes packet, discarding.");
 		return 0;
 	}
 
@@ -124,10 +124,10 @@ static int victor_unobfuscate(uint8_t *rx_buf, size_t rx_len,
 		ret_buf[to_idx] = bit_reverse(rx_buf[idx] - obfuscation[idx]);
 	}
 
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
-		txt = sr_hexdump_new(ret_buf, idx);
-		sr_spew("Deobfuscated: %s.", txt->str);
-		sr_hexdump_free(txt);
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
+		txt = otc_hexdump_new(ret_buf, idx);
+		otc_spew("Deobfuscated: %s.", txt->str);
+		otc_hexdump_free(txt);
 	}
 
 	return rx_len;
@@ -137,7 +137,7 @@ static int victor_unobfuscate(uint8_t *rx_buf, size_t rx_len,
  * Read into a local buffer, and unobfuscate into the caller's buffer.
  * Always receive full DMM packets.
  */
-static int victor_read_bytes(struct sr_serial_dev_inst *serial,
+static int victor_read_bytes(struct otc_serial_dev_inst *serial,
 	uint8_t *data, int space, unsigned int timeout)
 {
 	uint8_t buf[VICTOR_DMM_PACKET_LENGTH];
@@ -146,7 +146,7 @@ static int victor_read_bytes(struct sr_serial_dev_inst *serial,
 	if (space != sizeof(buf))
 		space = sizeof(buf);
 	rc = ser_hid_hidapi_get_data(serial, 0, buf, space, timeout);
-	if (rc == SR_ERR_TIMEOUT)
+	if (rc == OTC_ERR_TIMEOUT)
 		return 0;
 	if (rc < 0)
 		return rc;
@@ -157,7 +157,7 @@ static int victor_read_bytes(struct sr_serial_dev_inst *serial,
 }
 
 /* Victor DMM cables are read-only. Just pretend successful transmission. */
-static int victor_write_bytes(struct sr_serial_dev_inst *serial,
+static int victor_write_bytes(struct otc_serial_dev_inst *serial,
 	const uint8_t *data, int size)
 {
 	(void)serial;
@@ -179,11 +179,11 @@ static struct ser_hid_chip_functions chip_victor = {
 	.read_bytes = victor_read_bytes,
 	.write_bytes = victor_write_bytes,
 };
-SR_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_victor = &chip_victor;
+OTC_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_victor = &chip_victor;
 
 #else
 
-SR_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_victor = NULL;
+OTC_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_victor = NULL;
 
 #endif
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Daniel Elstner <daniel.kitta@gmail.com>
  *
@@ -23,9 +23,9 @@
 #include <stdint.h>
 #include <libusb.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 
-struct sr_usb_dev_inst;
+struct otc_usb_dev_inst;
 
 /* Rotate argument n bits to the left.
  * This construct is an idiom recognized by GCC as bit rotation.
@@ -142,23 +142,23 @@ static inline void lwla_queue_regval(struct acquisition_state *acq,
 	acq->reg_seq_len++;
 }
 
-SR_PRIV int lwla_send_bitstream(struct sr_context *ctx,
-				const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_send_bitstream(struct otc_context *ctx,
+				const struct otc_usb_dev_inst *usb,
 				const char *name);
 
-SR_PRIV int lwla_send_command(const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_send_command(const struct otc_usb_dev_inst *usb,
 			      const uint16_t *command, int cmd_len);
 
-SR_PRIV int lwla_receive_reply(const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_receive_reply(const struct otc_usb_dev_inst *usb,
 			       void *reply, int buf_size, int *xfer_len);
 
-SR_PRIV int lwla_read_reg(const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_read_reg(const struct otc_usb_dev_inst *usb,
 			  uint16_t reg, uint32_t *value);
 
-SR_PRIV int lwla_write_reg(const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_write_reg(const struct otc_usb_dev_inst *usb,
 			   uint16_t reg, uint32_t value);
 
-SR_PRIV int lwla_write_regs(const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_write_regs(const struct otc_usb_dev_inst *usb,
 			    const struct regval *regvals, int count);
 
 #endif

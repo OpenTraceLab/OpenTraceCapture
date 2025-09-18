@@ -1,5 +1,5 @@
 /*
- * This file is part of the sigrok project.
+ * This file is part of the opentracelab project.
  *
  * Copyright (C) 2018-2019 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -45,7 +45,7 @@
  */
 
 /*
- * This file implements an internal platform agnostic API of libsigrok
+ * This file implements an internal platform agnostic API of libopentracecapture
  * for Bluetooth communication, as well as the first implementation on a
  * specific platform which is based on the BlueZ library and got tested
  * on Linux.
@@ -85,8 +85,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "bt-bluez"
 
@@ -148,7 +148,7 @@
  * well just transform the input string to an output string, and always
  * use the officially provided str2ba() conversion routine.
  */
-static int sr_bt_mac_text_to_bytes(const char *text, uint8_t *buf)
+static int otc_bt_mac_text_to_bytes(const char *text, uint8_t *buf)
 {
 	size_t len;
 	long v;
@@ -186,13 +186,13 @@ static int sr_bt_mac_text_to_bytes(const char *text, uint8_t *buf)
 	}
 
 	if (len) {
-		sr_err("Failed to parse MAC, too few bytes in '%s'", text);
+		otc_err("Failed to parse MAC, too few bytes in '%s'", text);
 		return -1;
 	}
 	while (isspace(*endp))
 		endp++;
 	if (*endp) {
-		sr_err("Failed to parse MAC, excess data in '%s'", text);
+		otc_err("Failed to parse MAC, excess data in '%s'", text);
 		return -1;
 	}
 
@@ -202,19 +202,19 @@ static int sr_bt_mac_text_to_bytes(const char *text, uint8_t *buf)
 /* }}} conversion */
 /* {{{ helpers */
 
-SR_PRIV const char *sr_bt_adapter_get_address(size_t idx)
+OTC_PRIV const char *otc_bt_adapter_get_address(size_t idx)
 {
 	int rc;
 	struct hci_dev_info info;
 	char addr[20];
 
 	rc = hci_devinfo(idx, &info);
-	sr_spew("DIAG: hci_devinfo(%zu) => rc %d", idx, rc);
+	otc_spew("DIAG: hci_devinfo(%zu) => rc %d", idx, rc);
 	if (rc < 0)
 		return NULL;
 
 	rc = ba2str(&info.bdaddr, addr);
-	sr_spew("DIAG: ba2str() => rc %d", rc);
+	otc_spew("DIAG: ba2str() => rc %d", rc);
 	if (rc < 0)
 		return NULL;
 
@@ -224,11 +224,11 @@ SR_PRIV const char *sr_bt_adapter_get_address(size_t idx)
 /* }}} helpers */
 /* {{{ descriptor */
 
-struct sr_bt_desc {
+struct otc_bt_desc {
 	/* User servicable options. */
-	sr_bt_scan_cb scan_cb;
+	otc_bt_scan_cb scan_cb;
 	void *scan_cb_data;
-	sr_bt_data_cb data_cb;
+	otc_bt_data_cb data_cb;
 	void *data_cb_data;
 	char local_addr[20];
 	char remote_addr[20];
@@ -244,20 +244,20 @@ struct sr_bt_desc {
 	struct hci_filter orig_filter;
 };
 
-static int sr_bt_desc_open(struct sr_bt_desc *desc, int *id_ref);
-static void sr_bt_desc_close(struct sr_bt_desc *desc);
-static int sr_bt_check_socket_usable(struct sr_bt_desc *desc);
-static ssize_t sr_bt_write_type(struct sr_bt_desc *desc, uint8_t type);
-static ssize_t sr_bt_write_type_handle(struct sr_bt_desc *desc,
+static int otc_bt_desc_open(struct otc_bt_desc *desc, int *id_ref);
+static void otc_bt_desc_close(struct otc_bt_desc *desc);
+static int otc_bt_check_socket_usable(struct otc_bt_desc *desc);
+static ssize_t otc_bt_write_type(struct otc_bt_desc *desc, uint8_t type);
+static ssize_t otc_bt_write_type_handle(struct otc_bt_desc *desc,
 	uint8_t type, uint16_t handle);
-static ssize_t sr_bt_write_type_handle_bytes(struct sr_bt_desc *desc,
+static ssize_t otc_bt_write_type_handle_bytes(struct otc_bt_desc *desc,
 	uint8_t type, uint16_t handle, const uint8_t *data, size_t len);
-static ssize_t sr_bt_char_write_req(struct sr_bt_desc *desc,
+static ssize_t otc_bt_char_write_req(struct otc_bt_desc *desc,
 	uint16_t handle, const void *data, size_t len);
 
-SR_PRIV struct sr_bt_desc *sr_bt_desc_new(void)
+OTC_PRIV struct otc_bt_desc *otc_bt_desc_new(void)
 {
-	struct sr_bt_desc *desc;
+	struct otc_bt_desc *desc;
 
 	desc = g_malloc0(sizeof(*desc));
 	if (!desc)
@@ -269,17 +269,17 @@ SR_PRIV struct sr_bt_desc *sr_bt_desc_new(void)
 	return desc;
 }
 
-SR_PRIV void sr_bt_desc_free(struct sr_bt_desc *desc)
+OTC_PRIV void otc_bt_desc_free(struct otc_bt_desc *desc)
 {
 	if (!desc)
 		return;
 
-	sr_bt_desc_close(desc);
+	otc_bt_desc_close(desc);
 	g_free(desc);
 }
 
-SR_PRIV int sr_bt_config_cb_scan(struct sr_bt_desc *desc,
-	sr_bt_scan_cb cb, void *cb_data)
+OTC_PRIV int otc_bt_config_cb_scan(struct otc_bt_desc *desc,
+	otc_bt_scan_cb cb, void *cb_data)
 {
 	if (!desc)
 		return -1;
@@ -290,8 +290,8 @@ SR_PRIV int sr_bt_config_cb_scan(struct sr_bt_desc *desc,
 	return 0;
 }
 
-SR_PRIV int sr_bt_config_cb_data(struct sr_bt_desc *desc,
-	sr_bt_data_cb cb, void *cb_data)
+OTC_PRIV int otc_bt_config_cb_data(struct otc_bt_desc *desc,
+	otc_bt_data_cb cb, void *cb_data)
 {
 	if (!desc)
 		return -1;
@@ -302,7 +302,7 @@ SR_PRIV int sr_bt_config_cb_data(struct sr_bt_desc *desc,
 	return 0;
 }
 
-SR_PRIV int sr_bt_config_addr_local(struct sr_bt_desc *desc, const char *addr)
+OTC_PRIV int otc_bt_config_addr_local(struct otc_bt_desc *desc, const char *addr)
 {
 	bdaddr_t mac_bytes;
 	int rc;
@@ -315,7 +315,7 @@ SR_PRIV int sr_bt_config_addr_local(struct sr_bt_desc *desc, const char *addr)
 		return 0;
 	}
 
-	rc = sr_bt_mac_text_to_bytes(addr, &mac_bytes.b[0]);
+	rc = otc_bt_mac_text_to_bytes(addr, &mac_bytes.b[0]);
 	if (rc < 0)
 		return -1;
 
@@ -326,7 +326,7 @@ SR_PRIV int sr_bt_config_addr_local(struct sr_bt_desc *desc, const char *addr)
 	return 0;
 }
 
-SR_PRIV int sr_bt_config_addr_remote(struct sr_bt_desc *desc, const char *addr)
+OTC_PRIV int otc_bt_config_addr_remote(struct otc_bt_desc *desc, const char *addr)
 {
 	bdaddr_t mac_bytes;
 	int rc;
@@ -339,7 +339,7 @@ SR_PRIV int sr_bt_config_addr_remote(struct sr_bt_desc *desc, const char *addr)
 		return 0;
 	}
 
-	rc = sr_bt_mac_text_to_bytes(addr, &mac_bytes.b[0]);
+	rc = otc_bt_mac_text_to_bytes(addr, &mac_bytes.b[0]);
 	if (rc < 0)
 		return -1;
 
@@ -350,7 +350,7 @@ SR_PRIV int sr_bt_config_addr_remote(struct sr_bt_desc *desc, const char *addr)
 	return 0;
 }
 
-SR_PRIV int sr_bt_config_rfcomm(struct sr_bt_desc *desc, size_t channel)
+OTC_PRIV int otc_bt_config_rfcomm(struct otc_bt_desc *desc, size_t channel)
 {
 	if (!desc)
 		return -1;
@@ -360,7 +360,7 @@ SR_PRIV int sr_bt_config_rfcomm(struct sr_bt_desc *desc, size_t channel)
 	return 0;
 }
 
-SR_PRIV int sr_bt_config_notify(struct sr_bt_desc *desc,
+OTC_PRIV int otc_bt_config_notify(struct otc_bt_desc *desc,
 	uint16_t read_handle, uint16_t write_handle,
 	uint16_t cccd_handle, uint16_t cccd_value,
 	uint16_t ble_mtu)
@@ -378,14 +378,14 @@ SR_PRIV int sr_bt_config_notify(struct sr_bt_desc *desc,
 	return 0;
 }
 
-static int sr_bt_desc_open(struct sr_bt_desc *desc, int *id_ref)
+static int otc_bt_desc_open(struct otc_bt_desc *desc, int *id_ref)
 {
 	int id, sock;
 	bdaddr_t mac;
 
 	if (!desc)
 		return -1;
-	sr_dbg("BLE open");
+	otc_dbg("BLE open");
 
 	if (desc->local_addr[0]) {
 		id = hci_devid(desc->local_addr);
@@ -396,7 +396,7 @@ static int sr_bt_desc_open(struct sr_bt_desc *desc, int *id_ref)
 		id = hci_get_route(NULL);
 	}
 	if (id < 0) {
-		sr_err("devid failed");
+		otc_err("devid failed");
 		return -1;
 	}
 	desc->devid = id;
@@ -413,12 +413,12 @@ static int sr_bt_desc_open(struct sr_bt_desc *desc, int *id_ref)
 	return sock;
 }
 
-static void sr_bt_desc_close(struct sr_bt_desc *desc)
+static void otc_bt_desc_close(struct otc_bt_desc *desc)
 {
 	if (!desc)
 		return;
 
-	sr_dbg("BLE close");
+	otc_dbg("BLE close");
 	if (desc->fd >= 0) {
 		hci_close_dev(desc->fd);
 		desc->fd = -1;
@@ -431,7 +431,7 @@ static void sr_bt_desc_close(struct sr_bt_desc *desc)
 
 #define EIR_NAME_COMPLETE	9
 
-static int sr_bt_scan_prep(struct sr_bt_desc *desc)
+static int otc_bt_scan_prep(struct otc_bt_desc *desc)
 {
 	int rc;
 	uint8_t type, owntype, filter;
@@ -489,7 +489,7 @@ static int sr_bt_scan_prep(struct sr_bt_desc *desc)
 	return 0;
 }
 
-static int sr_bt_scan_post(struct sr_bt_desc *desc)
+static int otc_bt_scan_post(struct otc_bt_desc *desc)
 {
 	int rc;
 	uint8_t enable, dup;
@@ -516,8 +516,8 @@ static int sr_bt_scan_post(struct sr_bt_desc *desc)
 	return 0;
 }
 
-static int sr_bt_scan_proc(struct sr_bt_desc *desc,
-	sr_bt_scan_cb scan_cb, void *cb_data,
+static int otc_bt_scan_proc(struct otc_bt_desc *desc,
+	otc_bt_scan_cb scan_cb, void *cb_data,
 	uint8_t *data, size_t dlen, le_advertising_info *info)
 {
 	uint8_t type;
@@ -540,7 +540,7 @@ static int sr_bt_scan_proc(struct sr_bt_desc *desc,
 	return 0;
 }
 
-SR_PRIV int sr_bt_scan_le(struct sr_bt_desc *desc, int duration)
+OTC_PRIV int otc_bt_scan_le(struct otc_bt_desc *desc, int duration)
 {
 	int rc;
 	time_t deadline;
@@ -553,13 +553,13 @@ SR_PRIV int sr_bt_scan_le(struct sr_bt_desc *desc, int duration)
 
 	if (!desc)
 		return -1;
-	sr_dbg("BLE scan (LE)");
+	otc_dbg("BLE scan (LE)");
 
-	rc = sr_bt_desc_open(desc, NULL);
+	rc = otc_bt_desc_open(desc, NULL);
 	if (rc < 0)
 		return -1;
 
-	rc = sr_bt_scan_prep(desc);
+	rc = otc_bt_scan_prep(desc);
 	if (rc < 0)
 		return -1;
 
@@ -567,9 +567,9 @@ SR_PRIV int sr_bt_scan_le(struct sr_bt_desc *desc, int duration)
 	deadline += duration;
 	while (time(NULL) <= deadline) {
 
-		if (sr_bt_check_socket_usable(desc) < 0)
+		if (otc_bt_check_socket_usable(desc) < 0)
 			break;
-		rdlen = sr_bt_read(desc, buf, sizeof(buf));
+		rdlen = otc_bt_read(desc, buf, sizeof(buf));
 		if (rdlen < 0)
 			break;
 		if (!rdlen) {
@@ -583,7 +583,7 @@ SR_PRIV int sr_bt_scan_le(struct sr_bt_desc *desc, int duration)
 		if (meta->subevent != EVT_LE_ADVERTISING_REPORT)
 			continue;
 		info = (void *)&meta->data[1];
-		sr_spew("evt: type %d, len %d", info->evt_type, info->length);
+		otc_spew("evt: type %d, len %d", info->evt_type, info->length);
 		if (!info->length)
 			continue;
 
@@ -594,7 +594,7 @@ SR_PRIV int sr_bt_scan_le(struct sr_bt_desc *desc, int duration)
 			if (rdpos + 1 + datalen > info->length)
 				break;
 			rdpos += 1 + datalen;
-			rc = sr_bt_scan_proc(desc,
+			rc = otc_bt_scan_proc(desc,
 				desc->scan_cb, desc->scan_cb_data,
 				dataptr, datalen, info);
 			if (rc < 0)
@@ -602,16 +602,16 @@ SR_PRIV int sr_bt_scan_le(struct sr_bt_desc *desc, int duration)
 		}
 	}
 
-	rc = sr_bt_scan_post(desc);
+	rc = otc_bt_scan_post(desc);
 	if (rc < 0)
 		return -1;
 
-	sr_bt_desc_close(desc);
+	otc_bt_desc_close(desc);
 
 	return 0;
 }
 
-SR_PRIV int sr_bt_scan_bt(struct sr_bt_desc *desc, int duration)
+OTC_PRIV int otc_bt_scan_bt(struct otc_bt_desc *desc, int duration)
 {
 	int dev_id, sock, rsp_max;
 	long flags;
@@ -623,9 +623,9 @@ SR_PRIV int sr_bt_scan_bt(struct sr_bt_desc *desc, int duration)
 
 	if (!desc)
 		return -1;
-	sr_dbg("BLE scan (BT)");
+	otc_dbg("BLE scan (BT)");
 
-	sock = sr_bt_desc_open(desc, &dev_id);
+	sock = otc_bt_desc_open(desc, &dev_id);
 	if (sock < 0)
 		return -1;
 
@@ -648,7 +648,7 @@ SR_PRIV int sr_bt_scan_bt(struct sr_bt_desc *desc, int duration)
 	}
 	g_free(info);
 
-	sr_bt_desc_close(desc);
+	otc_bt_desc_close(desc);
 
 	return 0;
 }
@@ -656,7 +656,7 @@ SR_PRIV int sr_bt_scan_bt(struct sr_bt_desc *desc, int duration)
 /* }}} scan */
 /* {{{ connect/disconnect */
 
-SR_PRIV int sr_bt_connect_ble(struct sr_bt_desc *desc)
+OTC_PRIV int otc_bt_connect_ble(struct otc_bt_desc *desc)
 {
 	struct sockaddr_l2 sl2;
 	bdaddr_t mac;
@@ -667,7 +667,7 @@ SR_PRIV int sr_bt_connect_ble(struct sr_bt_desc *desc)
 		return -1;
 	if (!desc->remote_addr[0])
 		return -1;
-	sr_dbg("BLE connect, remote addr %s", desc->remote_addr);
+	otc_dbg("BLE connect, remote addr %s", desc->remote_addr);
 
 	s = socket(AF_BLUETOOTH, SOCK_SEQPACKET, 0);
 	if (s < 0) {
@@ -726,7 +726,7 @@ SR_PRIV int sr_bt_connect_ble(struct sr_bt_desc *desc)
 		 * in extended periods of time where nothing happens, and
 		 * an application timeout seems to be required.
 		 */
-		sr_spew("in progress ...");
+		otc_spew("in progress ...");
 
 		do {
 			memset(fds, 0, sizeof(fds));
@@ -742,8 +742,8 @@ SR_PRIV int sr_bt_connect_ble(struct sr_bt_desc *desc)
 			if (!(fds[0].revents & POLLOUT))
 				continue;
 			if (g_get_monotonic_time() >= deadline) {
-				sr_warn("Connect attempt timed out");
-				return SR_ERR_IO;
+				otc_warn("Connect attempt timed out");
+				return OTC_ERR_IO;
 			}
 		} while (1);
 		memset(fds, 0, sizeof(fds));
@@ -786,7 +786,7 @@ SR_PRIV int sr_bt_connect_ble(struct sr_bt_desc *desc)
 	return 0;
 }
 
-SR_PRIV int sr_bt_connect_rfcomm(struct sr_bt_desc *desc)
+OTC_PRIV int otc_bt_connect_rfcomm(struct otc_bt_desc *desc)
 {
 	struct sockaddr_rc addr;
 	int i, fd, rc;
@@ -795,7 +795,7 @@ SR_PRIV int sr_bt_connect_rfcomm(struct sr_bt_desc *desc)
 		return -1;
 	if (!desc->remote_addr[0])
 		return -1;
-	sr_dbg("RFCOMM connect, remote addr %s, channel %zu",
+	otc_dbg("RFCOMM connect, remote addr %s, channel %zu",
 		desc->remote_addr, desc->rfcomm_channel);
 
 	if (!desc->rfcomm_channel)
@@ -819,7 +819,7 @@ SR_PRIV int sr_bt_connect_rfcomm(struct sr_bt_desc *desc)
 
 		rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
 		if (rc >= 0) {
-			sr_spew("connected");
+			otc_spew("connected");
 			desc->fd = fd;
 			return 0;
 		} else if (rc < 0 && errno == EBUSY) {
@@ -832,21 +832,21 @@ SR_PRIV int sr_bt_connect_rfcomm(struct sr_bt_desc *desc)
 		}
 	}
 
-	sr_err("Connect failed, device busy.");
+	otc_err("Connect failed, device busy.");
 
 	return -2;
 }
 
-SR_PRIV void sr_bt_disconnect(struct sr_bt_desc *desc)
+OTC_PRIV void otc_bt_disconnect(struct otc_bt_desc *desc)
 {
-	sr_dbg("BLE disconnect");
+	otc_dbg("BLE disconnect");
 
 	if (!desc)
 		return;
-	sr_bt_desc_close(desc);
+	otc_bt_desc_close(desc);
 }
 
-static int sr_bt_check_socket_usable(struct sr_bt_desc *desc)
+static int otc_bt_check_socket_usable(struct otc_bt_desc *desc)
 {
 	struct pollfd fds[1];
 	int ret;
@@ -877,27 +877,27 @@ static int sr_bt_check_socket_usable(struct sr_bt_desc *desc)
 /* }}} connect/disconnect */
 /* {{{ indication/notification */
 
-SR_PRIV int sr_bt_start_notify(struct sr_bt_desc *desc)
+OTC_PRIV int otc_bt_start_notify(struct otc_bt_desc *desc)
 {
 	uint8_t buf[sizeof(desc->cccd_value)];
 	ssize_t wrlen;
 
 	if (!desc)
 		return -1;
-	sr_dbg("BLE start notify");
+	otc_dbg("BLE start notify");
 
-	if (sr_bt_check_socket_usable(desc) < 0)
+	if (otc_bt_check_socket_usable(desc) < 0)
 		return -2;
 
 	write_u16le(buf, desc->cccd_value);
-	wrlen = sr_bt_char_write_req(desc, desc->cccd_handle, buf, sizeof(buf));
+	wrlen = otc_bt_char_write_req(desc, desc->cccd_handle, buf, sizeof(buf));
 	if (wrlen != sizeof(buf))
 		return -2;
 
 	return 0;
 }
 
-SR_PRIV int sr_bt_check_notify(struct sr_bt_desc *desc)
+OTC_PRIV int otc_bt_check_notify(struct otc_bt_desc *desc)
 {
 	uint8_t buf[1024];
 	ssize_t rdlen;
@@ -914,7 +914,7 @@ SR_PRIV int sr_bt_check_notify(struct sr_bt_desc *desc)
 	if (!desc)
 		return -1;
 
-	if (sr_bt_check_socket_usable(desc) < 0)
+	if (otc_bt_check_socket_usable(desc) < 0)
 		return -2;
 
 	/*
@@ -924,23 +924,23 @@ SR_PRIV int sr_bt_check_notify(struct sr_bt_desc *desc)
 	 * read(2) call, or can data combine at the caller's? Need we
 	 * loop over the received content until all was consumed?
 	 */
-	rdlen = sr_bt_read(desc, buf, sizeof(buf));
+	rdlen = otc_bt_read(desc, buf, sizeof(buf));
 	if (rdlen < 0) {
-		sr_dbg("check notifiy, read error, %zd", rdlen);
+		otc_dbg("check notifiy, read error, %zd", rdlen);
 		return -2;
 	}
 	if (!rdlen) {
-		if (0) sr_spew("check notifiy, empty read");
+		if (0) otc_spew("check notifiy, empty read");
 		return 0;
 	}
 	bufptr = &buf[0];
 	buflen = (size_t)rdlen;
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
 		GString *txt;
-		txt = sr_hexdump_new(bufptr, buflen);
-		sr_spew("check notifiy, read succes, length %zd, data: %s",
+		txt = otc_hexdump_new(bufptr, buflen);
+		otc_spew("check notifiy, read succes, length %zd, data: %s",
 			rdlen, txt->str);
-		sr_hexdump_free(txt);
+		otc_hexdump_free(txt);
 	}
 
 	/*
@@ -962,7 +962,7 @@ SR_PRIV int sr_bt_check_notify(struct sr_bt_desc *desc)
 		if (!packet_dlen)
 			packet_data = NULL;
 	}
-	if (0) sr_spew("check notifiy, prep, hdl %" PRIu16 ", data %p len %zu",
+	if (0) otc_spew("check notifiy, prep, hdl %" PRIu16 ", data %p len %zu",
 		packet_handle, packet_data, packet_dlen);
 
 	/* Dispatch according to the message type. */
@@ -970,59 +970,59 @@ SR_PRIV int sr_bt_check_notify(struct sr_bt_desc *desc)
 	case BLE_ATT_EXCHANGE_MTU_REQ:
 		type_text = "MTU exchange request";
 		if (buflen < sizeof(uint16_t)) {
-			sr_dbg("%s, invalid (size)", type_text);
+			otc_dbg("%s, invalid (size)", type_text);
 			break;
 		}
 		mtu = read_u16le_inc_len(&bufptr, &buflen);
-		sr_dbg("%s, peripheral value %" PRIu16, type_text, mtu);
+		otc_dbg("%s, peripheral value %" PRIu16, type_text, mtu);
 		if (desc->ble_mtu) {
 			mtu = desc->ble_mtu;
-			sr_dbg("%s, central value %" PRIu16, type_text, mtu);
-			sr_bt_write_type_handle(desc,
+			otc_dbg("%s, central value %" PRIu16, type_text, mtu);
+			otc_bt_write_type_handle(desc,
 				BLE_ATT_EXCHANGE_MTU_RESP, mtu);
 			break;
 		}
-		sr_warn("Unhandled BLE %s.", type_text);
+		otc_warn("Unhandled BLE %s.", type_text);
 		break;
 	case BLE_ATT_ERROR_RESP:
 		type_text = "error response";
 		if (!buflen) {
-			sr_dbg("%s, no payload", type_text);
+			otc_dbg("%s, no payload", type_text);
 			break;
 		}
 		/* EMPTY */
-		sr_dbg("%s, not handled here", type_text);
+		otc_dbg("%s, not handled here", type_text);
 		break;
 	case BLE_ATT_WRITE_RESP:
 		type_text = "write response";
-		sr_dbg("%s, note taken", type_text);
+		otc_dbg("%s, note taken", type_text);
 		break;
 	case BLE_ATT_HANDLE_INDICATION:
 		type_text = "handle indication";
-		sr_dbg("%s, data len %zu", type_text, packet_dlen);
-		sr_bt_write_type(desc, BLE_ATT_HANDLE_CONFIRMATION);
-		sr_spew("%s, confirmation sent", type_text);
+		otc_dbg("%s, data len %zu", type_text, packet_dlen);
+		otc_bt_write_type(desc, BLE_ATT_HANDLE_CONFIRMATION);
+		otc_spew("%s, confirmation sent", type_text);
 		if (packet_handle != desc->read_handle)
 			return -4;
 		if (!desc->data_cb)
 			return 0;
 		ret = desc->data_cb(desc->data_cb_data,
 			packet_data, packet_dlen);
-		sr_spew("%s, data cb ret %d", type_text, ret);
+		otc_spew("%s, data cb ret %d", type_text, ret);
 		return ret;
 	case BLE_ATT_HANDLE_NOTIFICATION:
 		type_text = "handle notification";
-		sr_dbg("%s, data len %zu", type_text, packet_dlen);
+		otc_dbg("%s, data len %zu", type_text, packet_dlen);
 		if (packet_handle != desc->read_handle)
 			return -4;
 		if (!desc->data_cb)
 			return 0;
 		ret = desc->data_cb(desc->data_cb_data,
 			packet_data, packet_dlen);
-		sr_spew("%s, data cb ret %d", type_text, ret);
+		otc_spew("%s, data cb ret %d", type_text, ret);
 		return ret;
 	default:
-		sr_dbg("unhandled type 0x%02x, len %zu",
+		otc_dbg("unhandled type 0x%02x, len %zu",
 			packet_type, buflen);
 		return -3;
 	}
@@ -1033,7 +1033,7 @@ SR_PRIV int sr_bt_check_notify(struct sr_bt_desc *desc)
 /* }}} indication/notification */
 /* {{{ read/write */
 
-SR_PRIV ssize_t sr_bt_write(struct sr_bt_desc *desc,
+OTC_PRIV ssize_t otc_bt_write(struct otc_bt_desc *desc,
 	const void *data, size_t len)
 {
 	if (!desc)
@@ -1041,18 +1041,18 @@ SR_PRIV ssize_t sr_bt_write(struct sr_bt_desc *desc,
 	if (desc->fd < 0)
 		return -1;
 
-	if (sr_bt_check_socket_usable(desc) < 0)
+	if (otc_bt_check_socket_usable(desc) < 0)
 		return -2;
 
 	/* Send TX data to the writable characteristics for BLE UART services. */
 	if (desc->write_handle)
-		return sr_bt_char_write_req(desc, desc->write_handle, data, len);
+		return otc_bt_char_write_req(desc, desc->write_handle, data, len);
 
 	/* Send raw TX data to the RFCOMM socket for BT Classic channels. */
 	return write(desc->fd, data, len);
 }
 
-static ssize_t sr_bt_write_type(struct sr_bt_desc *desc, uint8_t type)
+static ssize_t otc_bt_write_type(struct otc_bt_desc *desc, uint8_t type)
 {
 	ssize_t wrlen;
 
@@ -1061,7 +1061,7 @@ static ssize_t sr_bt_write_type(struct sr_bt_desc *desc, uint8_t type)
 	if (desc->fd < 0)
 		return -1;
 
-	if (sr_bt_check_socket_usable(desc) < 0)
+	if (otc_bt_check_socket_usable(desc) < 0)
 		return -2;
 
 	wrlen = write(desc->fd, &type, sizeof(type));
@@ -1073,13 +1073,13 @@ static ssize_t sr_bt_write_type(struct sr_bt_desc *desc, uint8_t type)
 	return 0;
 }
 
-static ssize_t sr_bt_write_type_handle(struct sr_bt_desc *desc,
+static ssize_t otc_bt_write_type_handle(struct otc_bt_desc *desc,
 	uint8_t type, uint16_t handle)
 {
-	return sr_bt_write_type_handle_bytes(desc, type, handle, NULL, 0);
+	return otc_bt_write_type_handle_bytes(desc, type, handle, NULL, 0);
 }
 
-static ssize_t sr_bt_write_type_handle_bytes(struct sr_bt_desc *desc,
+static ssize_t otc_bt_write_type_handle_bytes(struct otc_bt_desc *desc,
 	uint8_t type, uint16_t handle, const uint8_t *data, size_t len)
 {
 	uint8_t header[sizeof(uint8_t) + sizeof(uint16_t)];
@@ -1094,7 +1094,7 @@ static ssize_t sr_bt_write_type_handle_bytes(struct sr_bt_desc *desc,
 	if (desc->fd < 0)
 		return -1;
 
-	if (sr_bt_check_socket_usable(desc) < 0)
+	if (otc_bt_check_socket_usable(desc) < 0)
 		return -2;
 
 	header[0] = type;
@@ -1115,14 +1115,14 @@ static ssize_t sr_bt_write_type_handle_bytes(struct sr_bt_desc *desc,
 }
 
 /* Returns negative upon error, or returns the number of _payload_ bytes written. */
-static ssize_t sr_bt_char_write_req(struct sr_bt_desc *desc,
+static ssize_t otc_bt_char_write_req(struct otc_bt_desc *desc,
 	uint16_t handle, const void *data, size_t len)
 {
-	return sr_bt_write_type_handle_bytes(desc, BLE_ATT_WRITE_REQ,
+	return otc_bt_write_type_handle_bytes(desc, BLE_ATT_WRITE_REQ,
 		handle, data, len);
 }
 
-SR_PRIV ssize_t sr_bt_read(struct sr_bt_desc *desc, void *data, size_t len)
+OTC_PRIV ssize_t otc_bt_read(struct otc_bt_desc *desc, void *data, size_t len)
 {
 	struct pollfd fds[1];
 	int ret;
@@ -1133,7 +1133,7 @@ SR_PRIV ssize_t sr_bt_read(struct sr_bt_desc *desc, void *data, size_t len)
 	if (desc->fd < 0)
 		return -1;
 
-	if (sr_bt_check_socket_usable(desc) < 0)
+	if (otc_bt_check_socket_usable(desc) < 0)
 		return -2;
 
 	memset(fds, 0, sizeof(fds));

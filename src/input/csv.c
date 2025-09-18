@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2013 Marc Schink <sigrok-dev@marcschink.de>
+ * Copyright (C) 2013 Marc Schink <opentracelab-dev@marcschink.de>
  * Copyright (C) 2019 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -26,8 +26,8 @@
 #include <string.h>
 #include <strings.h>
 
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 #include "scpi.h"	/* String un-quote for channel name from header line. */
 
 #define LOG_PREFIX "input/csv"
@@ -253,7 +253,7 @@ struct context {
 	/* Current line number. */
 	size_t line_number;
 
-	/* List of previously created sigrok channels. */
+	/* List of previously created opentracelab channels. */
 	GSList *prev_sr_channels;
 	GSList **prev_df_channels;
 };
@@ -271,7 +271,7 @@ struct context {
  *   (when it is full, or upon EOF).
  */
 
-static int flush_samplerate(const struct sr_input *in)
+static int flush_samplerate(const struct otc_input *in)
 {
 	struct context *inc;
 
@@ -279,12 +279,12 @@ static int flush_samplerate(const struct sr_input *in)
 	if (!inc->calc_samplerate && inc->samplerate)
 		inc->calc_samplerate = inc->samplerate;
 	if (inc->calc_samplerate && !inc->samplerate_sent) {
-		(void)sr_session_send_meta(in->sdi, SR_CONF_SAMPLERATE,
+		(void)otc_session_send_meta(in->sdi, OTC_CONF_SAMPLERATE,
 			g_variant_new_uint64(inc->calc_samplerate));
 		inc->samplerate_sent = TRUE;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void clear_logic_samples(struct context *inc)
@@ -311,55 +311,55 @@ static void set_logic_level(struct context *inc, size_t ch_idx, int on)
 	inc->sample_buffer[byte_idx] |= bit_mask;
 }
 
-static int flush_logic_samples(const struct sr_input *in)
+static int flush_logic_samples(const struct otc_input *in)
 {
 	struct context *inc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 	int rc;
 
 	inc = in->priv;
 	if (!inc->datafeed_buf_fill)
-		return SR_OK;
+		return OTC_OK;
 
 	rc = flush_samplerate(in);
-	if (rc != SR_OK)
+	if (rc != OTC_OK)
 		return rc;
 
 	memset(&packet, 0, sizeof(packet));
 	memset(&logic, 0, sizeof(logic));
-	packet.type = SR_DF_LOGIC;
+	packet.type = OTC_DF_LOGIC;
 	packet.payload = &logic;
 	logic.unitsize = inc->sample_unit_size;
 	logic.length = inc->datafeed_buf_fill;
 	logic.data = inc->datafeed_buffer;
 
-	rc = sr_session_send(in->sdi, &packet);
-	if (rc != SR_OK)
+	rc = otc_session_send(in->sdi, &packet);
+	if (rc != OTC_OK)
 		return rc;
 
 	inc->datafeed_buf_fill = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int queue_logic_samples(const struct sr_input *in)
+static int queue_logic_samples(const struct otc_input *in)
 {
 	struct context *inc;
 	int rc;
 
 	inc = in->priv;
 	if (!inc->logic_channels)
-		return SR_OK;
+		return OTC_OK;
 
 	inc->datafeed_buf_fill += inc->sample_unit_size;
 	if (inc->datafeed_buf_fill == inc->datafeed_buf_size) {
 		rc = flush_logic_samples(in);
-		if (rc != SR_OK)
+		if (rc != OTC_OK)
 			return rc;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void set_analog_value(struct context *inc, size_t ch_idx, csv_analog_t value);
@@ -382,14 +382,14 @@ static void set_analog_value(struct context *inc, size_t ch_idx, csv_analog_t va
 	inc->analog_sample_buffer[ch_idx * inc->analog_datafeed_buf_size] = value;
 }
 
-static int flush_analog_samples(const struct sr_input *in)
+static int flush_analog_samples(const struct otc_input *in)
 {
 	struct context *inc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	csv_analog_t *samples;
 	size_t ch_idx;
 	int digits;
@@ -397,18 +397,18 @@ static int flush_analog_samples(const struct sr_input *in)
 
 	inc = in->priv;
 	if (!inc->analog_datafeed_buf_fill)
-		return SR_OK;
+		return OTC_OK;
 
 	rc = flush_samplerate(in);
-	if (rc != SR_OK)
+	if (rc != OTC_OK)
 		return rc;
 
 	samples = inc->analog_datafeed_buffer;
 	for (ch_idx = 0; ch_idx < inc->analog_channels; ch_idx++) {
 		digits = inc->analog_datafeed_digits[ch_idx];
-		sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
+		otc_analog_init(&analog, &encoding, &meaning, &spec, digits);
 		memset(&packet, 0, sizeof(packet));
-		packet.type = SR_DF_ANALOG;
+		packet.type = OTC_DF_ANALOG;
 		packet.payload = &analog;
 		analog.num_samples = inc->analog_datafeed_buf_fill;
 		analog.data = samples;
@@ -425,34 +425,34 @@ static int flush_analog_samples(const struct sr_input *in)
 		analog.encoding->is_bigendian = FALSE;
 #endif
 		analog.encoding->digits = spec.spec_digits;
-		rc = sr_session_send(in->sdi, &packet);
-		if (rc != SR_OK)
+		rc = otc_session_send(in->sdi, &packet);
+		if (rc != OTC_OK)
 			return rc;
 		samples += inc->analog_datafeed_buf_size;
 	}
 
 	inc->analog_datafeed_buf_fill = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int queue_analog_samples(const struct sr_input *in)
+static int queue_analog_samples(const struct otc_input *in)
 {
 	struct context *inc;
 	int rc;
 
 	inc = in->priv;
 	if (!inc->analog_channels)
-		return SR_OK;
+		return OTC_OK;
 
 	inc->analog_datafeed_buf_fill++;
 	if (inc->analog_datafeed_buf_fill == inc->analog_datafeed_buf_size) {
 		rc = flush_analog_samples(in);
-		if (rc != SR_OK)
+		if (rc != OTC_OK)
 			return rc;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Helpers for "column processing". */
@@ -465,7 +465,7 @@ static int split_column_format(const char *spec,
 	enum single_col_format format_code;
 
 	if (!spec || !*spec)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Get the (optional, decimal, default 1) column count. Accept '*'. */
 	endp = NULL;
@@ -477,7 +477,7 @@ static int split_column_format(const char *spec,
 		count = strtoul(spec, &endp, 10);
 	}
 	if (!endp)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (endp == spec)
 		count = 1;
 	if (column_count)
@@ -509,7 +509,7 @@ static int split_column_format(const char *spec,
 		format_code = FORMAT_TIME;
 		break;
 	default:	/* includes NUL */
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	if (format)
 		*format = format_code;
@@ -518,7 +518,7 @@ static int split_column_format(const char *spec,
 	endp = NULL;
 	count = strtoul(spec, &endp, 10);
 	if (!endp)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (endp == spec)
 		count = format_is_analog(format_code) ? 3 : 1;
 	if (format_is_ignore(format_code))
@@ -531,12 +531,12 @@ static int split_column_format(const char *spec,
 
 	/* Input spec must have been exhausted. */
 	if (*spec)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int make_column_details_from_format(const struct sr_input *in,
+static int make_column_details_from_format(const struct otc_input *in,
 	const char *column_format, char **column_texts)
 {
 	struct context *inc;
@@ -560,32 +560,32 @@ static int make_column_details_from_format(const struct sr_input *in,
 	/* Split the input spec, count involved columns and channels. */
 	formats = g_strsplit(column_format, ",", 0);
 	if (!formats) {
-		sr_err("Cannot parse columns format %s (comma split).", column_format);
-		return SR_ERR_ARG;
+		otc_err("Cannot parse columns format %s (comma split).", column_format);
+		return OTC_ERR_ARG;
 	}
 	format_count = g_strv_length(formats);
 	if (!format_count) {
-		sr_err("Cannot parse columns format %s (field count).", column_format);
+		otc_err("Cannot parse columns format %s (field count).", column_format);
 		g_strfreev(formats);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	column_count = logic_count = analog_count = 0;
 	auto_column_count = 0;
 	for (format_idx = 0; format_idx < format_count; format_idx++) {
 		format = formats[format_idx];
 		ret = split_column_format(format, &c, &f, &b);
-		sr_dbg("fmt %s -> %zu cols, %s fmt, %zu bits, rc %d", format, c, col_format_text[f], b, ret);
-		if (ret != SR_OK) {
-			sr_err("Cannot parse columns format %s (field split, %s).", column_format, format);
+		otc_dbg("fmt %s -> %zu cols, %s fmt, %zu bits, rc %d", format, c, col_format_text[f], b, ret);
+		if (ret != OTC_OK) {
+			otc_err("Cannot parse columns format %s (field split, %s).", column_format, format);
 			g_strfreev(formats);
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		}
 		if (f && !c) {
 			/* User requested "auto-count", must be last format. */
 			if (formats[format_idx + 1]) {
-				sr_err("Auto column count must be last format field.");
+				otc_err("Auto column count must be last format field.");
 				g_strfreev(formats);
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			}
 			auto_column_count = inc->column_seen_count - column_count;
 			c = auto_column_count;
@@ -596,16 +596,16 @@ static int make_column_details_from_format(const struct sr_input *in,
 		else if (format_is_logic(f))
 			logic_count += c * b;
 	}
-	sr_dbg("Column format %s -> %zu columns, %zu logic, %zu analog channels.",
+	otc_dbg("Column format %s -> %zu columns, %zu logic, %zu analog channels.",
 		column_format, column_count, logic_count, analog_count);
 
 	/* Allocate and fill in "column processing" details. */
 	inc->column_want_count = column_count;
 	if (inc->column_seen_count < inc->column_want_count) {
-		sr_err("Insufficient input text width for desired data amount, got %zu but want %zu columns.",
+		otc_err("Insufficient input text width for desired data amount, got %zu but want %zu columns.",
 			inc->column_seen_count, inc->column_want_count);
 		g_strfreev(formats);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	inc->logic_channels = logic_count;
 	inc->analog_channels = analog_count;
@@ -657,7 +657,7 @@ static int make_column_details_from_format(const struct sr_input *in,
 			column = column_texts[detail->col_nr - 1];
 			if (inc->use_header && column && *column) {
 				column = g_strstrip(column);
-				caption = sr_scpi_unquote_string(column);
+				caption = otc_scpi_unquote_string(column);
 			} else {
 				caption = NULL;
 			}
@@ -688,7 +688,7 @@ static int make_column_details_from_format(const struct sr_input *in,
 	g_strfreev(formats);
 
 	/* Create channels in strict logic to analog order. */
-	channel_type = SR_CHANNEL_LOGIC;
+	channel_type = OTC_CHANNEL_LOGIC;
 	for (column_idx = 0; column_idx < inc->column_want_count; column_idx++) {
 		detail = &inc->column_details[column_idx];
 		if (!format_is_logic(detail->text_format))
@@ -696,23 +696,23 @@ static int make_column_details_from_format(const struct sr_input *in,
 		for (create_idx = 0; create_idx < detail->channel_count; create_idx++) {
 			caption = detail->channel_names[create_idx]->str;
 			channel_sdi_nr = g_slist_length(in->sdi->channels);
-			sr_channel_new(in->sdi, channel_sdi_nr, channel_type, TRUE, caption);
+			otc_channel_new(in->sdi, channel_sdi_nr, channel_type, TRUE, caption);
 		}
 	}
-	channel_type = SR_CHANNEL_ANALOG;
+	channel_type = OTC_CHANNEL_ANALOG;
 	for (column_idx = 0; column_idx < inc->column_want_count; column_idx++) {
 		detail = &inc->column_details[column_idx];
 		if (!format_is_analog(detail->text_format))
 			continue;
 		caption = detail->channel_names[0]->str;
 		channel_sdi_nr = g_slist_length(in->sdi->channels);
-		channel = sr_channel_new(in->sdi, channel_sdi_nr, channel_type, TRUE, caption);
+		channel = otc_channel_new(in->sdi, channel_sdi_nr, channel_type, TRUE, caption);
 		channel_idx = channel_sdi_nr - inc->logic_channels;
 		inc->analog_datafeed_digits[channel_idx] = detail->analog_digits;
 		inc->analog_datafeed_channels[channel_idx] = g_slist_append(NULL, channel);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static const struct column_details *lookup_column_details(struct context *inc, size_t nr)
@@ -779,8 +779,8 @@ static char **split_line(char *buf, struct context *inc)
  * @param[in] inc	The input module's context.
  * @param[in] details	The column processing details.
  *
- * @retval SR_OK	Success.
- * @retval SR_ERR	Invalid input data (empty, or format error).
+ * @retval OTC_OK	Success.
+ * @retval OTC_ERR	Invalid input data (empty, or format error).
  *
  * This routine modifies the logic levels in the current sample set,
  * based on the text input and a user provided format spec.
@@ -803,9 +803,9 @@ static int parse_logic(const char *column, struct context *inc,
 	 */
 	length = strlen(column);
 	if (!length) {
-		sr_err("Column %zu in line %zu is empty.", details->col_nr,
+		otc_err("Column %zu in line %zu is empty.", details->col_nr,
 			inc->line_number);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	rdptr = &column[length];
 	ch_idx = details->channel_offset;
@@ -838,9 +838,9 @@ static int parse_logic(const char *column, struct context *inc,
 		}
 		if (!valid) {
 			type_text = col_format_text[details->text_format];
-			sr_err("Invalid text '%s' in %s type column %zu in line %zu.",
+			otc_err("Invalid text '%s' in %s type column %zu in line %zu.",
 				column, type_text, details->col_nr, inc->line_number);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		/* Use the digit's bits for logic channels' data. */
 		bits = g_ascii_xdigit_value(c);
@@ -867,7 +867,7 @@ static int parse_logic(const char *column, struct context *inc,
 			break;
 		default:
 			/* ShouldNotHappen(TM), but silences compiler warning. */
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		ch_idx += ch_inc;
 	}
@@ -879,7 +879,7 @@ static int parse_logic(const char *column, struct context *inc,
 	 * and not really a limitation).
 	 */
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -889,8 +889,8 @@ static int parse_logic(const char *column, struct context *inc,
  * @param[in] inc	The input module's context.
  * @param[in] details	The column processing details.
  *
- * @retval SR_OK	Success.
- * @retval SR_ERR	Invalid input data (empty, or format error).
+ * @retval OTC_OK	Success.
+ * @retval OTC_ERR	Invalid input data (empty, or format error).
  *
  * This routine modifies the analog values in the current sample set,
  * based on the text input and a user provided format spec.
@@ -904,31 +904,31 @@ static int parse_analog(const char *column, struct context *inc,
 	int ret;
 
 	if (!format_is_analog(details->text_format))
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	length = strlen(column);
 	if (!length) {
-		sr_err("Column %zu in line %zu is empty.", details->col_nr,
+		otc_err("Column %zu in line %zu is empty.", details->col_nr,
 			inc->line_number);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	if (sizeof(value) == sizeof(double)) {
-		ret = sr_atod_ascii(column, &dvalue);
+		ret = otc_atod_ascii(column, &dvalue);
 		value = dvalue;
 	} else if (sizeof(value) == sizeof(float)) {
-		ret = sr_atof_ascii(column, &fvalue);
+		ret = otc_atof_ascii(column, &fvalue);
 		value = fvalue;
 	} else {
-		ret = SR_ERR_BUG;
+		ret = OTC_ERR_BUG;
 	}
-	if (ret != SR_OK) {
-		sr_err("Cannot parse analog text %s in column %zu in line %zu.",
+	if (ret != OTC_OK) {
+		otc_err("Cannot parse analog text %s in column %zu in line %zu.",
 			column, details->col_nr, inc->line_number);
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 	set_analog_value(inc, details->channel_offset, value);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -938,8 +938,8 @@ static int parse_analog(const char *column, struct context *inc,
  * @param[in] inc	The input module's context.
  * @param[in] details	The column processing details.
  *
- * @retval SR_OK	Success.
- * @retval SR_ERR	Invalid input data (empty, or format error).
+ * @retval OTC_OK	Success.
+ * @retval OTC_ERR	Invalid input data (empty, or format error).
  *
  * This routine attempts to automatically determine the input data's
  * samplerate from text rows' timestamp values. Only simple formats are
@@ -952,7 +952,7 @@ static int parse_timestamp(const char *column, struct context *inc,
 	int ret;
 
 	if (!format_is_timestamp(details->text_format))
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	/*
 	 * Implementor's notes on timestamp interpretation. Use a simple
@@ -984,40 +984,40 @@ static int parse_timestamp(const char *column, struct context *inc,
 	 * - Support other formats ("2 ms" or similar)?
 	 */
 	if (inc->calc_samplerate)
-		return SR_OK;
-	ret = sr_atod_ascii(column, &ts);
-	if (ret != SR_OK)
+		return OTC_OK;
+	ret = otc_atod_ascii(column, &ts);
+	if (ret != OTC_OK)
 		ts = 0.0;
 	if (!ts) {
-		sr_info("Cannot convert timestamp text %s in line %zu (or zero value).",
+		otc_info("Cannot convert timestamp text %s in line %zu (or zero value).",
 			column, inc->line_number);
 		inc->prev_timestamp = 0.0;
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (!inc->prev_timestamp) {
-		sr_dbg("First timestamp value %g in line %zu.",
+		otc_dbg("First timestamp value %g in line %zu.",
 			ts, inc->line_number);
 		inc->prev_timestamp = ts;
-		return SR_OK;
+		return OTC_OK;
 	}
-	sr_dbg("Second timestamp value %g in line %zu.", ts, inc->line_number);
+	otc_dbg("Second timestamp value %g in line %zu.", ts, inc->line_number);
 	ts -= inc->prev_timestamp;
-	sr_dbg("Timestamp difference %g in line %zu.",
+	otc_dbg("Timestamp difference %g in line %zu.",
 		ts, inc->line_number);
 	if (!ts) {
-		sr_warn("Zero timestamp difference in line %zu.",
+		otc_warn("Zero timestamp difference in line %zu.",
 			inc->line_number);
 		inc->prev_timestamp = ts;
-		return SR_OK;
+		return OTC_OK;
 	}
 	rate = 1.0 / ts;
 	rate += 0.5;
 	rate = (uint64_t)rate;
-	sr_dbg("Rate from timestamp %g in line %zu.", rate, inc->line_number);
+	otc_dbg("Rate from timestamp %g in line %zu.", rate, inc->line_number);
 	inc->calc_samplerate = rate;
 	inc->prev_timestamp = 0.0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -1033,7 +1033,7 @@ static int parse_ignore(const char *column, struct context *inc,
 	(void)inc;
 	(void)details;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 typedef int (*col_parse_cb)(const char *column, struct context *inc,
@@ -1100,14 +1100,14 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	char **cols, *col;
 
 	/* Get the application provided input data properties. */
-	fn = g_hash_table_lookup(metadata, GINT_TO_POINTER(SR_INPUT_META_FILENAME));
-	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(SR_INPUT_META_HEADER));
+	fn = g_hash_table_lookup(metadata, GINT_TO_POINTER(OTC_INPUT_META_FILENAME));
+	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(OTC_INPUT_META_HEADER));
 
 	/* Filenames are a strong hint. Use then when available. */
 	if (fn && *fn && (fn_len = strlen(fn)) >= strlen(default_extension)) {
 		if (strcasecmp(&fn[fn_len - strlen(default_extension)], default_extension) == 0) {
 			*confidence = 10;
-			return SR_OK;
+			return OTC_OK;
 		}
 	}
 
@@ -1130,10 +1130,10 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	 * Run the check on a copy to not affect the caller's buffer.
 	 */
 	if (!buf || !buf->len || !buf->str || !*buf->str)
-		return SR_ERR;
+		return OTC_ERR;
 	rdptr = g_strstr_len(buf->str, buf->len, line_termination);
 	if (!rdptr)
-		return SR_ERR;
+		return OTC_ERR;
 	tmpbuf = g_string_new_len(buf->str, rdptr + 1 - buf->str);
 	tmpbuf->str[tmpbuf->len - 1] = '\0';
 	status = TRUE;
@@ -1163,12 +1163,12 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	g_string_free(tmpbuf, TRUE);
 
 	if (!status)
-		return SR_ERR;
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	struct context *inc;
 	size_t single_column, first_column, logic_channels;
@@ -1184,8 +1184,8 @@ static int init(struct sr_input *in, GHashTable *options)
 	inc->delimiter = g_string_new(g_variant_get_string(
 			g_hash_table_lookup(options, "column_separator"), NULL));
 	if (!inc->delimiter->len) {
-		sr_err("Column separator cannot be empty.");
-		return SR_ERR_ARG;
+		otc_err("Column separator cannot be empty.");
+		return OTC_ERR_ARG;
 	}
 	s = g_variant_get_string(g_hash_table_lookup(options, "single_format"), NULL);
 	if (g_ascii_strncasecmp(s, "bin", 3) == 0) {
@@ -1195,8 +1195,8 @@ static int init(struct sr_input *in, GHashTable *options)
 	} else if (g_ascii_strncasecmp(s, "oct", 3) == 0) {
 		format = FORMAT_OCT;
 	} else {
-		sr_err("Invalid single-column format: '%s'", s);
-		return SR_ERR_ARG;
+		otc_err("Invalid single-column format: '%s'", s);
+		return OTC_ERR_ARG;
 	}
 	inc->comment = g_string_new(g_variant_get_string(
 			g_hash_table_lookup(options, "comment_leader"), NULL));
@@ -1207,7 +1207,7 @@ static int init(struct sr_input *in, GHashTable *options)
 		 * as the column separator but did not adjust the comment
 		 * leader. Try DWIM, drop comment strippin support here.
 		 */
-		sr_warn("Comment leader and column separator conflict, disabling comment support.");
+		otc_warn("Comment leader and column separator conflict, disabling comment support.");
 		g_string_truncate(inc->comment, 0);
 	}
 	inc->samplerate = g_variant_get_uint64(g_hash_table_lookup(options, "samplerate"));
@@ -1215,8 +1215,8 @@ static int init(struct sr_input *in, GHashTable *options)
 	inc->use_header = g_variant_get_boolean(g_hash_table_lookup(options, "header"));
 	inc->start_line = g_variant_get_uint32(g_hash_table_lookup(options, "start_line"));
 	if (inc->start_line < 1) {
-		sr_err("Invalid start line %zu.", inc->start_line);
-		return SR_ERR_ARG;
+		otc_err("Invalid start line %zu.", inc->start_line);
+		return OTC_ERR_ARG;
 	}
 
 	/*
@@ -1233,7 +1233,7 @@ static int init(struct sr_input *in, GHashTable *options)
 	s = g_variant_get_string(g_hash_table_lookup(options, "column_formats"), NULL);
 	if (s && *s) {
 		inc->column_formats = g_strdup(s);
-		sr_dbg("User specified column_formats: %s.", s);
+		otc_dbg("User specified column_formats: %s.", s);
 	} else if (single_column && logic_channels) {
 		format_char = col_format_char[format];
 		if (single_column == 1) {
@@ -1244,7 +1244,7 @@ static int init(struct sr_input *in, GHashTable *options)
 				single_column - 1,
 				format_char, logic_channels);
 		}
-		sr_dbg("Backwards compat single_column, col %zu, fmt %s, bits %zu -> %s.",
+		otc_dbg("Backwards compat single_column, col %zu, fmt %s, bits %zu -> %s.",
 			single_column, col_format_text[format], logic_channels,
 			inc->column_formats);
 	} else if (!single_column) {
@@ -1255,15 +1255,15 @@ static int init(struct sr_input *in, GHashTable *options)
 			inc->column_formats = g_strdup_printf("%zul",
 				logic_channels);
 		}
-		sr_dbg("Backwards compat multi-column, col %zu, chans %zu -> %s.",
+		otc_dbg("Backwards compat multi-column, col %zu, chans %zu -> %s.",
 			first_column, logic_channels,
 			inc->column_formats);
 	} else {
-		sr_warn("Unknown or unsupported columns layout spec, assuming simple multi-column mode.");
+		otc_warn("Unknown or unsupported columns layout spec, assuming simple multi-column mode.");
 		inc->column_formats = g_strdup("*l");
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1281,13 +1281,13 @@ static void release_df_channels(struct context *inc, GSList **l)
 	g_free(l);
 }
 
-static void keep_header_for_reread(const struct sr_input *in)
+static void keep_header_for_reread(const struct otc_input *in)
 {
 	struct context *inc;
 
 	inc = in->priv;
 
-	g_slist_free_full(inc->prev_sr_channels, sr_channel_free_cb);
+	g_slist_free_full(inc->prev_sr_channels, otc_channel_free_cb);
 	inc->prev_sr_channels = in->sdi->channels;
 	in->sdi->channels = NULL;
 
@@ -1296,7 +1296,7 @@ static void keep_header_for_reread(const struct sr_input *in)
 	inc->analog_datafeed_channels = NULL;
 }
 
-static int check_header_in_reread(const struct sr_input *in)
+static int check_header_in_reread(const struct otc_input *in)
 {
 	struct context *inc;
 
@@ -1308,12 +1308,12 @@ static int check_header_in_reread(const struct sr_input *in)
 	if (!inc->prev_sr_channels)
 		return TRUE;
 
-	if (sr_channel_lists_differ(inc->prev_sr_channels, in->sdi->channels)) {
-		sr_err("Channel list change not supported for file re-read.");
+	if (otc_channel_lists_differ(inc->prev_sr_channels, in->sdi->channels)) {
+		otc_err("Channel list change not supported for file re-read.");
 		return FALSE;
 	}
 
-	g_slist_free_full(in->sdi->channels, sr_channel_free_cb);
+	g_slist_free_full(in->sdi->channels, otc_channel_free_cb);
 	in->sdi->channels = inc->prev_sr_channels;
 	inc->prev_sr_channels = NULL;
 
@@ -1341,7 +1341,7 @@ static const char *get_line_termination(GString *buf)
 	return term;
 }
 
-static int initial_parse(const struct sr_input *in, GString *buf)
+static int initial_parse(const struct otc_input *in, GString *buf)
 {
 	struct context *inc;
 	size_t num_columns;
@@ -1349,7 +1349,7 @@ static int initial_parse(const struct sr_input *in, GString *buf)
 	int ret;
 	char **lines, *line, **columns;
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	inc = in->priv;
 	columns = NULL;
 
@@ -1362,16 +1362,16 @@ static int initial_parse(const struct sr_input *in, GString *buf)
 	for (line_idx = 0; (line = lines[line_idx]); line_idx++) {
 		line_number++;
 		if (inc->start_line > line_number) {
-			sr_spew("Line %zu skipped (before start).", line_number);
+			otc_spew("Line %zu skipped (before start).", line_number);
 			continue;
 		}
 		if (line[0] == '\0') {
-			sr_spew("Blank line %zu skipped.", line_number);
+			otc_spew("Blank line %zu skipped.", line_number);
 			continue;
 		}
 		strip_comment(line, inc->comment);
 		if (line[0] == '\0') {
-			sr_spew("Comment-only line %zu skipped.", line_number);
+			otc_spew("Comment-only line %zu skipped.", line_number);
 			continue;
 		}
 
@@ -1380,24 +1380,24 @@ static int initial_parse(const struct sr_input *in, GString *buf)
 	}
 	if (!line) {
 		/* Not enough data for a proper line yet. */
-		ret = SR_ERR_NA;
+		ret = OTC_ERR_NA;
 		goto out;
 	}
 
 	/* Get the number of columns in the line. */
 	columns = split_line(line, inc);
 	if (!columns) {
-		sr_err("Error while parsing line %zu.", line_number);
-		ret = SR_ERR;
+		otc_err("Error while parsing line %zu.", line_number);
+		ret = OTC_ERR;
 		goto out;
 	}
 	num_columns = g_strv_length(columns);
 	if (!num_columns) {
-		sr_err("Error while parsing line %zu.", line_number);
-		ret = SR_ERR;
+		otc_err("Error while parsing line %zu.", line_number);
+		ret = OTC_ERR;
 		goto out;
 	}
-	sr_dbg("Got %zu columns in text line: %s.", num_columns, line);
+	otc_dbg("Got %zu columns in text line: %s.", num_columns, line);
 
 	/*
 	 * Interpret the user provided column format specs. This might
@@ -1410,12 +1410,12 @@ static int initial_parse(const struct sr_input *in, GString *buf)
 	 * and .receive sequences (file re-load).
 	 */
 	ret = make_column_details_from_format(in, inc->column_formats, columns);
-	if (ret != SR_OK) {
-		sr_err("Cannot parse columns format using line %zu.", line_number);
+	if (ret != OTC_OK) {
+		otc_err("Cannot parse columns format using line %zu.", line_number);
 		goto out;
 	}
 	if (!check_header_in_reread(in)) {
-		ret = SR_ERR_DATA;
+		ret = OTC_ERR_DATA;
 		goto out;
 	}
 
@@ -1438,8 +1438,8 @@ static int initial_parse(const struct sr_input *in, GString *buf)
 		inc->datafeed_buf_size *= inc->sample_unit_size;
 		inc->datafeed_buffer = g_malloc(inc->datafeed_buf_size);
 		if (!inc->datafeed_buffer) {
-			sr_err("Cannot allocate datafeed send buffer (logic).");
-			ret = SR_ERR_MALLOC;
+			otc_err("Cannot allocate datafeed send buffer (logic).");
+			ret = OTC_ERR_MALLOC;
 			goto out;
 		}
 		inc->datafeed_buf_fill = 0;
@@ -1454,8 +1454,8 @@ static int initial_parse(const struct sr_input *in, GString *buf)
 		sample_count = inc->analog_channels * inc->analog_datafeed_buf_size;
 		inc->analog_datafeed_buffer = g_malloc(sample_count * sample_size);
 		if (!inc->analog_datafeed_buffer) {
-			sr_err("Cannot allocate datafeed send buffer (analog).");
-			ret = SR_ERR_MALLOC;
+			otc_err("Cannot allocate datafeed send buffer (analog).");
+			ret = OTC_ERR_MALLOC;
 			goto out;
 		}
 		inc->analog_datafeed_buf_fill = 0;
@@ -1479,7 +1479,7 @@ out:
  * against multiple execution or dropping the BOM multiple times --
  * there should be at most one in the input stream.
  */
-static void initial_bom_check(const struct sr_input *in)
+static void initial_bom_check(const struct otc_input *in)
 {
 	static const char *utf8_bom = "\xef\xbb\xbf";
 
@@ -1490,7 +1490,7 @@ static void initial_bom_check(const struct sr_input *in)
 	g_string_erase(in->buf, 0, strlen(utf8_bom));
 }
 
-static int initial_receive(const struct sr_input *in)
+static int initial_receive(const struct otc_input *in)
 {
 	struct context *inc;
 	GString *new_buf;
@@ -1505,12 +1505,12 @@ static int initial_receive(const struct sr_input *in)
 	termination = get_line_termination(in->buf);
 	if (!termination)
 		/* Don't have a full line yet. */
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	p = g_strrstr_len(in->buf->str, in->buf->len, termination);
 	if (!p)
 		/* Don't have a full line yet. */
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	len = p - in->buf->str - 1;
 	new_buf = g_string_new_len(in->buf->str, len);
 	g_string_append_c(new_buf, '\0');
@@ -1520,14 +1520,14 @@ static int initial_receive(const struct sr_input *in)
 	if (in->buf->str[0] != '\0')
 		ret = initial_parse(in, new_buf);
 	else
-		ret = SR_OK;
+		ret = OTC_OK;
 
 	g_string_free(new_buf, TRUE);
 
 	return ret;
 }
 
-static int process_buffer(struct sr_input *in, gboolean is_eof)
+static int process_buffer(struct otc_input *in, gboolean is_eof)
 {
 	struct context *inc;
 	gsize num_columns;
@@ -1558,42 +1558,42 @@ static int process_buffer(struct sr_input *in, gboolean is_eof)
 	 * in the "execution of an empty line", and does not harm.
 	 */
 	if (!in->buf->len)
-		return SR_OK;
+		return OTC_OK;
 	if (is_eof) {
 		processed_up_to = in->buf->str + in->buf->len;
 	} else {
 		processed_up_to = g_strrstr_len(in->buf->str, in->buf->len,
 			inc->termination);
 		if (!processed_up_to)
-			return SR_OK;
+			return OTC_OK;
 		*processed_up_to = '\0';
 		processed_up_to += strlen(inc->termination);
 	}
 
 	/* Split input text lines and process their columns. */
-	ret = SR_OK;
+	ret = OTC_OK;
 	lines = g_strsplit(in->buf->str, inc->termination, 0);
 	for (line_idx = 0; (line = lines[line_idx]); line_idx++) {
 		inc->line_number++;
 		if (inc->line_number < inc->start_line) {
-			sr_spew("Line %zu skipped (before start).", inc->line_number);
+			otc_spew("Line %zu skipped (before start).", inc->line_number);
 			continue;
 		}
 		if (line[0] == '\0') {
-			sr_spew("Blank line %zu skipped.", inc->line_number);
+			otc_spew("Blank line %zu skipped.", inc->line_number);
 			continue;
 		}
 
 		/* Remove trailing comment. */
 		strip_comment(line, inc->comment);
 		if (line[0] == '\0') {
-			sr_spew("Comment-only line %zu skipped.", inc->line_number);
+			otc_spew("Comment-only line %zu skipped.", inc->line_number);
 			continue;
 		}
 
 		/* Skip the header line, its content was used as the channel names. */
 		if (inc->use_header && !inc->header_seen) {
-			sr_spew("Header line %zu skipped.", inc->line_number);
+			otc_spew("Header line %zu skipped.", inc->line_number);
 			inc->header_seen = TRUE;
 			continue;
 		}
@@ -1601,17 +1601,17 @@ static int process_buffer(struct sr_input *in, gboolean is_eof)
 		/* Split the line into columns, check for minimum length. */
 		columns = split_line(line, inc);
 		if (!columns) {
-			sr_err("Error while parsing line %zu.", inc->line_number);
+			otc_err("Error while parsing line %zu.", inc->line_number);
 			g_strfreev(lines);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		num_columns = g_strv_length(columns);
 		if (num_columns < inc->column_want_count) {
-			sr_err("Insufficient column count %zu in line %zu.",
+			otc_err("Insufficient column count %zu in line %zu.",
 				num_columns, inc->line_number);
 			g_strfreev(columns);
 			g_strfreev(lines);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 
 		/* Have the columns of the current text line processed. */
@@ -1627,21 +1627,21 @@ static int process_buffer(struct sr_input *in, gboolean is_eof)
 			if (!parse_func)
 				continue;
 			ret = parse_func(column, inc, details);
-			if (ret != SR_OK) {
+			if (ret != OTC_OK) {
 				g_strfreev(columns);
 				g_strfreev(lines);
-				return SR_ERR;
+				return OTC_ERR;
 			}
 		}
 
 		/* Send sample data to the session bus (buffered). */
 		ret = queue_logic_samples(in);
 		ret += queue_analog_samples(in);
-		if (ret != SR_OK) {
-			sr_err("Sending samples failed.");
+		if (ret != OTC_OK) {
+			otc_err("Sending samples failed.");
 			g_strfreev(columns);
 			g_strfreev(lines);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 
 		g_strfreev(columns);
@@ -1652,7 +1652,7 @@ static int process_buffer(struct sr_input *in, gboolean is_eof)
 	return ret;
 }
 
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 	struct context *inc;
 	int ret;
@@ -1662,15 +1662,15 @@ static int receive(struct sr_input *in, GString *buf)
 	inc = in->priv;
 	if (!inc->column_seen_count) {
 		ret = initial_receive(in);
-		if (ret == SR_ERR_NA)
+		if (ret == OTC_ERR_NA)
 			/* Not enough data yet. */
-			return SR_OK;
-		else if (ret != SR_OK)
-			return SR_ERR;
+			return OTC_OK;
+		else if (ret != OTC_OK)
+			return OTC_ERR;
 
 		/* sdi is ready, notify frontend. */
 		in->sdi_ready = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	ret = process_buffer(in, FALSE);
@@ -1678,7 +1678,7 @@ static int receive(struct sr_input *in, GString *buf)
 	return ret;
 }
 
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	struct context *inc;
 	int ret;
@@ -1686,13 +1686,13 @@ static int end(struct sr_input *in)
 	if (in->sdi_ready)
 		ret = process_buffer(in, TRUE);
 	else
-		ret = SR_OK;
-	if (ret != SR_OK)
+		ret = OTC_OK;
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = flush_logic_samples(in);
 	ret += flush_analog_samples(in);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	inc = in->priv;
@@ -1702,7 +1702,7 @@ static int end(struct sr_input *in)
 	return ret;
 }
 
-static void cleanup(struct sr_input *in)
+static void cleanup(struct otc_input *in)
 {
 	struct context *inc, save_ctx;
 
@@ -1738,7 +1738,7 @@ static void cleanup(struct sr_input *in)
 	inc->prev_df_channels = save_ctx.prev_df_channels;
 }
 
-static int reset(struct sr_input *in)
+static int reset(struct otc_input *in)
 {
 	struct context *inc;
 
@@ -1747,7 +1747,7 @@ static int reset(struct sr_input *in)
 	inc->started = FALSE;
 	g_string_truncate(in->buf, 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 enum option_index {
@@ -1764,7 +1764,7 @@ enum option_index {
 	OPT_MAX,
 };
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	[OPT_COL_FMTS] = {
 		"column_formats", "Column format specs",
 		"Text columns data types. A comma separated list of [<cols>]<fmt>[<bits>] items. * for all remaining columns. - ignores columns, x/o/b/l logic data, a (and digits) analog data, t timestamps.",
@@ -1818,7 +1818,7 @@ static struct sr_option options[] = {
 	[OPT_MAX] = ALL_ZERO,
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	GSList *l;
 
@@ -1843,12 +1843,12 @@ static const struct sr_option *get_options(void)
 	return options;
 }
 
-SR_PRIV struct sr_input_module input_csv = {
+OTC_PRIV struct otc_input_module input_csv = {
 	.id = "csv",
 	.name = "CSV",
 	.desc = "Comma-separated values",
 	.exts = (const char*[]){"csv", NULL},
-	.metadata = { SR_INPUT_META_FILENAME, SR_INPUT_META_HEADER | SR_INPUT_META_REQUIRED },
+	.metadata = { OTC_INPUT_META_FILENAME, OTC_INPUT_META_HEADER | OTC_INPUT_META_REQUIRED },
 	.options = get_options,
 	.format_match = format_match,
 	.init = init,

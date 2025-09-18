@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Aurelien Jacobs <aurel@gnuage.org>
  * Copyright (C) 2019 Gerhard Sittig <gerhard.sittig@gmx.net>
@@ -31,24 +31,24 @@
 
 #include <config.h>
 #include <math.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 #include <string.h>
 
 #define LOG_PREFIX "brymen-bm86x"
 
 #ifdef HAVE_SERIAL_COMM
-SR_PRIV int sr_brymen_bm86x_packet_request(struct sr_serial_dev_inst *serial)
+OTC_PRIV int otc_brymen_bm86x_packet_request(struct otc_serial_dev_inst *serial)
 {
 	static const uint8_t request[] = { 0x00, 0x00, 0x86, 0x66, };
 
 	serial_write_nonblocking(serial, request, sizeof(request));
 
-	return SR_OK;
+	return OTC_OK;
 }
 #endif
 
-SR_PRIV gboolean sr_brymen_bm86x_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_brymen_bm86x_packet_valid(const uint8_t *buf)
 {
 	/*
 	 * "Model ID3" (3rd HID report, byte 3) is the only documented
@@ -119,7 +119,7 @@ static char brymen_bm86x_parse_digit(uint8_t b)
 	case 0x00: return '\0';
 	/* Invalid or unknown segment combination. */
 	default:
-		sr_warn("Unknown encoding for digit: 0x%02x.", b);
+		otc_warn("Unknown encoding for digit: 0x%02x.", b);
 		return '\0';
 	}
 }
@@ -160,13 +160,13 @@ static int brymen_bm86x_parse_digits(const uint8_t *pkt, size_t pktlen,
 	if (digits && *digits < 0)
 		*digits = 0;
 
-	ret = value ? sr_atof_ascii(txtbuf, value) : SR_OK;
-	if (ret != SR_OK) {
-		sr_dbg("invalid float string: '%s'", txtbuf);
+	ret = value ? otc_atof_ascii(txtbuf, value) : OTC_OK;
+	if (ret != OTC_OK) {
+		otc_dbg("invalid float string: '%s'", txtbuf);
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -174,7 +174,7 @@ static int brymen_bm86x_parse_digits(const uint8_t *pkt, size_t pktlen,
  * meter's displays from the DMM packet.
  */
 static void brymen_bm86x_parse(const uint8_t *buf, float *floatval,
-	struct sr_datafeed_analog *analog, size_t ch_idx)
+	struct otc_datafeed_analog *analog, size_t ch_idx)
 {
 	char txtbuf[16], temp_unit;
 	int ret, digits, is_diode, over_limit, scale;
@@ -194,47 +194,47 @@ static void brymen_bm86x_parse(const uint8_t *buf, float *floatval,
 		ret = brymen_bm86x_parse_digits(&buf[2], 6, txtbuf,
 			floatval, &temp_unit, &digits, 0x80);
 		over_limit = strstr(txtbuf, "0L") || strstr(txtbuf, "0.L");
-		if (ret != SR_OK && !over_limit)
+		if (ret != OTC_OK && !over_limit)
 			return;
 
 		/* SI unit. */
 		if (buf[8] & 0x01) {
-			analog->meaning->mq = SR_MQ_VOLTAGE;
-			analog->meaning->unit = SR_UNIT_VOLT;
+			analog->meaning->mq = OTC_MQ_VOLTAGE;
+			analog->meaning->unit = OTC_UNIT_VOLT;
 			if (is_diode) {
-				analog->meaning->mqflags |= SR_MQFLAG_DIODE;
-				analog->meaning->mqflags |= SR_MQFLAG_DC;
+				analog->meaning->mqflags |= OTC_MQFLAG_DIODE;
+				analog->meaning->mqflags |= OTC_MQFLAG_DC;
 			}
 		} else if (buf[14] & 0x80) {
-			analog->meaning->mq = SR_MQ_CURRENT;
-			analog->meaning->unit = SR_UNIT_AMPERE;
+			analog->meaning->mq = OTC_MQ_CURRENT;
+			analog->meaning->unit = OTC_UNIT_AMPERE;
 		} else if (buf[14] & 0x20) {
-			analog->meaning->mq = SR_MQ_CAPACITANCE;
-			analog->meaning->unit = SR_UNIT_FARAD;
+			analog->meaning->mq = OTC_MQ_CAPACITANCE;
+			analog->meaning->unit = OTC_UNIT_FARAD;
 		} else if (buf[14] & 0x10) {
-			analog->meaning->mq = SR_MQ_CONDUCTANCE;
-			analog->meaning->unit = SR_UNIT_SIEMENS;
+			analog->meaning->mq = OTC_MQ_CONDUCTANCE;
+			analog->meaning->unit = OTC_UNIT_SIEMENS;
 		} else if (buf[15] & 0x01) {
-			analog->meaning->mq = SR_MQ_FREQUENCY;
-			analog->meaning->unit = SR_UNIT_HERTZ;
+			analog->meaning->mq = OTC_MQ_FREQUENCY;
+			analog->meaning->unit = OTC_UNIT_HERTZ;
 		} else if (buf[10] & 0x01) {
-			analog->meaning->mq = SR_MQ_CONTINUITY;
-			analog->meaning->unit = SR_UNIT_OHM;
+			analog->meaning->mq = OTC_MQ_CONTINUITY;
+			analog->meaning->unit = OTC_UNIT_OHM;
 		} else if (buf[15] & 0x10) {
-			analog->meaning->mq = SR_MQ_RESISTANCE;
-			analog->meaning->unit = SR_UNIT_OHM;
+			analog->meaning->mq = OTC_MQ_RESISTANCE;
+			analog->meaning->unit = OTC_UNIT_OHM;
 		} else if (buf[15] & 0x02) {
-			analog->meaning->mq = SR_MQ_POWER;
-			analog->meaning->unit = SR_UNIT_DECIBEL_MW;
+			analog->meaning->mq = OTC_MQ_POWER;
+			analog->meaning->unit = OTC_UNIT_DECIBEL_MW;
 		} else if (buf[15] & 0x80) {
-			analog->meaning->mq = SR_MQ_DUTY_CYCLE;
-			analog->meaning->unit = SR_UNIT_PERCENTAGE;
+			analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
+			analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 		} else if ((buf[2] & 0x0a) && temp_unit) {
-			analog->meaning->mq = SR_MQ_TEMPERATURE;
+			analog->meaning->mq = OTC_MQ_TEMPERATURE;
 			if (temp_unit == 'F')
-				analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+				analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 			else
-				analog->meaning->unit = SR_UNIT_CELSIUS;
+				analog->meaning->unit = OTC_UNIT_CELSIUS;
 		}
 
 		/*
@@ -247,21 +247,21 @@ static void brymen_bm86x_parse(const uint8_t *buf, float *floatval,
 
 		/* AC/DC/Auto flags. */
 		if (buf[1] & 0x10)
-			analog->meaning->mqflags |= SR_MQFLAG_DC;
+			analog->meaning->mqflags |= OTC_MQFLAG_DC;
 		if (buf[2] & 0x01)
-			analog->meaning->mqflags |= SR_MQFLAG_AC;
+			analog->meaning->mqflags |= OTC_MQFLAG_AC;
 		if (buf[1] & 0x01)
-			analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+			analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 		if (buf[1] & 0x08)
-			analog->meaning->mqflags |= SR_MQFLAG_HOLD;
+			analog->meaning->mqflags |= OTC_MQFLAG_HOLD;
 		if (ind1 & 0x20)
-			analog->meaning->mqflags |= SR_MQFLAG_MAX;
+			analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 		if (ind1 & 0x40)
-			analog->meaning->mqflags |= SR_MQFLAG_MIN;
+			analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 		if (ind1 & 0x80)
-			analog->meaning->mqflags |= SR_MQFLAG_AVG;
+			analog->meaning->mqflags |= OTC_MQFLAG_AVG;
 		if (buf[3] & 0x01)
-			analog->meaning->mqflags |= SR_MQFLAG_RELATIVE;
+			analog->meaning->mqflags |= OTC_MQFLAG_RELATIVE;
 
 		/*
 		 * Remove the "dBm" indication's "m" indicator before the
@@ -303,33 +303,33 @@ static void brymen_bm86x_parse(const uint8_t *buf, float *floatval,
 			NULL, &temp_unit, NULL, 0x80);
 		ret = brymen_bm86x_parse_digits(&buf[9], 4, txtbuf,
 			floatval, NULL, &digits, 0x10);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return;
 
 		/* SI unit. */
 		if (buf[14] & 0x08) {
-			analog->meaning->mq = SR_MQ_VOLTAGE;
-			analog->meaning->unit = SR_UNIT_VOLT;
+			analog->meaning->mq = OTC_MQ_VOLTAGE;
+			analog->meaning->unit = OTC_UNIT_VOLT;
 		} else if (buf[9] & 0x04) {
-			analog->meaning->mq = SR_MQ_CURRENT;
-			analog->meaning->unit = SR_UNIT_AMPERE;
+			analog->meaning->mq = OTC_MQ_CURRENT;
+			analog->meaning->unit = OTC_UNIT_AMPERE;
 		} else if (buf[9] & 0x08) {
-			analog->meaning->mq = SR_MQ_CURRENT;
-			analog->meaning->unit = SR_UNIT_PERCENTAGE;
+			analog->meaning->mq = OTC_MQ_CURRENT;
+			analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 		} else if (buf[14] & 0x04) {
-			analog->meaning->mq = SR_MQ_FREQUENCY;
-			analog->meaning->unit = SR_UNIT_HERTZ;
+			analog->meaning->mq = OTC_MQ_FREQUENCY;
+			analog->meaning->unit = OTC_UNIT_HERTZ;
 		} else if ((buf[9] & 0x40) && temp_unit) {
-			analog->meaning->mq = SR_MQ_TEMPERATURE;
+			analog->meaning->mq = OTC_MQ_TEMPERATURE;
 			if (temp_unit == 'F')
-				analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+				analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 			else
-				analog->meaning->unit = SR_UNIT_CELSIUS;
+				analog->meaning->unit = OTC_UNIT_CELSIUS;
 		}
 
 		/* AC flag. */
 		if (buf[9] & 0x20)
-			analog->meaning->mqflags |= SR_MQFLAG_AC;
+			analog->meaning->mqflags |= OTC_MQFLAG_AC;
 
 		/* SI prefix. */
 		scale = 0;
@@ -351,11 +351,11 @@ static void brymen_bm86x_parse(const uint8_t *buf, float *floatval,
 	}
 
 	if (buf[9] & 0x80)
-		sr_warn("Battery is low.");
+		otc_warn("Battery is low.");
 }
 
-SR_PRIV int sr_brymen_bm86x_parse(const uint8_t *buf, float *val,
-	struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_brymen_bm86x_parse(const uint8_t *buf, float *val,
+	struct otc_datafeed_analog *analog, void *info)
 {
 	struct brymen_bm86x_info *info_local;
 	size_t ch_idx;
@@ -371,5 +371,5 @@ SR_PRIV int sr_brymen_bm86x_parse(const uint8_t *buf, float *val,
 	brymen_bm86x_parse(buf, val, analog, ch_idx);
 	info_local->ch_idx = ch_idx + 1;
 
-	return SR_OK;
+	return OTC_OK;
 }

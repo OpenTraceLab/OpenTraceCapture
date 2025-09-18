@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Aurelien Jacobs <aurel@gnuage.org>
  *
@@ -21,8 +21,8 @@
 #define LIBSIGROK_HARDWARE_MAYNUO_M97_PROTOCOL_H
 
 #include <stdint.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "maynuo-m97"
 
@@ -36,7 +36,7 @@ struct maynuo_m97_model {
 
 struct dev_context {
 	const struct maynuo_m97_model *model;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	int expecting_registers;
 };
 
@@ -130,26 +130,26 @@ enum maynuo_m97_mode {
 	INPUT_OFF     = 43,
 };
 
-SR_PRIV int maynuo_m97_get_bit(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_get_bit(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_coil address, int *value);
-SR_PRIV int maynuo_m97_set_bit(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_set_bit(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_coil address, int value);
-SR_PRIV int maynuo_m97_get_float(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_get_float(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_register address, float *value);
-SR_PRIV int maynuo_m97_set_float(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_set_float(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_register address, float value);
 
-SR_PRIV int maynuo_m97_get_mode(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_get_mode(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_mode *mode);
-SR_PRIV int maynuo_m97_set_mode(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_set_mode(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_mode mode);
-SR_PRIV int maynuo_m97_set_input(struct sr_modbus_dev_inst *modbus, int enable);
-SR_PRIV int maynuo_m97_get_model_version(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_set_input(struct otc_modbus_dev_inst *modbus, int enable);
+OTC_PRIV int maynuo_m97_get_model_version(struct otc_modbus_dev_inst *modbus,
 		uint16_t *model, uint16_t *version);
 
-SR_PRIV const char *maynuo_m97_mode_to_str(enum maynuo_m97_mode mode);
+OTC_PRIV const char *maynuo_m97_mode_to_str(enum maynuo_m97_mode mode);
 
-SR_PRIV int maynuo_m97_capture_start(const struct sr_dev_inst *sdi);
-SR_PRIV int maynuo_m97_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int maynuo_m97_capture_start(const struct otc_dev_inst *sdi);
+OTC_PRIV int maynuo_m97_receive_data(int fd, int revents, void *cb_data);
 
 #endif

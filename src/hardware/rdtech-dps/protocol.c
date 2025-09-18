@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 James Churchill <pelrun@gmail.com>
  * Copyright (C) 2019 Frank Stettner <frank-stettner@gmx.net>
@@ -110,7 +110,7 @@ enum rdtech_rd_register {
 };
 
 /* Retries failed modbus read attempts for improved reliability. */
-static int rdtech_dps_read_holding_registers(struct sr_modbus_dev_inst *modbus,
+static int rdtech_dps_read_holding_registers(struct otc_modbus_dev_inst *modbus,
 	int address, int nb_registers, uint16_t *registers)
 {
 	size_t retries;
@@ -118,9 +118,9 @@ static int rdtech_dps_read_holding_registers(struct sr_modbus_dev_inst *modbus,
 
 	retries = 3;
 	while (retries--) {
-		ret = sr_modbus_read_holding_registers(modbus,
+		ret = otc_modbus_read_holding_registers(modbus,
 			address, nb_registers, registers);
-		if (ret == SR_OK)
+		if (ret == OTC_OK)
 			return ret;
 	}
 
@@ -128,11 +128,11 @@ static int rdtech_dps_read_holding_registers(struct sr_modbus_dev_inst *modbus,
 }
 
 /* Set one 16bit register. LE format for DPS devices. */
-static int rdtech_dps_set_reg(const struct sr_dev_inst *sdi,
+static int rdtech_dps_set_reg(const struct otc_dev_inst *sdi,
 	uint16_t address, uint16_t value)
 {
 	struct dev_context *devc;
-	struct sr_modbus_dev_inst *modbus;
+	struct otc_modbus_dev_inst *modbus;
 	uint16_t registers[1];
 	int ret;
 	uint8_t *wrptr;
@@ -144,7 +144,7 @@ static int rdtech_dps_set_reg(const struct sr_dev_inst *sdi,
 	write_u16be(wrptr, value);
 
 	g_mutex_lock(&devc->rw_mutex);
-	ret = sr_modbus_write_multiple_registers(modbus, address,
+	ret = otc_modbus_write_multiple_registers(modbus, address,
 		ARRAY_SIZE(registers), registers);
 	g_mutex_unlock(&devc->rw_mutex);
 
@@ -152,11 +152,11 @@ static int rdtech_dps_set_reg(const struct sr_dev_inst *sdi,
 }
 
 /* Set one 16bit register. BE format for RD devices. */
-static int rdtech_rd_set_reg(const struct sr_dev_inst *sdi,
+static int rdtech_rd_set_reg(const struct otc_dev_inst *sdi,
 	uint16_t address, uint16_t value)
 {
 	struct dev_context *devc;
-	struct sr_modbus_dev_inst *modbus;
+	struct otc_modbus_dev_inst *modbus;
 	uint16_t registers[1];
 	int ret;
 	uint8_t *wrptr;
@@ -168,7 +168,7 @@ static int rdtech_rd_set_reg(const struct sr_dev_inst *sdi,
 	write_u16be(wrptr, value);
 
 	g_mutex_lock(&devc->rw_mutex);
-	ret = sr_modbus_write_multiple_registers(modbus, address,
+	ret = otc_modbus_write_multiple_registers(modbus, address,
 		ARRAY_SIZE(registers), registers);
 	g_mutex_unlock(&devc->rw_mutex);
 
@@ -176,7 +176,7 @@ static int rdtech_rd_set_reg(const struct sr_dev_inst *sdi,
 }
 
 /* Get DPS model number and firmware version from a connected device. */
-SR_PRIV int rdtech_dps_get_model_version(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int rdtech_dps_get_model_version(struct otc_modbus_dev_inst *modbus,
 	enum rdtech_dps_model_type model_type,
 	uint16_t *model, uint16_t *version, uint32_t *serno)
 {
@@ -193,36 +193,36 @@ SR_PRIV int rdtech_dps_get_model_version(struct sr_modbus_dev_inst *modbus,
 		/* Get the MODEL and VERSION registers. */
 		ret = rdtech_dps_read_holding_registers(modbus,
 			REG_DPS_MODEL, 2, registers);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		rdptr = (void *)registers;
 		*model = read_u16be_inc(&rdptr);
 		*version = read_u16be_inc(&rdptr);
 		*serno = 0;
-		sr_info("RDTech DPS/DPH model: %u version: %u",
+		otc_info("RDTech DPS/DPH model: %u version: %u",
 			*model, *version);
-		return SR_OK;
+		return OTC_OK;
 	case MODEL_RD:
 		/* Get the MODEL, SERIAL, and FIRMWARE registers. */
 		ret = rdtech_dps_read_holding_registers(modbus,
 			REG_RD_MODEL, 4, registers);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		rdptr = (void *)registers;
 		*model = read_u16be_inc(&rdptr);
 		*serno = read_u32be_inc(&rdptr);
 		*version = read_u16be_inc(&rdptr);
-		sr_info("RDTech RD model: %u version: %u, serno %u",
+		otc_info("RDTech RD model: %u version: %u, serno %u",
 			*model, *version, *serno);
-		return SR_OK;
+		return OTC_OK;
 	default:
-		sr_err("Unexpected RDTech PSU device type. Programming error?");
-		return SR_ERR_ARG;
+		otc_err("Unexpected RDTech PSU device type. Programming error?");
+		return OTC_ERR_ARG;
 	}
 	/* UNREACH */
 }
 
-SR_PRIV void rdtech_dps_update_multipliers(const struct sr_dev_inst *sdi)
+OTC_PRIV void rdtech_dps_update_multipliers(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	const struct rdtech_dps_range *range;
@@ -237,7 +237,7 @@ SR_PRIV void rdtech_dps_update_multipliers(const struct sr_dev_inst *sdi)
  * Determine range of connected device. Don't do anything once
  * acquisition has started (since the range will then be tracked).
  */
-SR_PRIV int rdtech_dps_update_range(const struct sr_dev_inst *sdi)
+OTC_PRIV int rdtech_dps_update_range(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint16_t range;
@@ -250,35 +250,35 @@ SR_PRIV int rdtech_dps_update_range(const struct sr_dev_inst *sdi)
 	 * acquisition hasn't started.
 	 */
 	if (devc->model->n_ranges <= 1 || devc->acquisition_started)
-		return SR_OK;
+		return OTC_OK;
 	if (devc->model->model_type != MODEL_RD)
-		return SR_ERR;
+		return OTC_ERR;
 
 	ret = rdtech_dps_read_holding_registers(sdi->conn,
 		REG_RD_RANGE, 1, &range);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	range = range ? 1 : 0;
 	devc->curr_range = range;
 	rdtech_dps_update_multipliers(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Send a measured value to the session feed. */
-static int send_value(const struct sr_dev_inst *sdi,
-	struct sr_channel *ch, float value,
-	enum sr_mq mq, enum sr_mqflag mqflags,
-	enum sr_unit unit, int digits)
+static int send_value(const struct otc_dev_inst *sdi,
+	struct otc_channel *ch, float value,
+	enum otc_mq mq, enum otc_mqflag mqflags,
+	enum otc_unit unit, int digits)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	int ret;
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, digits);
 	analog.meaning->channels = g_slist_append(NULL, ch);
 	analog.num_samples = 1;
 	analog.data = &value;
@@ -286,9 +286,9 @@ static int send_value(const struct sr_dev_inst *sdi,
 	analog.meaning->mqflags = mqflags;
 	analog.meaning->unit = unit;
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	ret = sr_session_send(sdi, &packet);
+	ret = otc_session_send(sdi, &packet);
 
 	g_slist_free(analog.meaning->channels);
 
@@ -305,11 +305,11 @@ static int send_value(const struct sr_dev_inst *sdi,
  * which detail level is desired? Is 10 registers each 16bits an issue
  * when the UART bitrate is only 9600bps?
  */
-SR_PRIV int rdtech_dps_get_state(const struct sr_dev_inst *sdi,
+OTC_PRIV int rdtech_dps_get_state(const struct otc_dev_inst *sdi,
 	struct rdtech_dps_state *state, enum rdtech_dps_state_context reason)
 {
 	struct dev_context *devc;
-	struct sr_modbus_dev_inst *modbus;
+	struct otc_modbus_dev_inst *modbus;
 	gboolean get_config, get_init_state, get_curr_meas;
 	uint16_t registers[14];
 	int ret;
@@ -325,11 +325,11 @@ SR_PRIV int rdtech_dps_get_state(const struct sr_dev_inst *sdi,
 	float curr_voltage, curr_current, curr_power;
 
 	if (!sdi || !sdi->priv || !sdi->conn)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	modbus = sdi->conn;
 	if (!state)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Determine the requested level of response detail. */
 	get_config = FALSE;
@@ -381,7 +381,7 @@ SR_PRIV int rdtech_dps_get_state(const struct sr_dev_inst *sdi,
 			REG_DPS_USET, REG_DPS_ENABLE - REG_DPS_USET + 1,
 			registers);
 		g_mutex_unlock(&devc->rw_mutex);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		/* Interpret the registers' values. */
@@ -412,7 +412,7 @@ SR_PRIV int rdtech_dps_get_state(const struct sr_dev_inst *sdi,
 		ret = rdtech_dps_read_holding_registers(modbus,
 			PRE_DPS_OVPSET, 2, registers);
 		g_mutex_unlock(&devc->rw_mutex);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		/* Interpret the second registers chunk's values. */
@@ -434,7 +434,7 @@ SR_PRIV int rdtech_dps_get_state(const struct sr_dev_inst *sdi,
 				: REG_RD_ENABLE - REG_RD_VOLT_TGT + 1,
 			registers);
 		g_mutex_unlock(&devc->rw_mutex);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		/* Interpret the registers' raw content. */
@@ -469,7 +469,7 @@ SR_PRIV int rdtech_dps_get_state(const struct sr_dev_inst *sdi,
 		ret = rdtech_dps_read_holding_registers(modbus,
 			REG_RD_OVP_THR, 2, registers);
 		g_mutex_unlock(&devc->rw_mutex);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		/* Interpret the registers' raw content. */
@@ -486,7 +486,7 @@ SR_PRIV int rdtech_dps_get_state(const struct sr_dev_inst *sdi,
 
 	default:
 		/* ShouldNotHappen(TM). Probe should have failed. */
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
 	/*
@@ -528,11 +528,11 @@ SR_PRIV int rdtech_dps_get_state(const struct sr_dev_inst *sdi,
 		state->mask |= STATE_RANGE;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Setup device's parameters. Selectively, from caller specs. */
-SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
+OTC_PRIV int rdtech_dps_set_state(const struct otc_dev_inst *sdi,
 	struct rdtech_dps_state *state)
 {
 	struct dev_context *devc;
@@ -540,10 +540,10 @@ SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
 	int ret;
 
 	if (!sdi || !sdi->priv || !sdi->conn)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!state)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Only a subset of known values is settable. */
 	if (state->mask & STATE_OUTPUT_ENABLED) {
@@ -551,16 +551,16 @@ SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
 		switch (devc->model->model_type) {
 		case MODEL_DPS:
 			ret = rdtech_dps_set_reg(sdi, REG_DPS_ENABLE, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		case MODEL_RD:
 			ret = rdtech_rd_set_reg(sdi, REG_RD_ENABLE, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		default:
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		}
 	}
 	if (state->mask & STATE_VOLTAGE_TARGET) {
@@ -568,16 +568,16 @@ SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
 		switch (devc->model->model_type) {
 		case MODEL_DPS:
 			ret = rdtech_dps_set_reg(sdi, REG_DPS_USET, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		case MODEL_RD:
 			ret = rdtech_rd_set_reg(sdi, REG_RD_VOLT_TGT, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		default:
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		}
 	}
 	if (state->mask & STATE_CURRENT_LIMIT) {
@@ -585,16 +585,16 @@ SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
 		switch (devc->model->model_type) {
 		case MODEL_DPS:
 			ret = rdtech_dps_set_reg(sdi, REG_DPS_ISET, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		case MODEL_RD:
 			ret = rdtech_rd_set_reg(sdi, REG_RD_CURR_LIM, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		default:
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		}
 	}
 	if (state->mask & STATE_OVP_THRESHOLD) {
@@ -602,16 +602,16 @@ SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
 		switch (devc->model->model_type) {
 		case MODEL_DPS:
 			ret = rdtech_dps_set_reg(sdi, PRE_DPS_OVPSET, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		case MODEL_RD:
 			ret = rdtech_rd_set_reg(sdi, REG_RD_OVP_THR, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		default:
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		}
 	}
 	if (state->mask & STATE_OCP_THRESHOLD) {
@@ -619,16 +619,16 @@ SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
 		switch (devc->model->model_type) {
 		case MODEL_DPS:
 			ret = rdtech_dps_set_reg(sdi, PRE_DPS_OCPSET, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		case MODEL_RD:
 			ret = rdtech_rd_set_reg(sdi, REG_RD_OCP_THR, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		default:
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		}
 	}
 	if (state->mask & STATE_LOCK) {
@@ -636,14 +636,14 @@ SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
 		case MODEL_DPS:
 			reg_value = state->lock ? 1 : 0;
 			ret = rdtech_dps_set_reg(sdi, REG_DPS_LOCK, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			break;
 		case MODEL_RD:
 			/* Do nothing, _and_ silently succeed. */
 			break;
 		default:
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		}
 	}
 	if (state->mask & STATE_RANGE) {
@@ -652,7 +652,7 @@ SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
 		case MODEL_DPS:
 			/* DPS models don't support current ranges at all. */
 			if (reg_value > 0)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			break;
 		case MODEL_RD:
 			/*
@@ -661,11 +661,11 @@ SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
 			 * supports a single fixed range.
 			 */
 			if (reg_value >= devc->model->n_ranges)
-				return SR_ERR_NA;
+				return OTC_ERR_NA;
 			if (devc->model->n_ranges <= 1)
-				return SR_OK;
+				return OTC_OK;
 			ret = rdtech_rd_set_reg(sdi, REG_RD_RANGE, reg_value);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			/*
 			 * Immediately update internal state outside of
@@ -679,26 +679,26 @@ SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
 			}
 			break;
 		default:
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Get the current state when acquisition starts. */
-SR_PRIV int rdtech_dps_seed_receive(const struct sr_dev_inst *sdi)
+OTC_PRIV int rdtech_dps_seed_receive(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct rdtech_dps_state state;
 	int ret;
 
 	if (!sdi || !sdi->priv)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 
 	ret = rdtech_dps_get_state(sdi, &state, ST_CTX_PRE_ACQ);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (state.mask & STATE_PROTECT_OVP)
@@ -714,17 +714,17 @@ SR_PRIV int rdtech_dps_seed_receive(const struct sr_dev_inst *sdi)
 		rdtech_dps_update_multipliers(sdi);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Get measurements, track state changes during acquisition. */
-SR_PRIV int rdtech_dps_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int rdtech_dps_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct rdtech_dps_state state;
 	int ret;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	const char *regulation_text, *range_text;
 
 	(void)fd;
@@ -737,7 +737,7 @@ SR_PRIV int rdtech_dps_receive_data(int fd, int revents, void *cb_data)
 
 	/* Get the device's current state. */
 	ret = rdtech_dps_get_state(sdi, &state, ST_CTX_IN_ACQ);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 
@@ -745,53 +745,53 @@ SR_PRIV int rdtech_dps_receive_data(int fd, int revents, void *cb_data)
 	std_session_send_df_frame_begin(sdi);
 	ch = g_slist_nth_data(sdi->channels, 0);
 	send_value(sdi, ch, state.voltage,
-		SR_MQ_VOLTAGE, SR_MQFLAG_DC, SR_UNIT_VOLT,
+		OTC_MQ_VOLTAGE, OTC_MQFLAG_DC, OTC_UNIT_VOLT,
 		devc->model->ranges[devc->curr_range].voltage_digits);
 	ch = g_slist_nth_data(sdi->channels, 1);
 	send_value(sdi, ch, state.current,
-		SR_MQ_CURRENT, SR_MQFLAG_DC, SR_UNIT_AMPERE,
+		OTC_MQ_CURRENT, OTC_MQFLAG_DC, OTC_UNIT_AMPERE,
 		devc->model->ranges[devc->curr_range].current_digits);
 	ch = g_slist_nth_data(sdi->channels, 2);
 	send_value(sdi, ch, state.power,
-		SR_MQ_POWER, 0, SR_UNIT_WATT, 2);
+		OTC_MQ_POWER, 0, OTC_UNIT_WATT, 2);
 	std_session_send_df_frame_end(sdi);
 
 	/* Check for state changes. */
 	if (devc->curr_ovp_state != state.protect_ovp) {
-		(void)sr_session_send_meta(sdi,
-			SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE,
+		(void)otc_session_send_meta(sdi,
+			OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE,
 			g_variant_new_boolean(state.protect_ovp));
 		devc->curr_ovp_state = state.protect_ovp;
 	}
 	if (devc->curr_ocp_state != state.protect_ocp) {
-		(void)sr_session_send_meta(sdi,
-			SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE,
+		(void)otc_session_send_meta(sdi,
+			OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE,
 			g_variant_new_boolean(state.protect_ocp));
 		devc->curr_ocp_state = state.protect_ocp;
 	}
 	if (devc->curr_cc_state != state.regulation_cc) {
 		regulation_text = state.regulation_cc ? "CC" : "CV";
-		(void)sr_session_send_meta(sdi, SR_CONF_REGULATION,
+		(void)otc_session_send_meta(sdi, OTC_CONF_REGULATION,
 			g_variant_new_string(regulation_text));
 		devc->curr_cc_state = state.regulation_cc;
 	}
 	if (devc->curr_out_state != state.output_enabled) {
-		(void)sr_session_send_meta(sdi, SR_CONF_ENABLED,
+		(void)otc_session_send_meta(sdi, OTC_CONF_ENABLED,
 			g_variant_new_boolean(state.output_enabled));
 		devc->curr_out_state = state.output_enabled;
 	}
 	if (devc->curr_range != state.range) {
 		range_text = devc->model->ranges[state.range].range_str;
-		(void)sr_session_send_meta(sdi, SR_CONF_RANGE,
+		(void)otc_session_send_meta(sdi, OTC_CONF_RANGE,
 			g_variant_new_string(range_text));
 		devc->curr_range = state.range;
 		rdtech_dps_update_multipliers(sdi);
 	}
 
 	/* Check optional acquisition limits. */
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
-	if (sr_sw_limits_check(&devc->limits)) {
-		sr_dev_acquisition_stop(sdi);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
+	if (otc_sw_limits_check(&devc->limits)) {
+		otc_dev_acquisition_stop(sdi);
 		return TRUE;
 	}
 

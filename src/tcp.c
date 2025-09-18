@@ -50,8 +50,8 @@
 #include <sys/select.h>
 #endif
 
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /*
  * Workaround because Windows cannot simply use established identifiers.
@@ -75,7 +75,7 @@
  *
  * TODO Move to common code, applies to non-sockets as well.
  */
-SR_PRIV gboolean sr_fd_is_readable(int fd)
+OTC_PRIV gboolean otc_fd_is_readable(int fd)
 {
 #if HAVE_POLL
 	struct pollfd fds[1];
@@ -121,15 +121,15 @@ SR_PRIV gboolean sr_fd_is_readable(int fd)
  * @param[in] host_addr The host name or IP address (a string).
  * @param[in] tcp_port The TCP port number.
  *
- * @return A @ref sr_tcp_dev_inst structure on success. #NULL otherwise.
+ * @return A @ref otc_tcp_dev_inst structure on success. #NULL otherwise.
  *
  * @since 6.0
  */
-SR_PRIV struct sr_tcp_dev_inst *sr_tcp_dev_inst_new(
+OTC_PRIV struct otc_tcp_dev_inst *otc_tcp_dev_inst_new(
 	const char *host_addr, const char *tcp_port)
 {
 	char *host, *port;
-	struct sr_tcp_dev_inst *tcp;
+	struct otc_tcp_dev_inst *tcp;
 
 	host = NULL;
 	if (host_addr && *host_addr)
@@ -155,13 +155,13 @@ SR_PRIV struct sr_tcp_dev_inst *sr_tcp_dev_inst_new(
  *
  * @since 6.0
  */
-SR_PRIV void sr_tcp_dev_inst_free(struct sr_tcp_dev_inst *tcp)
+OTC_PRIV void otc_tcp_dev_inst_free(struct otc_tcp_dev_inst *tcp)
 {
 
 	if (!tcp)
 		return;
 
-	(void)sr_tcp_disconnect(tcp);
+	(void)otc_tcp_disconnect(tcp);
 	g_free(tcp->host_addr);
 	g_free(tcp->tcp_port);
 	g_free(tcp);
@@ -176,18 +176,18 @@ SR_PRIV void sr_tcp_dev_inst_free(struct sr_tcp_dev_inst *tcp)
  * @param[out] path The caller provided buffer to fill in.
  * @param[in] path_len The buffer's maximum length to fill in.
  *
- * @return SR_OK on success, SR_ERR_* otherwise.
+ * @return OTC_OK on success, SR_ERR_* otherwise.
  *
  * @since 6.0
  */
-SR_PRIV int sr_tcp_get_port_path(struct sr_tcp_dev_inst *tcp,
+OTC_PRIV int otc_tcp_get_port_path(struct otc_tcp_dev_inst *tcp,
 	const char *prefix, char separator, char *path, size_t path_len)
 {
 	char sep_text[2];
 
 	/* Only construct connection name for full parameter sets. */
 	if (!tcp || !tcp->host_addr || !tcp->tcp_port)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Normalize input. Apply defaults. */
 	if (!prefix)
@@ -203,7 +203,7 @@ SR_PRIV int sr_tcp_get_port_path(struct sr_tcp_dev_inst *tcp,
 	snprintf(path, path_len, "%s%s%s%s%s",
 		prefix, *prefix ? sep_text : "",
 		tcp->host_addr, sep_text, tcp->tcp_port);
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -211,11 +211,11 @@ SR_PRIV int sr_tcp_get_port_path(struct sr_tcp_dev_inst *tcp,
  *
  * @param[in] tcp The TCP communication instance to connect.
  *
- * @return SR_OK on success, SR_ERR_* otherwise.
+ * @return OTC_OK on success, SR_ERR_* otherwise.
  *
  * @since 6.0
  */
-SR_PRIV int sr_tcp_connect(struct sr_tcp_dev_inst *tcp)
+OTC_PRIV int otc_tcp_connect(struct otc_tcp_dev_inst *tcp)
 {
 	struct addrinfo hints;
 	struct addrinfo *results, *r;
@@ -223,9 +223,9 @@ SR_PRIV int sr_tcp_connect(struct sr_tcp_dev_inst *tcp)
 	int fd;
 
 	if (!tcp)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!tcp->host_addr || !tcp->tcp_port)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Lookup address information for the caller's spec. */
 	memset(&hints, 0, sizeof(hints));
@@ -234,9 +234,9 @@ SR_PRIV int sr_tcp_connect(struct sr_tcp_dev_inst *tcp)
 	hints.ai_protocol = IPPROTO_TCP;
 	ret = getaddrinfo(tcp->host_addr, tcp->tcp_port, &hints, &results);
 	if (ret != 0) {
-		sr_err("Address lookup failed: %s:%s: %s.",
+		otc_err("Address lookup failed: %s:%s: %s.",
 			tcp->host_addr, tcp->tcp_port, gai_strerror(ret));
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
 	/* Try to connect using the resulting address details. */
@@ -255,13 +255,13 @@ SR_PRIV int sr_tcp_connect(struct sr_tcp_dev_inst *tcp)
 	}
 	freeaddrinfo(results);
 	if (fd < 0) {
-		sr_err("Failed to connect to %s:%s: %s.",
+		otc_err("Failed to connect to %s:%s: %s.",
 			tcp->host_addr, tcp->tcp_port, g_strerror(errno));
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
 	tcp->sock_fd = fd;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -269,23 +269,23 @@ SR_PRIV int sr_tcp_connect(struct sr_tcp_dev_inst *tcp)
  *
  * @param[in] tcp The TCP communication instance to disconnect.
  *
- * @return SR_OK on success, SR_ERR_* otherwise.
+ * @return OTC_OK on success, SR_ERR_* otherwise.
  *
  * @since 6.0
  */
-SR_PRIV int sr_tcp_disconnect(struct sr_tcp_dev_inst *tcp)
+OTC_PRIV int otc_tcp_disconnect(struct otc_tcp_dev_inst *tcp)
 {
 
 	if (!tcp)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (tcp->sock_fd < 0)
-		return SR_OK;
+		return OTC_OK;
 
 	shutdown(tcp->sock_fd, SHUT_RDWR);
 	close(tcp->sock_fd);
 	tcp->sock_fd = -1;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -302,25 +302,25 @@ SR_PRIV int sr_tcp_disconnect(struct sr_tcp_dev_inst *tcp)
  *
  * @since 6.0
  */
-SR_PRIV int sr_tcp_write_bytes(struct sr_tcp_dev_inst *tcp,
+OTC_PRIV int otc_tcp_write_bytes(struct otc_tcp_dev_inst *tcp,
 	const uint8_t *data, size_t dlen)
 {
 	ssize_t rc;
 	size_t written;
 
 	if (!tcp)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!dlen)
 		return 0;
 	if (!data)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (tcp->sock_fd < 0)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
 	rc = send(tcp->sock_fd, data, dlen, 0);
 	if (rc < 0)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	written = (size_t)rc;
 	return written;
 }
@@ -340,28 +340,28 @@ SR_PRIV int sr_tcp_write_bytes(struct sr_tcp_dev_inst *tcp,
  *
  * @since 6.0
  */
-SR_PRIV int sr_tcp_read_bytes(struct sr_tcp_dev_inst *tcp,
+OTC_PRIV int otc_tcp_read_bytes(struct otc_tcp_dev_inst *tcp,
 	uint8_t *data, size_t dlen, gboolean nonblocking)
 {
 	ssize_t rc;
 	size_t got;
 
 	if (!tcp)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!dlen)
 		return 0;
 	if (!data)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (tcp->sock_fd < 0)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
-	if (nonblocking && !sr_fd_is_readable(tcp->sock_fd))
+	if (nonblocking && !otc_fd_is_readable(tcp->sock_fd))
 		return 0;
 
 	rc = recv(tcp->sock_fd, data, dlen, 0);
 	if (rc < 0)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	got = (size_t)rc;
 	return got;
 }
@@ -372,45 +372,45 @@ SR_PRIV int sr_tcp_read_bytes(struct sr_tcp_dev_inst *tcp,
  * gets invoked when receive data is available. Or when a timeout
  * has expired.
  *
- * This is a simple wrapper around @ref sr_session_source_add().
+ * This is a simple wrapper around @ref otc_session_source_add().
  *
- * @param[in] session See @ref sr_session_source_add().
+ * @param[in] session See @ref otc_session_source_add().
  * @param[in] tcp The TCP communication instance to read from.
- * @param[in] events See @ref sr_session_source_add().
- * @param[in] timeout See @ref sr_session_source_add().
- * @param[in] cb See @ref sr_session_source_add().
- * @param[in] cb_data See @ref sr_session_source_add().
+ * @param[in] events See @ref otc_session_source_add().
+ * @param[in] timeout See @ref otc_session_source_add().
+ * @param[in] cb See @ref otc_session_source_add().
+ * @param[in] cb_data See @ref otc_session_source_add().
  *
- * @return SR_OK on success, SR_ERR* otherwise.
+ * @return OTC_OK on success, SR_ERR* otherwise.
  *
  * @since 6.0
  */
-SR_PRIV int sr_tcp_source_add(struct sr_session *session,
-	struct sr_tcp_dev_inst *tcp, int events, int timeout,
-	sr_receive_data_callback cb, void *cb_data)
+OTC_PRIV int otc_tcp_source_add(struct otc_session *session,
+	struct otc_tcp_dev_inst *tcp, int events, int timeout,
+	otc_receive_data_callback cb, void *cb_data)
 {
 	if (!tcp || tcp->sock_fd < 0)
-		return SR_ERR_ARG;
-	return sr_session_source_add(session, tcp->sock_fd,
+		return OTC_ERR_ARG;
+	return otc_session_source_add(session, tcp->sock_fd,
 		events, timeout, cb, cb_data);
 }
 
 /**
  * Unregister receive callback for a TCP connection.
  *
- * This is a simple wrapper around @ref sr_session_source_remove().
+ * This is a simple wrapper around @ref otc_session_source_remove().
  *
- * @param[in] session See @ref sr_session_source_remove().
+ * @param[in] session See @ref otc_session_source_remove().
  * @param[in] tcp The TCP communication instance to unregister.
  *
- * @return SR_OK on success, SR_ERR* otherwise.
+ * @return OTC_OK on success, SR_ERR* otherwise.
  *
  * @since 6.0
  */
-SR_PRIV int sr_tcp_source_remove(struct sr_session *session,
-	struct sr_tcp_dev_inst *tcp)
+OTC_PRIV int otc_tcp_source_remove(struct otc_session *session,
+	struct otc_tcp_dev_inst *tcp)
 {
 	if (!tcp || tcp->sock_fd < 0)
-		return SR_ERR_ARG;
-	return sr_session_source_remove(session, tcp->sock_fd);
+		return OTC_ERR_ARG;
+	return otc_session_source_remove(session, tcp->sock_fd);
 }

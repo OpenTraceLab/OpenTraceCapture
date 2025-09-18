@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -22,13 +22,13 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "cem-dt-885x"
 
 /* When retrieving samples from device memory, group this many
- * together into a sigrok packet. */
+ * together into a opentracelab packet. */
 #define SAMPLES_PER_PACKET 50
 
 /* Various temporary storage, at least 8 bytes. */
@@ -88,7 +88,7 @@ enum {
 };
 
 struct dev_context {
-	enum sr_mqflag cur_mqflags;
+	enum otc_mqflag cur_mqflags;
 	int recording;
 	int cur_meas_range;
 	int cur_data_source;
@@ -117,21 +117,21 @@ enum {
 	ST_GET_LOG_RECORD_DATA,
 };
 
-SR_PRIV int cem_dt_885x_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV int cem_dt_885x_recording_set(const struct sr_dev_inst *sdi, gboolean start);
-SR_PRIV gboolean cem_dt_885x_recording_get(const struct sr_dev_inst *sdi,
+OTC_PRIV int cem_dt_885x_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int cem_dt_885x_recording_set(const struct otc_dev_inst *sdi, gboolean start);
+OTC_PRIV gboolean cem_dt_885x_recording_get(const struct otc_dev_inst *sdi,
 		int *state);
-SR_PRIV int cem_dt_885x_weight_freq_get(const struct sr_dev_inst *sdi);
-SR_PRIV int cem_dt_885x_weight_freq_set(const struct sr_dev_inst *sdi, int freqw);
-SR_PRIV int cem_dt_885x_weight_time_get(const struct sr_dev_inst *sdi);
-SR_PRIV int cem_dt_885x_weight_time_set(const struct sr_dev_inst *sdi, int timew);
-SR_PRIV int cem_dt_885x_holdmode_get(const struct sr_dev_inst *sdi,
+OTC_PRIV int cem_dt_885x_weight_freq_get(const struct otc_dev_inst *sdi);
+OTC_PRIV int cem_dt_885x_weight_freq_set(const struct otc_dev_inst *sdi, int freqw);
+OTC_PRIV int cem_dt_885x_weight_time_get(const struct otc_dev_inst *sdi);
+OTC_PRIV int cem_dt_885x_weight_time_set(const struct otc_dev_inst *sdi, int timew);
+OTC_PRIV int cem_dt_885x_holdmode_get(const struct otc_dev_inst *sdi,
 		gboolean *holdmode);
-SR_PRIV int cem_dt_885x_holdmode_set(const struct sr_dev_inst *sdi, int holdmode);
-SR_PRIV int cem_dt_885x_meas_range_get(const struct sr_dev_inst *sdi,
+OTC_PRIV int cem_dt_885x_holdmode_set(const struct otc_dev_inst *sdi, int holdmode);
+OTC_PRIV int cem_dt_885x_meas_range_get(const struct otc_dev_inst *sdi,
 		uint64_t *low, uint64_t *high);
-SR_PRIV int cem_dt_885x_meas_range_set(const struct sr_dev_inst *sdi,
+OTC_PRIV int cem_dt_885x_meas_range_set(const struct otc_dev_inst *sdi,
 		uint64_t low, uint64_t high);
-SR_PRIV int cem_dt_885x_power_off(const struct sr_dev_inst *sdi);
+OTC_PRIV int cem_dt_885x_power_off(const struct otc_dev_inst *sdi);
 
 #endif

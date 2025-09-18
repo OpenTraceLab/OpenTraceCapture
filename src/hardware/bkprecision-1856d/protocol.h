@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021 LUMERIIX
  * Copyright (C) 2024 Daniel Anselmi <danselmi@gmx.ch>
@@ -23,8 +23,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "bkprecision-1856d"
 #define BKPRECISION1856D_MSG_SIZE 15
@@ -37,7 +37,7 @@ enum {
 };
 
 struct dev_context {
-	struct sr_sw_limits sw_limits;
+	struct otc_sw_limits sw_limits;
 	unsigned int sel_input;
 	unsigned int curr_sel_input;
 	unsigned int gate_time;
@@ -46,11 +46,11 @@ struct dev_context {
 	unsigned int buffer_level;
 };
 
-SR_PRIV int bkprecision_1856d_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV void bkprecision_1856d_init(const struct sr_dev_inst *sdi);
-SR_PRIV void bkprecision_1856d_set_gate_time(struct dev_context *devc,
+OTC_PRIV int bkprecision_1856d_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV void bkprecision_1856d_init(const struct otc_dev_inst *sdi);
+OTC_PRIV void bkprecision_1856d_set_gate_time(struct dev_context *devc,
 											 int time);
-SR_PRIV void bkprecision_1856d_select_input(struct dev_context *devc,
+OTC_PRIV void bkprecision_1856d_select_input(struct dev_context *devc,
 											int intput);
 
 #endif

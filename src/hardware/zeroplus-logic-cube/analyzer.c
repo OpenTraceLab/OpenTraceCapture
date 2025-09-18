@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010 Sven Peter <sven@fail0verflow.com>
  * Copyright (C) 2010 Haxx Enterprises <bushing@gmail.com>
@@ -31,8 +31,8 @@
 
 #include <config.h>
 #include <assert.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "analyzer.h"
 #include "gl_usb.h"
 #include "protocol.h"
@@ -252,7 +252,7 @@ static int __analyzer_set_freq(libusb_device_handle *devh, int freq, int scale)
 		break;
 	}
 
-	sr_dbg("Setting samplerate regs (freq=%d, scale=%d): "
+	otc_dbg("Setting samplerate regs (freq=%d, scale=%d): "
 	       "reg0: %d, reg1: %d, reg2: %d, reg3: %d.",
 	       freq, scale, divisor, reg0, 0x02, reg2);
 
@@ -326,7 +326,7 @@ static int __analyzer_set_freq(libusb_device_handle *devh, int freq, int scale)
 	if (!f[i].freq)
 		return -1;
 
-	sr_dbg("Setting samplerate regs (freq=%d, scale=%d): "
+	otc_dbg("Setting samplerate regs (freq=%d, scale=%d): "
 	       "reg0: %d, reg1: %d, reg2: %d, reg3: %d.",
 	       freq, scale, f[i].div, f[i].mul, 0x02, f[i].sel);
 
@@ -391,20 +391,20 @@ static void analyzer_set_filter(libusb_device_handle *devh)
 		gl_reg_write(devh, FILTER_STATUS + i, g_filter_status[i]);
 }
 
-SR_PRIV void analyzer_reset(libusb_device_handle *devh)
+OTC_PRIV void analyzer_reset(libusb_device_handle *devh)
 {
 	analyzer_write_status(devh, 3, STATUS_FLAG_NONE);	// reset device
 	analyzer_write_status(devh, 3, STATUS_FLAG_RESET);	// reset device
 }
 
-SR_PRIV void analyzer_initialize(libusb_device_handle *devh)
+OTC_PRIV void analyzer_initialize(libusb_device_handle *devh)
 {
 	analyzer_write_status(devh, 1, STATUS_FLAG_NONE);
 	analyzer_write_status(devh, 1, STATUS_FLAG_INIT);
 	analyzer_write_status(devh, 1, STATUS_FLAG_NONE);
 }
 
-SR_PRIV void analyzer_wait(libusb_device_handle *devh, int set, int unset)
+OTC_PRIV void analyzer_wait(libusb_device_handle *devh, int set, int unset)
 {
 	int status;
 
@@ -415,7 +415,7 @@ SR_PRIV void analyzer_wait(libusb_device_handle *devh, int set, int unset)
 	}
 }
 
-SR_PRIV void analyzer_read_start(libusb_device_handle *devh)
+OTC_PRIV void analyzer_read_start(libusb_device_handle *devh)
 {
 	analyzer_write_status(devh, 3, STATUS_FLAG_20 | STATUS_FLAG_READ);
 
@@ -423,19 +423,19 @@ SR_PRIV void analyzer_read_start(libusb_device_handle *devh)
 	gl_reg_read_buf(devh, READ_RAM_STATUS, NULL, 0);
 }
 
-SR_PRIV int analyzer_read_data(libusb_device_handle *devh, void *buffer,
+OTC_PRIV int analyzer_read_data(libusb_device_handle *devh, void *buffer,
 		unsigned int size)
 {
 	return gl_read_bulk(devh, buffer, size);
 }
 
-SR_PRIV void analyzer_read_stop(libusb_device_handle *devh)
+OTC_PRIV void analyzer_read_stop(libusb_device_handle *devh)
 {
 	analyzer_write_status(devh, 3, STATUS_FLAG_20);
 	analyzer_write_status(devh, 3, STATUS_FLAG_NONE);
 }
 
-SR_PRIV void analyzer_start(libusb_device_handle *devh)
+OTC_PRIV void analyzer_start(libusb_device_handle *devh)
 {
 	analyzer_write_status(devh, 1, STATUS_FLAG_NONE);
 	analyzer_write_status(devh, 1, STATUS_FLAG_INIT);
@@ -443,7 +443,7 @@ SR_PRIV void analyzer_start(libusb_device_handle *devh)
 	analyzer_write_status(devh, 1, STATUS_FLAG_GO);
 }
 
-SR_PRIV void analyzer_configure(libusb_device_handle *devh)
+OTC_PRIV void analyzer_configure(libusb_device_handle *devh)
 {
 	int i;
 
@@ -501,19 +501,19 @@ SR_PRIV void analyzer_configure(libusb_device_handle *devh)
 	__analyzer_set_compression(devh, g_compression);
 }
 
-SR_PRIV int analyzer_add_triggers(const struct sr_dev_inst *sdi)
+OTC_PRIV int analyzer_add_triggers(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_trigger *trigger;
-	struct sr_trigger_stage *stage;
-	struct sr_trigger_match *match;
+	struct otc_trigger *trigger;
+	struct otc_trigger_stage *stage;
+	struct otc_trigger_match *match;
 	GSList *l, *m;
 	int channel;
 
 	devc = sdi->priv;
 
-	if (!(trigger = sr_session_trigger_get(sdi->session)))
-		return SR_OK;
+	if (!(trigger = otc_session_trigger_get(sdi->session)))
+		return OTC_OK;
 
 	memset(g_trigger_status, 0, sizeof(g_trigger_status));
 	g_trigger_edge = 0;
@@ -528,32 +528,32 @@ SR_PRIV int analyzer_add_triggers(const struct sr_dev_inst *sdi)
 				continue;
 			channel = match->channel->index;
 			switch (match->match) {
-			case SR_TRIGGER_ZERO:
+			case OTC_TRIGGER_ZERO:
 				g_trigger_status[channel / 4] |= 2 << (channel % 4 * 2);
 				break;
-			case SR_TRIGGER_ONE:
+			case OTC_TRIGGER_ONE:
 				g_trigger_status[channel / 4] |= 1 << (channel % 4 * 2);
 				break;
-			case SR_TRIGGER_RISING:
+			case OTC_TRIGGER_RISING:
 				g_trigger_edge = 0x40 | (channel & 0x1F);
 				break;
-			case SR_TRIGGER_FALLING:
+			case OTC_TRIGGER_FALLING:
 				g_trigger_edge = 0x80 | (channel & 0x1F);
 				break;
-			case SR_TRIGGER_EDGE:
+			case OTC_TRIGGER_EDGE:
 				g_trigger_edge = 0xc0 | (channel & 0x1F);
 				break;
 			default:
-				sr_err("Unsupported match %d", match->match);
-				return SR_ERR;
+				otc_err("Unsupported match %d", match->match);
+				return OTC_ERR;
 			}
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV void analyzer_add_filter(int channel, int type)
+OTC_PRIV void analyzer_add_filter(int channel, int type)
 {
 	int i;
 
@@ -584,97 +584,97 @@ SR_PRIV void analyzer_add_filter(int channel, int type)
 	g_filter_enable = 1;
 }
 
-SR_PRIV void analyzer_set_trigger_count(int count)
+OTC_PRIV void analyzer_set_trigger_count(int count)
 {
 	g_trigger_count = count;
 }
 
-SR_PRIV void analyzer_set_ext_clock(int enable, ext_clock_edge_t edge)
+OTC_PRIV void analyzer_set_ext_clock(int enable, ext_clock_edge_t edge)
 {
 	g_ext_clock = enable;
 	g_ext_clock_edge = edge;
 }
 
-SR_PRIV void analyzer_set_freq(int freq, int scale)
+OTC_PRIV void analyzer_set_freq(int freq, int scale)
 {
 	g_freq_value = freq;
 	g_freq_scale = scale;
 }
 
-SR_PRIV void analyzer_set_memory_size(unsigned int size)
+OTC_PRIV void analyzer_set_memory_size(unsigned int size)
 {
 	g_memory_size = size;
 }
 
-SR_PRIV void analyzer_set_ramsize_trigger_address(unsigned int address)
+OTC_PRIV void analyzer_set_ramsize_trigger_address(unsigned int address)
 {
 	g_ramsize_triggerbar_addr = address;
 }
 
-SR_PRIV unsigned int analyzer_get_ramsize_trigger_address(void)
+OTC_PRIV unsigned int analyzer_get_ramsize_trigger_address(void)
 {
 	return g_ramsize_triggerbar_addr;
 }
 
-SR_PRIV void analyzer_set_triggerbar_address(unsigned int address)
+OTC_PRIV void analyzer_set_triggerbar_address(unsigned int address)
 {
 	g_triggerbar_addr = address;
 }
 
-SR_PRIV unsigned int analyzer_get_triggerbar_address(void)
+OTC_PRIV unsigned int analyzer_get_triggerbar_address(void)
 {
 	return g_triggerbar_addr;
 }
 
-SR_PRIV unsigned int analyzer_read_status(libusb_device_handle *devh)
+OTC_PRIV unsigned int analyzer_read_status(libusb_device_handle *devh)
 {
 	return gl_reg_read(devh, DEV_STATUS);
 }
 
-SR_PRIV unsigned int analyzer_read_id(libusb_device_handle *devh)
+OTC_PRIV unsigned int analyzer_read_id(libusb_device_handle *devh)
 {
 	return gl_reg_read(devh, DEV_ID1) << 8 | gl_reg_read(devh, DEV_ID0);
 }
 
-SR_PRIV unsigned int analyzer_get_stop_address(libusb_device_handle *devh)
+OTC_PRIV unsigned int analyzer_get_stop_address(libusb_device_handle *devh)
 {
 	return gl_reg_read(devh, STOP_ADDRESS2) << 16 | gl_reg_read(devh,
 			STOP_ADDRESS1) << 8 | gl_reg_read(devh, STOP_ADDRESS0);
 }
 
-SR_PRIV unsigned int analyzer_get_now_address(libusb_device_handle *devh)
+OTC_PRIV unsigned int analyzer_get_now_address(libusb_device_handle *devh)
 {
 	return gl_reg_read(devh, NOW_ADDRESS2) << 16 | gl_reg_read(devh,
 			NOW_ADDRESS1) << 8 | gl_reg_read(devh, NOW_ADDRESS0);
 }
 
-SR_PRIV unsigned int analyzer_get_trigger_address(libusb_device_handle *devh)
+OTC_PRIV unsigned int analyzer_get_trigger_address(libusb_device_handle *devh)
 {
 	return gl_reg_read(devh, TRIGGER_ADDRESS2) << 16 | gl_reg_read(devh,
 		TRIGGER_ADDRESS1) << 8 | gl_reg_read(devh, TRIGGER_ADDRESS0);
 }
 
-SR_PRIV void analyzer_set_compression(unsigned int type)
+OTC_PRIV void analyzer_set_compression(unsigned int type)
 {
 	g_compression = type;
 }
 
-SR_PRIV void analyzer_set_voltage_threshold(int thresh)
+OTC_PRIV void analyzer_set_voltage_threshold(int thresh)
 {
 	g_thresh = thresh;
 }
 
-SR_PRIV void analyzer_wait_button(libusb_device_handle *devh)
+OTC_PRIV void analyzer_wait_button(libusb_device_handle *devh)
 {
 	analyzer_wait(devh, STATUS_BUTTON_PRESSED, 0);
 }
 
-SR_PRIV void analyzer_wait_data(libusb_device_handle *devh)
+OTC_PRIV void analyzer_wait_data(libusb_device_handle *devh)
 {
 	analyzer_wait(devh, 0, STATUS_BUSY);
 }
 
-SR_PRIV int analyzer_decompress(void *input, unsigned int input_len,
+OTC_PRIV int analyzer_decompress(void *input, unsigned int input_len,
 				void *output, unsigned int output_len)
 {
 	unsigned char *in = input;

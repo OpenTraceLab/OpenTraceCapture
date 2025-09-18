@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Tilman Sauerbeck <tilman@code-monkey.de>
  *
@@ -118,31 +118,31 @@ static void LIBUSB_CALL handle_fetch_samples_done(struct libusb_transfer *xfer);
 static void LIBUSB_CALL recv_bulk_transfer(struct libusb_transfer *xfer);
 
 static const struct samplerate_info samplerates[] = {
-	{ SR_GHZ(1),  -24, 0x1f },
-	{ SR_MHZ(500), -6, 0x00 },
-	{ SR_MHZ(250), -4, 0x01 },
-	{ SR_MHZ(100),  2, 0x03 },
-	{ SR_MHZ(50),   4, 0x04 },
-	{ SR_MHZ(25),   8, 0x05 },
-	{ SR_MHZ(10),   4, 0x07 },
-	{ SR_MHZ(5),    8, 0x08 },
-	{ SR_KHZ(2500), 8, 0x09 },
-	{ SR_KHZ(1000), 8, 0x0b },
-	{ SR_KHZ(500),  8, 0x0c },
-	{ SR_KHZ(250),  8, 0x0d },
-	{ SR_KHZ(100),  8, 0x0f },
-	{ SR_KHZ(50),   8, 0x10 },
-	{ SR_KHZ(25),   8, 0x11 },
-	{ SR_KHZ(10),   8, 0x13 },
-	{ SR_KHZ(5),    8, 0x14 },
-	{ SR_HZ(2500),  8, 0x15 },
-	{ SR_HZ(1000),  8, 0x17 },
+	{ OTC_GHZ(1),  -24, 0x1f },
+	{ OTC_MHZ(500), -6, 0x00 },
+	{ OTC_MHZ(250), -4, 0x01 },
+	{ OTC_MHZ(100),  2, 0x03 },
+	{ OTC_MHZ(50),   4, 0x04 },
+	{ OTC_MHZ(25),   8, 0x05 },
+	{ OTC_MHZ(10),   4, 0x07 },
+	{ OTC_MHZ(5),    8, 0x08 },
+	{ OTC_KHZ(2500), 8, 0x09 },
+	{ OTC_KHZ(1000), 8, 0x0b },
+	{ OTC_KHZ(500),  8, 0x0c },
+	{ OTC_KHZ(250),  8, 0x0d },
+	{ OTC_KHZ(100),  8, 0x0f },
+	{ OTC_KHZ(50),   8, 0x10 },
+	{ OTC_KHZ(25),   8, 0x11 },
+	{ OTC_KHZ(10),   8, 0x13 },
+	{ OTC_KHZ(5),    8, 0x14 },
+	{ OTC_HZ(2500),  8, 0x15 },
+	{ OTC_HZ(1000),  8, 0x17 },
 };
 
-static int read_register(const struct sr_dev_inst *sdi,
+static int read_register(const struct otc_dev_inst *sdi,
 	uint8_t reg, uint16_t *value)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	uint8_t data[2];
 	int r;
 
@@ -153,20 +153,20 @@ static int read_register(const struct sr_dev_inst *sdi,
 		data, sizeof(data), USB_TIMEOUT_MS);
 
 	if (r != sizeof(data)) {
-		sr_err("CTRL_IN failed: %i.", r);
-		return SR_ERR;
+		otc_err("CTRL_IN failed: %i.", r);
+		return OTC_ERR;
 	}
 
 	*value = RB16(data);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int write_registers_sync(const struct sr_dev_inst *sdi,
+static int write_registers_sync(const struct otc_dev_inst *sdi,
 	unsigned int wValue, unsigned int wIndex,
 	const struct regval *regs, size_t num_regs)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	uint8_t *buf;
 	size_t i, bufsiz;
 	int r;
@@ -175,7 +175,7 @@ static int write_registers_sync(const struct sr_dev_inst *sdi,
 
 	/* Try to avoid overflowing the stack. */
 	if (num_regs > 32)
-		return SR_ERR;
+		return OTC_ERR;
 
 	bufsiz = num_regs * 3;
 	buf = alloca(bufsiz);
@@ -190,19 +190,19 @@ static int write_registers_sync(const struct sr_dev_inst *sdi,
 			buf, bufsiz, USB_TIMEOUT_MS);
 
 	if (r != (int) bufsiz) {
-		sr_err("write_registers_sync(%u/%u) failed.", wValue, wIndex);
-		return SR_ERR;
+		otc_err("write_registers_sync(%u/%u) failed.", wValue, wIndex);
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int write_registers_async(const struct sr_dev_inst *sdi,
+static int write_registers_async(const struct otc_dev_inst *sdi,
 	unsigned int wValue, unsigned int wIndex,
 	const struct regval *regs, size_t num_regs,
 	libusb_transfer_cb_fn callback)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct libusb_transfer *xfer;
 	uint8_t *buf, *xfer_buf;
 	size_t i;
@@ -229,10 +229,10 @@ static int write_registers_async(const struct sr_dev_inst *sdi,
 		g_free(xfer->buffer);
 		xfer->buffer = NULL;
 		libusb_free_transfer(xfer);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void prep_regw(struct regval *regval, uint8_t reg, uint16_t val)
@@ -243,8 +243,8 @@ static void prep_regw(struct regval *regval, uint8_t reg, uint16_t val)
 
 static void LIBUSB_CALL handle_fetch_samples_done(struct libusb_transfer *xfer)
 {
-	const struct sr_dev_inst *sdi;
-	struct sr_usb_dev_inst *usb;
+	const struct otc_dev_inst *sdi;
+	struct otc_usb_dev_inst *usb;
 	struct dev_context *devc;
 
 	sdi = xfer->user_data;
@@ -275,7 +275,7 @@ static void calc_unk0(uint32_t *a, uint32_t *b)
 		*b = (t + 63) & ~63;
 }
 
-static int fetch_samples_async(const struct sr_dev_inst *sdi)
+static int fetch_samples_async(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct regval cmd[12];
@@ -314,7 +314,7 @@ static int fetch_samples_async(const struct sr_dev_inst *sdi)
 			handle_fetch_samples_done);
 }
 
-static int handle_intr_data(const struct sr_dev_inst *sdi, uint8_t *buffer)
+static int handle_intr_data(const struct otc_dev_inst *sdi, uint8_t *buffer)
 {
 	struct dev_context *devc;
 	gboolean resubmit_intr_xfer;
@@ -349,7 +349,7 @@ static int handle_intr_data(const struct sr_dev_inst *sdi, uint8_t *buffer)
 		/* Acquisition complete. */
 		devc->total_received_sample_bytes = 0;
 
-		samplerate_divider = SR_GHZ(1) / devc->samplerate_info->samplerate;
+		samplerate_divider = OTC_GHZ(1) / devc->samplerate_info->samplerate;
 
 		/*
 		 * These timestamps seem to be in units of eight nanoseconds.
@@ -416,12 +416,12 @@ out:
 	return resubmit_intr_xfer;
 }
 
-static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
+static int upload_fpga_bitstream(const struct otc_dev_inst *sdi,
 	const char *firmware_name)
 {
 	struct drv_context *drvc;
-	struct sr_usb_dev_inst *usb;
-	struct sr_resource firmware;
+	struct otc_usb_dev_inst *usb;
+	struct otc_resource firmware;
 	uint8_t firmware_chunk[FPGA_FIRMWARE_CHUNK_SIZE];
 	uint8_t upload_succeeded;
 	ssize_t chunk_size;
@@ -430,16 +430,16 @@ static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
 	drvc = sdi->driver->context;
 	usb = sdi->conn;
 
-	ret = sr_resource_open(drvc->sr_ctx, &firmware,
-			SR_RESOURCE_FIRMWARE, firmware_name);
+	ret = otc_resource_open(drvc->otc_ctx, &firmware,
+			OTC_RESOURCE_FIRMWARE, firmware_name);
 
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	ret = SR_ERR;
+	ret = OTC_ERR;
 
 	if (firmware.size != FPGA_FIRMWARE_SIZE) {
-		sr_err("Invalid FPGA firmware file size: %" PRIu64 " bytes.",
+		otc_err("Invalid FPGA firmware file size: %" PRIu64 " bytes.",
 			firmware.size);
 		goto out;
 	}
@@ -450,13 +450,13 @@ static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
 		NULL, 0, USB_TIMEOUT_MS);
 
 	if (r != 0) {
-		sr_err("Failed to initiate firmware upload: %s.",
+		otc_err("Failed to initiate firmware upload: %s.",
 				libusb_error_name(ret));
 		goto out;
 	}
 
 	for (;;) {
-		chunk_size = sr_resource_read(drvc->sr_ctx, &firmware,
+		chunk_size = otc_resource_read(drvc->otc_ctx, &firmware,
 			firmware_chunk, sizeof(firmware_chunk));
 
 		if (chunk_size < 0)
@@ -471,7 +471,7 @@ static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
 			firmware_chunk, chunk_size, &actual_length, USB_TIMEOUT_MS);
 
 		if (r != 0 || (ssize_t)actual_length != chunk_size) {
-			sr_err("FPGA firmware upload failed.");
+			otc_err("FPGA firmware upload failed.");
 			goto out;
 		}
 	}
@@ -488,23 +488,23 @@ static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
 			USB_TIMEOUT_MS);
 
 		if (r != sizeof(upload_succeeded)) {
-			sr_err("CTRL_IN failed: %i.", r);
-			return SR_ERR;
+			otc_err("CTRL_IN failed: %i.", r);
+			return OTC_ERR;
 		}
 
 		if (upload_succeeded == 0x01) {
-			ret = SR_OK;
+			ret = OTC_OK;
 			break;
 		}
 	}
 
 out:
-	sr_resource_close(drvc->sr_ctx, &firmware);
+	otc_resource_close(drvc->otc_ctx, &firmware);
 
 	return ret;
 }
 
-static int upload_trigger(const struct sr_dev_inst *sdi,
+static int upload_trigger(const struct otc_dev_inst *sdi,
 	uint8_t reg_values[TRIGGER_CFG_SIZE], uint8_t reg_offset)
 {
 	struct regval regs[3 * 5];
@@ -523,15 +523,15 @@ static int upload_trigger(const struct sr_dev_inst *sdi,
 		}
 
 		if (write_registers_sync(sdi, 0x12, 5444, ARRAY_AND_SIZE(regs))) {
-			sr_err("Failed to upload trigger config.");
-			return SR_ERR;
+			otc_err("Failed to upload trigger config.");
+			return OTC_ERR;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int program_trigger(const struct sr_dev_inst *sdi,
+static int program_trigger(const struct otc_dev_inst *sdi,
 	struct trigger_config *stages, int num_filled_stages)
 {
 	struct trigger_config *block;
@@ -576,14 +576,14 @@ static int program_trigger(const struct sr_dev_inst *sdi,
 		}
 
 		if (upload_trigger(sdi, buf, reg_offsets[i]) < 0)
-			return SR_ERR;
+			return OTC_ERR;
 	}
 
 	/*
 	 * If both available stages are used, AND them in the trigger
 	 * criteria.
 	 *
-	 * Once sigrok learns to teach devices about the combination
+	 * Once opentracelab learns to teach devices about the combination
 	 * that the user wants, this seems to be the best default since
 	 * edge triggers cannot be AND'ed otherwise
 	 * (they are always OR'd within a single stage).
@@ -594,11 +594,11 @@ static int program_trigger(const struct sr_dev_inst *sdi,
 	return write_registers_sync(sdi, 0x12, 5444, &combine_op, 1);
 }
 
-static gboolean transform_trigger(struct sr_trigger_stage *stage,
+static gboolean transform_trigger(struct otc_trigger_stage *stage,
 	struct trigger_config *config)
 {
 	GSList *l;
-	struct sr_trigger_match *match;
+	struct otc_trigger_match *match;
 	uint32_t channel_mask;
 	gboolean ret;
 
@@ -617,19 +617,19 @@ static gboolean transform_trigger(struct sr_trigger_stage *stage,
 		channel_mask = 1 << match->channel->index;
 
 		switch (match->match) {
-		case SR_TRIGGER_RISING:
+		case OTC_TRIGGER_RISING:
 			config->rising_edges |= channel_mask;
 			break;
-		case SR_TRIGGER_FALLING:
+		case OTC_TRIGGER_FALLING:
 			config->falling_edges |= channel_mask;
 			break;
-		case SR_TRIGGER_EDGE:
+		case OTC_TRIGGER_EDGE:
 			config->any_edges |= channel_mask;
 			break;
-		case SR_TRIGGER_ONE:
+		case OTC_TRIGGER_ONE:
 			config->ones |= channel_mask;
 			break;
-		case SR_TRIGGER_ZERO:
+		case OTC_TRIGGER_ZERO:
 			config->zeroes |= channel_mask;
 			break;
 		}
@@ -640,12 +640,12 @@ static gboolean transform_trigger(struct sr_trigger_stage *stage,
 	return ret;
 }
 
-static int configure_trigger(const struct sr_dev_inst *sdi)
+static int configure_trigger(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_trigger *trigger;
-	struct sr_trigger_stage *stage;
-	struct sr_trigger_match *match;
+	struct otc_trigger *trigger;
+	struct otc_trigger_stage *stage;
+	struct otc_trigger_match *match;
 	struct trigger_config blocks[NUM_TRIGGER_STAGES];
 	gboolean stage_has_matches;
 	int num_filled_stages;
@@ -653,7 +653,7 @@ static int configure_trigger(const struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 
-	trigger = sr_session_trigger_get(sdi->session);
+	trigger = otc_session_trigger_get(sdi->session);
 
 	num_filled_stages = 0;
 
@@ -681,7 +681,7 @@ static int configure_trigger(const struct sr_dev_inst *sdi)
 			continue;
 
 		if (num_filled_stages == NUM_TRIGGER_STAGES)
-			return SR_ERR;
+			return OTC_ERR;
 
 		if (transform_trigger(stage, &blocks[num_filled_stages]))
 			num_filled_stages++;
@@ -693,10 +693,10 @@ static int configure_trigger(const struct sr_dev_inst *sdi)
 }
 
 /** Update the bit mask of enabled channels. */
-SR_PRIV void lls_update_channel_mask(const struct sr_dev_inst *sdi)
+OTC_PRIV void lls_update_channel_mask(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_channel *channel;
+	struct otc_channel *channel;
 	GSList *l;
 
 	devc = sdi->priv;
@@ -710,7 +710,7 @@ SR_PRIV void lls_update_channel_mask(const struct sr_dev_inst *sdi)
 	}
 }
 
-SR_PRIV int lls_set_samplerate(const struct sr_dev_inst *sdi,
+OTC_PRIV int lls_set_samplerate(const struct otc_dev_inst *sdi,
 	uint64_t samplerate)
 {
 	struct dev_context *devc;
@@ -721,14 +721,14 @@ SR_PRIV int lls_set_samplerate(const struct sr_dev_inst *sdi,
 	for (i = 0; i < ARRAY_SIZE(samplerates); i++) {
 		if (samplerates[i].samplerate == samplerate) {
 			devc->samplerate_info = &samplerates[i];
-			return SR_OK;
+			return OTC_OK;
 		}
 	}
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
-SR_PRIV uint64_t lls_get_samplerate(const struct sr_dev_inst *sdi)
+OTC_PRIV uint64_t lls_get_samplerate(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -737,7 +737,7 @@ SR_PRIV uint64_t lls_get_samplerate(const struct sr_dev_inst *sdi)
 	return devc->samplerate_info->samplerate;
 }
 
-static int read_0f12(const struct sr_dev_inst *sdi, uint64_t *value)
+static int read_0f12(const struct otc_dev_inst *sdi, uint64_t *value)
 {
 	uint64_t u64;
 	uint16_t u16;
@@ -754,7 +754,7 @@ static int read_0f12(const struct sr_dev_inst *sdi, uint64_t *value)
 	 */
 	for (reg = 0x0f; reg <= 0x12; reg++) {
 		r = read_register(sdi, reg, &u16);
-		if (r != SR_OK)
+		if (r != OTC_OK)
 			return r;
 		u64 <<= 16;
 		u64 |= u16;
@@ -762,10 +762,10 @@ static int read_0f12(const struct sr_dev_inst *sdi, uint64_t *value)
 
 	*value = u64;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int wait_for_dev_to_settle(const struct sr_dev_inst *sdi)
+static int wait_for_dev_to_settle(const struct otc_dev_inst *sdi)
 {
 	uint64_t old_value, new_value;
 	int r, i;
@@ -773,7 +773,7 @@ static int wait_for_dev_to_settle(const struct sr_dev_inst *sdi)
 	/* Get the initial value. */
 	r = read_0f12(sdi, &old_value);
 
-	if (r != SR_OK)
+	if (r != OTC_OK)
 		return r;
 
 	/*
@@ -782,19 +782,19 @@ static int wait_for_dev_to_settle(const struct sr_dev_inst *sdi)
 	 */
 	for (i = 0; i < 100; i++) {
 		r = read_0f12(sdi, &new_value);
-		if (r != SR_OK)
+		if (r != OTC_OK)
 			return r;
 
 		if (old_value == new_value)
-			return SR_OK;
+			return OTC_OK;
 
 		old_value = new_value;
 	}
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
-SR_PRIV int lls_setup_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int lls_setup_acquisition(const struct otc_dev_inst *sdi)
 {
 	uint8_t status_reg_value[] = {
 		0x1, 0x0, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc,
@@ -803,7 +803,7 @@ SR_PRIV int lls_setup_acquisition(const struct sr_dev_inst *sdi)
 	struct regval threshold[3];
 	struct regval channels;
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	gboolean lower_enabled, upper_enabled, upload_bitstream;
 	uint32_t num_thousand_samples, num_enabled_channel_groups;
 	int i, r;
@@ -844,50 +844,50 @@ SR_PRIV int lls_setup_acquisition(const struct sr_dev_inst *sdi)
 
 	if (upload_bitstream) {
 		if (lls_stop_acquisition(sdi)) {
-			sr_err("Cannot stop acquisition for FPGA bitstream upload.");
-			return SR_ERR;
+			otc_err("Cannot stop acquisition for FPGA bitstream upload.");
+			return OTC_ERR;
 		}
 
 		for (i = 0; i < 3; i++)
 			if (write_registers_sync(sdi, 0x0, 0x0, &threshold[i], 1))
-				return SR_ERR;
+				return OTC_ERR;
 
 		if (num_enabled_channel_groups == 1)
 			r = upload_fpga_bitstream(sdi, FPGA_FIRMWARE_8);
 		else
 			r = upload_fpga_bitstream(sdi, FPGA_FIRMWARE_16);
 
-		if (r != SR_OK) {
-			sr_err("Firmware not accepted by device.");
-			return SR_ERR;
+		if (r != OTC_OK) {
+			otc_err("Firmware not accepted by device.");
+			return OTC_ERR;
 		}
 
 		r = wait_for_dev_to_settle(sdi);
 
-		if (r != SR_OK) {
-			sr_err("Device did not settle in time.");
-			return SR_ERR;
+		if (r != OTC_OK) {
+			otc_err("Device did not settle in time.");
+			return OTC_ERR;
 		}
 
 		for (i = 0; i < 3; i++)
 			if (write_registers_sync(sdi, 0x12, 5444, &threshold[i], 1))
-				return SR_ERR;
+				return OTC_ERR;
 
 		devc->magic_arm_trigger = 0x00;
 		devc->magic_fetch_samples = 0x00;
 	}
 
 	if (write_registers_sync(sdi, 0x12, 5444, &channels, 1))
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (configure_trigger(sdi) < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (write_registers_sync(sdi, 0x12, 5444, &threshold[0], 1))
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (write_registers_sync(sdi, 0x12, 5444, &threshold[1], 1))
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (upload_bitstream) {
 		r = libusb_control_transfer(usb->devhdl, CTRL_OUT,
@@ -895,21 +895,21 @@ SR_PRIV int lls_setup_acquisition(const struct sr_dev_inst *sdi)
 			status_reg_value, sizeof(status_reg_value), USB_TIMEOUT_MS);
 
 		if (r != sizeof(status_reg_value)) {
-			sr_err("Failed to write status register: %s.",
+			otc_err("Failed to write status register: %s.",
 				libusb_error_name(r));
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	}
 
 	devc->num_thousand_samples = num_thousand_samples;
 	devc->num_enabled_channel_groups = num_enabled_channel_groups;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void LIBUSB_CALL recv_intr_transfer(struct libusb_transfer *xfer)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct drv_context *drvc;
 	struct dev_context *devc;
 
@@ -919,27 +919,27 @@ static void LIBUSB_CALL recv_intr_transfer(struct libusb_transfer *xfer)
 
 	if (devc->abort_acquisition) {
 		std_session_send_df_end(sdi);
-		usb_source_remove(sdi->session, drvc->sr_ctx);
+		usb_source_remove(sdi->session, drvc->otc_ctx);
 		return;
 	}
 
 	if (xfer->status == LIBUSB_TRANSFER_COMPLETED) {
 		if (xfer->actual_length != INTR_BUF_SIZE)
-			sr_err("Invalid size of interrupt transfer: %u.",
+			otc_err("Invalid size of interrupt transfer: %u.",
 				xfer->actual_length);
 		else if (handle_intr_data(sdi, xfer->buffer)) {
 			if (libusb_submit_transfer(xfer) < 0)
-				sr_err("Failed to submit interrupt transfer.");
+				otc_err("Failed to submit interrupt transfer.");
 		}
 	}
 }
 
-static void send_samples(const struct sr_dev_inst *sdi,
+static void send_samples(const struct otc_dev_inst *sdi,
 	uint8_t *samples, uint32_t length)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 	gboolean lower_enabled, upper_enabled;
 	uint32_t shift, i;
 
@@ -950,14 +950,14 @@ static void send_samples(const struct sr_dev_inst *sdi,
 
 	logic.unitsize = 2;
 
-	packet.type = SR_DF_LOGIC;
+	packet.type = OTC_DF_LOGIC;
 	packet.payload = &logic;
 
 	if (lower_enabled && upper_enabled) {
 		logic.length = length;
 		logic.data = samples;
 
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 	} else {
 		/* Which channel group is enabled? */
 		shift = (lower_enabled) ? 0 : 8;
@@ -971,7 +971,7 @@ static void send_samples(const struct sr_dev_inst *sdi,
 			logic.length = CONV_8TO16_BUF_SIZE;
 			logic.data = devc->conv8to16;
 
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 
 			samples += CONV_8TO16_BUF_SIZE / 2;
 			length -= CONV_8TO16_BUF_SIZE / 2;
@@ -986,7 +986,7 @@ static void send_samples(const struct sr_dev_inst *sdi,
 		logic.length = length * 2;
 		logic.data = devc->conv8to16;
 
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 	}
 }
 
@@ -1000,7 +1000,7 @@ static uint16_t sample_to_byte_offset(struct dev_context *devc, uint64_t o)
 
 static void LIBUSB_CALL recv_bulk_transfer(struct libusb_transfer *xfer)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct drv_context *drvc;
 	uint32_t bytes_left, length;
@@ -1027,7 +1027,7 @@ static void LIBUSB_CALL recv_bulk_transfer(struct libusb_transfer *xfer)
 		return;
 	}
 
-	usb_source_remove(sdi->session, drvc->sr_ctx);
+	usb_source_remove(sdi->session, drvc->otc_ctx);
 
 	read_offset = sample_to_byte_offset(devc, devc->earliest_sample);
 	trigger_offset = sample_to_byte_offset(devc, devc->trigger_sample);
@@ -1038,13 +1038,13 @@ static void LIBUSB_CALL recv_bulk_transfer(struct libusb_transfer *xfer)
 	 */
 	bytes_left = (SAMPLE_BUF_SIZE >> 10) * 1000;
 
-	sr_spew("Start reading at offset 0x%04hx.", read_offset);
-	sr_spew("Trigger offset 0x%04hx.", trigger_offset);
+	otc_spew("Start reading at offset 0x%04hx.", read_offset);
+	otc_spew("Trigger offset 0x%04hx.", trigger_offset);
 
 	if (trigger_offset < read_offset) {
 		length = MIN(bytes_left, SAMPLE_BUF_SIZE - read_offset);
 
-		sr_spew("Sending %u pre-trigger bytes starting at 0x%04hx.",
+		otc_spew("Sending %u pre-trigger bytes starting at 0x%04hx.",
 			length, read_offset);
 
 		send_samples(sdi, &devc->fetched_samples[read_offset], length);
@@ -1056,7 +1056,7 @@ static void LIBUSB_CALL recv_bulk_transfer(struct libusb_transfer *xfer)
 	{
 		length = MIN(bytes_left, (uint32_t)(trigger_offset - read_offset));
 
-		sr_spew("Sending %u pre-trigger bytes starting at 0x%04hx.",
+		otc_spew("Sending %u pre-trigger bytes starting at 0x%04hx.",
 			length, read_offset);
 
 		send_samples(sdi, &devc->fetched_samples[read_offset], length);
@@ -1074,7 +1074,7 @@ static void LIBUSB_CALL recv_bulk_transfer(struct libusb_transfer *xfer)
 	while (bytes_left > 0) {
 		length = MIN(bytes_left, SAMPLE_BUF_SIZE - read_offset);
 
-		sr_spew("Sending %u post-trigger bytes starting at 0x%04hx.",
+		otc_spew("Sending %u post-trigger bytes starting at 0x%04hx.",
 			length, read_offset);
 
 		send_samples(sdi, &devc->fetched_samples[read_offset], length);
@@ -1096,9 +1096,9 @@ static uint32_t transform_sample_count(struct dev_context *devc,
 	return (samples + 0x1c + d + d - 1) / d;
 }
 
-SR_PRIV int lls_start_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int lls_start_acquisition(const struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct dev_context *devc;
 	struct regval cmd[17];
 	uint32_t unk0, total_samples, pre_trigger_samples, post_trigger_samples;
@@ -1117,7 +1117,7 @@ SR_PRIV int lls_start_acquisition(const struct sr_dev_inst *sdi)
 	libusb_submit_transfer(devc->intr_xfer);
 
 	if (devc->want_trigger == FALSE)
-		return SR_OK;
+		return OTC_OK;
 
 	calc_unk0(&unk0, NULL);
 
@@ -1161,7 +1161,7 @@ SR_PRIV int lls_start_acquisition(const struct sr_dev_inst *sdi)
 	return write_registers_sync(sdi, 0x12, 5444, ARRAY_AND_SIZE(cmd));
 }
 
-SR_PRIV int lls_stop_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int lls_stop_acquisition(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct regval cmd[2];

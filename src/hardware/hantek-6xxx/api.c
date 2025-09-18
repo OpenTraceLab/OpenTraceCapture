@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Christer Ekholm <christerekholm@gmail.com>
  *
@@ -27,24 +27,24 @@
 #define RANGE(ch) (((float)devc->vdivs[devc->voltage[ch]][0] / devc->vdivs[devc->voltage[ch]][1]) * VDIV_MULTIPLIER)
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_OSCILLOSCOPE,
+	OTC_CONF_OSCILLOSCOPE,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_NUM_VDIV | SR_CONF_GET,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_NUM_VDIV | OTC_CONF_GET,
 };
 
 static const uint32_t devopts_cg[] = {
-	SR_CONF_COUPLING | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_VDIV | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_COUPLING | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_VDIV | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const char *channel_names[] = {
@@ -129,24 +129,24 @@ static const struct hantek_6xxx_profile dev_profiles[] = {
 };
 
 
-static int read_channel(const struct sr_dev_inst *sdi, uint32_t amount);
+static int read_channel(const struct otc_dev_inst *sdi, uint32_t amount);
 
-static struct sr_dev_inst *hantek_6xxx_dev_new(const struct hantek_6xxx_profile *prof)
+static struct otc_dev_inst *hantek_6xxx_dev_new(const struct hantek_6xxx_profile *prof)
 {
-	struct sr_dev_inst *sdi;
-	struct sr_channel *ch;
-	struct sr_channel_group *cg;
+	struct otc_dev_inst *sdi;
+	struct otc_channel *ch;
+	struct otc_channel_group *cg;
 	struct dev_context *devc;
 	unsigned int i;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INITIALIZING;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INITIALIZING;
 	sdi->vendor = g_strdup(prof->vendor);
 	sdi->model = g_strdup(prof->model);
 
 	for (i = 0; i < ARRAY_SIZE(channel_names); i++) {
-		ch = sr_channel_new(sdi, i, SR_CHANNEL_ANALOG, TRUE, channel_names[i]);
-		cg = sr_channel_group_new(sdi, channel_names[i], NULL);
+		ch = otc_channel_new(sdi, i, OTC_CHANNEL_ANALOG, TRUE, channel_names[i]);
+		cg = otc_channel_group_new(sdi, channel_names[i], NULL);
 		cg->channels = g_slist_append(cg->channels, ch);
 	}
 
@@ -172,12 +172,12 @@ static struct sr_dev_inst *hantek_6xxx_dev_new(const struct hantek_6xxx_profile 
 	return sdi;
 }
 
-static int configure_channels(const struct sr_dev_inst *sdi)
+static int configure_channels(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	const GSList *l;
 	int p;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	devc = sdi->priv;
 
 	g_slist_free(devc->enabled_channels);
@@ -192,7 +192,7 @@ static int configure_channels(const struct sr_dev_inst *sdi)
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void clear_helper(struct dev_context *devc)
@@ -200,18 +200,18 @@ static void clear_helper(struct dev_context *devc)
 	g_slist_free(devc->enabled_channels);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct drv_context *drvc;
 	struct dev_context *devc;
-	struct sr_dev_inst *sdi;
-	struct sr_usb_dev_inst *usb;
-	struct sr_config *src;
+	struct otc_dev_inst *sdi;
+	struct otc_usb_dev_inst *usb;
+	struct otc_config *src;
 	const struct hantek_6xxx_profile *prof;
 	GSList *l, *devices, *conn_devices;
 	struct libusb_device_descriptor des;
@@ -227,18 +227,18 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	conn = NULL;
 	for (l = options; l; l = l->next) {
 		src = l->data;
-		if (src->key == SR_CONF_CONN) {
+		if (src->key == OTC_CONF_CONN) {
 			conn = g_variant_get_string(src->data, NULL);
 			break;
 		}
 	}
 	if (conn)
-		conn_devices = sr_usb_find(drvc->sr_ctx->libusb_ctx, conn);
+		conn_devices = otc_usb_find(drvc->otc_ctx->libusb_ctx, conn);
 	else
 		conn_devices = NULL;
 
 	/* Find all Hantek 60xx devices and upload firmware to all of them. */
-	libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+	libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 	for (i = 0; devlist[i]; i++) {
 		if (conn) {
 			usb = NULL;
@@ -265,20 +265,20 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 				&& des.idProduct == dev_profiles[j].orig_pid) {
 				/* Device matches the pre-firmware profile. */
 				prof = &dev_profiles[j];
-				sr_dbg("Found a %s %s.", prof->vendor, prof->model);
+				otc_dbg("Found a %s %s.", prof->vendor, prof->model);
 				sdi = hantek_6xxx_dev_new(prof);
 				sdi->connection_id = g_strdup(connection_id);
 				devices = g_slist_append(devices, sdi);
 				devc = sdi->priv;
-				if (ezusb_upload_firmware(drvc->sr_ctx, devlist[i],
-						USB_CONFIGURATION, prof->firmware) == SR_OK) {
+				if (ezusb_upload_firmware(drvc->otc_ctx, devlist[i],
+						USB_CONFIGURATION, prof->firmware) == OTC_OK) {
 					/* Remember when the firmware on this device was updated. */
 					devc->fw_updated = g_get_monotonic_time();
 				} else {
-					sr_err("Firmware upload failed, name %s.", prof->firmware);
+					otc_err("Firmware upload failed, name %s.", prof->firmware);
 				}
 				/* Dummy USB address of 0xff will get overwritten later. */
-				sdi->conn = sr_usb_dev_inst_new(
+				sdi->conn = otc_usb_dev_inst_new(
 						libusb_get_bus_number(devlist[i]), 0xff, NULL);
 				break;
 			} else if (des.idVendor == dev_profiles[j].fw_vid
@@ -286,13 +286,13 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 				&& des.bcdDevice == dev_profiles[j].fw_prod_ver) {
 				/* Device matches the post-firmware profile. */
 				prof = &dev_profiles[j];
-				sr_dbg("Found a %s %s.", prof->vendor, prof->model);
+				otc_dbg("Found a %s %s.", prof->vendor, prof->model);
 				sdi = hantek_6xxx_dev_new(prof);
 				sdi->connection_id = g_strdup(connection_id);
-				sdi->status = SR_ST_INACTIVE;
+				sdi->status = OTC_ST_INACTIVE;
 				devices = g_slist_append(devices, sdi);
-				sdi->inst_type = SR_INST_USB;
-				sdi->conn = sr_usb_dev_inst_new(
+				sdi->inst_type = OTC_INST_USB;
+				sdi->conn = otc_usb_dev_inst_new(
 						libusb_get_bus_number(devlist[i]),
 						libusb_get_device_address(devlist[i]), NULL);
 				break;
@@ -307,10 +307,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	return std_scan_complete(di, devices);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	int64_t timediff_us, timediff_ms;
 	int err;
 
@@ -321,90 +321,90 @@ static int dev_open(struct sr_dev_inst *sdi)
 	 * If the firmware was recently uploaded, wait up to MAX_RENUM_DELAY_MS
 	 * for the FX2 to renumerate.
 	 */
-	err = SR_ERR;
+	err = OTC_ERR;
 	if (devc->fw_updated > 0) {
-		sr_info("Waiting for device to reset.");
+		otc_info("Waiting for device to reset.");
 		/* Takes >= 300ms for the FX2 to be gone from the USB bus. */
 		g_usleep(300 * 1000);
 		timediff_ms = 0;
 		while (timediff_ms < MAX_RENUM_DELAY_MS) {
-			if ((err = hantek_6xxx_open(sdi)) == SR_OK)
+			if ((err = hantek_6xxx_open(sdi)) == OTC_OK)
 				break;
 			g_usleep(100 * 1000);
 			timediff_us = g_get_monotonic_time() - devc->fw_updated;
 			timediff_ms = timediff_us / 1000;
-			sr_spew("Waited %" PRIi64 " ms.", timediff_ms);
+			otc_spew("Waited %" PRIi64 " ms.", timediff_ms);
 		}
 		if (timediff_ms < MAX_RENUM_DELAY_MS)
-			sr_info("Device came back after %"PRIu64" ms.", timediff_ms);
+			otc_info("Device came back after %"PRIu64" ms.", timediff_ms);
 	} else {
 		err = hantek_6xxx_open(sdi);
 	}
 
-	if (err != SR_OK) {
-		sr_err("Unable to open device.");
-		return SR_ERR;
+	if (err != OTC_OK) {
+		otc_err("Unable to open device.");
+		return OTC_ERR;
 	}
 
 	err = libusb_claim_interface(usb->devhdl, USB_INTERFACE);
 	if (err != 0) {
-		sr_err("Unable to claim interface: %s.",
+		otc_err("Unable to claim interface: %s.",
 			libusb_error_name(err));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	hantek_6xxx_close(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	const uint64_t *vdiv;
 	int ch_idx;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_NUM_VDIV:
+	case OTC_CONF_NUM_VDIV:
 		*data = g_variant_new_int32(devc->vdivs_size);
 		break;
 	}
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_SAMPLERATE:
+		case OTC_CONF_SAMPLERATE:
 			*data = g_variant_new_uint64(devc->samplerate);
 			break;
-		case SR_CONF_LIMIT_MSEC:
+		case OTC_CONF_LIMIT_MSEC:
 			*data = g_variant_new_uint64(devc->limit_msec);
 			break;
-		case SR_CONF_LIMIT_SAMPLES:
+		case OTC_CONF_LIMIT_SAMPLES:
 			*data = g_variant_new_uint64(devc->limit_samples);
 			break;
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			if (!sdi->conn)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			usb = sdi->conn;
 			if (usb->address == 255)
 				/* Device still needs to re-enumerate after firmware
 				 * upload, so we don't know its (future) address. */
-				return SR_ERR;
+				return OTC_ERR;
 			*data = g_variant_new_printf("%d.%d", usb->bus, usb->address);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		if (sdi->channel_groups->data == cg)
@@ -412,24 +412,24 @@ static int config_get(uint32_t key, GVariant **data,
 		else if (sdi->channel_groups->next->data == cg)
 			ch_idx = 1;
 		else
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		switch (key) {
-		case SR_CONF_VDIV:
+		case OTC_CONF_VDIV:
 			vdiv = devc->vdivs[devc->voltage[ch_idx]];
 			*data = g_variant_new("(tt)", vdiv[0], vdiv[1]);
 			break;
-		case SR_CONF_COUPLING:
+		case OTC_CONF_COUPLING:
 			*data = g_variant_new_string((devc->coupling[ch_idx] \
 					== COUPLING_DC) ? "DC" : "AC");
 			break;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	int ch_idx, idx;
@@ -437,18 +437,18 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_SAMPLERATE:
+		case OTC_CONF_SAMPLERATE:
 			devc->samplerate = g_variant_get_uint64(data);
 			hantek_6xxx_update_samplerate(sdi);
 			break;
-		case SR_CONF_LIMIT_MSEC:
+		case OTC_CONF_LIMIT_MSEC:
 			devc->limit_msec = g_variant_get_uint64(data);
 			break;
-		case SR_CONF_LIMIT_SAMPLES:
+		case OTC_CONF_LIMIT_SAMPLES:
 			devc->limit_samples = g_variant_get_uint64(data);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		if (sdi->channel_groups->data == cg)
@@ -456,31 +456,31 @@ static int config_set(uint32_t key, GVariant *data,
 		else if (sdi->channel_groups->next->data == cg)
 			ch_idx = 1;
 		else
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		switch (key) {
-		case SR_CONF_VDIV:
+		case OTC_CONF_VDIV:
 			if ((idx = std_u64_tuple_idx(data, devc->vdivs, devc->vdivs_size)) < 0)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			devc->voltage[ch_idx] = idx;
 			hantek_6xxx_update_vdiv(sdi);
 			break;
-		case SR_CONF_COUPLING:
+		case OTC_CONF_COUPLING:
 			if ((idx = std_str_idx(data, devc->coupling_vals,
 						devc->coupling_tab_size)) < 0)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			devc->coupling[ch_idx] = idx;
 			hantek_6xxx_update_coupling(sdi);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
@@ -488,40 +488,40 @@ static int config_list(uint32_t key, GVariant **data,
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_SCAN_OPTIONS:
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_SCAN_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-		case SR_CONF_SAMPLERATE:
+		case OTC_CONF_SAMPLERATE:
 			*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates));
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		switch (key) {
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg));
 			break;
-		case SR_CONF_COUPLING:
+		case OTC_CONF_COUPLING:
 			if (!devc)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			*data = g_variant_new_strv(devc->coupling_vals, devc->coupling_tab_size);
 			break;
-		case SR_CONF_VDIV:
+		case OTC_CONF_VDIV:
 			if (!devc)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			*data = std_gvar_tuple_array(devc->vdivs,devc->vdivs_size);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Minimise data amount for limit_samples and limit_msec limits. */
-static uint32_t data_amount(const struct sr_dev_inst *sdi)
+static uint32_t data_amount(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	uint32_t data_left, data_left_2, i;
@@ -541,38 +541,38 @@ static uint32_t data_amount(const struct sr_dev_inst *sdi)
 		;
 	data_left_2 = i;
 
-	sr_spew("data_amount: %u (rounded to power of 2: %u)", data_left, data_left_2);
+	otc_spew("data_amount: %u (rounded to power of 2: %u)", data_left, data_left_2);
 
 	return data_left_2;
 }
 
-static void send_chunk(struct sr_dev_inst *sdi, unsigned char *buf,
+static void send_chunk(struct otc_dev_inst *sdi, unsigned char *buf,
 		int num_samples)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	struct dev_context *devc = sdi->priv;
 	GSList *channels = devc->enabled_channels;
 
 	const float ch_bit[] = { RANGE(0) / 255, RANGE(1) / 255 };
 	const float ch_center[] = { RANGE(0) / 2, RANGE(1) / 2 };
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
 
 	analog.num_samples = num_samples;
-	analog.meaning->mq = SR_MQ_VOLTAGE;
-	analog.meaning->unit = SR_UNIT_VOLT;
+	analog.meaning->mq = OTC_MQ_VOLTAGE;
+	analog.meaning->unit = OTC_UNIT_VOLT;
 	analog.meaning->mqflags = 0;
 
 	analog.data = g_try_malloc(num_samples * sizeof(float));
 	if (!analog.data) {
-		sr_err("Analog data buffer malloc failed.");
+		otc_err("Analog data buffer malloc failed.");
 		devc->dev_state = STOPPING;
 		return;
 	}
@@ -602,7 +602,7 @@ static void send_chunk(struct sr_dev_inst *sdi, unsigned char *buf,
 			((float *)analog.data)[i] = ch_bit[ch] * *(buf + i * 2 + ch) - ch_center[ch];
 		}
 
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 		g_slist_free(analog.meaning->channels);
 
 		channels = channels->next;
@@ -614,11 +614,11 @@ static void send_chunk(struct sr_dev_inst *sdi, unsigned char *buf,
  * Called by libusb (as triggered by handle_event()) when a transfer comes in.
  * Only channel data comes in asynchronously, and all transfers for this are
  * queued up beforehand, so this just needs to chuck the incoming data onto
- * the libsigrok session bus.
+ * the libopentracecapture session bus.
  */
 static void LIBUSB_CALL receive_transfer(struct libusb_transfer *transfer)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 
 	sdi = transfer->user_data;
@@ -636,12 +636,12 @@ static void LIBUSB_CALL receive_transfer(struct libusb_transfer *transfer)
 	if (devc->dev_state != CAPTURE)
 		return;
 
-	sr_spew("receive_transfer(): calculated samplerate == %" PRIu64 "ks/s",
+	otc_spew("receive_transfer(): calculated samplerate == %" PRIu64 "ks/s",
 		(uint64_t)(transfer->actual_length * 1000 /
 		(g_get_monotonic_time() - devc->read_start_ts + 1) /
 		NUM_CHANNELS));
 
-	sr_spew("receive_transfer(): status %s received %d bytes.",
+	otc_spew("receive_transfer(): status %s received %d bytes.",
 		libusb_error_name(transfer->status), transfer->actual_length);
 
 	if (transfer->actual_length == 0)
@@ -656,22 +656,22 @@ static void LIBUSB_CALL receive_transfer(struct libusb_transfer *transfer)
 	libusb_free_transfer(transfer);
 
 	if (devc->limit_samples && devc->samp_received >= devc->limit_samples) {
-		sr_info("Requested number of samples reached, stopping. %"
+		otc_info("Requested number of samples reached, stopping. %"
 			PRIu64 " <= %" PRIu64, devc->limit_samples,
 			devc->samp_received);
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 	} else if (devc->limit_msec && (g_get_monotonic_time() -
 			devc->aq_started) / 1000 >= devc->limit_msec) {
-		sr_info("Requested time limit reached, stopping. %d <= %d",
+		otc_info("Requested time limit reached, stopping. %d <= %d",
 			(uint32_t)devc->limit_msec,
 			(uint32_t)(g_get_monotonic_time() - devc->aq_started) / 1000);
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 	} else {
 		read_channel(sdi, data_amount(sdi));
 	}
 }
 
-static int read_channel(const struct sr_dev_inst *sdi, uint32_t amount)
+static int read_channel(const struct otc_dev_inst *sdi, uint32_t amount)
 {
 	int ret;
 	struct dev_context *devc;
@@ -687,9 +687,9 @@ static int read_channel(const struct sr_dev_inst *sdi, uint32_t amount)
 
 static int handle_event(int fd, int revents, void *cb_data)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct timeval tv;
-	struct sr_dev_driver *di;
+	struct otc_dev_driver *di;
 	struct dev_context *devc;
 	struct drv_context *drvc;
 
@@ -703,18 +703,18 @@ static int handle_event(int fd, int revents, void *cb_data)
 
 	/* Always handle pending libusb events. */
 	tv.tv_sec = tv.tv_usec = 0;
-	libusb_handle_events_timeout(drvc->sr_ctx->libusb_ctx, &tv);
+	libusb_handle_events_timeout(drvc->otc_ctx->libusb_ctx, &tv);
 
 	if (devc->dev_state == STOPPING) {
 		/* We've been told to wind up the acquisition. */
-		sr_dbg("Stopping acquisition.");
+		otc_dbg("Stopping acquisition.");
 
 		hantek_6xxx_stop_data_collecting(sdi);
 		/*
 		 * TODO: Doesn't really cancel pending transfers so they might
-		 * come in after SR_DF_END is sent.
+		 * come in after OTC_DF_END is sent.
 		 */
-		usb_source_remove(sdi->session, drvc->sr_ctx);
+		usb_source_remove(sdi->session, drvc->otc_ctx);
 
 		std_session_send_df_end(sdi);
 
@@ -726,48 +726,48 @@ static int handle_event(int fd, int revents, void *cb_data)
 	return TRUE;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_dev_driver *di = sdi->driver;
+	struct otc_dev_driver *di = sdi->driver;
 	struct drv_context *drvc = di->context;
 
 	devc = sdi->priv;
 
-	if (configure_channels(sdi) != SR_OK) {
-		sr_err("Failed to configure channels.");
-		return SR_ERR;
+	if (configure_channels(sdi) != OTC_OK) {
+		otc_err("Failed to configure channels.");
+		return OTC_ERR;
 	}
 
-	if (hantek_6xxx_init(sdi) != SR_OK)
-		return SR_ERR;
+	if (hantek_6xxx_init(sdi) != OTC_OK)
+		return OTC_ERR;
 
 	std_session_send_df_header(sdi);
 
 	devc->samp_received = 0;
 	devc->dev_state = FLUSH;
 
-	usb_source_add(sdi->session, drvc->sr_ctx, TICK,
+	usb_source_add(sdi->session, drvc->otc_ctx, TICK,
 		       handle_event, (void *)sdi);
 
 	hantek_6xxx_start_data_collecting(sdi);
 
 	read_channel(sdi, FLUSH_PACKET_SIZE);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
 	devc = sdi->priv;
 	devc->dev_state = STOPPING;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver hantek_6xxx_driver_info = {
+static struct otc_dev_driver hantek_6xxx_driver_info = {
 	.name = "hantek-6xxx",
 	.longname = "Hantek 6xxx",
 	.api_version = 1,
@@ -785,4 +785,4 @@ static struct sr_dev_driver hantek_6xxx_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(hantek_6xxx_driver_info);
+OTC_REGISTER_DEV_DRIVER(hantek_6xxx_driver_info);

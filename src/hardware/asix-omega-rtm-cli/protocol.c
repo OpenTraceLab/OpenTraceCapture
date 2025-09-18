@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -28,7 +28,7 @@
  * Start the external acquisition process (vendor's CLI application).
  * Get the initial response to verify its operation.
  */
-SR_PRIV int omega_rtm_cli_open(const struct sr_dev_inst *sdi)
+OTC_PRIV int omega_rtm_cli_open(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	gboolean ok;
@@ -44,14 +44,14 @@ SR_PRIV int omega_rtm_cli_open(const struct sr_dev_inst *sdi)
 	uint16_t stamp, sample1, sample2;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (devc->child.running) {
-		sr_err("Vendor application already running.");
-		return SR_ERR_BUG;
+		otc_err("Vendor application already running.");
+		return OTC_ERR_BUG;
 	}
 
 	/* Prepare to feed sample data to the session. */
@@ -64,45 +64,45 @@ SR_PRIV int omega_rtm_cli_open(const struct sr_dev_inst *sdi)
 	 * Start the background process. May take considerable time
 	 * before actual acquisition starts.
 	 */
-	sr_dbg("Starting vendor application");
+	otc_dbg("Starting vendor application");
 	argv = devc->child.argv;
 	flags = devc->child.flags;
 	error = NULL;
 	ok = g_spawn_async_with_pipes(NULL, argv, NULL, flags, NULL, NULL,
 		&pid, &fd_in, &fd_out, NULL, &error);
 	if (error) {
-		sr_err("Cannot execute RTM CLI process: %s", error->message);
+		otc_err("Cannot execute RTM CLI process: %s", error->message);
 		g_error_free(error);
 		ok = FALSE;
 	}
 	if (fd_in < 0 || fd_out < 0)
 		ok = FALSE;
 	if (!ok) {
-		sr_err("Vendor application start failed.");
-		return SR_ERR_IO;
+		otc_err("Vendor application start failed.");
+		return OTC_ERR_IO;
 	}
 	devc->child.pid = pid;
 	devc->child.fd_stdin_write = fd_in;
 	devc->child.fd_stdout_read = fd_out;
 	devc->child.running = TRUE;
-	sr_dbg("Started vendor application, in %d, out %d", fd_in, fd_out);
-	txt = sr_hexdump_new((const uint8_t *)&pid, sizeof(pid));
-	sr_dbg("Vendor application PID (OS dependent): %s", txt->str);
-	sr_hexdump_free(txt);
+	otc_dbg("Started vendor application, in %d, out %d", fd_in, fd_out);
+	txt = otc_hexdump_new((const uint8_t *)&pid, sizeof(pid));
+	otc_dbg("Vendor application PID (OS dependent): %s", txt->str);
+	otc_hexdump_free(txt);
 
 	/*
 	 * Get the initial response. Verifies its operation, and only
 	 * returns with success when acquisition became operational.
 	 */
 	rcvd = read(fd_out, rsp, sizeof(rsp));
-	sr_dbg("Read from vendor application, ret %zd", rcvd);
+	otc_dbg("Read from vendor application, ret %zd", rcvd);
 	if (rcvd < 0)
 		ok = FALSE;
 	if (ok && (size_t)rcvd != sizeof(rsp))
 		ok = FALSE;
 	if (!ok) {
 		omega_rtm_cli_close(sdi);
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
 	/*
@@ -113,41 +113,41 @@ SR_PRIV int omega_rtm_cli_open(const struct sr_dev_inst *sdi)
 	stamp = read_u16le_inc(&rdptr);
 	sample1 = read_u16le_inc(&rdptr);
 	sample2 = read_u16le_inc(&rdptr);
-	sr_dbg("stamp %u, samples %x %x", stamp, sample1, sample2);
+	otc_dbg("stamp %u, samples %x %x", stamp, sample1, sample2);
 	write_u16le(devc->samples.last_sample, sample2);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
  * Terminate the external acquisition process (vendor's CLI application).
  */
-SR_PRIV int omega_rtm_cli_close(const struct sr_dev_inst *sdi)
+OTC_PRIV int omega_rtm_cli_close(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Close the external process' stdin. Discard its stdout. */
-	sr_dbg("Closing vendor application file descriptors.");
+	otc_dbg("Closing vendor application file descriptors.");
 	if (devc->child.fd_stdin_write >= 0) {
-		sr_dbg("Closing vendor application stdin descriptor.");
+		otc_dbg("Closing vendor application stdin descriptor.");
 		close(devc->child.fd_stdin_write);
 		devc->child.fd_stdin_write = -1;
 	}
 	if (devc->child.fd_stdout_read >= 0) {
-		sr_dbg("Closing vendor application stdout descriptor.");
+		otc_dbg("Closing vendor application stdout descriptor.");
 		close(devc->child.fd_stdout_read);
 		devc->child.fd_stdout_read = -1;
 	}
 
 	/* Terminate the external process. */
 	if (devc->child.running) {
-		sr_dbg("Closing vendor application process.");
+		otc_dbg("Closing vendor application process.");
 		(void)g_spawn_close_pid(devc->child.pid);
 		memset(&devc->child.pid, 0, sizeof(devc->child.pid));
 		devc->child.running = FALSE;
@@ -159,9 +159,9 @@ SR_PRIV int omega_rtm_cli_close(const struct sr_dev_inst *sdi)
 		devc->samples.queue = NULL;
 	}
 
-	sr_dbg("Done closing vendor application.");
+	otc_dbg("Done closing vendor application.");
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -170,7 +170,7 @@ SR_PRIV int omega_rtm_cli_close(const struct sr_dev_inst *sdi)
  * count limits in the process, cap the submission when an uncompressed
  * chunk would exceed the limit.
  */
-static int omega_rtm_cli_process_rawdata(const struct sr_dev_inst *sdi)
+static int omega_rtm_cli_process_rawdata(const struct otc_dev_inst *sdi)
 {
 	static const size_t chunk_size = 3 * sizeof(uint16_t);
 
@@ -184,14 +184,14 @@ static int omega_rtm_cli_process_rawdata(const struct sr_dev_inst *sdi)
 	rdptr = &devc->rawdata.buff[0];
 	avail = devc->rawdata.fill;
 	taken = 0;
-	ret = SR_OK;
+	ret = OTC_OK;
 
 	/* Cope with previous errors, silently discard RX data. */
 	if (!devc->samples.queue)
-		ret = SR_ERR_DATA;
+		ret = OTC_ERR_DATA;
 
 	/* Process those chunks whose reception has completed. */
-	while (ret == SR_OK && avail >= chunk_size) {
+	while (ret == OTC_OK && avail >= chunk_size) {
 		stamp = read_u16le_inc(&rdptr);
 		sample1 = read_u16le_inc(&rdptr);
 		sample2 = read_u16le_inc(&rdptr);
@@ -217,9 +217,9 @@ static int omega_rtm_cli_process_rawdata(const struct sr_dev_inst *sdi)
 		if (count) {
 			ret = feed_queue_logic_submit_one(devc->samples.queue,
 				devc->samples.last_sample, count);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				break;
-			sr_sw_limits_update_samples_read(&devc->limits, count);
+			otc_sw_limits_update_samples_read(&devc->limits, count);
 		}
 		if (devc->samples.check_count && !devc->samples.remain_count)
 			break;
@@ -231,17 +231,17 @@ static int omega_rtm_cli_process_rawdata(const struct sr_dev_inst *sdi)
 		write_u16le(devc->samples.last_sample, sample1);
 		ret = feed_queue_logic_submit_one(devc->samples.queue,
 			devc->samples.last_sample, 1);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 
 		write_u16le(devc->samples.last_sample, sample2);
 		ret = feed_queue_logic_submit_one(devc->samples.queue,
 			devc->samples.last_sample, 1);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 
 		count = 2;
-		sr_sw_limits_update_samples_read(&devc->limits, count);
+		otc_sw_limits_update_samples_read(&devc->limits, count);
 		if (devc->samples.check_count) {
 			if (count > devc->samples.remain_count)
 				count = devc->samples.remain_count;
@@ -279,9 +279,9 @@ static int omega_rtm_cli_process_rawdata(const struct sr_dev_inst *sdi)
 	return ret;
 }
 
-SR_PRIV int omega_rtm_cli_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int omega_rtm_cli_receive_data(int fd, int revents, void *cb_data)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	uint8_t *buff;
 	size_t space;
@@ -300,26 +300,26 @@ SR_PRIV int omega_rtm_cli_receive_data(int fd, int revents, void *cb_data)
 		buff = &devc->rawdata.buff[devc->rawdata.fill];
 		space = sizeof(devc->rawdata.buff) - devc->rawdata.fill;
 		rcvd = read(fd, buff, space);
-		sr_spew("Read from vendor application, ret %zd", rcvd);
+		otc_spew("Read from vendor application, ret %zd", rcvd);
 		if (rcvd <= 0)
 			break;
 		devc->rawdata.fill += (size_t)rcvd;
 		ret = omega_rtm_cli_process_rawdata(sdi);
-		if (ret != SR_OK) {
-			sr_err("Could not process sample data.");
+		if (ret != OTC_OK) {
+			otc_err("Could not process sample data.");
 		}
 	} while (0);
 
 	/* Handle receive errors. */
 	if (revents & G_IO_ERR) {
 		(void)feed_queue_logic_flush(devc->samples.queue);
-		(void)sr_dev_acquisition_stop((struct sr_dev_inst *)sdi);
+		(void)otc_dev_acquisition_stop((struct otc_dev_inst *)sdi);
 	}
 
 	/* Handle optional acquisition limits. */
-	if (sr_sw_limits_check(&devc->limits)) {
+	if (otc_sw_limits_check(&devc->limits)) {
 		(void)feed_queue_logic_flush(devc->samples.queue);
-		(void)sr_dev_acquisition_stop((struct sr_dev_inst *)sdi);
+		(void)otc_dev_acquisition_stop((struct otc_dev_inst *)sdi);
 	}
 
 	return TRUE;

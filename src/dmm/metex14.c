@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012-2013 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -34,8 +34,8 @@
 #include <ctype.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "metex14"
 
@@ -64,9 +64,9 @@ static int parse_value(const uint8_t *buf, struct metex14_info *info,
 	is_ol += (!g_ascii_strcasecmp((const char *)&valstr, "-OL.")) ? 1 : 0;
 	is_ol += (!g_ascii_strcasecmp((const char *)&valstr, "-OL")) ? 1 : 0;
 	if (is_ol != 0) {
-		sr_spew("Over limit.");
+		otc_spew("Over limit.");
 		*result = INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* Logic functions */
@@ -82,10 +82,10 @@ static int parse_value(const uint8_t *buf, struct metex14_info *info,
 		info->is_logic = TRUE;
 	}
 	if (info->is_logic)
-		return SR_OK;
+		return OTC_OK;
 
 	/* Bytes 2-8: Sign, value (up to 5 digits) and decimal point */
-	sr_atof_ascii((const char *)&valstr, result);
+	otc_atof_ascii((const char *)&valstr, result);
 
 	dot_pos = strcspn(valstr, ".");
 	if (dot_pos < cnt)
@@ -93,9 +93,9 @@ static int parse_value(const uint8_t *buf, struct metex14_info *info,
 	else
 		*exponent = 0;
 
-	sr_spew("The display value is %f.", *result);
+	otc_spew("The display value is %f.", *result);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void parse_flags(const char *buf, struct metex14_info *info)
@@ -190,7 +190,7 @@ static void parse_flags(const char *buf, struct metex14_info *info)
 	/* Byte 13: Always '\r' (carriage return, 0x0d, 13) */
 }
 
-static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
+static void handle_flags(struct otc_datafeed_analog *analog, float *floatval,
 			 int *exponent, const struct metex14_info *info)
 {
 	int factor;
@@ -214,77 +214,77 @@ static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
 
 	/* Measurement modes */
 	if (info->is_volt) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_ampere) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 	}
 	if (info->is_ohm) {
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 	if (info->is_hertz) {
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 	}
 	if (info->is_farad) {
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 	}
 	if (info->is_temperature) {
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
 		if (info->is_celsius)
-			analog->meaning->unit = SR_UNIT_CELSIUS;
+			analog->meaning->unit = OTC_UNIT_CELSIUS;
 		else if (info->is_fahrenheit)
-			analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+			analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 		else
-			analog->meaning->unit = SR_UNIT_UNITLESS;
+			analog->meaning->unit = OTC_UNIT_UNITLESS;
 	}
 	if (info->is_diode) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_power) {
-		analog->meaning->mq = SR_MQ_POWER;
+		analog->meaning->mq = OTC_MQ_POWER;
 		if (info->is_decibel_mw)
-			analog->meaning->unit = SR_UNIT_DECIBEL_MW;
+			analog->meaning->unit = OTC_UNIT_DECIBEL_MW;
 		else if (info->is_watt)
-			analog->meaning->unit = SR_UNIT_WATT;
+			analog->meaning->unit = OTC_UNIT_WATT;
 		else
-			analog->meaning->unit = SR_UNIT_UNITLESS;
+			analog->meaning->unit = OTC_UNIT_UNITLESS;
 	}
 	if (info->is_power_factor) {
-		analog->meaning->mq = SR_MQ_POWER_FACTOR;
-		analog->meaning->unit = SR_UNIT_UNITLESS;
+		analog->meaning->mq = OTC_MQ_POWER_FACTOR;
+		analog->meaning->unit = OTC_UNIT_UNITLESS;
 	}
 	if (info->is_gain) {
-		analog->meaning->mq = SR_MQ_GAIN;
-		analog->meaning->unit = SR_UNIT_DECIBEL_VOLT;
+		analog->meaning->mq = OTC_MQ_GAIN;
+		analog->meaning->unit = OTC_UNIT_DECIBEL_VOLT;
 	}
 	if (info->is_hfe) {
-		analog->meaning->mq = SR_MQ_GAIN;
-		analog->meaning->unit = SR_UNIT_UNITLESS;
+		analog->meaning->mq = OTC_MQ_GAIN;
+		analog->meaning->unit = OTC_UNIT_UNITLESS;
 	}
 	if (info->is_logic) {
-		analog->meaning->mq = SR_MQ_GAIN;
-		analog->meaning->unit = SR_UNIT_UNITLESS;
+		analog->meaning->mq = OTC_MQ_GAIN;
+		analog->meaning->unit = OTC_UNIT_UNITLESS;
 	}
 
 	/* Measurement related flags */
 	if (info->is_ac)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (info->is_dc)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	if (info->is_diode)
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 	if (info->is_min)
-		analog->meaning->mqflags |= SR_MQFLAG_MIN;
+		analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 	if (info->is_max)
-		analog->meaning->mqflags |= SR_MQFLAG_MAX;
+		analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 	if (info->is_avg)
-		analog->meaning->mqflags |= SR_MQFLAG_AVG;
+		analog->meaning->mqflags |= OTC_MQFLAG_AVG;
 }
 
 static gboolean flags_valid(const struct metex14_info *info)
@@ -300,7 +300,7 @@ static gboolean flags_valid(const struct metex14_info *info)
 	count += (info->is_kilo) ? 1 : 0;
 	count += (info->is_mega) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one multiplier detected in packet.");
+		otc_dbg("More than one multiplier detected in packet.");
 		return FALSE;
 	}
 
@@ -314,13 +314,13 @@ static gboolean flags_valid(const struct metex14_info *info)
 	count += (info->is_diode) ? 1 : 0;
 	count += (info->is_frequency) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one measurement type detected in packet.");
+		otc_dbg("More than one measurement type detected in packet.");
 		return FALSE;
 	}
 
 	/* Both AC and DC set? */
 	if (info->is_ac && info->is_dc) {
-		sr_dbg("Both AC and DC flags detected in packet.");
+		otc_dbg("Both AC and DC flags detected in packet.");
 		return FALSE;
 	}
 
@@ -328,26 +328,26 @@ static gboolean flags_valid(const struct metex14_info *info)
 }
 
 #ifdef HAVE_SERIAL_COMM
-SR_PRIV int sr_metex14_packet_request(struct sr_serial_dev_inst *serial)
+OTC_PRIV int otc_metex14_packet_request(struct otc_serial_dev_inst *serial)
 {
 	const uint8_t wbuf = 'D';
 	size_t wrlen;
 	int ret;
 
-	sr_spew("Requesting DMM packet.");
+	otc_spew("Requesting DMM packet.");
 
 	wrlen = sizeof(wbuf);
 	ret = serial_write_blocking(serial, &wbuf, wrlen, 0);
 	if (ret < 0)
 		return ret;
 	if ((size_t)ret != wrlen)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
-	return SR_OK;
+	return OTC_OK;
 }
 #endif
 
-SR_PRIV gboolean sr_metex14_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_metex14_packet_valid(const uint8_t *buf)
 {
 	struct metex14_info info;
 
@@ -363,7 +363,7 @@ SR_PRIV gboolean sr_metex14_packet_valid(const uint8_t *buf)
 	return TRUE;
 }
 
-SR_PRIV gboolean sr_metex14_4packets_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_metex14_4packets_valid(const uint8_t *buf)
 {
 	struct metex14_info info;
 	size_t ch_idx;
@@ -388,17 +388,17 @@ SR_PRIV gboolean sr_metex14_4packets_valid(const uint8_t *buf)
  * @param buf Buffer containing the protocol packet. Must not be NULL.
  * @param floatval Pointer to a float variable. That variable will be modified
  *                 in-place depending on the protocol packet. Must not be NULL.
- * @param analog Pointer to a struct sr_datafeed_analog. The struct will be
+ * @param analog Pointer to a struct otc_datafeed_analog. The struct will be
  *               filled with data according to the protocol packet.
  *               Must not be NULL.
  * @param info Pointer to a struct metex14_info. The struct will be filled
  *             with data according to the protocol packet. Must not be NULL.
  *
- * @return SR_OK upon success, SR_ERR upon failure. Upon errors, the
+ * @return OTC_OK upon success, OTC_ERR upon failure. Upon errors, the
  *         'analog' variable contents are undefined and should not be used.
  */
-SR_PRIV int sr_metex14_parse(const uint8_t *buf, float *floatval,
-			     struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_metex14_parse(const uint8_t *buf, float *floatval,
+			     struct otc_datafeed_analog *analog, void *info)
 {
 	int ret, exponent = 0;
 	struct metex14_info *info_local;
@@ -406,12 +406,12 @@ SR_PRIV int sr_metex14_parse(const uint8_t *buf, float *floatval,
 	info_local = info;
 
 	/* Don't print byte 13. That one contains the carriage return. */
-	sr_dbg("DMM packet: \"%.13s\"", buf);
+	otc_dbg("DMM packet: \"%.13s\"", buf);
 
 	memset(info_local, 0x00, sizeof(struct metex14_info));
 
-	if ((ret = parse_value(buf, info_local, floatval, &exponent)) != SR_OK) {
-		sr_dbg("Error parsing value: %d.", ret);
+	if ((ret = parse_value(buf, info_local, floatval, &exponent)) != OTC_OK) {
+		otc_dbg("Error parsing value: %d.", ret);
 		return ret;
 	}
 
@@ -421,7 +421,7 @@ SR_PRIV int sr_metex14_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -439,8 +439,8 @@ SR_PRIV int sr_metex14_parse(const uint8_t *buf, float *floatval,
  * The meters which use this parse routine send one 14-byte packet per
  * display. Each packet has the regular Metex14 layout.
  */
-SR_PRIV int sr_metex14_4packets_parse(const uint8_t *buf, float *floatval,
-	struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_metex14_4packets_parse(const uint8_t *buf, float *floatval,
+	struct otc_datafeed_analog *analog, void *info)
 {
 	struct metex14_info *info_local;
 	size_t ch_idx;
@@ -450,7 +450,7 @@ SR_PRIV int sr_metex14_4packets_parse(const uint8_t *buf, float *floatval,
 	info_local = info;
 	ch_idx = info_local->ch_idx;
 	ch_buf = buf + ch_idx * METEX14_PACKET_SIZE;
-	rc = sr_metex14_parse(ch_buf, floatval, analog, info);
+	rc = otc_metex14_parse(ch_buf, floatval, analog, info);
 	info_local->ch_idx = ch_idx + 1;
 	return rc;
 }

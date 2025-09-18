@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2011 Olivier Fauchon <olivier@aixmarseille.com>
@@ -25,13 +25,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 #define ANALOG_SAMPLES_PER_PERIOD 20
 
-static const uint8_t pattern_sigrok[] = {
+static const uint8_t pattern_opentracelab[] = {
 	0x4c, 0x92, 0x92, 0x92, 0x64, 0x00, 0x00, 0x00,
 	0x82, 0xfe, 0xfe, 0x82, 0x00, 0x00, 0x00, 0x00,
 	0x7c, 0x82, 0x82, 0x92, 0x74, 0x00, 0x00, 0x00,
@@ -173,7 +173,7 @@ static const uint8_t pattern_squid[128][128 / 8] = {
 	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 };
 
-SR_PRIV void demo_generate_analog_pattern(struct dev_context *devc)
+OTC_PRIV void demo_generate_analog_pattern(struct dev_context *devc)
 {
 	double t, frequency;
 	float amplitude, offset;
@@ -195,7 +195,7 @@ SR_PRIV void demo_generate_analog_pattern(struct dev_context *devc)
 	 */
 
 	/* PATTERN_SQUARE: */
-	sr_dbg("Generating %s pattern.", analog_pattern_str[PATTERN_SQUARE]);
+	otc_dbg("Generating %s pattern.", analog_pattern_str[PATTERN_SQUARE]);
 	pattern = g_malloc(sizeof(struct analog_pattern));
 	value = amplitude;
 	last_end = 0;
@@ -214,7 +214,7 @@ SR_PRIV void demo_generate_analog_pattern(struct dev_context *devc)
 		num_samples--;
 
 	/* PATTERN_SINE: */
-	sr_dbg("Generating %s pattern.", analog_pattern_str[PATTERN_SINE]);
+	otc_dbg("Generating %s pattern.", analog_pattern_str[PATTERN_SINE]);
 	pattern = g_malloc(sizeof(struct analog_pattern));
 	for (i = 0; i < num_samples; i++) {
 		t = (double) i / (double) devc->cur_samplerate;
@@ -224,7 +224,7 @@ SR_PRIV void demo_generate_analog_pattern(struct dev_context *devc)
 	devc->analog_patterns[PATTERN_SINE] = pattern;
 
 	/* PATTERN_TRIANGLE: */
-	sr_dbg("Generating %s pattern.", analog_pattern_str[PATTERN_TRIANGLE]);
+	otc_dbg("Generating %s pattern.", analog_pattern_str[PATTERN_TRIANGLE]);
 	pattern = g_malloc(sizeof(struct analog_pattern));
 	for (i = 0; i < num_samples; i++) {
 		t = (double) i / (double) devc->cur_samplerate;
@@ -235,7 +235,7 @@ SR_PRIV void demo_generate_analog_pattern(struct dev_context *devc)
 	devc->analog_patterns[PATTERN_TRIANGLE] = pattern;
 
 	/* PATTERN_SAWTOOTH: */
-	sr_dbg("Generating %s pattern.", analog_pattern_str[PATTERN_SAWTOOTH]);
+	otc_dbg("Generating %s pattern.", analog_pattern_str[PATTERN_SAWTOOTH]);
 	pattern = g_malloc(sizeof(struct analog_pattern));
 	for (i = 0; i < num_samples; i++) {
 		t = (double) i / (double) devc->cur_samplerate;
@@ -252,7 +252,7 @@ SR_PRIV void demo_generate_analog_pattern(struct dev_context *devc)
 	devc->analog_patterns[PATTERN_ANALOG_RANDOM] = pattern;
 }
 
-SR_PRIV void demo_free_analog_pattern(struct dev_context *devc)
+OTC_PRIV void demo_free_analog_pattern(struct dev_context *devc)
 {
 	g_free(devc->analog_patterns[PATTERN_SQUARE]);
 	g_free(devc->analog_patterns[PATTERN_SINE]);
@@ -274,7 +274,7 @@ static void set_logic_data(uint64_t bits, uint8_t *data, size_t len)
 	}
 }
 
-static void logic_generator(struct sr_dev_inst *sdi, uint64_t size)
+static void logic_generator(struct otc_dev_inst *sdi, uint64_t size)
 {
 	struct dev_context *devc;
 	uint64_t i, j;
@@ -291,7 +291,7 @@ static void logic_generator(struct sr_dev_inst *sdi, uint64_t size)
 		memset(devc->logic_data, 0x00, size);
 		for (i = 0; i < size; i += devc->logic_unitsize) {
 			for (j = 0; j < devc->logic_unitsize; j++) {
-				pat = pattern_sigrok[(devc->step + j) % sizeof(pattern_sigrok)] >> 1;
+				pat = pattern_opentracelab[(devc->step + j) % sizeof(pattern_opentracelab)] >> 1;
 				devc->logic_data[i + j] = ~pat;
 			}
 			devc->step++;
@@ -366,7 +366,7 @@ static void logic_generator(struct sr_dev_inst *sdi, uint64_t size)
 		}
 		break;
 	default:
-		sr_err("Unknown pattern: %d.", devc->logic_pattern);
+		otc_err("Unknown pattern: %d.", devc->logic_pattern);
 		break;
 	}
 }
@@ -379,7 +379,7 @@ static void logic_generator(struct sr_dev_inst *sdi, uint64_t size)
  * of the enabled channels' data?
  */
 static void logic_fixup_feed(struct dev_context *devc,
-		struct sr_datafeed_logic *logic)
+		struct otc_datafeed_logic *logic)
 {
 	size_t fp_off;
 	uint8_t fp_mask;
@@ -400,10 +400,10 @@ static void logic_fixup_feed(struct dev_context *devc,
 }
 
 static void send_analog_packet(struct analog_gen *ag,
-		struct sr_dev_inst *sdi, uint64_t *analog_sent,
+		struct otc_dev_inst *sdi, uint64_t *analog_sent,
 		uint64_t analog_pos, uint64_t analog_todo)
 {
-	struct sr_datafeed_packet packet;
+	struct otc_datafeed_packet packet;
 	struct dev_context *devc;
 	struct analog_pattern *pattern;
 	uint64_t sending_now, to_avg;
@@ -416,7 +416,7 @@ static void send_analog_packet(struct analog_gen *ag,
 		return;
 
 	devc = sdi->priv;
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &ag->packet;
 
 	pattern = devc->analog_patterns[ag->pattern];
@@ -426,74 +426,74 @@ static void send_analog_packet(struct analog_gen *ag,
 	ag->packet.meaning->mqflags = ag->mq_flags;
 
 	/* Set a unit for the given quantity. */
-	if (ag->mq == SR_MQ_VOLTAGE)
-		ag->packet.meaning->unit = SR_UNIT_VOLT;
-	else if (ag->mq == SR_MQ_CURRENT)
-		ag->packet.meaning->unit = SR_UNIT_AMPERE;
-	else if (ag->mq == SR_MQ_RESISTANCE)
-		ag->packet.meaning->unit = SR_UNIT_OHM;
-	else if (ag->mq == SR_MQ_CAPACITANCE)
-		ag->packet.meaning->unit = SR_UNIT_FARAD;
-	else if (ag->mq == SR_MQ_TEMPERATURE)
-		ag->packet.meaning->unit = SR_UNIT_CELSIUS;
-	else if (ag->mq == SR_MQ_FREQUENCY)
-		ag->packet.meaning->unit = SR_UNIT_HERTZ;
-	else if (ag->mq == SR_MQ_DUTY_CYCLE)
-		ag->packet.meaning->unit = SR_UNIT_PERCENTAGE;
-	else if (ag->mq == SR_MQ_CONTINUITY)
-		ag->packet.meaning->unit = SR_UNIT_OHM;
-	else if (ag->mq == SR_MQ_PULSE_WIDTH)
-		ag->packet.meaning->unit = SR_UNIT_PERCENTAGE;
-	else if (ag->mq == SR_MQ_CONDUCTANCE)
-		ag->packet.meaning->unit = SR_UNIT_SIEMENS;
-	else if (ag->mq == SR_MQ_POWER)
-		ag->packet.meaning->unit = SR_UNIT_WATT;
-	else if (ag->mq == SR_MQ_GAIN)
-		ag->packet.meaning->unit = SR_UNIT_UNITLESS;
-	else if (ag->mq == SR_MQ_SOUND_PRESSURE_LEVEL)
-		ag->packet.meaning->unit = SR_UNIT_DECIBEL_SPL;
-	else if (ag->mq == SR_MQ_CARBON_MONOXIDE)
-		ag->packet.meaning->unit = SR_UNIT_CONCENTRATION;
-	else if (ag->mq == SR_MQ_RELATIVE_HUMIDITY)
-		ag->packet.meaning->unit = SR_UNIT_HUMIDITY_293K;
-	else if (ag->mq == SR_MQ_TIME)
-		ag->packet.meaning->unit = SR_UNIT_SECOND;
-	else if (ag->mq == SR_MQ_WIND_SPEED)
-		ag->packet.meaning->unit = SR_UNIT_METER_SECOND;
-	else if (ag->mq == SR_MQ_PRESSURE)
-		ag->packet.meaning->unit = SR_UNIT_HECTOPASCAL;
-	else if (ag->mq == SR_MQ_PARALLEL_INDUCTANCE)
-		ag->packet.meaning->unit = SR_UNIT_HENRY;
-	else if (ag->mq == SR_MQ_PARALLEL_CAPACITANCE)
-		ag->packet.meaning->unit = SR_UNIT_FARAD;
-	else if (ag->mq == SR_MQ_PARALLEL_RESISTANCE)
-		ag->packet.meaning->unit = SR_UNIT_OHM;
-	else if (ag->mq == SR_MQ_SERIES_INDUCTANCE)
-		ag->packet.meaning->unit = SR_UNIT_HENRY;
-	else if (ag->mq == SR_MQ_SERIES_CAPACITANCE)
-		ag->packet.meaning->unit = SR_UNIT_FARAD;
-	else if (ag->mq == SR_MQ_SERIES_RESISTANCE)
-		ag->packet.meaning->unit = SR_UNIT_OHM;
-	else if (ag->mq == SR_MQ_DISSIPATION_FACTOR)
-		ag->packet.meaning->unit = SR_UNIT_UNITLESS;
-	else if (ag->mq == SR_MQ_QUALITY_FACTOR)
-		ag->packet.meaning->unit = SR_UNIT_UNITLESS;
-	else if (ag->mq == SR_MQ_PHASE_ANGLE)
-		ag->packet.meaning->unit = SR_UNIT_DEGREE;
-	else if (ag->mq == SR_MQ_DIFFERENCE)
-		ag->packet.meaning->unit = SR_UNIT_UNITLESS;
-	else if (ag->mq == SR_MQ_COUNT)
-		ag->packet.meaning->unit = SR_UNIT_PIECE;
-	else if (ag->mq == SR_MQ_POWER_FACTOR)
-		ag->packet.meaning->unit = SR_UNIT_UNITLESS;
-	else if (ag->mq == SR_MQ_APPARENT_POWER)
-		ag->packet.meaning->unit = SR_UNIT_VOLT_AMPERE;
-	else if (ag->mq == SR_MQ_MASS)
-		ag->packet.meaning->unit = SR_UNIT_GRAM;
-	else if (ag->mq == SR_MQ_HARMONIC_RATIO)
-		ag->packet.meaning->unit = SR_UNIT_UNITLESS;
+	if (ag->mq == OTC_MQ_VOLTAGE)
+		ag->packet.meaning->unit = OTC_UNIT_VOLT;
+	else if (ag->mq == OTC_MQ_CURRENT)
+		ag->packet.meaning->unit = OTC_UNIT_AMPERE;
+	else if (ag->mq == OTC_MQ_RESISTANCE)
+		ag->packet.meaning->unit = OTC_UNIT_OHM;
+	else if (ag->mq == OTC_MQ_CAPACITANCE)
+		ag->packet.meaning->unit = OTC_UNIT_FARAD;
+	else if (ag->mq == OTC_MQ_TEMPERATURE)
+		ag->packet.meaning->unit = OTC_UNIT_CELSIUS;
+	else if (ag->mq == OTC_MQ_FREQUENCY)
+		ag->packet.meaning->unit = OTC_UNIT_HERTZ;
+	else if (ag->mq == OTC_MQ_DUTY_CYCLE)
+		ag->packet.meaning->unit = OTC_UNIT_PERCENTAGE;
+	else if (ag->mq == OTC_MQ_CONTINUITY)
+		ag->packet.meaning->unit = OTC_UNIT_OHM;
+	else if (ag->mq == OTC_MQ_PULSE_WIDTH)
+		ag->packet.meaning->unit = OTC_UNIT_PERCENTAGE;
+	else if (ag->mq == OTC_MQ_CONDUCTANCE)
+		ag->packet.meaning->unit = OTC_UNIT_SIEMENS;
+	else if (ag->mq == OTC_MQ_POWER)
+		ag->packet.meaning->unit = OTC_UNIT_WATT;
+	else if (ag->mq == OTC_MQ_GAIN)
+		ag->packet.meaning->unit = OTC_UNIT_UNITLESS;
+	else if (ag->mq == OTC_MQ_SOUND_PRESSURE_LEVEL)
+		ag->packet.meaning->unit = OTC_UNIT_DECIBEL_SPL;
+	else if (ag->mq == OTC_MQ_CARBON_MONOXIDE)
+		ag->packet.meaning->unit = OTC_UNIT_CONCENTRATION;
+	else if (ag->mq == OTC_MQ_RELATIVE_HUMIDITY)
+		ag->packet.meaning->unit = OTC_UNIT_HUMIDITY_293K;
+	else if (ag->mq == OTC_MQ_TIME)
+		ag->packet.meaning->unit = OTC_UNIT_SECOND;
+	else if (ag->mq == OTC_MQ_WIND_SPEED)
+		ag->packet.meaning->unit = OTC_UNIT_METER_SECOND;
+	else if (ag->mq == OTC_MQ_PRESSURE)
+		ag->packet.meaning->unit = OTC_UNIT_HECTOPASCAL;
+	else if (ag->mq == OTC_MQ_PARALLEL_INDUCTANCE)
+		ag->packet.meaning->unit = OTC_UNIT_HENRY;
+	else if (ag->mq == OTC_MQ_PARALLEL_CAPACITANCE)
+		ag->packet.meaning->unit = OTC_UNIT_FARAD;
+	else if (ag->mq == OTC_MQ_PARALLEL_RESISTANCE)
+		ag->packet.meaning->unit = OTC_UNIT_OHM;
+	else if (ag->mq == OTC_MQ_SERIES_INDUCTANCE)
+		ag->packet.meaning->unit = OTC_UNIT_HENRY;
+	else if (ag->mq == OTC_MQ_SERIES_CAPACITANCE)
+		ag->packet.meaning->unit = OTC_UNIT_FARAD;
+	else if (ag->mq == OTC_MQ_SERIES_RESISTANCE)
+		ag->packet.meaning->unit = OTC_UNIT_OHM;
+	else if (ag->mq == OTC_MQ_DISSIPATION_FACTOR)
+		ag->packet.meaning->unit = OTC_UNIT_UNITLESS;
+	else if (ag->mq == OTC_MQ_QUALITY_FACTOR)
+		ag->packet.meaning->unit = OTC_UNIT_UNITLESS;
+	else if (ag->mq == OTC_MQ_PHASE_ANGLE)
+		ag->packet.meaning->unit = OTC_UNIT_DEGREE;
+	else if (ag->mq == OTC_MQ_DIFFERENCE)
+		ag->packet.meaning->unit = OTC_UNIT_UNITLESS;
+	else if (ag->mq == OTC_MQ_COUNT)
+		ag->packet.meaning->unit = OTC_UNIT_PIECE;
+	else if (ag->mq == OTC_MQ_POWER_FACTOR)
+		ag->packet.meaning->unit = OTC_UNIT_UNITLESS;
+	else if (ag->mq == OTC_MQ_APPARENT_POWER)
+		ag->packet.meaning->unit = OTC_UNIT_VOLT_AMPERE;
+	else if (ag->mq == OTC_MQ_MASS)
+		ag->packet.meaning->unit = OTC_UNIT_GRAM;
+	else if (ag->mq == OTC_MQ_HARMONIC_RATIO)
+		ag->packet.meaning->unit = OTC_UNIT_UNITLESS;
 	else
-		ag->packet.meaning->unit = SR_UNIT_UNITLESS;
+		ag->packet.meaning->unit = OTC_UNIT_UNITLESS;
 
 	if (!devc->avg) {
 		ag_pattern_pos = analog_pos % pattern->num_samples;
@@ -524,7 +524,7 @@ static void send_analog_packet(struct analog_gen *ag,
 			ag->packet.data = pattern->data + ag_pattern_pos;
 		}
 		ag->packet.num_samples = sending_now;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 
 		/* Whichever channel group gets there first. */
 		*analog_sent = MAX(*analog_sent, sending_now);
@@ -564,7 +564,7 @@ do_send:
 		ag->packet.data = &ag->avg_val;
 		ag->packet.num_samples = 1;
 
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 		*analog_sent = ag->num_avgs;
 
 		ag->num_avgs = 0;
@@ -573,12 +573,12 @@ do_send:
 }
 
 /* Callback handling data */
-SR_PRIV int demo_prepare_data(int fd, int revents, void *cb_data)
+OTC_PRIV int demo_prepare_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 	struct analog_gen *ag;
 	GHashTableIter iter;
 	void *value;
@@ -597,7 +597,7 @@ SR_PRIV int demo_prepare_data(int fd, int revents, void *cb_data)
 	if (devc->cur_samplerate <= 0
 			|| (devc->num_logic_channels <= 0
 			&& devc->num_analog_channels <= 0)) {
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 		return G_SOURCE_CONTINUE;
 	}
 
@@ -664,7 +664,7 @@ SR_PRIV int demo_prepare_data(int fd, int revents, void *cb_data)
 				trigger_offset = 0;
 
 			/* Send logic samples if needed */
-			packet.type = SR_DF_LOGIC;
+			packet.type = OTC_DF_LOGIC;
 			packet.payload = &logic;
 			logic.unitsize = devc->logic_unitsize;
 
@@ -674,11 +674,11 @@ SR_PRIV int demo_prepare_data(int fd, int revents, void *cb_data)
 					logic.length = (sending_now - trigger_offset) * devc->logic_unitsize;
 					logic.data = devc->logic_data + trigger_offset * devc->logic_unitsize;
 					logic_fixup_feed(devc, &logic);
-					sr_session_send(sdi, &packet);
+					otc_session_send(sdi, &packet);
 					logic_done += sending_now - trigger_offset;
 					/* End acquisition */
-					sr_dbg("Triggered, stopping acquisition.");
-					sr_dev_acquisition_stop(sdi);
+					otc_dbg("Triggered, stopping acquisition.");
+					otc_dev_acquisition_stop(sdi);
 					break;
 				} else {
 					/* Send nothing */
@@ -689,7 +689,7 @@ SR_PRIV int demo_prepare_data(int fd, int revents, void *cb_data)
 				logic.length = sending_now * devc->logic_unitsize;
 				logic.data = devc->logic_data;
 				logic_fixup_feed(devc, &logic);
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 				logic_done += sending_now;
 			}
 		}
@@ -718,8 +718,8 @@ SR_PRIV int demo_prepare_data(int fd, int revents, void *cb_data)
 		devc->sent_frame_samples = 0;
 		devc->limit_frames--;
 		if (!devc->limit_frames) {
-			sr_dbg("Requested number of frames reached.");
-			sr_dev_acquisition_stop(sdi);
+			otc_dbg("Requested number of frames reached.");
+			otc_dev_acquisition_stop(sdi);
 		}
 	}
 
@@ -731,15 +731,15 @@ SR_PRIV int demo_prepare_data(int fd, int revents, void *cb_data)
 			g_hash_table_iter_init(&iter, devc->ch_ag);
 			while (g_hash_table_iter_next(&iter, NULL, &value)) {
 				ag = value;
-				packet.type = SR_DF_ANALOG;
+				packet.type = OTC_DF_ANALOG;
 				packet.payload = &ag->packet;
 				ag->packet.data = &ag->avg_val;
 				ag->packet.num_samples = 1;
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 			}
 		}
-		sr_dbg("Requested number of samples reached.");
-		sr_dev_acquisition_stop(sdi);
+		otc_dbg("Requested number of samples reached.");
+		otc_dev_acquisition_stop(sdi);
 	} else if (devc->limit_frames) {
 		if (devc->sent_frame_samples == 0)
 			std_session_send_df_frame_begin(sdi);

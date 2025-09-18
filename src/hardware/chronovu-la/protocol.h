@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2011-2014 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -25,8 +25,8 @@
 #include <ftdi.h>
 #include <stdint.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "chronovu-la"
 
@@ -94,7 +94,7 @@ struct dev_context {
 	 */
 	uint16_t trigger_edgemask;
 
-	/** Tells us whether an SR_DF_TRIGGER packet was already sent. */
+	/** Tells us whether an OTC_DF_TRIGGER packet was already sent. */
 	int trigger_found;
 
 	/** Used for keeping track how much time has passed. */
@@ -114,15 +114,15 @@ struct dev_context {
 	uint64_t samplerates[255];
 };
 
-extern SR_PRIV const char *cv_channel_names[];
+extern OTC_PRIV const char *cv_channel_names[];
 extern const struct cv_profile cv_profiles[];
-SR_PRIV void cv_fill_samplerates_if_needed(const struct sr_dev_inst *sdi);
-SR_PRIV uint8_t cv_samplerate_to_divcount(const struct sr_dev_inst *sdi,
+OTC_PRIV void cv_fill_samplerates_if_needed(const struct otc_dev_inst *sdi);
+OTC_PRIV uint8_t cv_samplerate_to_divcount(const struct otc_dev_inst *sdi,
 					  uint64_t samplerate);
-SR_PRIV int cv_write(struct dev_context *devc, uint8_t *buf, int size);
-SR_PRIV int cv_convert_trigger(const struct sr_dev_inst *sdi);
-SR_PRIV int cv_set_samplerate(const struct sr_dev_inst *sdi, uint64_t samplerate);
-SR_PRIV int cv_read_block(struct dev_context *devc);
-SR_PRIV void cv_send_block_to_session_bus(const struct sr_dev_inst *sdi, int block);
+OTC_PRIV int cv_write(struct dev_context *devc, uint8_t *buf, int size);
+OTC_PRIV int cv_convert_trigger(const struct otc_dev_inst *sdi);
+OTC_PRIV int cv_set_samplerate(const struct otc_dev_inst *sdi, uint64_t samplerate);
+OTC_PRIV int cv_read_block(struct dev_context *devc);
+OTC_PRIV void cv_send_block_to_session_bus(const struct otc_dev_inst *sdi, int block);
 
 #endif

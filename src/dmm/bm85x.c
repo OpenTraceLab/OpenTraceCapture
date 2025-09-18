@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Alexandru Gagniuc <mr.nuke.me@gmail.com>
  * Copyright (C) 2014 Aurelien Jacobs <aurel@gnuage.org>
@@ -72,8 +72,8 @@
 #include <config.h>
 #include <ctype.h>
 #include <math.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 #include <string.h>
 
 #define LOG_PREFIX "brymen-bm85x"
@@ -102,7 +102,7 @@ static uint8_t bm85x_crc(const uint8_t *buf, size_t len)
 
 #ifdef HAVE_SERIAL_COMM
 /** Meter's specific activity after port open and before data exchange. */
-SR_PRIV int brymen_bm85x_after_open(struct sr_serial_dev_inst *serial)
+OTC_PRIV int brymen_bm85x_after_open(struct otc_serial_dev_inst *serial)
 {
 	int rts_toggle_delay_us;
 
@@ -122,10 +122,10 @@ SR_PRIV int brymen_bm85x_after_open(struct sr_serial_dev_inst *serial)
 	serial_set_handshake(serial, 1, -1);
 	g_usleep(rts_toggle_delay_us);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int bm85x_send_command(struct sr_serial_dev_inst *serial,
+static int bm85x_send_command(struct otc_serial_dev_inst *serial,
 	uint8_t cmd, uint8_t arg1, uint8_t arg2)
 {
 	uint8_t buf[8];
@@ -150,13 +150,13 @@ static int bm85x_send_command(struct sr_serial_dev_inst *serial,
 	if (ret < 0)
 		return ret;
 	if ((size_t)ret != wrlen)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** Initiate reception of another meter's reading. */
-SR_PRIV int brymen_bm85x_packet_request(struct sr_serial_dev_inst *serial)
+OTC_PRIV int brymen_bm85x_packet_request(struct otc_serial_dev_inst *serial)
 {
 	return bm85x_send_command(serial, CMD_GET_READING, 0, 0);
 }
@@ -177,11 +177,11 @@ SR_PRIV int brymen_bm85x_packet_request(struct sr_serial_dev_inst *serial)
  * a valid packet got received and processed. The packet size is not
  * known in advance.
  *
- * @returns SR_OK when the packet is valid.
- * @returns SR_ERR* (below zero) when the packet is invalid.
+ * @returns OTC_OK when the packet is valid.
+ * @returns OTC_ERR* (below zero) when the packet is invalid.
  * @returns Greater 0 when packet is incomplete, more data is needed.
  */
-SR_PRIV int brymen_bm85x_packet_valid(void *st,
+OTC_PRIV int brymen_bm85x_packet_valid(void *st,
 	const uint8_t *buf, size_t len, size_t *pkt_len)
 {
 	size_t plen;
@@ -191,38 +191,38 @@ SR_PRIV int brymen_bm85x_packet_valid(void *st,
 
 	/* Four header bytes: DLE, STX, command, payload length. */
 	if (len < PKT_HEAD_LEN)
-		return SR_PACKET_NEED_RX;
+		return OTC_PACKET_NEED_RX;
 	if (read_u8_inc(&buf) != DLE)
-		return SR_PACKET_INVALID;
+		return OTC_PACKET_INVALID;
 	if (read_u8_inc(&buf) != STX)
-		return SR_PACKET_INVALID;
+		return OTC_PACKET_INVALID;
 	cmd = read_u8_inc(&buf);
 	/* Non-fatal, happens with OL pending during connect. */
 	if (cmd == 0x01)
 		cmd = 0x00;
 	if (cmd != CMD_GET_READING)
-		return SR_PACKET_INVALID;
+		return OTC_PACKET_INVALID;
 	plen = read_u8_inc(&buf);
 	if (plen > PKT_DATA_MAX)
-		return SR_PACKET_INVALID;
+		return OTC_PACKET_INVALID;
 	len -= PKT_HEAD_LEN;
 
 	/* Checksum spans bfunc and value text. Length according to header. */
 	if (len < plen + PKT_TAIL_LEN)
-		return SR_PACKET_NEED_RX;
+		return OTC_PACKET_NEED_RX;
 	crc = bm85x_crc(buf, plen);
 	buf += plen;
 	len -= plen;
 
 	/* Three tail bytes: checksum, DLE, ETX. */
 	if (len < PKT_TAIL_LEN)
-		return SR_PACKET_NEED_RX;
+		return OTC_PACKET_NEED_RX;
 	if (read_u8_inc(&buf) != crc)
-		return SR_PACKET_INVALID;
+		return OTC_PACKET_INVALID;
 	if (read_u8_inc(&buf) != DLE)
-		return SR_PACKET_INVALID;
+		return OTC_PACKET_INVALID;
 	if (read_u8_inc(&buf) != ETX)
-		return SR_PACKET_INVALID;
+		return OTC_PACKET_INVALID;
 
 	/*
 	 * Only return the total packet length when the receive buffer
@@ -231,7 +231,7 @@ SR_PRIV int brymen_bm85x_packet_valid(void *st,
 	 */
 	if (pkt_len)
 		*pkt_len = PKT_HEAD_LEN + plen + PKT_TAIL_LEN;
-	return SR_PACKET_VALID;
+	return OTC_PACKET_VALID;
 }
 
 struct bm85x_flags {
@@ -243,21 +243,21 @@ struct bm85x_flags {
 static int bm85x_parse_flags(const uint8_t *bfunc, struct bm85x_flags *flags)
 {
 	if (!bfunc || !flags)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	memset(flags, 0, sizeof(*flags));
 
 	flags->is_batt = bfunc[3] & (1u << 7);
 	if ((bfunc[3] & 0x7f) != 0)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if ((bfunc[2] & 0xff) != 0)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if ((bfunc[1] & 0xc0) != 0)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	flags->is_db = bfunc[1] & (1u << 5);
 	if ((bfunc[1] & 0x10) != 0)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	flags->is_perc = bfunc[1] & (1u << 3);
 	flags->is_hz = bfunc[1] & (1u << 2);
 	flags->is_amp = bfunc[1] & (1u << 1);
@@ -272,7 +272,7 @@ static int bm85x_parse_flags(const uint8_t *bfunc, struct bm85x_flags *flags)
 	flags->is_dc = bfunc[0] & (1u << 1);
 	flags->is_ac = bfunc[0] & (1u << 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int bm85x_parse_value(char *txt, double *val, int *digits)
@@ -288,15 +288,15 @@ static int bm85x_parse_value(char *txt, double *val, int *digits)
 	 */
 	if (strstr(txt, "+OL")) {
 		*val = +INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (strstr(txt, "-OL")) {
 		*val = -INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (strstr(txt, "OL")) {
 		*val = INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	src = txt;
@@ -309,15 +309,15 @@ static int bm85x_parse_value(char *txt, double *val, int *digits)
 	}
 	*dst = '\0';
 
-	ret = sr_atod_ascii_digits(txt, val, digits);
-	if (ret != SR_OK)
+	ret = otc_atod_ascii_digits(txt, val, digits);
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int bm85x_parse_payload(const uint8_t *p, size_t l,
-	double *val, struct sr_datafeed_analog *analog)
+	double *val, struct otc_datafeed_analog *analog)
 {
 	const uint8_t *bfunc;
 	char text_buf[PKT_DATA_MAX], *text;
@@ -333,12 +333,12 @@ static int bm85x_parse_payload(const uint8_t *p, size_t l,
 	memcpy(text_buf, &p[PKT_BFUNC_LEN], text_len);
 	text_buf[text_len] = '\0';
 	text = &text_buf[0];
-	sr_dbg("DMM bfunc %02x %02x %02x %02x, text \"%s\"",
+	otc_dbg("DMM bfunc %02x %02x %02x %02x, text \"%s\"",
 		bfunc[0], bfunc[1], bfunc[2], bfunc[3], text);
 
 	/* Check 'bfunc' bitfield first, text interpretation depends on it. */
 	ret = bm85x_parse_flags(bfunc, &flags);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Parse the text after potential normalization/transformation. */
@@ -347,96 +347,96 @@ static int bm85x_parse_payload(const uint8_t *p, size_t l,
 		static const char *suffix = " E";
 		/* See above comment on dBm reference value text. */
 		if (strncmp(text, prefix, strlen(prefix)) != 0)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		text += strlen(prefix);
 		text_len -= strlen(prefix);
 		parse = strstr(text, suffix);
 		if (!parse)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*parse = '\0';
 	}
 	if (flags.is_temp_f || flags.is_temp_c) {
 		/* See above comment on temperature value text. */
 		parse = strchr(text, flags.is_temp_f ? 'F' : 'C');
 		if (!parse)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*parse = ' ';
 	}
 	digits = 0;
 	ret = bm85x_parse_value(text, val, &digits);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Fill in MQ and flags result details. */
 	analog->meaning->mqflags = 0;
 	if (flags.is_volt) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (flags.is_amp) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 	}
 	if (flags.is_ohm) {
 		if (flags.is_db)
-			analog->meaning->mq = SR_MQ_RESISTANCE;
+			analog->meaning->mq = OTC_MQ_RESISTANCE;
 		else if (flags.is_beep)
-			analog->meaning->mq = SR_MQ_CONTINUITY;
+			analog->meaning->mq = OTC_MQ_CONTINUITY;
 		else
-			analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+			analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 	if (flags.is_hz) {
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 	}
 	if (flags.is_perc) {
-		analog->meaning->mq = SR_MQ_DUTY_CYCLE;
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 	}
 	if (flags.is_cap) {
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 	}
 	if (flags.is_temp_f) {
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
-		analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
+		analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 	}
 	if (flags.is_temp_c) {
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
-		analog->meaning->unit = SR_UNIT_CELSIUS;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
+		analog->meaning->unit = OTC_UNIT_CELSIUS;
 	}
 	if (flags.is_db && !flags.is_ohm) {
 		/* See above comment on dBm measurements scale. */
-		analog->meaning->mq = SR_MQ_POWER;
-		analog->meaning->unit = SR_UNIT_DECIBEL_MW;
+		analog->meaning->mq = OTC_MQ_POWER;
+		analog->meaning->unit = OTC_UNIT_DECIBEL_MW;
 		*val *= 1000;
 		digits -= 3;
 	}
 
 	if (flags.is_diode) {
 		/* See above comment on diode measurement responses. */
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE;
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	}
 	if (flags.is_ac)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (flags.is_dc)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 
 	analog->encoding->digits = digits;
 	analog->spec->spec_digits = digits;
 
 	if (flags.is_batt)
-		sr_warn("Low battery!");
+		otc_warn("Low battery!");
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int brymen_bm85x_parse(void *st, const uint8_t *buf, size_t len,
-	double *val, struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int brymen_bm85x_parse(void *st, const uint8_t *buf, size_t len,
+	double *val, struct otc_datafeed_analog *analog, void *info)
 {
 	const uint8_t *pl_ptr;
 	size_t pl_len;
@@ -445,12 +445,12 @@ SR_PRIV int brymen_bm85x_parse(void *st, const uint8_t *buf, size_t len,
 	(void)info;
 
 	if (!buf || !len)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (!val || !analog)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
-	if (brymen_bm85x_packet_valid(NULL, buf, len, NULL) != SR_PACKET_VALID)
-		return SR_ERR_DATA;
+	if (brymen_bm85x_packet_valid(NULL, buf, len, NULL) != OTC_PACKET_VALID)
+		return OTC_ERR_DATA;
 	pl_ptr = &buf[PKT_HEAD_LEN];
 	pl_len = len - PKT_HEAD_LEN - PKT_TAIL_LEN;
 

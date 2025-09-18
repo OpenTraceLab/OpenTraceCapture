@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Aurelien Jacobs <aurel@gnuage.org>
  *
@@ -42,12 +42,12 @@ static gboolean teleinfo_control_check(char *label, char *data, char control)
 
 static gint teleinfo_channel_compare(gconstpointer a, gconstpointer b)
 {
-	const struct sr_channel *ch = a;
+	const struct otc_channel *ch = a;
 	const char *name = b;
 	return strcmp(ch->name, name);
 }
 
-static struct sr_channel *teleinfo_find_channel(struct sr_dev_inst *sdi,
+static struct otc_channel *teleinfo_find_channel(struct otc_dev_inst *sdi,
                                             const char *name)
 {
 	GSList *elem = g_slist_find_custom(sdi->channels, name,
@@ -55,15 +55,15 @@ static struct sr_channel *teleinfo_find_channel(struct sr_dev_inst *sdi,
 	return elem ? elem->data : NULL;
 }
 
-static void teleinfo_send_value(struct sr_dev_inst *sdi, const char *channel_name,
-                                float value, enum sr_mq mq, enum sr_unit unit)
+static void teleinfo_send_value(struct otc_dev_inst *sdi, const char *channel_name,
+                                float value, enum otc_mq mq, enum otc_unit unit)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
-	struct sr_channel *ch;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
+	struct otc_channel *ch;
 
 	ch = teleinfo_find_channel(sdi, channel_name);
 
@@ -71,20 +71,20 @@ static void teleinfo_send_value(struct sr_dev_inst *sdi, const char *channel_nam
 		return;
 
 	/* Note: digits/spec_digits is actually really 0 for this device! */
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 	analog.meaning->channels = g_slist_append(analog.meaning->channels, ch);
 	analog.num_samples = 1;
 	analog.meaning->mq = mq;
 	analog.meaning->unit = unit;
 	analog.data = &value;
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 	g_slist_free(analog.meaning->channels);
 }
 
-static void teleinfo_handle_measurement(struct sr_dev_inst *sdi,
+static void teleinfo_handle_measurement(struct otc_dev_inst *sdi,
 		const char *label, const char *data, char *optarif)
 {
 	struct dev_context *devc;
@@ -97,36 +97,36 @@ static void teleinfo_handle_measurement(struct sr_dev_inst *sdi,
 	}
 
 	if (!strcmp(label, "ADCO"))
-		sr_sw_limits_update_samples_read(&devc->sw_limits, 1);
+		otc_sw_limits_update_samples_read(&devc->sw_limits, 1);
 	else if (!strcmp(label, "BASE"))
-		teleinfo_send_value(sdi, "BASE", v, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR);
+		teleinfo_send_value(sdi, "BASE", v, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR);
 	else if (!strcmp(label, "HCHP"))
-		teleinfo_send_value(sdi, "HP"  , v, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR);
+		teleinfo_send_value(sdi, "HP"  , v, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR);
 	else if (!strcmp(label, "HCHC"))
-		teleinfo_send_value(sdi, "HC"  , v, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR);
+		teleinfo_send_value(sdi, "HC"  , v, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR);
 	else if (!strcmp(label, "EJPHN"))
-		teleinfo_send_value(sdi, "HN"  , v, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR);
+		teleinfo_send_value(sdi, "HN"  , v, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR);
 	else if (!strcmp(label, "EJPHPM"))
-		teleinfo_send_value(sdi, "HPM" , v, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR);
+		teleinfo_send_value(sdi, "HPM" , v, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR);
 	else if (!strcmp(label, "BBRHPJB"))
-		teleinfo_send_value(sdi, "HPJB", v, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR);
+		teleinfo_send_value(sdi, "HPJB", v, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR);
 	else if (!strcmp(label, "BBRHPJW"))
-		teleinfo_send_value(sdi, "HPJW", v, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR);
+		teleinfo_send_value(sdi, "HPJW", v, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR);
 	else if (!strcmp(label, "BBRHPJR"))
-		teleinfo_send_value(sdi, "HPJR", v, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR);
+		teleinfo_send_value(sdi, "HPJR", v, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR);
 	else if (!strcmp(label, "BBRHCJB"))
-		teleinfo_send_value(sdi, "HCJB", v, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR);
+		teleinfo_send_value(sdi, "HCJB", v, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR);
 	else if (!strcmp(label, "BBRHCJW"))
-		teleinfo_send_value(sdi, "HCJW", v, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR);
+		teleinfo_send_value(sdi, "HCJW", v, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR);
 	else if (!strcmp(label, "BBRHCJR"))
-		teleinfo_send_value(sdi, "HCJR", v, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR);
+		teleinfo_send_value(sdi, "HCJR", v, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR);
 	else if (!strcmp(label, "IINST"))
-		teleinfo_send_value(sdi, "IINST", v, SR_MQ_CURRENT, SR_UNIT_AMPERE);
+		teleinfo_send_value(sdi, "IINST", v, OTC_MQ_CURRENT, OTC_UNIT_AMPERE);
 	else if (!strcmp(label, "PAPP"))
-		teleinfo_send_value(sdi, "PAPP", v, SR_MQ_POWER, SR_UNIT_VOLT_AMPERE);
+		teleinfo_send_value(sdi, "PAPP", v, OTC_MQ_POWER, OTC_UNIT_VOLT_AMPERE);
 }
 
-static gboolean teleinfo_parse_group(struct sr_dev_inst *sdi,
+static gboolean teleinfo_parse_group(struct otc_dev_inst *sdi,
                                      const uint8_t *group, char *optarif)
 {
 	char label[9], data[13], control, cr;
@@ -140,7 +140,7 @@ static gboolean teleinfo_parse_group(struct sr_dev_inst *sdi,
 	return TRUE;
 }
 
-static const uint8_t *teleinfo_parse_data(struct sr_dev_inst *sdi,
+static const uint8_t *teleinfo_parse_data(struct otc_dev_inst *sdi,
                                           const uint8_t *buf, int len,
                                           char *optarif)
 {
@@ -158,7 +158,7 @@ static const uint8_t *teleinfo_parse_data(struct sr_dev_inst *sdi,
 	return group_end + 1;
 }
 
-SR_PRIV int teleinfo_get_optarif(const uint8_t *buf)
+OTC_PRIV int teleinfo_get_optarif(const uint8_t *buf)
 {
 	const uint8_t *ptr = buf;
 	char optarif[5] = { 0 };
@@ -175,16 +175,16 @@ SR_PRIV int teleinfo_get_optarif(const uint8_t *buf)
 	return OPTARIF_NONE;
 }
 
-SR_PRIV gboolean teleinfo_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean teleinfo_packet_valid(const uint8_t *buf)
 {
 	return !!teleinfo_get_optarif(buf);
 }
 
-SR_PRIV int teleinfo_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int teleinfo_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	const uint8_t *ptr, *next_ptr, *end_ptr;
 	int len;
 
@@ -198,7 +198,7 @@ SR_PRIV int teleinfo_receive_data(int fd, int revents, void *cb_data)
 	len = TELEINFO_BUF_SIZE - devc->buf_len;
 	len = serial_read_nonblocking(serial, devc->buf + devc->buf_len, len);
 	if (len < 1) {
-		sr_err("Serial port read error: %d.", len);
+		otc_err("Serial port read error: %d.", len);
 		return FALSE;
 	}
 	devc->buf_len += len;
@@ -219,8 +219,8 @@ SR_PRIV int teleinfo_receive_data(int fd, int revents, void *cb_data)
 		return FALSE;
 	}
 
-	if (sr_sw_limits_check(&devc->sw_limits))
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->sw_limits))
+		otc_dev_acquisition_stop(sdi);
 
 	return TRUE;
 }

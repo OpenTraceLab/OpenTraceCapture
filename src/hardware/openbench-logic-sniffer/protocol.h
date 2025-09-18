@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -23,15 +23,15 @@
 #include <stdint.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "openbench-logic-sniffer"
 
 #define NUM_BASIC_TRIGGER_STAGES     4
-#define CLOCK_RATE                   SR_MHZ(100)
+#define CLOCK_RATE                   OTC_MHZ(100)
 #define MIN_NUM_SAMPLES              4
-#define DEFAULT_SAMPLERATE           SR_KHZ(200)
+#define DEFAULT_SAMPLERATE           OTC_KHZ(200)
 
 /* Command opcodes */
 #define CMD_RESET                     0x00
@@ -130,19 +130,19 @@ struct dev_context {
 	uint16_t unitsize;
 };
 
-SR_PRIV extern const char *ols_channel_names[];
+OTC_PRIV extern const char *ols_channel_names[];
 
-SR_PRIV int send_shortcommand(struct sr_serial_dev_inst *serial,
+OTC_PRIV int send_shortcommand(struct otc_serial_dev_inst *serial,
 			      uint8_t command);
-SR_PRIV int send_longcommand(struct sr_serial_dev_inst *serial, uint8_t command,
+OTC_PRIV int send_longcommand(struct otc_serial_dev_inst *serial, uint8_t command,
 			     uint8_t *data);
-SR_PRIV int ols_send_reset(struct sr_serial_dev_inst *serial);
-SR_PRIV int ols_prepare_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV uint32_t ols_channel_mask(const struct sr_dev_inst *sdi);
-SR_PRIV int ols_get_metadata(struct sr_dev_inst *sdi);
-SR_PRIV int ols_set_samplerate(const struct sr_dev_inst *sdi,
+OTC_PRIV int ols_send_reset(struct otc_serial_dev_inst *serial);
+OTC_PRIV int ols_prepare_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV uint32_t ols_channel_mask(const struct otc_dev_inst *sdi);
+OTC_PRIV int ols_get_metadata(struct otc_dev_inst *sdi);
+OTC_PRIV int ols_set_samplerate(const struct otc_dev_inst *sdi,
 			       uint64_t samplerate);
-SR_PRIV void abort_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV int ols_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV void abort_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV int ols_receive_data(int fd, int revents, void *cb_data);
 
 #endif

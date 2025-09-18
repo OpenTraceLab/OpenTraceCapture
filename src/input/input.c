@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  *
@@ -22,8 +22,8 @@
 #include <errno.h>
 #include <glib.h>
 #include <glib/gstdio.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "input"
@@ -44,41 +44,41 @@
  *
  * Input file/data module handling.
  *
- * libsigrok can process acquisition data in several different ways.
+ * libopentracecapture can process acquisition data in several different ways.
  * Aside from acquiring data from a hardware device, it can also take it
  * from a file in various formats (binary, CSV, VCD, and so on).
  *
- * Like all libsigrok data handling, processing is done in a streaming
+ * Like all libopentracecapture data handling, processing is done in a streaming
  * manner: input should be supplied a chunk at a time. This way anything
  * that processes data can do so in real time, without the user having
  * to wait for the whole thing to be finished.
  *
  * Every input module is "pluggable", meaning it's handled as being separate
- * from the main libsigrok, but linked in to it statically. To keep things
+ * from the main libopentracecapture, but linked in to it statically. To keep things
  * modular and separate like this, functions within an input module should be
- * declared static, with only the respective 'struct sr_input_module' being
- * exported for use into the wider libsigrok namespace.
+ * declared static, with only the respective 'struct otc_input_module' being
+ * exported for use into the wider libopentracecapture namespace.
  *
  * @{
  */
 
 /** @cond PRIVATE */
-extern SR_PRIV struct sr_input_module input_binary;
-extern SR_PRIV struct sr_input_module input_chronovu_la8;
-extern SR_PRIV struct sr_input_module input_csv;
-extern SR_PRIV struct sr_input_module input_logicport;
-extern SR_PRIV struct sr_input_module input_null;
-extern SR_PRIV struct sr_input_module input_protocoldata;
-extern SR_PRIV struct sr_input_module input_raw_analog;
-extern SR_PRIV struct sr_input_module input_saleae;
-extern SR_PRIV struct sr_input_module input_stf;
-extern SR_PRIV struct sr_input_module input_trace32_ad;
-extern SR_PRIV struct sr_input_module input_vcd;
-extern SR_PRIV struct sr_input_module input_wav;
-extern SR_PRIV struct sr_input_module input_isf;
+extern OTC_PRIV struct otc_input_module input_binary;
+extern OTC_PRIV struct otc_input_module input_chronovu_la8;
+extern OTC_PRIV struct otc_input_module input_csv;
+extern OTC_PRIV struct otc_input_module input_logicport;
+extern OTC_PRIV struct otc_input_module input_null;
+extern OTC_PRIV struct otc_input_module input_protocoldata;
+extern OTC_PRIV struct otc_input_module input_raw_analog;
+extern OTC_PRIV struct otc_input_module input_saleae;
+extern OTC_PRIV struct otc_input_module input_stf;
+extern OTC_PRIV struct otc_input_module input_trace32_ad;
+extern OTC_PRIV struct otc_input_module input_vcd;
+extern OTC_PRIV struct otc_input_module input_wav;
+extern OTC_PRIV struct otc_input_module input_isf;
 /** @endcond */
 
-static const struct sr_input_module *input_module_list[] = {
+static const struct otc_input_module *input_module_list[] = {
 	&input_binary,
 	&input_chronovu_la8,
 	&input_csv,
@@ -102,7 +102,7 @@ static const struct sr_input_module *input_module_list[] = {
  *
  * @since 0.4.0
  */
-SR_API const struct sr_input_module **sr_input_list(void)
+OTC_API const struct otc_input_module **otc_input_list(void)
 {
 	return input_module_list;
 }
@@ -112,10 +112,10 @@ SR_API const struct sr_input_module **sr_input_list(void)
  *
  * @since 0.4.0
  */
-SR_API const char *sr_input_id_get(const struct sr_input_module *imod)
+OTC_API const char *otc_input_id_get(const struct otc_input_module *imod)
 {
 	if (!imod) {
-		sr_err("Invalid input module NULL!");
+		otc_err("Invalid input module NULL!");
 		return NULL;
 	}
 
@@ -127,10 +127,10 @@ SR_API const char *sr_input_id_get(const struct sr_input_module *imod)
  *
  * @since 0.4.0
  */
-SR_API const char *sr_input_name_get(const struct sr_input_module *imod)
+OTC_API const char *otc_input_name_get(const struct otc_input_module *imod)
 {
 	if (!imod) {
-		sr_err("Invalid input module NULL!");
+		otc_err("Invalid input module NULL!");
 		return NULL;
 	}
 
@@ -142,10 +142,10 @@ SR_API const char *sr_input_name_get(const struct sr_input_module *imod)
  *
  * @since 0.4.0
  */
-SR_API const char *sr_input_description_get(const struct sr_input_module *imod)
+OTC_API const char *otc_input_description_get(const struct otc_input_module *imod)
 {
 	if (!imod) {
-		sr_err("Invalid input module NULL!");
+		otc_err("Invalid input module NULL!");
 		return NULL;
 	}
 
@@ -160,11 +160,11 @@ SR_API const char *sr_input_description_get(const struct sr_input_module *imod)
  *
  * @since 0.4.0
  */
-SR_API const char *const *sr_input_extensions_get(
-		const struct sr_input_module *imod)
+OTC_API const char *const *otc_input_extensions_get(
+		const struct otc_input_module *imod)
 {
 	if (!imod) {
-		sr_err("Invalid input module NULL!");
+		otc_err("Invalid input module NULL!");
 		return NULL;
 	}
 
@@ -177,7 +177,7 @@ SR_API const char *const *sr_input_extensions_get(
  *
  * @since 0.4.0
  */
-SR_API const struct sr_input_module *sr_input_find(const char *id)
+OTC_API const struct otc_input_module *otc_input_find(const char *id)
 {
 	int i;
 
@@ -190,17 +190,17 @@ SR_API const struct sr_input_module *sr_input_find(const char *id)
 }
 
 /**
- * Returns a NULL-terminated array of struct sr_option, or NULL if the
+ * Returns a NULL-terminated array of struct otc_option, or NULL if the
  * module takes no options.
  *
  * Each call to this function must be followed by a call to
- * sr_input_options_free().
+ * otc_input_options_free().
  *
  * @since 0.4.0
  */
-SR_API const struct sr_option **sr_input_options_get(const struct sr_input_module *imod)
+OTC_API const struct otc_option **otc_input_options_get(const struct otc_input_module *imod)
 {
-	const struct sr_option *mod_opts, **opts;
+	const struct otc_option *mod_opts, **opts;
 	int size, i;
 
 	if (!imod || !imod->options)
@@ -210,7 +210,7 @@ SR_API const struct sr_option **sr_input_options_get(const struct sr_input_modul
 
 	for (size = 0; mod_opts[size].id; size++)
 		;
-	opts = g_malloc((size + 1) * sizeof(struct sr_option *));
+	opts = g_malloc((size + 1) * sizeof(struct otc_option *));
 
 	for (i = 0; i < size; i++)
 		opts[i] = &mod_opts[i];
@@ -220,12 +220,12 @@ SR_API const struct sr_option **sr_input_options_get(const struct sr_input_modul
 }
 
 /**
- * After a call to sr_input_options_get(), this function cleans up all
+ * After a call to otc_input_options_get(), this function cleans up all
  * resources returned by that call.
  *
  * @since 0.4.0
  */
-SR_API void sr_input_options_free(const struct sr_option **options)
+OTC_API void otc_input_options_free(const struct otc_option **options)
 {
 	int i;
 
@@ -235,12 +235,12 @@ SR_API void sr_input_options_free(const struct sr_option **options)
 	for (i = 0; options[i]; i++) {
 		if (options[i]->def) {
 			g_variant_unref(options[i]->def);
-			((struct sr_option *)options[i])->def = NULL;
+			((struct otc_option *)options[i])->def = NULL;
 		}
 
 		if (options[i]->values) {
 			g_slist_free_full(options[i]->values, (GDestroyNotify)g_variant_unref);
-			((struct sr_option *)options[i])->values = NULL;
+			((struct otc_option *)options[i])->values = NULL;
 		}
 	}
 	g_free(options);
@@ -260,18 +260,18 @@ SR_API void sr_input_options_free(const struct sr_option **options)
  *
  * @since 0.4.0
  */
-SR_API struct sr_input *sr_input_new(const struct sr_input_module *imod,
+OTC_API struct otc_input *otc_input_new(const struct otc_input_module *imod,
 		GHashTable *options)
 {
-	struct sr_input *in;
-	const struct sr_option *mod_opts;
+	struct otc_input *in;
+	const struct otc_option *mod_opts;
 	const GVariantType *gvt;
 	GHashTable *new_opts;
 	GHashTableIter iter;
 	gpointer key, value;
 	int i;
 
-	in = g_malloc0(sizeof(struct sr_input));
+	in = g_malloc0(sizeof(struct otc_input));
 	in->module = imod;
 
 	new_opts = g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
@@ -284,7 +284,7 @@ SR_API struct sr_input *sr_input_new(const struct sr_input_module *imod,
 				/* Option not given: insert the default value. */
 				gvt = g_variant_get_type(mod_opts[i].def);
 				if (!g_variant_is_of_type(value, gvt)) {
-					sr_err("Invalid type for '%s' option.",
+					otc_err("Invalid type for '%s' option.",
 						(char *)key);
 					g_free(in);
 					return NULL;
@@ -303,7 +303,7 @@ SR_API struct sr_input *sr_input_new(const struct sr_input_module *imod,
 			g_hash_table_iter_init(&iter, options);
 			while (g_hash_table_iter_next(&iter, &key, &value)) {
 				if (!g_hash_table_lookup(new_opts, key)) {
-					sr_err("Input module '%s' has no option '%s'",
+					otc_err("Input module '%s' has no option '%s'",
 						imod->id, (char *)key);
 					g_hash_table_destroy(new_opts);
 					g_free(in);
@@ -313,7 +313,7 @@ SR_API struct sr_input *sr_input_new(const struct sr_input_module *imod,
 		}
 	}
 
-	if (in->module->init && in->module->init(in, new_opts) != SR_OK) {
+	if (in->module->init && in->module->init(in, new_opts) != OTC_OK) {
 		g_free(in);
 		in = NULL;
 	} else {
@@ -333,9 +333,9 @@ static gboolean check_required_metadata(const uint8_t *metadata, uint8_t *avail)
 	uint8_t reqd;
 
 	for (m = 0; metadata[m]; m++) {
-		if (!(metadata[m] & SR_INPUT_META_REQUIRED))
+		if (!(metadata[m] & OTC_INPUT_META_REQUIRED))
 			continue;
-		reqd = metadata[m] & ~SR_INPUT_META_REQUIRED;
+		reqd = metadata[m] & ~OTC_INPUT_META_REQUIRED;
 		for (a = 0; avail[a]; a++) {
 			if (avail[a] == reqd)
 				break;
@@ -369,9 +369,9 @@ static gboolean check_required_metadata(const uint8_t *metadata, uint8_t *avail)
  * it again later.
  *
  */
-SR_API int sr_input_scan_buffer(GString *buf, const struct sr_input **in)
+OTC_API int otc_input_scan_buffer(GString *buf, const struct otc_input **in)
 {
-	const struct sr_input_module *imod, *best_imod;
+	const struct otc_input_module *imod, *best_imod;
 	GHashTable *meta;
 	unsigned int m, i;
 	unsigned int conf, best_conf;
@@ -379,7 +379,7 @@ SR_API int sr_input_scan_buffer(GString *buf, const struct sr_input **in)
 	uint8_t mitem, avail_metadata[8];
 
 	/* No more metadata to be had from a buffer. */
-	avail_metadata[0] = SR_INPUT_META_HEADER;
+	avail_metadata[0] = OTC_INPUT_META_HEADER;
 	avail_metadata[1] = 0;
 
 	*in = NULL;
@@ -398,8 +398,8 @@ SR_API int sr_input_scan_buffer(GString *buf, const struct sr_input **in)
 
 		meta = g_hash_table_new(NULL, NULL);
 		for (m = 0; m < sizeof(imod->metadata); m++) {
-			mitem = imod->metadata[m] & ~SR_INPUT_META_REQUIRED;
-			if (mitem == SR_INPUT_META_HEADER)
+			mitem = imod->metadata[m] & ~OTC_INPUT_META_REQUIRED;
+			if (mitem == OTC_INPUT_META_HEADER)
 				g_hash_table_insert(meta, GINT_TO_POINTER(mitem), buf);
 		}
 		if (g_hash_table_size(meta) == 0) {
@@ -407,22 +407,22 @@ SR_API int sr_input_scan_buffer(GString *buf, const struct sr_input **in)
 			g_hash_table_destroy(meta);
 			continue;
 		}
-		sr_spew("Trying module %s.", imod->id);
+		otc_spew("Trying module %s.", imod->id);
 		ret = imod->format_match(meta, &conf);
 		g_hash_table_destroy(meta);
-		if (ret == SR_ERR_DATA) {
+		if (ret == OTC_ERR_DATA) {
 			/* Module recognized this buffer, but cannot handle it. */
 			continue;
-		} else if (ret == SR_ERR) {
+		} else if (ret == OTC_ERR) {
 			/* Module didn't recognize this buffer. */
 			continue;
-		} else if (ret != SR_OK) {
-			/* Can be SR_ERR_NA. */
+		} else if (ret != OTC_OK) {
+			/* Can be OTC_ERR_NA. */
 			continue;
 		}
 
 		/* Found a matching module. */
-		sr_spew("Module %s matched, confidence %u.", imod->id, conf);
+		otc_spew("Module %s matched, confidence %u.", imod->id, conf);
 		if (conf >= best_conf)
 			continue;
 		best_imod = imod;
@@ -430,12 +430,12 @@ SR_API int sr_input_scan_buffer(GString *buf, const struct sr_input **in)
 	}
 
 	if (best_imod) {
-		*in = sr_input_new(best_imod, NULL);
+		*in = otc_input_new(best_imod, NULL);
 		g_string_insert_len((*in)->buf, 0, buf->str, buf->len);
-		return SR_OK;
+		return OTC_OK;
 	}
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
 /**
@@ -447,11 +447,11 @@ SR_API int sr_input_scan_buffer(GString *buf, const struct sr_input **in)
  * precedence. Applications will see at most one input module spec.
  *
  */
-SR_API int sr_input_scan_file(const char *filename, const struct sr_input **in)
+OTC_API int otc_input_scan_file(const char *filename, const struct otc_input **in)
 {
 	int64_t filesize;
 	FILE *stream;
-	const struct sr_input_module *imod, *best_imod;
+	const struct otc_input_module *imod, *best_imod;
 	GHashTable *meta;
 	GString *header;
 	size_t count;
@@ -463,43 +463,43 @@ SR_API int sr_input_scan_file(const char *filename, const struct sr_input **in)
 	*in = NULL;
 
 	if (!filename || !filename[0]) {
-		sr_err("Invalid filename.");
-		return SR_ERR_ARG;
+		otc_err("Invalid filename.");
+		return OTC_ERR_ARG;
 	}
 	stream = g_fopen(filename, "rb");
 	if (!stream) {
-		sr_err("Failed to open %s: %s", filename, g_strerror(errno));
-		return SR_ERR;
+		otc_err("Failed to open %s: %s", filename, g_strerror(errno));
+		return OTC_ERR;
 	}
-	filesize = sr_file_get_size(stream);
+	filesize = otc_file_get_size(stream);
 	if (filesize < 0) {
-		sr_err("Failed to get size of %s: %s",
+		otc_err("Failed to get size of %s: %s",
 			filename, g_strerror(errno));
 		fclose(stream);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	header = g_string_sized_new(CHUNK_SIZE);
 	count = fread(header->str, 1, header->allocated_len - 1, stream);
 	if (count < 1 || ferror(stream)) {
-		sr_err("Failed to read %s: %s", filename, g_strerror(errno));
+		otc_err("Failed to read %s: %s", filename, g_strerror(errno));
 		fclose(stream);
 		g_string_free(header, TRUE);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	fclose(stream);
 	g_string_set_size(header, count);
 
 	meta = g_hash_table_new(NULL, NULL);
-	g_hash_table_insert(meta, GINT_TO_POINTER(SR_INPUT_META_FILENAME),
+	g_hash_table_insert(meta, GINT_TO_POINTER(OTC_INPUT_META_FILENAME),
 			(char *)filename);
-	g_hash_table_insert(meta, GINT_TO_POINTER(SR_INPUT_META_FILESIZE),
+	g_hash_table_insert(meta, GINT_TO_POINTER(OTC_INPUT_META_FILESIZE),
 			GSIZE_TO_POINTER(MIN(filesize, G_MAXSSIZE)));
-	g_hash_table_insert(meta, GINT_TO_POINTER(SR_INPUT_META_HEADER),
+	g_hash_table_insert(meta, GINT_TO_POINTER(OTC_INPUT_META_HEADER),
 			header);
 	midx = 0;
-	avail_metadata[midx++] = SR_INPUT_META_FILENAME;
-	avail_metadata[midx++] = SR_INPUT_META_FILESIZE;
-	avail_metadata[midx++] = SR_INPUT_META_HEADER;
+	avail_metadata[midx++] = OTC_INPUT_META_FILENAME;
+	avail_metadata[midx++] = OTC_INPUT_META_FILESIZE;
+	avail_metadata[midx++] = OTC_INPUT_META_HEADER;
 	avail_metadata[midx] = 0;
 	/* TODO: MIME type */
 
@@ -516,18 +516,18 @@ SR_API int sr_input_scan_file(const char *filename, const struct sr_input **in)
 			/* Cannot satisfy this module's requirements. */
 			continue;
 
-		sr_dbg("Trying module %s.", imod->id);
+		otc_dbg("Trying module %s.", imod->id);
 
 		ret = imod->format_match(meta, &conf);
-		if (ret == SR_ERR) {
+		if (ret == OTC_ERR) {
 			/* Module didn't recognize this buffer. */
 			continue;
-		} else if (ret != SR_OK) {
+		} else if (ret != OTC_OK) {
 			/* Module recognized this buffer, but cannot handle it. */
 			continue;
 		}
 		/* Found a matching module. */
-		sr_dbg("Module %s matched, confidence %u.", imod->id, conf);
+		otc_dbg("Module %s matched, confidence %u.", imod->id, conf);
 		if (conf >= best_conf)
 			continue;
 		best_imod = imod;
@@ -537,11 +537,11 @@ SR_API int sr_input_scan_file(const char *filename, const struct sr_input **in)
 	g_string_free(header, TRUE);
 
 	if (best_imod) {
-		*in = sr_input_new(best_imod, NULL);
-		return SR_OK;
+		*in = otc_input_new(best_imod, NULL);
+		return OTC_OK;
 	}
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
 /**
@@ -552,7 +552,7 @@ SR_API int sr_input_scan_file(const char *filename, const struct sr_input **in)
  *
  * @since 0.6.0
  */
-SR_API const struct sr_input_module *sr_input_module_get(const struct sr_input *in)
+OTC_API const struct otc_input_module *otc_input_module_get(const struct otc_input *in)
 {
 	if (!in)
 		return NULL;
@@ -570,7 +570,7 @@ SR_API const struct sr_input_module *sr_input_module_get(const struct sr_input *
  *
  * @since 0.4.0
  */
-SR_API struct sr_dev_inst *sr_input_dev_inst_get(const struct sr_input *in)
+OTC_API struct otc_dev_inst *otc_input_dev_inst_get(const struct otc_input *in)
 {
 	if (in->sdi_ready)
 		return in->sdi;
@@ -581,7 +581,7 @@ SR_API struct sr_dev_inst *sr_input_dev_inst_get(const struct sr_input *in)
 /**
  * Send data to the specified input instance.
  *
- * When an input module instance is created with sr_input_new(), this
+ * When an input module instance is created with otc_input_new(), this
  * function is used to feed data to the instance.
  *
  * As enough data gets fed into this function to completely populate
@@ -592,27 +592,27 @@ SR_API struct sr_dev_inst *sr_input_dev_inst_get(const struct sr_input *in)
  *
  * @since 0.4.0
  */
-SR_API int sr_input_send(const struct sr_input *in, GString *buf)
+OTC_API int otc_input_send(const struct otc_input *in, GString *buf)
 {
 	size_t len;
 
 	len = buf ? buf->len : 0;
-	sr_spew("Sending %zu bytes to %s module.", len, in->module->id);
-	return in->module->receive((struct sr_input *)in, buf);
+	otc_spew("Sending %zu bytes to %s module.", len, in->module->id);
+	return in->module->receive((struct otc_input *)in, buf);
 }
 
 /**
  * Signal the input module no more data will come.
  *
  * This will cause the module to process any data it may have buffered.
- * The SR_DF_END packet will also typically be sent at this time.
+ * The OTC_DF_END packet will also typically be sent at this time.
  *
  * @since 0.4.0
  */
-SR_API int sr_input_end(const struct sr_input *in)
+OTC_API int otc_input_end(const struct otc_input *in)
 {
-	sr_spew("Calling end() on %s module.", in->module->id);
-	return in->module->end((struct sr_input *)in);
+	otc_spew("Calling end() on %s module.", in->module->id);
+	return in->module->end((struct otc_input *)in);
 }
 
 /**
@@ -624,26 +624,26 @@ SR_API int sr_input_end(const struct sr_input *in)
  *
  * @since 0.5.0
  */
-SR_API int sr_input_reset(const struct sr_input *in_ro)
+OTC_API int otc_input_reset(const struct otc_input *in_ro)
 {
-	struct sr_input *in;
+	struct otc_input *in;
 	int rc;
 
-	in = (struct sr_input *)in_ro;	/* "un-const" */
+	in = (struct otc_input *)in_ro;	/* "un-const" */
 	if (!in || !in->module)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/*
 	 * Run the optional input module's .reset() method. This shall
 	 * take care of the context (kept in the 'inc' variable).
 	 */
 	if (in->module->reset) {
-		sr_spew("Resetting %s module.", in->module->id);
+		otc_spew("Resetting %s module.", in->module->id);
 		rc = in->module->reset(in);
 	} else {
-		sr_spew("Tried to reset %s module but no reset handler found.",
+		otc_spew("Tried to reset %s module but no reset handler found.",
 			in->module->id);
-		rc = SR_OK;
+		rc = OTC_OK;
 	}
 
 	/*
@@ -674,7 +674,7 @@ SR_API int sr_input_reset(const struct sr_input *in_ro)
  *
  * @since 0.4.0
  */
-SR_API void sr_input_free(const struct sr_input *in)
+OTC_API void otc_input_free(const struct otc_input *in)
 {
 	if (!in)
 		return;
@@ -684,7 +684,7 @@ SR_API void sr_input_free(const struct sr_input *in)
 	 * takes care of the context (kept in the 'inc' variable).
 	 */
 	if (in->module->cleanup)
-		in->module->cleanup((struct sr_input *)in);
+		in->module->cleanup((struct otc_input *)in);
 
 	/*
 	 * Common code releases the input module's state (kept in the
@@ -692,10 +692,10 @@ SR_API void sr_input_free(const struct sr_input *in)
 	 * buffer, the shallow 'in->priv' block which is 'inc' (after
 	 * .cleanup() released potentially nested resources under 'inc').
 	 */
-	sr_dev_inst_free(in->sdi);
+	otc_dev_inst_free(in->sdi);
 	if (in->buf->len > 64) {
 		/* That seems more than just some sub-unitsize leftover... */
-		sr_warn("Found %" G_GSIZE_FORMAT
+		otc_warn("Found %" G_GSIZE_FORMAT
 			" unprocessed bytes at free time.", in->buf->len);
 	}
 	g_string_free(in->buf, TRUE);

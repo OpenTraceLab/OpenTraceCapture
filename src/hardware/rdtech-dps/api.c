@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 James Churchill <pelrun@gmail.com>
  * Copyright (C) 2019 Frank Stettner <frank-stettner@gmx.net>
@@ -26,46 +26,46 @@
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
-	SR_CONF_MODBUSADDR,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
+	OTC_CONF_MODBUSADDR,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_POWER_SUPPLY,
+	OTC_CONF_POWER_SUPPLY,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_REGULATION | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t devopts_w_range[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_REGULATION | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_RANGE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_RANGE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 /* Range name, max current/voltage/power, current/voltage digits. */
@@ -142,10 +142,10 @@ static const struct rdtech_dps_model supported_models[] = {
 	{ MODEL_RD, 60241, "RD6024" , ARRAY_AND_SIZE(ranges_rd6024),  },
 };
 
-static struct sr_dev_driver rdtech_dps_driver_info;
-static struct sr_dev_driver rdtech_rd_driver_info;
+static struct otc_dev_driver rdtech_dps_driver_info;
+static struct otc_dev_driver rdtech_rd_driver_info;
 
-static struct sr_dev_inst *probe_device(struct sr_modbus_dev_inst *modbus,
+static struct otc_dev_inst *probe_device(struct otc_modbus_dev_inst *modbus,
 	enum rdtech_dps_model_type model_type)
 {
 	static const char *type_prefix[] = {
@@ -158,14 +158,14 @@ static struct sr_dev_inst *probe_device(struct sr_modbus_dev_inst *modbus,
 	int ret;
 	const struct rdtech_dps_model *model, *supported;
 	size_t i;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 
 	ret = rdtech_dps_get_model_version(modbus,
 		model_type, &id, &version, &serno);
-	sr_dbg("probe: ret %d, type %s, model %u, vers %u, snr %u.",
+	otc_dbg("probe: ret %d, type %s, model %u, vers %u, snr %u.",
 		ret, type_prefix[model_type], id, version, serno);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return NULL;
 	model = NULL;
 	for (i = 0; i < ARRAY_SIZE(supported_models); i++) {
@@ -178,12 +178,12 @@ static struct sr_dev_inst *probe_device(struct sr_modbus_dev_inst *modbus,
 		break;
 	}
 	if (!model) {
-		sr_err("Unknown model: %s%u.", type_prefix[model_type], id);
+		otc_err("Unknown model: %s%u.", type_prefix[model_type], id);
 		return NULL;
 	}
 
 	sdi = g_malloc0(sizeof(*sdi));
-	sdi->status = SR_ST_INACTIVE;
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("RDTech");
 	switch (model_type) {
 	case MODEL_DPS:
@@ -200,62 +200,62 @@ static struct sr_dev_inst *probe_device(struct sr_modbus_dev_inst *modbus,
 		sdi->driver = &rdtech_rd_driver_info;
 		break;
 	default:
-		sr_err("Programming error, unhandled DPS/DPH/RD device type.");
+		otc_err("Programming error, unhandled DPS/DPH/RD device type.");
 		g_free(sdi->vendor);
 		g_free(sdi);
 		return NULL;
 	}
 	sdi->conn = modbus;
-	sdi->inst_type = SR_INST_MODBUS;
+	sdi->inst_type = OTC_INST_MODBUS;
 
-	sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "V");
-	sr_channel_new(sdi, 1, SR_CHANNEL_ANALOG, TRUE, "I");
-	sr_channel_new(sdi, 2, SR_CHANNEL_ANALOG, TRUE, "P");
+	otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, "V");
+	otc_channel_new(sdi, 1, OTC_CHANNEL_ANALOG, TRUE, "I");
+	otc_channel_new(sdi, 2, OTC_CHANNEL_ANALOG, TRUE, "P");
 
 	devc = g_malloc0(sizeof(*devc));
 	sdi->priv = devc;
-	sr_sw_limits_init(&devc->limits);
+	otc_sw_limits_init(&devc->limits);
 	devc->model = model;
 	ret = rdtech_dps_update_range(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return NULL;
 
 	return sdi;
 }
 
-static struct sr_dev_inst *probe_device_dps(struct sr_modbus_dev_inst *modbus)
+static struct otc_dev_inst *probe_device_dps(struct otc_modbus_dev_inst *modbus)
 {
 	return probe_device(modbus, MODEL_DPS);
 }
 
-static struct sr_dev_inst *probe_device_rd(struct sr_modbus_dev_inst *modbus)
+static struct otc_dev_inst *probe_device_rd(struct otc_modbus_dev_inst *modbus)
 {
 	return probe_device(modbus, MODEL_RD);
 }
 
 static int config_compare(gconstpointer a, gconstpointer b)
 {
-	const struct sr_config *ac = a, *bc = b;
+	const struct otc_config *ac = a, *bc = b;
 	return ac->key != bc->key;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options,
+static GSList *scan(struct otc_dev_driver *di, GSList *options,
 	enum rdtech_dps_model_type model_type)
 {
 	static const char *default_serialcomm_dps = "9600/8n1";
 	static const char *default_serialcomm_rd = "115200/8n1";
 
-	struct sr_config default_serialcomm = {
-		.key = SR_CONF_SERIALCOMM,
+	struct otc_config default_serialcomm = {
+		.key = OTC_CONF_SERIALCOMM,
 		.data = NULL,
 	};
-	struct sr_config default_modbusaddr = {
-		.key = SR_CONF_MODBUSADDR,
+	struct otc_config default_modbusaddr = {
+		.key = OTC_CONF_MODBUSADDR,
 		.data = g_variant_new_uint64(1),
 	};
 	GSList *opts, *devices;
 	const char *serialcomm;
-	struct sr_dev_inst *(*probe_func)(struct sr_modbus_dev_inst *modbus);
+	struct otc_dev_inst *(*probe_func)(struct otc_modbus_dev_inst *modbus);
 
 	/* TODO See why di->context isn't available yet at this time. */
 	serialcomm = NULL;
@@ -279,7 +279,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options,
 	if (!g_slist_find_custom(options, &default_modbusaddr, config_compare))
 		opts = g_slist_prepend(opts, &default_modbusaddr);
 
-	devices = sr_modbus_scan(di->context, opts, probe_func);
+	devices = otc_modbus_scan(di->context, opts, probe_func);
 
 	while (opts != options)
 		opts = g_slist_delete_link(opts, opts);
@@ -289,55 +289,55 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options,
 	return devices;
 }
 
-static GSList *scan_dps(struct sr_dev_driver *di, GSList *options)
+static GSList *scan_dps(struct otc_dev_driver *di, GSList *options)
 {
 	return scan(di, options, MODEL_DPS);
 }
 
-static GSList *scan_rd(struct sr_dev_driver *di, GSList *options)
+static GSList *scan_rd(struct otc_dev_driver *di, GSList *options)
 {
 	return scan(di, options, MODEL_RD);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	struct sr_modbus_dev_inst *modbus;
+	struct otc_modbus_dev_inst *modbus;
 	struct rdtech_dps_state state;
 	int ret;
 
 	modbus = sdi->conn;
-	if (sr_modbus_open(modbus) < 0)
-		return SR_ERR;
+	if (otc_modbus_open(modbus) < 0)
+		return OTC_ERR;
 
 	memset(&state, 0, sizeof(state));
 	state.lock = TRUE;
 	state.mask |= STATE_LOCK;
 	ret = rdtech_dps_set_state(sdi, &state);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	struct sr_modbus_dev_inst *modbus;
+	struct otc_modbus_dev_inst *modbus;
 	struct rdtech_dps_state state;
 
 	modbus = sdi->conn;
 	if (!modbus)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	memset(&state, 0, sizeof(state));
 	state.lock = FALSE;
 	state.mask |= STATE_LOCK;
 	(void)rdtech_dps_set_state(sdi, &state);
 
-	return sr_modbus_close(modbus);
+	return otc_modbus_close(modbus);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	struct rdtech_dps_state state;
@@ -348,127 +348,127 @@ static int config_get(uint32_t key, GVariant **data,
 
 	devc = sdi->priv;
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
-		ret = sr_sw_limits_config_get(&devc->limits, key, data);
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
+		ret = otc_sw_limits_config_get(&devc->limits, key, data);
 		break;
-	case SR_CONF_ENABLED:
+	case OTC_CONF_ENABLED:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_OUTPUT_ENABLED))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*data = g_variant_new_boolean(state.output_enabled);
 		break;
-	case SR_CONF_REGULATION:
+	case OTC_CONF_REGULATION:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_REGULATION_CC))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		cc_text = state.regulation_cc ? "CC" : "CV";
 		*data = g_variant_new_string(cc_text);
 		break;
-	case SR_CONF_VOLTAGE:
+	case OTC_CONF_VOLTAGE:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_VOLTAGE))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*data = g_variant_new_double(state.voltage);
 		break;
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_VOLTAGE_TARGET))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*data = g_variant_new_double(state.voltage_target);
 		break;
-	case SR_CONF_CURRENT:
+	case OTC_CONF_CURRENT:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_CURRENT))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*data = g_variant_new_double(state.current);
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_CURRENT_LIMIT))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*data = g_variant_new_double(state.current_limit);
 		break;
-	case SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_PROTECT_ENABLED))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*data = g_variant_new_boolean(state.protect_enabled);
 		break;
-	case SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE:
+	case OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_PROTECT_OVP))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*data = g_variant_new_boolean(state.protect_ovp);
 		break;
-	case SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
+	case OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_OUTPUT_ENABLED))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*data = g_variant_new_double(state.ovp_threshold);
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_PROTECT_ENABLED))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*data = g_variant_new_boolean(state.protect_enabled);
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_PROTECT_OCP))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*data = g_variant_new_boolean(state.protect_ocp);
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_OCP_THRESHOLD))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		*data = g_variant_new_double(state.ocp_threshold);
 		break;
-	case SR_CONF_RANGE:
+	case OTC_CONF_RANGE:
 		ret = rdtech_dps_get_state(sdi, &state, ST_CTX_CONFIG);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		if (!(state.mask & STATE_RANGE))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		range_text = devc->model->ranges[state.range].range_str;
 		*data = g_variant_new_string(range_text);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
 	return ret;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	struct rdtech_dps_state state;
@@ -482,30 +482,30 @@ static int config_set(uint32_t key, GVariant *data,
 	memset(&state, 0, sizeof(state));
 
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_set(&devc->limits, key, data);
-	case SR_CONF_ENABLED:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_set(&devc->limits, key, data);
+	case OTC_CONF_ENABLED:
 		state.output_enabled = g_variant_get_boolean(data);
 		state.mask |= STATE_OUTPUT_ENABLED;
 		return rdtech_dps_set_state(sdi, &state);
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		state.voltage_target = g_variant_get_double(data);
 		state.mask |= STATE_VOLTAGE_TARGET;
 		return rdtech_dps_set_state(sdi, &state);
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		state.current_limit = g_variant_get_double(data);
 		state.mask |= STATE_CURRENT_LIMIT;
 		return rdtech_dps_set_state(sdi, &state);
-	case SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
+	case OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
 		state.ovp_threshold = g_variant_get_double(data);
 		state.mask |= STATE_OVP_THRESHOLD;
 		return rdtech_dps_set_state(sdi, &state);
-	case SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
 		state.ocp_threshold = g_variant_get_double(data);
 		state.mask |= STATE_OCP_THRESHOLD;
 		return rdtech_dps_set_state(sdi, &state);
-	case SR_CONF_RANGE:
+	case OTC_CONF_RANGE:
 		range_str = g_variant_get_string(data, NULL);
 		for (i = 0; i < devc->model->n_ranges; i++) {
 			range = &devc->model->ranges[i];
@@ -515,16 +515,16 @@ static int config_set(uint32_t key, GVariant *data,
 			state.mask |= STATE_RANGE;
 			return rdtech_dps_set_state(sdi, &state);
 		}
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	const struct rdtech_dps_range *range;
@@ -535,8 +535,8 @@ static int config_list(uint32_t key, GVariant **data,
 	devc = (sdi) ? sdi->priv : NULL;
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		if (devc && devc->model->n_ranges > 1) {
 			return STD_CONFIG_LIST(key, data, sdi, cg,
 				scanopts, drvopts, devopts_w_range);
@@ -544,19 +544,19 @@ static int config_list(uint32_t key, GVariant **data,
 			return STD_CONFIG_LIST(key, data, sdi, cg,
 				scanopts, drvopts, devopts);
 		}
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		rdtech_dps_update_range(sdi);
 		range = &devc->model->ranges[devc->curr_range];
 		*data = std_gvar_min_max_step(0.0, range->max_voltage,
 			1 / devc->voltage_multiplier);
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		rdtech_dps_update_range(sdi);
 		range = &devc->model->ranges[devc->curr_range];
 		*data = std_gvar_min_max_step(0.0, range->max_current,
 			1 / devc->current_multiplier);
 		break;
-	case SR_CONF_RANGE:
+	case OTC_CONF_RANGE:
 		g_variant_builder_init(&gvb, G_VARIANT_TYPE_ARRAY);
 		for (i = 0; i < devc->model->n_ranges; i++) {
 			s = devc->model->ranges[i].range_str;
@@ -565,16 +565,16 @@ static int config_list(uint32_t key, GVariant **data,
 		*data = g_variant_builder_end(&gvb);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_modbus_dev_inst *modbus;
+	struct otc_modbus_dev_inst *modbus;
 	int ret;
 
 	modbus = sdi->conn;
@@ -584,29 +584,29 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 	/* Seed internal state from current data. */
 	ret = rdtech_dps_seed_receive(sdi);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		devc->acquisition_started = FALSE;
 		return ret;
 	}
 
 	/* Register the periodic data reception callback. */
-	ret = sr_modbus_source_add(sdi->session, modbus, G_IO_IN, 10,
+	ret = otc_modbus_source_add(sdi->session, modbus, G_IO_IN, 10,
 			rdtech_dps_receive_data, (void *)sdi);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		devc->acquisition_started = FALSE;
 		return ret;
 	}
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	std_session_send_df_header(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_modbus_dev_inst *modbus;
+	struct otc_modbus_dev_inst *modbus;
 
 	devc = sdi->priv;
 
@@ -614,12 +614,12 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	devc->acquisition_started = FALSE;
 
 	modbus = sdi->conn;
-	sr_modbus_source_remove(sdi->session, modbus);
+	otc_modbus_source_remove(sdi->session, modbus);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver rdtech_dps_driver_info = {
+static struct otc_dev_driver rdtech_dps_driver_info = {
 	.name = "rdtech-dps",
 	.longname = "RDTech DPS/DPH series power supply",
 	.api_version = 1,
@@ -637,9 +637,9 @@ static struct sr_dev_driver rdtech_dps_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(rdtech_dps_driver_info);
+OTC_REGISTER_DEV_DRIVER(rdtech_dps_driver_info);
 
-static struct sr_dev_driver rdtech_rd_driver_info = {
+static struct otc_dev_driver rdtech_rd_driver_info = {
 	.name = "rdtech-rd",
 	.longname = "RDTech RD series power supply",
 	.api_version = 1,
@@ -657,4 +657,4 @@ static struct sr_dev_driver rdtech_rd_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(rdtech_rd_driver_info);
+OTC_REGISTER_DEV_DRIVER(rdtech_rd_driver_info);

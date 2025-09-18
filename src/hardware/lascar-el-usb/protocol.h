@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  *
@@ -21,8 +21,8 @@
 #define LIBSIGROK_HARDWARE_LASCAR_EL_USB_PROTOCOL_H
 
 #include <stdint.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "lascar-el-usb"
 
@@ -71,13 +71,13 @@ struct elusb_profile {
 	int logformat;
 };
 
-SR_PRIV int lascar_get_config(libusb_device_handle *dev_hdl,
+OTC_PRIV int lascar_get_config(libusb_device_handle *dev_hdl,
 		unsigned char *configblock, int *configlen);
-SR_PRIV struct sr_dev_inst *lascar_scan(int bus, int address);
-SR_PRIV int lascar_el_usb_handle_events(int fd, int revents, void *cb_data);
-SR_PRIV void LIBUSB_CALL lascar_el_usb_receive_transfer(struct libusb_transfer *transfer);
-SR_PRIV int lascar_start_logging(const struct sr_dev_inst *sdi);
-SR_PRIV int lascar_stop_logging(const struct sr_dev_inst *sdi);
-SR_PRIV int lascar_is_logging(const struct sr_dev_inst *sdi);
+OTC_PRIV struct otc_dev_inst *lascar_scan(int bus, int address);
+OTC_PRIV int lascar_el_usb_handle_events(int fd, int revents, void *cb_data);
+OTC_PRIV void LIBUSB_CALL lascar_el_usb_receive_transfer(struct libusb_transfer *transfer);
+OTC_PRIV int lascar_start_logging(const struct otc_dev_inst *sdi);
+OTC_PRIV int lascar_stop_logging(const struct otc_dev_inst *sdi);
+OTC_PRIV int lascar_is_logging(const struct otc_dev_inst *sdi);
 
 #endif

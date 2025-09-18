@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2013 Marc Schink <sigrok-dev@marcschink.de>
+ * Copyright (C) 2013 Marc Schink <opentracelab-dev@marcschink.de>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,8 +24,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "ikalogic-scanalogic2"
 
@@ -69,7 +69,7 @@
 /* Number of samples per packet. */
 #define PACKET_NUM_SAMPLES		(PACKET_NUM_SAMPLE_BYTES * 8)
 
-#define DEFAULT_SAMPLERATE		SR_KHZ(1.25)
+#define DEFAULT_SAMPLERATE		OTC_KHZ(1.25)
 
 /*
  * Time interval between the last status of available data received and the
@@ -144,7 +144,7 @@ struct dev_context {
 	uint16_t after_trigger_delay;
 
 	/* Array to provide an index based access to all channels. */
-	const struct sr_channel *channels[NUM_CHANNELS];
+	const struct otc_channel *channels[NUM_CHANNELS];
 
 	struct libusb_transfer *xfer_in, *xfer_out;
 
@@ -210,20 +210,20 @@ struct dev_context {
 	gboolean transfer_error;
 };
 
-SR_PRIV int ikalogic_scanalogic2_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV void LIBUSB_CALL sl2_receive_transfer_in(struct libusb_transfer *transfer);
-SR_PRIV void LIBUSB_CALL sl2_receive_transfer_out(struct libusb_transfer *transfer);
-SR_PRIV int sl2_set_samplerate(const struct sr_dev_inst *sdi,
+OTC_PRIV int ikalogic_scanalogic2_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV void LIBUSB_CALL sl2_receive_transfer_in(struct libusb_transfer *transfer);
+OTC_PRIV void LIBUSB_CALL sl2_receive_transfer_out(struct libusb_transfer *transfer);
+OTC_PRIV int sl2_set_samplerate(const struct otc_dev_inst *sdi,
 		uint64_t samplerate);
-SR_PRIV int sl2_set_limit_samples(const struct sr_dev_inst *sdi,
+OTC_PRIV int sl2_set_limit_samples(const struct otc_dev_inst *sdi,
 				  uint64_t limit_samples);
-SR_PRIV int sl2_convert_trigger(const struct sr_dev_inst *sdi);
-SR_PRIV int sl2_set_after_trigger_delay(const struct sr_dev_inst *sdi,
+OTC_PRIV int sl2_convert_trigger(const struct otc_dev_inst *sdi);
+OTC_PRIV int sl2_set_after_trigger_delay(const struct otc_dev_inst *sdi,
 					uint64_t after_trigger_delay);
-SR_PRIV void sl2_calculate_trigger_samples(const struct sr_dev_inst *sdi);
-SR_PRIV int sl2_get_device_info(struct sr_dev_driver *di,
-		struct sr_usb_dev_inst usb, struct device_info *dev_info);
-SR_PRIV int sl2_transfer_in(libusb_device_handle *dev_handle, uint8_t *data);
-SR_PRIV int sl2_transfer_out(libusb_device_handle *dev_handle, uint8_t *data);
+OTC_PRIV void sl2_calculate_trigger_samples(const struct otc_dev_inst *sdi);
+OTC_PRIV int sl2_get_device_info(struct otc_dev_driver *di,
+		struct otc_usb_dev_inst usb, struct device_info *dev_info);
+OTC_PRIV int sl2_transfer_in(libusb_device_handle *dev_handle, uint8_t *data);
+OTC_PRIV int sl2_transfer_out(libusb_device_handle *dev_handle, uint8_t *data);
 
 #endif

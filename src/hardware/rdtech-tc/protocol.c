@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2020 Andreas Sandberg <andreas@sandberg.pp.se>
  *
@@ -20,13 +20,13 @@
 #include <config.h>
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <math.h>
 #include <nettle/aes.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 #define PROBE_TO_MS	1000
@@ -73,12 +73,12 @@ static const uint8_t aes_key[] = {
 };
 
 static const struct rdtech_tc_channel_desc rdtech_tc_channels[] = {
-	{ "V",  {   0 + 48, BVT_LE_UINT32, }, { 100, 1e6, }, 4, SR_MQ_VOLTAGE, SR_UNIT_VOLT },
-	{ "I",  {   0 + 52, BVT_LE_UINT32, }, {  10, 1e6, }, 5, SR_MQ_CURRENT, SR_UNIT_AMPERE },
-	{ "D+", {  64 + 32, BVT_LE_UINT32, }, {  10, 1e3, }, 2, SR_MQ_VOLTAGE, SR_UNIT_VOLT },
-	{ "D-", {  64 + 36, BVT_LE_UINT32, }, {  10, 1e3, }, 2, SR_MQ_VOLTAGE, SR_UNIT_VOLT },
-	{ "E0", {  64 + 12, BVT_LE_UINT32, }, {   1, 1e3, }, 3, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR },
-	{ "E1", {  64 + 20, BVT_LE_UINT32, }, {   1, 1e3, }, 3, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR },
+	{ "V",  {   0 + 48, BVT_LE_UINT32, }, { 100, 1e6, }, 4, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT },
+	{ "I",  {   0 + 52, BVT_LE_UINT32, }, {  10, 1e6, }, 5, OTC_MQ_CURRENT, OTC_UNIT_AMPERE },
+	{ "D+", {  64 + 32, BVT_LE_UINT32, }, {  10, 1e3, }, 2, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT },
+	{ "D-", {  64 + 36, BVT_LE_UINT32, }, {  10, 1e3, }, 2, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT },
+	{ "E0", {  64 + 12, BVT_LE_UINT32, }, {   1, 1e3, }, 3, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR },
+	{ "E1", {  64 + 20, BVT_LE_UINT32, }, {   1, 1e3, }, 3, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR },
 };
 
 static gboolean check_pac_crc(uint8_t *data)
@@ -86,10 +86,10 @@ static gboolean check_pac_crc(uint8_t *data)
 	uint16_t crc_calc;
 	uint32_t crc_recv;
 
-	crc_calc = sr_crc16(SR_CRC16_DEFAULT_INIT, data, PAC_CRC_POS);
+	crc_calc = otc_crc16(OTC_CRC16_DEFAULT_INIT, data, PAC_CRC_POS);
 	crc_recv = read_u32le(&data[PAC_CRC_POS]);
 	if (crc_calc != crc_recv) {
-		sr_spew("CRC error. Calculated: %0x" PRIx16 ", expected: %0x" PRIx32,
+		otc_spew("CRC error. Calculated: %0x" PRIx16 ", expected: %0x" PRIx32,
 			crc_calc, crc_recv);
 		return FALSE;
 	}
@@ -110,26 +110,26 @@ static int process_poll_pkt(struct dev_context *devc, uint8_t *dst)
 	ok &= read_u32be(&dst[OFF_PAC2]) == MAGIC_PAC2;
 	ok &= read_u32be(&dst[OFF_PAC3]) == MAGIC_PAC3;
 	if (!ok) {
-		sr_err("Invalid poll response packet (magic values).");
-		return SR_ERR_DATA;
+		otc_err("Invalid poll response packet (magic values).");
+		return OTC_ERR_DATA;
 	}
 
 	ok &= check_pac_crc(&dst[OFF_PAC1]);
 	ok &= check_pac_crc(&dst[OFF_PAC2]);
 	ok &= check_pac_crc(&dst[OFF_PAC3]);
 	if (!ok) {
-		sr_err("Invalid poll response packet (checksum).");
-		return SR_ERR_DATA;
+		otc_err("Invalid poll response packet (checksum).");
+		return OTC_ERR_DATA;
 	}
 
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
 		static const size_t chunk_max = 32;
 
 		const uint8_t *rdptr;
 		size_t rdlen, chunk_addr, chunk_len;
 		GString *txt;
 
-		sr_spew("check passed on decrypted receive data");
+		otc_spew("check passed on decrypted receive data");
 		rdptr = dst;
 		rdlen = TC_POLL_LEN;
 		chunk_addr = 0;
@@ -137,19 +137,19 @@ static int process_poll_pkt(struct dev_context *devc, uint8_t *dst)
 			chunk_len = rdlen;
 			if (chunk_len > chunk_max)
 				chunk_len = chunk_max;
-			txt = sr_hexdump_new(rdptr, chunk_len);
-			sr_spew("%04zx  %s", chunk_addr, txt->str);
-			sr_hexdump_free(txt);
+			txt = otc_hexdump_new(rdptr, chunk_len);
+			otc_spew("%04zx  %s", chunk_addr, txt->str);
+			otc_hexdump_free(txt);
 			chunk_addr += chunk_len;
 			rdptr += chunk_len;
 			rdlen -= chunk_len;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int rdtech_tc_probe(struct sr_serial_dev_inst *serial, struct dev_context *devc)
+OTC_PRIV int rdtech_tc_probe(struct otc_serial_dev_inst *serial, struct dev_context *devc)
 {
 	static const char *poll_cmd_cdc = "getva";
 	static const char *poll_cmd_ble = "bgetva\r\n";
@@ -161,27 +161,27 @@ SR_PRIV int rdtech_tc_probe(struct sr_serial_dev_inst *serial, struct dev_contex
 	devc->is_bluetooth = ser_name_is_bt(serial);
 	snprintf(devc->req_text, sizeof(devc->req_text), "%s",
 		devc->is_bluetooth ? poll_cmd_ble : poll_cmd_cdc);
-	sr_dbg("is bluetooth %d -> poll request '%s'.",
+	otc_dbg("is bluetooth %d -> poll request '%s'.",
 		devc->is_bluetooth, devc->req_text);
 
 	/* Transmit the request. */
 	len = serial_write_blocking(serial,
 		devc->req_text, strlen(devc->req_text), WRITE_TO_MS);
 	if (len < 0) {
-		sr_err("Failed to send probe request.");
-		return SR_ERR;
+		otc_err("Failed to send probe request.");
+		return OTC_ERR;
 	}
 
 	/* Receive a response. */
 	len = serial_read_blocking(serial, devc->buf, TC_POLL_LEN, PROBE_TO_MS);
 	if (len != TC_POLL_LEN) {
-		sr_err("Failed to read probe response.");
-		return SR_ERR;
+		otc_err("Failed to read probe response.");
+		return OTC_ERR;
 	}
 
-	if (process_poll_pkt(devc, poll_pkt) != SR_OK) {
-		sr_err("Unrecognized TC device!");
-		return SR_ERR;
+	if (process_poll_pkt(devc, poll_pkt) != OTC_OK) {
+		otc_err("Unrecognized TC device!");
+		return OTC_ERR;
 	}
 
 	devc->channels = rdtech_tc_channels;
@@ -190,14 +190,14 @@ SR_PRIV int rdtech_tc_probe(struct sr_serial_dev_inst *serial, struct dev_contex
 	devc->dev_info.fw_ver = g_strndup((const char *)&poll_pkt[OFF_FW_VER], LEN_FW_VER);
 	devc->dev_info.serial_num = read_u32le(&poll_pkt[OFF_SERIAL]);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int rdtech_tc_poll(const struct sr_dev_inst *sdi, gboolean force)
+OTC_PRIV int rdtech_tc_poll(const struct otc_dev_inst *sdi, gboolean force)
 {
 	struct dev_context *devc;
 	int64_t now, elapsed;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int len;
 
 	/*
@@ -209,9 +209,9 @@ SR_PRIV int rdtech_tc_poll(const struct sr_dev_inst *sdi, gboolean force)
 	devc = sdi->priv;
 	if (!force) {
 		if (devc->rdlen)
-			return SR_OK;
+			return OTC_OK;
 		if (!devc->rx_after_tx)
-			return SR_OK;
+			return OTC_OK;
 	}
 
 	/*
@@ -221,7 +221,7 @@ SR_PRIV int rdtech_tc_poll(const struct sr_dev_inst *sdi, gboolean force)
 	now = g_get_monotonic_time() / 1000;
 	elapsed = now - devc->cmd_sent_at;
 	if (!force && elapsed < POLL_PERIOD_MS)
-		return SR_OK;
+		return OTC_OK;
 
 	/*
 	 * Transmit another measurement request. Only advance the
@@ -231,16 +231,16 @@ SR_PRIV int rdtech_tc_poll(const struct sr_dev_inst *sdi, gboolean force)
 	len = serial_write_blocking(serial,
 		devc->req_text, strlen(devc->req_text), WRITE_TO_MS);
 	if (len < 0) {
-		sr_err("Unable to send poll request.");
-		return SR_ERR;
+		otc_err("Unable to send poll request.");
+		return OTC_ERR;
 	}
 	devc->cmd_sent_at = now;
 	devc->rx_after_tx = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int handle_poll_data(struct sr_dev_inst *sdi)
+static int handle_poll_data(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint8_t poll_pkt[TC_POLL_LEN];
@@ -250,38 +250,38 @@ static int handle_poll_data(struct sr_dev_inst *sdi)
 	float v;
 
 	devc = sdi->priv;
-	sr_spew("Received poll packet (len: %zu).", devc->rdlen);
+	otc_spew("Received poll packet (len: %zu).", devc->rdlen);
 	if (devc->rdlen < TC_POLL_LEN) {
-		sr_err("Insufficient poll packet length: %zu", devc->rdlen);
-		return SR_ERR_DATA;
+		otc_err("Insufficient poll packet length: %zu", devc->rdlen);
+		return OTC_ERR_DATA;
 	}
 
-	if (process_poll_pkt(devc, poll_pkt) != SR_OK) {
-		sr_err("Failed to process poll packet.");
-		return SR_ERR_DATA;
+	if (process_poll_pkt(devc, poll_pkt) != OTC_OK) {
+		otc_err("Failed to process poll packet.");
+		return OTC_ERR_DATA;
 	}
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	std_session_send_df_frame_begin(sdi);
 	for (ch_idx = 0; ch_idx < devc->channel_count; ch_idx++) {
 		pch = &devc->channels[ch_idx];
 		ret = bv_get_value_len(&v, &pch->spec, poll_pkt, TC_POLL_LEN);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 		ret = feed_queue_analog_submit_one(devc->feeds[ch_idx], v, 1);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 	}
 	std_session_send_df_frame_end(sdi);
 
-	sr_sw_limits_update_frames_read(&devc->limits, 1);
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	otc_sw_limits_update_frames_read(&devc->limits, 1);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 
 	return ret;
 }
 
-static int recv_poll_data(struct sr_dev_inst *sdi, struct sr_serial_dev_inst *serial)
+static int recv_poll_data(struct otc_dev_inst *sdi, struct otc_serial_dev_inst *serial)
 {
 	struct dev_context *devc;
 	size_t space;
@@ -295,9 +295,9 @@ static int recv_poll_data(struct sr_dev_inst *sdi, struct sr_serial_dev_inst *se
 		len = serial_read_nonblocking(serial,
 			&devc->buf[devc->rdlen], space);
 		if (len < 0)
-			return SR_ERR_IO;
+			return OTC_ERR_IO;
 		if (len == 0)
-			return SR_OK;
+			return OTC_OK;
 		devc->rdlen += len;
 		devc->rx_after_tx += len;
 	}
@@ -310,21 +310,21 @@ static int recv_poll_data(struct sr_dev_inst *sdi, struct sr_serial_dev_inst *se
 	/* Process packets when their reception has completed. */
 	while (devc->rdlen >= TC_POLL_LEN) {
 		ret = handle_poll_data(sdi);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		devc->rdlen -= TC_POLL_LEN;
 		if (devc->rdlen)
 			memmove(devc->buf, &devc->buf[TC_POLL_LEN], devc->rdlen);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int rdtech_tc_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int rdtech_tc_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int ret;
 
 	(void)fd;
@@ -338,13 +338,13 @@ SR_PRIV int rdtech_tc_receive_data(int fd, int revents, void *cb_data)
 	serial = sdi->conn;
 	if (revents == G_IO_IN) {
 		ret = recv_poll_data(sdi, serial);
-		if (ret != SR_OK)
-			sr_dev_acquisition_stop(sdi);
+		if (ret != OTC_OK)
+			otc_dev_acquisition_stop(sdi);
 	}
 
 	/* Check configured acquisition limits. */
-	if (sr_sw_limits_check(&devc->limits)) {
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits)) {
+		otc_dev_acquisition_stop(sdi);
 		return TRUE;
 	}
 

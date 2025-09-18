@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 George Hopkins <george-hopkins@null.net>
  * Copyright (C) 2016 Matthieu Guillaumin <matthieu@guillaum.in>
@@ -25,21 +25,21 @@
 #define SERIALCOMM "115200/8n1"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_SOUNDLEVELMETER,
+	OTC_CONF_SOUNDLEVELMETER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS | SR_CONF_SET,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_SPL_WEIGHT_FREQ | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_SPL_WEIGHT_TIME | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_SPL_MEASUREMENT_RANGE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_POWER_OFF | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_DATA_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_CONTINUOUS | OTC_CONF_SET,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_SPL_WEIGHT_FREQ | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_SPL_WEIGHT_TIME | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_SPL_MEASUREMENT_RANGE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_POWER_OFF | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_DATA_SOURCE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const char *weight_freq[] = {
@@ -61,39 +61,39 @@ static const char *data_sources[] = {
 	"Live", "Memory",
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct dev_context *devc;
-	struct sr_config *src;
-	struct sr_serial_dev_inst *serial;
-	struct sr_dev_inst *sdi;
+	struct otc_config *src;
+	struct otc_serial_dev_inst *serial;
+	struct otc_dev_inst *sdi;
 	GSList *l;
 	const char *conn;
 
 	conn = NULL;
 	for (l = options; l; l = l->next) {
 		src = l->data;
-		if (src->key == SR_CONF_CONN)
+		if (src->key == OTC_CONF_CONN)
 			conn = g_variant_get_string(src->data, NULL);
 	}
 	if (!conn)
 		return NULL;
 
-	serial = sr_serial_dev_inst_new(conn, SERIALCOMM);
+	serial = otc_serial_dev_inst_new(conn, SERIALCOMM);
 
-	if (serial_open(serial, SERIAL_RDONLY) != SR_OK)
+	if (serial_open(serial, SERIAL_RDONLY) != OTC_OK)
 		return NULL;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("PCE");
 	sdi->model = g_strdup("PCE-322A");
 	devc = g_malloc0(sizeof(struct dev_context));
-	devc->cur_mqflags = SR_MQFLAG_SPL_TIME_WEIGHT_F | SR_MQFLAG_SPL_FREQ_WEIGHT_A;
-	sdi->conn = sr_serial_dev_inst_new(conn, SERIALCOMM);
-	sdi->inst_type = SR_INST_SERIAL;
+	devc->cur_mqflags = OTC_MQFLAG_SPL_TIME_WEIGHT_F | OTC_MQFLAG_SPL_FREQ_WEIGHT_A;
+	sdi->conn = otc_serial_dev_inst_new(conn, SERIALCOMM);
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->priv = devc;
-	sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "SPL");
+	otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, "SPL");
 
 	serial_close(serial);
 
@@ -101,7 +101,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	uint64_t low, high;
@@ -111,56 +111,56 @@ static int config_get(uint32_t key, GVariant **data,
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		*data = g_variant_new_uint64(devc->limit_samples);
 		break;
-	case SR_CONF_SPL_WEIGHT_FREQ:
+	case OTC_CONF_SPL_WEIGHT_FREQ:
 		tmp = pce_322a_weight_freq_get(sdi);
-		if (tmp == SR_MQFLAG_SPL_FREQ_WEIGHT_A)
+		if (tmp == OTC_MQFLAG_SPL_FREQ_WEIGHT_A)
 			*data = g_variant_new_string("A");
-		else if (tmp == SR_MQFLAG_SPL_FREQ_WEIGHT_C)
+		else if (tmp == OTC_MQFLAG_SPL_FREQ_WEIGHT_C)
 			*data = g_variant_new_string("C");
 		else
-			return SR_ERR;
+			return OTC_ERR;
 		break;
-	case SR_CONF_SPL_WEIGHT_TIME:
+	case OTC_CONF_SPL_WEIGHT_TIME:
 		tmp = pce_322a_weight_time_get(sdi);
-		if (tmp == SR_MQFLAG_SPL_TIME_WEIGHT_F)
+		if (tmp == OTC_MQFLAG_SPL_TIME_WEIGHT_F)
 			*data = g_variant_new_string("F");
-		else if (tmp == SR_MQFLAG_SPL_TIME_WEIGHT_S)
+		else if (tmp == OTC_MQFLAG_SPL_TIME_WEIGHT_S)
 			*data = g_variant_new_string("S");
 		else
-			return SR_ERR;
+			return OTC_ERR;
 		break;
-	case SR_CONF_SPL_MEASUREMENT_RANGE:
-		if ((ret = pce_322a_meas_range_get(sdi, &low, &high)) == SR_OK)
+	case OTC_CONF_SPL_MEASUREMENT_RANGE:
+		if ((ret = pce_322a_meas_range_get(sdi, &low, &high)) == OTC_OK)
 			*data = std_gvar_tuple_u64(low, high);
 		else
 			return ret;
 		break;
-	case SR_CONF_POWER_OFF:
+	case OTC_CONF_POWER_OFF:
 		*data = g_variant_new_boolean(FALSE);
 		break;
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_DATA_SOURCE:
 		if (devc->cur_data_source == DATA_SOURCE_LIVE)
 			*data = g_variant_new_string("Live");
 		else
 			*data = g_variant_new_string("Memory");
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int config_set(uint32_t key, GVariant *data, const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg)
+static int config_set(uint32_t key, GVariant *data, const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	int idx;
@@ -170,77 +170,77 @@ static int config_set(uint32_t key, GVariant *data, const struct sr_dev_inst *sd
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		devc->limit_samples = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_SPL_WEIGHT_FREQ:
+	case OTC_CONF_SPL_WEIGHT_FREQ:
 		if ((idx = std_str_idx(data, ARRAY_AND_SIZE(weight_freq))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		return pce_322a_weight_freq_set(sdi, (weight_freq[idx][0] == 'A') ?
-			SR_MQFLAG_SPL_FREQ_WEIGHT_A : SR_MQFLAG_SPL_FREQ_WEIGHT_C);
-	case SR_CONF_SPL_WEIGHT_TIME:
+			OTC_MQFLAG_SPL_FREQ_WEIGHT_A : OTC_MQFLAG_SPL_FREQ_WEIGHT_C);
+	case OTC_CONF_SPL_WEIGHT_TIME:
 		if ((idx = std_str_idx(data, ARRAY_AND_SIZE(weight_time))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		return pce_322a_weight_time_set(sdi, (weight_time[idx][0] == 'F') ?
-			SR_MQFLAG_SPL_TIME_WEIGHT_F : SR_MQFLAG_SPL_TIME_WEIGHT_S);
-	case SR_CONF_SPL_MEASUREMENT_RANGE:
+			OTC_MQFLAG_SPL_TIME_WEIGHT_F : OTC_MQFLAG_SPL_TIME_WEIGHT_S);
+	case OTC_CONF_SPL_MEASUREMENT_RANGE:
 		if ((idx = std_u64_tuple_idx(data, ARRAY_AND_SIZE(meas_ranges))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		return pce_322a_meas_range_set(sdi, meas_ranges[idx][0], meas_ranges[idx][1]);
-	case SR_CONF_POWER_OFF:
+	case OTC_CONF_POWER_OFF:
 		if (g_variant_get_boolean(data))
 			return pce_322a_power_off(sdi);
 		break;
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_DATA_SOURCE:
 		if ((idx = std_str_idx(data, ARRAY_AND_SIZE(data_sources))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->cur_data_source = idx;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_SPL_WEIGHT_FREQ:
+	case OTC_CONF_SPL_WEIGHT_FREQ:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(weight_freq));
 		break;
-	case SR_CONF_SPL_WEIGHT_TIME:
+	case OTC_CONF_SPL_WEIGHT_TIME:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(weight_time));
 		break;
-	case SR_CONF_SPL_MEASUREMENT_RANGE:
+	case OTC_CONF_SPL_MEASUREMENT_RANGE:
 		*data = std_gvar_tuple_array(ARRAY_AND_SIZE(meas_ranges));
 		break;
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_DATA_SOURCE:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(data_sources));
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
 	int ret;
 
 	ret = std_serial_dev_open(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return pce_322a_connect(sdi);
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	/*
 	 * Ensure device gets properly disconnected even when there was
@@ -251,10 +251,10 @@ static int dev_close(struct sr_dev_inst *sdi)
 	return std_serial_dev_close(sdi);
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 	devc->buffer_len = 0;
@@ -266,10 +266,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	serial_source_add(sdi->session, serial, G_IO_IN, 150,
 			pce_322a_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver pce_322a_driver_info = {
+static struct otc_dev_driver pce_322a_driver_info = {
 	.name = "pce-322a",
 	.longname = "PCE PCE-322A",
 	.api_version = 1,
@@ -287,4 +287,4 @@ static struct sr_dev_driver pce_322a_driver_info = {
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(pce_322a_driver_info);
+OTC_REGISTER_DEV_DRIVER(pce_322a_driver_info);

@@ -20,15 +20,15 @@
 #include <config.h>
 #include <stdlib.h>
 #include <check.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libsigrok.h>
 #include "lib.h"
 
 /* Check whether at least one driver is available. */
 START_TEST(test_driver_available)
 {
-	struct sr_dev_driver **drivers;
+	struct otc_dev_driver **drivers;
 
-	drivers = sr_driver_list(srtest_ctx);
+	drivers = otc_driver_list(srtest_ctx);
 	fail_unless(drivers != NULL, "No drivers found.");
 }
 END_TEST
@@ -43,7 +43,7 @@ END_TEST
 /*
  * Check whether setting a samplerate works.
  *
- * Additionally, this also checks whether SR_CONF_SAMPLERATE can be both
+ * Additionally, this also checks whether OTC_CONF_SAMPLERATE can be both
  * set and read back properly.
  */
 #if 0
@@ -54,7 +54,7 @@ START_TEST(test_config_get_set_samplerate)
 	 *       For other drivers, a scan is needed and the respective
 	 *       hardware must be attached to the host running the testsuite.
 	 */
-	srtest_check_samplerate(sr_ctx, "demo", SR_KHZ(19));
+	srtest_check_samplerate(otc_ctx, "demo", OTC_KHZ(19));
 }
 END_TEST
 #endif

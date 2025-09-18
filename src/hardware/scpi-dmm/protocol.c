@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -24,17 +24,17 @@
 
 #define WITH_CMD_DELAY 0	/* TODO See which devices need delays. */
 
-SR_PRIV void scpi_dmm_cmd_delay(struct sr_scpi_dev_inst *scpi)
+OTC_PRIV void scpi_dmm_cmd_delay(struct otc_scpi_dev_inst *scpi)
 {
 	if (WITH_CMD_DELAY)
 		g_usleep(WITH_CMD_DELAY * 1000);
 
 	if (!scpi->no_opc_command)
-		sr_scpi_get_opc(scpi);
+		otc_scpi_get_opc(scpi);
 }
 
-SR_PRIV const struct mqopt_item *scpi_dmm_lookup_mq_number(
-	const struct sr_dev_inst *sdi, enum sr_mq mq, enum sr_mqflag flag)
+OTC_PRIV const struct mqopt_item *scpi_dmm_lookup_mq_number(
+	const struct otc_dev_inst *sdi, enum otc_mq mq, enum otc_mqflag flag)
 {
 	struct dev_context *devc;
 	size_t i;
@@ -51,8 +51,8 @@ SR_PRIV const struct mqopt_item *scpi_dmm_lookup_mq_number(
 	return NULL;
 }
 
-SR_PRIV const struct mqopt_item *scpi_dmm_lookup_mq_text(
-	const struct sr_dev_inst *sdi, const char *text)
+OTC_PRIV const struct mqopt_item *scpi_dmm_lookup_mq_text(
+	const struct otc_dev_inst *sdi, const char *text)
 {
 	struct dev_context *devc;
 	size_t i;
@@ -71,8 +71,8 @@ SR_PRIV const struct mqopt_item *scpi_dmm_lookup_mq_text(
 	return NULL;
 }
 
-SR_PRIV int scpi_dmm_get_mq(const struct sr_dev_inst *sdi,
-	enum sr_mq *mq, enum sr_mqflag *flag, char **rsp,
+OTC_PRIV int scpi_dmm_get_mq(const struct otc_dev_inst *sdi,
+	enum otc_mq *mq, enum otc_mqflag *flag, char **rsp,
 	const struct mqopt_item **mqitem)
 {
 	struct dev_context *devc;
@@ -93,22 +93,22 @@ SR_PRIV int scpi_dmm_get_mq(const struct sr_dev_inst *sdi,
 		*mqitem = NULL;
 
 	scpi_dmm_cmd_delay(sdi->conn);
-	command = sr_scpi_cmd_get(devc->cmdset, DMM_CMD_QUERY_FUNC);
+	command = otc_scpi_cmd_get(devc->cmdset, DMM_CMD_QUERY_FUNC);
 	if (!command || !*command)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	response = NULL;
-	ret = sr_scpi_get_string(sdi->conn, command, &response);
-	if (ret != SR_OK)
+	ret = otc_scpi_get_string(sdi->conn, command, &response);
+	if (ret != OTC_OK)
 		return ret;
 	if (!response || !*response) {
 		g_free(response);
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 	have = response;
 	if (*have == '"')
 		have++;
 
-	ret = SR_ERR_NA;
+	ret = OTC_ERR_NA;
 	item = scpi_dmm_lookup_mq_text(sdi, have);
 	if (item) {
 		if (mq)
@@ -117,9 +117,9 @@ SR_PRIV int scpi_dmm_get_mq(const struct sr_dev_inst *sdi,
 			*flag = item->mqflag;
 		if (mqitem)
 			*mqitem = item;
-		ret = SR_OK;
+		ret = OTC_OK;
 	} else {
-		sr_warn("Unknown measurement quantity: %s", have);
+		otc_warn("Unknown measurement quantity: %s", have);
 	}
 
 	if (rsp) {
@@ -131,8 +131,8 @@ SR_PRIV int scpi_dmm_get_mq(const struct sr_dev_inst *sdi,
 	return ret;
 }
 
-SR_PRIV int scpi_dmm_set_mq(const struct sr_dev_inst *sdi,
-	enum sr_mq mq, enum sr_mqflag flag)
+OTC_PRIV int scpi_dmm_set_mq(const struct otc_dev_inst *sdi,
+	enum otc_mq mq, enum otc_mqflag flag)
 {
 	struct dev_context *devc;
 	const struct mqopt_item *item;
@@ -142,21 +142,21 @@ SR_PRIV int scpi_dmm_set_mq(const struct sr_dev_inst *sdi,
 	devc = sdi->priv;
 	item = scpi_dmm_lookup_mq_number(sdi, mq, flag);
 	if (!item)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	mode = item->scpi_func_setup;
-	command = sr_scpi_cmd_get(devc->cmdset, DMM_CMD_SETUP_FUNC);
+	command = otc_scpi_cmd_get(devc->cmdset, DMM_CMD_SETUP_FUNC);
 	scpi_dmm_cmd_delay(sdi->conn);
-	ret = sr_scpi_send(sdi->conn, command, mode);
-	if (ret != SR_OK)
+	ret = otc_scpi_send(sdi->conn, command, mode);
+	if (ret != OTC_OK)
 		return ret;
 	if (item->drv_flags & FLAG_CONF_DELAY)
 		g_usleep(devc->model->conf_delay_us);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV const char *scpi_dmm_get_range_text(const struct sr_dev_inst *sdi)
+OTC_PRIV const char *scpi_dmm_get_range_text(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -169,7 +169,7 @@ SR_PRIV const char *scpi_dmm_get_range_text(const struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	ret = scpi_dmm_get_mq(sdi, NULL, NULL, NULL, &mqitem);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return NULL;
 	if (!mqitem || !mqitem->scpi_func_setup)
 		return NULL;
@@ -177,12 +177,12 @@ SR_PRIV const char *scpi_dmm_get_range_text(const struct sr_dev_inst *sdi)
 		return NULL;
 
 	scpi_dmm_cmd_delay(sdi->conn);
-	ret = sr_scpi_cmd(sdi, devc->cmdset, 0, NULL,
+	ret = otc_scpi_cmd(sdi, devc->cmdset, 0, NULL,
 		DMM_CMD_QUERY_RANGE_AUTO, mqitem->scpi_func_setup);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return NULL;
-	ret = sr_scpi_get_bool(sdi->conn, NULL, &is_auto);
-	if (ret != SR_OK)
+	ret = otc_scpi_get_bool(sdi->conn, NULL, &is_auto);
+	if (ret != OTC_OK)
 		return NULL;
 	if (is_auto)
 		return "auto";
@@ -195,28 +195,28 @@ SR_PRIV const char *scpi_dmm_get_range_text(const struct sr_dev_inst *sdi)
 	 * text which is not part of a number.
 	 */
 	scpi_dmm_cmd_delay(sdi->conn);
-	ret = sr_scpi_cmd(sdi, devc->cmdset, 0, NULL,
+	ret = otc_scpi_cmd(sdi, devc->cmdset, 0, NULL,
 		DMM_CMD_QUERY_RANGE, mqitem->scpi_func_setup);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return NULL;
 	response = NULL;
-	ret = sr_scpi_get_string(sdi->conn, NULL, &response);
-	if (ret != SR_OK) {
+	ret = otc_scpi_get_string(sdi->conn, NULL, &response);
+	if (ret != OTC_OK) {
 		g_free(response);
 		return NULL;
 	}
 	pos = strchr(response, ',');
 	if (pos)
 		*pos = '\0';
-	ret = sr_atod_ascii_digits(response, &range, &digits);
+	ret = otc_atod_ascii_digits(response, &range, &digits);
 	g_free(response);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return NULL;
 	snprintf(devc->range_text, sizeof(devc->range_text), "%lf", range);
 	return devc->range_text;
 }
 
-SR_PRIV int scpi_dmm_set_range_from_text(const struct sr_dev_inst *sdi,
+OTC_PRIV int scpi_dmm_set_range_from_text(const struct otc_dev_inst *sdi,
 	const char *range)
 {
 	struct dev_context *devc;
@@ -227,29 +227,29 @@ SR_PRIV int scpi_dmm_set_range_from_text(const struct sr_dev_inst *sdi,
 	devc = sdi->priv;
 
 	if (!range || !*range)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ret = scpi_dmm_get_mq(sdi, NULL, NULL, NULL, &item);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	if (!item || !item->scpi_func_setup)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (item->drv_flags & FLAG_NO_RANGE)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	is_auto = g_ascii_strcasecmp(range, "auto") == 0;
 	scpi_dmm_cmd_delay(sdi->conn);
-	ret = sr_scpi_cmd(sdi, devc->cmdset, 0, NULL, DMM_CMD_SETUP_RANGE,
+	ret = otc_scpi_cmd(sdi, devc->cmdset, 0, NULL, DMM_CMD_SETUP_RANGE,
 		item->scpi_func_setup, is_auto ? "AUTO" : range);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	if (item->drv_flags & FLAG_CONF_DELAY)
 		g_usleep(devc->model->conf_delay_us);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV GVariant *scpi_dmm_get_range_text_list(const struct sr_dev_inst *sdi)
+OTC_PRIV GVariant *scpi_dmm_get_range_text_list(const struct otc_dev_inst *sdi)
 {
 	GVariantBuilder gvb;
 	GVariant *list;
@@ -269,15 +269,15 @@ SR_PRIV GVariant *scpi_dmm_get_range_text_list(const struct sr_dev_inst *sdi)
 	return list;
 }
 
-SR_PRIV int scpi_dmm_get_meas_agilent(const struct sr_dev_inst *sdi, size_t ch)
+OTC_PRIV int scpi_dmm_get_meas_agilent(const struct otc_dev_inst *sdi, size_t ch)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	struct dev_context *devc;
 	struct scpi_dmm_acq_info *info;
-	struct sr_datafeed_analog *analog;
+	struct otc_datafeed_analog *analog;
 	int ret;
-	enum sr_mq mq;
-	enum sr_mqflag mqflag;
+	enum otc_mq mq;
+	enum otc_mqflag mqflag;
 	char *mode_response;
 	const char *p;
 	char **fields;
@@ -290,7 +290,7 @@ SR_PRIV int scpi_dmm_get_meas_agilent(const struct sr_dev_inst *sdi, size_t ch)
 	gboolean use_double;
 	int sig_digits, val_exp;
 	int digits;
-	enum sr_unit unit;
+	enum otc_unit unit;
 	double limit;
 
 	scpi = sdi->conn;
@@ -303,12 +303,12 @@ SR_PRIV int scpi_dmm_get_meas_agilent(const struct sr_dev_inst *sdi, size_t ch)
 	 * Skip the measurement if the mode is uncertain.
 	 */
 	ret = scpi_dmm_get_mq(sdi, &mq, &mqflag, &mode_response, &item);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		g_free(mode_response);
 		return ret;
 	}
 	if (!mode_response)
-		return SR_ERR;
+		return OTC_ERR;
 	if (!mq) {
 		g_free(mode_response);
 		return +1;
@@ -322,7 +322,7 @@ SR_PRIV int scpi_dmm_get_meas_agilent(const struct sr_dev_inst *sdi, size_t ch)
 	 *   DIOD
 	 *   TEMP THER,5000,+1.00000E+00,+1.00000E-01
 	 */
-	p = sr_scpi_unquote_string(mode_response);
+	p = otc_scpi_unquote_string(mode_response);
 	fields = g_strsplit(p, ",", 0);
 	count = g_strv_length(fields);
 	if (count >= 2) {
@@ -356,15 +356,15 @@ SR_PRIV int scpi_dmm_get_meas_agilent(const struct sr_dev_inst *sdi, size_t ch)
 		p++;
 	while (p && *p && g_ascii_isdigit(*p))
 		p++;
-	ret = SR_OK;
+	ret = OTC_OK;
 	if (!p || !*p)
 		prec_exp = 0;
 	else if (*p != 'e' && *p != 'E')
-		ret = SR_ERR_DATA;
+		ret = OTC_ERR_DATA;
 	else
-		ret = sr_atoi(++p, &prec_exp);
+		ret = otc_atoi(++p, &prec_exp);
 	g_free(mode_response);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -379,7 +379,7 @@ SR_PRIV int scpi_dmm_get_meas_agilent(const struct sr_dev_inst *sdi, size_t ch)
 	 * Skip space/sign, count digits before the period, skip to the
 	 * exponent, get exponent value.
 	 *
-	 * TODO Can sr_parse_rational() return the exponent for us? In
+	 * TODO Can otc_parse_rational() return the exponent for us? In
 	 * addition to providing a precise rational value instead of a
 	 * float that's an approximation of the received value? Can the
 	 * 'analog' struct that we fill in carry rationals?
@@ -388,22 +388,22 @@ SR_PRIV int scpi_dmm_get_meas_agilent(const struct sr_dev_inst *sdi, size_t ch)
 	 * downgrade to single precision later to reduce the amount of
 	 * logged information.
 	 */
-	command = sr_scpi_cmd_get(devc->cmdset, DMM_CMD_QUERY_VALUE);
+	command = otc_scpi_cmd_get(devc->cmdset, DMM_CMD_QUERY_VALUE);
 	if (!command || !*command)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	scpi_dmm_cmd_delay(scpi);
-	ret = sr_scpi_get_string(scpi, command, &response);
-	if (ret != SR_OK)
+	ret = otc_scpi_get_string(scpi, command, &response);
+	if (ret != OTC_OK)
 		return ret;
 	g_strstrip(response);
 	use_double = devc->model->digits >= 6;
-	ret = sr_atod_ascii(response, &info->d_value);
-	if (ret != SR_OK) {
+	ret = otc_atod_ascii(response, &info->d_value);
+	if (ret != OTC_OK) {
 		g_free(response);
 		return ret;
 	}
 	if (!response)
-		return SR_ERR;
+		return OTC_ERR;
 	limit = 9e37;
 	if (info->d_value > +limit) {
 		info->d_value = +INFINITY;
@@ -424,16 +424,16 @@ SR_PRIV int scpi_dmm_get_meas_agilent(const struct sr_dev_inst *sdi, size_t ch)
 			p++;
 		while (p && *p && g_ascii_isdigit(*p))
 			p++;
-		ret = SR_OK;
+		ret = OTC_OK;
 		if (!p || !*p)
 			val_exp = 0;
 		else if (*p != 'e' && *p != 'E')
-			ret = SR_ERR_DATA;
+			ret = OTC_ERR_DATA;
 		else
-			ret = sr_atoi(++p, &val_exp);
+			ret = otc_atoi(++p, &val_exp);
 	}
 	g_free(response);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	/*
 	 * TODO Come up with the most appropriate 'digits' calculation.
@@ -484,46 +484,46 @@ SR_PRIV int scpi_dmm_get_meas_agilent(const struct sr_dev_inst *sdi, size_t ch)
 	analog->meaning->mq = mq;
 	analog->meaning->mqflags = mqflag;
 	switch (mq) {
-	case SR_MQ_VOLTAGE:
-		unit = SR_UNIT_VOLT;
+	case OTC_MQ_VOLTAGE:
+		unit = OTC_UNIT_VOLT;
 		break;
-	case SR_MQ_CURRENT:
-		unit = SR_UNIT_AMPERE;
+	case OTC_MQ_CURRENT:
+		unit = OTC_UNIT_AMPERE;
 		break;
-	case SR_MQ_RESISTANCE:
-	case SR_MQ_CONTINUITY:
-		unit = SR_UNIT_OHM;
+	case OTC_MQ_RESISTANCE:
+	case OTC_MQ_CONTINUITY:
+		unit = OTC_UNIT_OHM;
 		break;
-	case SR_MQ_CAPACITANCE:
-		unit = SR_UNIT_FARAD;
+	case OTC_MQ_CAPACITANCE:
+		unit = OTC_UNIT_FARAD;
 		break;
-	case SR_MQ_TEMPERATURE:
-		unit = SR_UNIT_CELSIUS;
+	case OTC_MQ_TEMPERATURE:
+		unit = OTC_UNIT_CELSIUS;
 		break;
-	case SR_MQ_FREQUENCY:
-		unit = SR_UNIT_HERTZ;
+	case OTC_MQ_FREQUENCY:
+		unit = OTC_UNIT_HERTZ;
 		break;
-	case SR_MQ_TIME:
-		unit = SR_UNIT_SECOND;
+	case OTC_MQ_TIME:
+		unit = OTC_UNIT_SECOND;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 	analog->meaning->unit = unit;
 	analog->spec->spec_digits = digits;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int scpi_dmm_get_meas_gwinstek(const struct sr_dev_inst *sdi, size_t ch)
+OTC_PRIV int scpi_dmm_get_meas_gwinstek(const struct otc_dev_inst *sdi, size_t ch)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	struct dev_context *devc;
 	struct scpi_dmm_acq_info *info;
-	struct sr_datafeed_analog *analog;
+	struct otc_datafeed_analog *analog;
 	int ret;
-	enum sr_mq mq;
-	enum sr_mqflag mqflag;
+	enum otc_mq mq;
+	enum otc_mqflag mqflag;
 	char *mode_response;
 	const char *p;
 	const struct mqopt_item *item;
@@ -533,7 +533,7 @@ SR_PRIV int scpi_dmm_get_meas_gwinstek(const struct sr_dev_inst *sdi, size_t ch)
 	double limit;
 	int sig_digits, val_exp;
 	int digits;
-	enum sr_unit unit;
+	enum otc_unit unit;
 	int mmode;
 
 	scpi = sdi->conn;
@@ -546,12 +546,12 @@ SR_PRIV int scpi_dmm_get_meas_gwinstek(const struct sr_dev_inst *sdi, size_t ch)
 	 * Skip the measurement if the mode is uncertain.
 	 */
 	ret = scpi_dmm_get_mq(sdi, &mq, &mqflag, &mode_response, &item);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		g_free(mode_response);
 		return ret;
 	}
 	if (!mode_response)
-		return SR_ERR;
+		return OTC_ERR;
 	if (!mq) {
 		g_free(mode_response);
 		return +1;
@@ -563,22 +563,22 @@ SR_PRIV int scpi_dmm_get_meas_gwinstek(const struct sr_dev_inst *sdi, size_t ch)
 	 * Get the current reading from the meter.
 	 */
 	scpi_dmm_cmd_delay(scpi);
-	command = sr_scpi_cmd_get(devc->cmdset, DMM_CMD_QUERY_VALUE);
+	command = otc_scpi_cmd_get(devc->cmdset, DMM_CMD_QUERY_VALUE);
 	if (!command || !*command)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	scpi_dmm_cmd_delay(scpi);
-	ret = sr_scpi_get_string(scpi, command, &response);
-	if (ret != SR_OK)
+	ret = otc_scpi_get_string(scpi, command, &response);
+	if (ret != OTC_OK)
 		return ret;
 	g_strstrip(response);
 	use_double = devc->model->digits > 6;
-	ret = sr_atod_ascii(response, &info->d_value);
-	if (ret != SR_OK) {
+	ret = otc_atod_ascii(response, &info->d_value);
+	if (ret != OTC_OK) {
 		g_free(response);
 		return ret;
 	}
 	if (!response)
-		return SR_ERR;
+		return OTC_ERR;
 	limit = 9e37;
 	if (devc->model->infinity_limit != 0.0)
 		limit = devc->model->infinity_limit;
@@ -601,16 +601,16 @@ SR_PRIV int scpi_dmm_get_meas_gwinstek(const struct sr_dev_inst *sdi, size_t ch)
 			p++;
 		while (p && *p && g_ascii_isdigit(*p))
 			p++;
-		ret = SR_OK;
+		ret = OTC_OK;
 		if (!p || !*p)
 			val_exp = 0;
 		else if (*p != 'e' && *p != 'E')
-			ret = SR_ERR_DATA;
+			ret = OTC_ERR_DATA;
 		else
-			ret = sr_atoi(++p, &val_exp);
+			ret = otc_atoi(++p, &val_exp);
 	}
 	g_free(response);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -659,7 +659,7 @@ SR_PRIV int scpi_dmm_get_meas_gwinstek(const struct sr_dev_inst *sdi, size_t ch)
 		else if (g_str_has_prefix(devc->precision, "Fast"))
 			digits = 4;
 		else
-			sr_info("Unknown precision: '%s'", devc->precision);
+			otc_info("Unknown precision: '%s'", devc->precision);
 	}
 
 	/*
@@ -679,54 +679,54 @@ SR_PRIV int scpi_dmm_get_meas_gwinstek(const struct sr_dev_inst *sdi, size_t ch)
 	analog->meaning->mq = mq;
 	analog->meaning->mqflags = mqflag;
 	switch (mq) {
-	case SR_MQ_VOLTAGE:
-		unit = SR_UNIT_VOLT;
+	case OTC_MQ_VOLTAGE:
+		unit = OTC_UNIT_VOLT;
 		break;
-	case SR_MQ_CURRENT:
-		unit = SR_UNIT_AMPERE;
+	case OTC_MQ_CURRENT:
+		unit = OTC_UNIT_AMPERE;
 		break;
-	case SR_MQ_RESISTANCE:
-	case SR_MQ_CONTINUITY:
-		unit = SR_UNIT_OHM;
+	case OTC_MQ_RESISTANCE:
+	case OTC_MQ_CONTINUITY:
+		unit = OTC_UNIT_OHM;
 		break;
-	case SR_MQ_CAPACITANCE:
-		unit = SR_UNIT_FARAD;
+	case OTC_MQ_CAPACITANCE:
+		unit = OTC_UNIT_FARAD;
 		break;
-	case SR_MQ_TEMPERATURE:
+	case OTC_MQ_TEMPERATURE:
 		switch (mmode) {
 		case 15:
-			unit = SR_UNIT_FAHRENHEIT;
+			unit = OTC_UNIT_FAHRENHEIT;
 			break;
 		case 9:
 		default:
-			unit = SR_UNIT_CELSIUS;
+			unit = OTC_UNIT_CELSIUS;
 		}
 		break;
-	case SR_MQ_FREQUENCY:
-		unit = SR_UNIT_HERTZ;
+	case OTC_MQ_FREQUENCY:
+		unit = OTC_UNIT_HERTZ;
 		break;
-	case SR_MQ_TIME:
-		unit = SR_UNIT_SECOND;
+	case OTC_MQ_TIME:
+		unit = OTC_UNIT_SECOND;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 	analog->meaning->unit = unit;
 	analog->spec->spec_digits = digits;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Strictly speaking this is a timer controlled poll routine. */
-SR_PRIV int scpi_dmm_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int scpi_dmm_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_dev_inst *sdi;
+	struct otc_scpi_dev_inst *scpi;
 	struct dev_context *devc;
 	struct scpi_dmm_acq_info *info;
 	gboolean sent_sample;
 	size_t ch;
-	struct sr_channel *channel;
+	struct otc_channel *channel;
 	int ret;
 
 	(void)fd;
@@ -742,7 +742,7 @@ SR_PRIV int scpi_dmm_receive_data(int fd, int revents, void *cb_data)
 	info = &devc->run_acq_info;
 
 	sent_sample = FALSE;
-	ret = SR_OK;
+	ret = OTC_OK;
 	for (ch = 0; ch < devc->num_channels; ch++) {
 		/* Check the channel's enabled status. */
 		channel = g_slist_nth_data(sdi->channels, ch);
@@ -753,9 +753,9 @@ SR_PRIV int scpi_dmm_receive_data(int fd, int revents, void *cb_data)
 		 * Prepare an analog measurement value. Note that digits
 		 * will get updated later.
 		 */
-		info->packet.type = SR_DF_ANALOG;
+		info->packet.type = OTC_DF_ANALOG;
 		info->packet.payload = &info->analog[ch];
-		sr_analog_init(&info->analog[ch], &info->encoding[ch],
+		otc_analog_init(&info->analog[ch], &info->encoding[ch],
 			&info->meaning[ch], &info->spec[ch], 0);
 
 		/* Just check OPC before sending another request. */
@@ -775,31 +775,31 @@ SR_PRIV int scpi_dmm_receive_data(int fd, int revents, void *cb_data)
 		 * rates.
 		 */
 		if (!devc->model->get_measurement) {
-			ret = SR_ERR_NA;
+			ret = OTC_ERR_NA;
 			break;
 		}
 		ret = devc->model->get_measurement(sdi, ch);
 		if (ret > 0)
 			continue;
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 
 		/* Send the packet that was filled in by the model's routine. */
 		info->analog[ch].num_samples = 1;
 		info->analog[ch].meaning->channels = g_slist_append(NULL, channel);
-		sr_session_send(sdi, &info->packet);
+		otc_session_send(sdi, &info->packet);
 		g_slist_free(info->analog[ch].meaning->channels);
 		sent_sample = TRUE;
 	}
 	if (sent_sample)
-		sr_sw_limits_update_samples_read(&devc->limits, 1);
-	if (ret != SR_OK) {
+		otc_sw_limits_update_samples_read(&devc->limits, 1);
+	if (ret != OTC_OK) {
 		/* Stop acquisition upon communication or data errors. */
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 		return TRUE;
 	}
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 
 	return TRUE;
 }

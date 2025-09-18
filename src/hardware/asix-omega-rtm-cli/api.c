@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -18,7 +18,7 @@
  */
 
 /*
- * This sigrok driver implementation uses the vendor's CLI application
+ * This opentracelab driver implementation uses the vendor's CLI application
  * for the ASIX OMEGA to operate the device in real time mode. The
  * external process handles the device detection, USB communication
  * (FTDI FIFO), FPGA netlist download, and device control. The process'
@@ -28,14 +28,14 @@
  * Known limitations: The samplerate is fixed. Hardware triggers are not
  * available in this mode. The start of the acquisition takes a few
  * seconds, but the device's native protocol is unknown and its firmware
- * is unavailable, so that a native sigrok driver is in some distant
- * future. Users need to initiate the acquisition in sigrok early so
+ * is unavailable, so that a native opentracelab driver is in some distant
+ * future. Users need to initiate the acquisition in opentracelab early so
  * that the device is capturing when the event of interest happens.
  *
  * The vendor application's executable either must be named omegartmcli
  * and must be found in PATH, or the OMEGARTMCLI environment variable
  * must contain its location. A scan option could be used when a
- * suitable SR_CONF key gets identified which communicates executable
+ * suitable OTC_CONF key gets identified which communicates executable
  * locations.
  *
  * When multiple devices are connected, then a conn=sn=... specification
@@ -46,7 +46,7 @@
 
 /*
  * Implementor's notes. Examples of program output which gets parsed by
- * this sigrok driver.
+ * this opentracelab driver.
  *
  *   $ ./omegartmcli.exe -version
  *   omegartmcli.exe Omega Real-Time Mode
@@ -64,11 +64,11 @@
  * which we don't care about.
  *
  * Ideally the external process could get started earlier, and gets
- * re-used across several sigrok acquisition activities. Unfortunately
- * the driver's open/close actions lack a sigrok session, and cannot
+ * re-used across several opentracelab acquisition activities. Unfortunately
+ * the driver's open/close actions lack a opentracelab session, and cannot
  * register the receive callback (or needs to duplicate common support
  * code). When such an approach gets implemented, the external process'
- * output must get drained even outside of sigrok acquisition phases,
+ * output must get drained even outside of opentracelab acquisition phases,
  * the cost of which is yet to get determined (depends on the input
  * signals, may be expensive).
  *
@@ -83,10 +83,10 @@
  * volume of 6 bytes each 328us for idle inputs, higher for changing
  * input signals.
  *
- * Is it useful to implement a set of samplerates in the sigrok driver,
+ * Is it useful to implement a set of samplerates in the opentracelab driver,
  * and downsample the data which is provided by the Asix application?
  * This would not avoid the pressure of receiving the acquisition
- * process' output, but may result in reduced cost on the sigrok side
+ * process' output, but may result in reduced cost on the opentracelab side
  * when users want to inspect slow signals, or export to "expensive"
  * file formats.
  *
@@ -106,48 +106,48 @@ static const char *channel_names[] = {
 };
 
 static const uint64_t samplerates[] = {
-	SR_MHZ(200),
+	OTC_MHZ(200),
 };
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN, /* Accepts serial number specs. */
+	OTC_CONF_CONN, /* Accepts serial number specs. */
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_LIST,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_LIST,
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	const char *conn, *probe_names, *serno, *exe;
 	GSList *devices, *l;
-	struct sr_config *src;
+	struct otc_config *src;
 	size_t argc, chmax, chidx;
 	gchar **argv, *output, *vers_text, *eol;
 	GSpawnFlags flags;
 	GError *error;
 	gboolean ok;
 	char serno_buff[10];
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 
 	/* Extract optional serial number from conn= spec. */
 	conn = NULL;
 	probe_names = NULL;
-	(void)sr_serial_extract_options(options, &conn, NULL);
+	(void)otc_serial_extract_options(options, &conn, NULL);
 	if (!conn || !*conn)
 		conn = NULL;
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_PROBE_NAMES:
+		case OTC_CONF_PROBE_NAMES:
 			probe_names = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -155,7 +155,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	serno = NULL;
 	if (conn) {
 		if (!g_str_has_prefix(conn, "sn=")) {
-			sr_err("conn= must specify a serial number.");
+			otc_err("conn= must specify a serial number.");
 			return NULL;
 		}
 		serno = conn + strlen("sn=");
@@ -163,14 +163,14 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			serno = NULL;
 	}
 	if (serno)
-		sr_dbg("User specified serial number: %s", serno);
+		otc_dbg("User specified serial number: %s", serno);
 	if (serno && strlen(serno) == 4) {
-		sr_dbg("Adding 03 prefix to user specified serial number");
+		otc_dbg("Adding 03 prefix to user specified serial number");
 		snprintf(serno_buff, sizeof(serno_buff), "03%s", serno);
 		serno = serno_buff;
 	}
 	if (serno && strlen(serno) != 6 && strlen(serno) != 8) {
-		sr_err("Serial number must be 03xxxx or A603xxxx");
+		otc_err("Serial number must be 03xxxx or A603xxxx");
 		serno = NULL;
 	}
 
@@ -184,7 +184,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	exe = getenv("OMEGARTMCLI");
 	if (!exe || !*exe)
 		exe = "omegartmcli";
-	sr_dbg("Vendor application executable: %s", exe);
+	otc_dbg("Vendor application executable: %s", exe);
 	argv = g_malloc0(5 * sizeof(argv[0]));
 	argc = 0;
 	argv[argc++] = g_strdup(exe);
@@ -196,7 +196,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	ok = g_spawn_sync(NULL, argv, NULL, flags, NULL, NULL,
 		&output, NULL, NULL, &error);
 	if (error && error->code != G_SPAWN_ERROR_NOENT)
-		sr_err("Cannot execute RTM CLI process: %s", error->message);
+		otc_err("Cannot execute RTM CLI process: %s", error->message);
 	if (error) {
 		ok = FALSE;
 		g_error_free(error);
@@ -204,7 +204,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	if (!output || !*output)
 		ok = FALSE;
 	if (!ok) {
-		sr_dbg("External RTM CLI execution failed.");
+		otc_dbg("External RTM CLI execution failed.");
 		g_free(output);
 		g_strfreev(argv);
 		return NULL;
@@ -230,12 +230,12 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			ok = FALSE;
 	}
 	if (!ok) {
-		sr_err("Cannot get RTM CLI executable's version.");
+		otc_err("Cannot get RTM CLI executable's version.");
 		g_free(output);
 		g_strfreev(argv);
 		return NULL;
 	}
-	sr_info("RTM CLI executable version: %s", vers_text);
+	otc_info("RTM CLI executable version: %s", vers_text);
 
 	/*
 	 * Create a device instance, add it to the result set. Create a
@@ -244,7 +244,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	 */
 	sdi = g_malloc0(sizeof(*sdi));
 	devices = g_slist_append(devices, sdi);
-	sdi->status = SR_ST_INITIALIZING;
+	sdi->status = OTC_ST_INITIALIZING;
 	sdi->vendor = g_strdup("ASIX");
 	sdi->model = g_strdup("OMEGA RTM CLI");
 	sdi->version = g_strdup(vers_text);
@@ -254,15 +254,15 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		sdi->connection_id = g_strdup(conn);
 	devc = g_malloc0(sizeof(*devc));
 	sdi->priv = devc;
-	devc->channel_names = sr_parse_probe_names(probe_names,
+	devc->channel_names = otc_parse_probe_names(probe_names,
 		channel_names, ARRAY_SIZE(channel_names),
 		ARRAY_SIZE(channel_names), &chmax);
 	for (chidx = 0; chidx < chmax; chidx++) {
-		sr_channel_new(sdi, chidx, SR_CHANNEL_LOGIC,
+		otc_channel_new(sdi, chidx, OTC_CHANNEL_LOGIC,
 			TRUE, devc->channel_names[chidx]);
 	}
 
-	sr_sw_limits_init(&devc->limits);
+	otc_sw_limits_init(&devc->limits);
 	argc = 1;
 	g_free(argv[argc]);
 	argv[argc++] = g_strdup("-bin");
@@ -280,79 +280,79 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_CONN:
+	case OTC_CONF_CONN:
 		if (!sdi->connection_id)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		*data = g_variant_new_string(sdi->connection_id);
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(samplerates[0]);
 		break;
-	case SR_CONF_LIMIT_MSEC:
-	case SR_CONF_LIMIT_SAMPLES:
-		return sr_sw_limits_config_get(&devc->limits, key, data);
+	case OTC_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_SAMPLES:
+		return otc_sw_limits_config_get(&devc->limits, key, data);
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_MSEC:
-	case SR_CONF_LIMIT_SAMPLES:
-		return sr_sw_limits_config_set(&devc->limits, key, data);
+	case OTC_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_SAMPLES:
+		return otc_sw_limits_config_set(&devc->limits, key, data);
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		if (cg)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		return STD_CONFIG_LIST(key, data, sdi, cg,
 			scanopts, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates));
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -363,7 +363,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 	/* Start the external acquisition process. */
 	ret = omega_rtm_cli_open(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	fd = devc->child.fd_stdout_read;
 	events = G_IO_IN | G_IO_ERR;
@@ -372,10 +372,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	 * Start supervising acquisition limits. Arrange for a stricter
 	 * "samples count" check than supported by the common approach.
 	 */
-	sr_sw_limits_acquisition_start(&devc->limits);
-	ret = sr_sw_limits_get_remain(&devc->limits,
+	otc_sw_limits_acquisition_start(&devc->limits);
+	ret = otc_sw_limits_get_remain(&devc->limits,
 		&remain_count, NULL, NULL, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	if (remain_count) {
 		devc->samples.remain_count = remain_count;
@@ -384,19 +384,19 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 	/* Send the session feed header. */
 	ret = std_session_send_df_header(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Start processing the external process' output. */
-	ret = sr_session_source_add(sdi->session, fd, events, 10,
+	ret = otc_session_source_add(sdi->session, fd, events, 10,
 		omega_rtm_cli_receive_data, (void *)sdi); /* Un-const. */
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -413,9 +413,9 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	/* Stop processing the external process' output. */
 	fd = devc->child.fd_stdout_read;
 	if (fd >= 0) {
-		ret = sr_session_source_remove(sdi->session, fd);
-		if (ret != SR_OK) {
-			sr_err("Cannot stop reading acquisition data");
+		ret = otc_session_source_remove(sdi->session, fd);
+		if (ret != OTC_OK) {
+			otc_err("Cannot stop reading acquisition data");
 		}
 	}
 
@@ -423,15 +423,15 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	(void)ret;
 
 	ret = omega_rtm_cli_close(sdi);
-	if (ret != SR_OK) {
-		sr_err("Could not terminate acquisition process");
+	if (ret != OTC_OK) {
+		otc_err("Could not terminate acquisition process");
 	}
 	(void)ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver asix_omega_rtm_cli_driver_info = {
+static struct otc_dev_driver asix_omega_rtm_cli_driver_info = {
 	.name = "asix-omega-rtm-cli",
 	.longname = "ASIX OMEGA RTM CLI",
 	.api_version = 1,
@@ -449,4 +449,4 @@ static struct sr_dev_driver asix_omega_rtm_cli_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(asix_omega_rtm_cli_driver_info);
+OTC_REGISTER_DEV_DRIVER(asix_omega_rtm_cli_driver_info);

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2023 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -19,10 +19,10 @@
 
 #include "config.h"
 
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <string.h>
 
-#include "libsigrok-internal.h"
+#include "libopentracecapture-internal.h"
 
 #define LOG_PREFIX "serial-tcpraw"
 
@@ -74,7 +74,7 @@
  *   tcp-raw/<ipaddr>/<port>
  */
 static int ser_tcpraw_parse_conn_spec(
-	struct sr_serial_dev_inst *serial, const char *spec,
+	struct otc_serial_dev_inst *serial, const char *spec,
 	char **host_ref, char **port_ref)
 {
 	char **fields;
@@ -90,11 +90,11 @@ static int ser_tcpraw_parse_conn_spec(
 	host = NULL;
 	port = NULL;
 	if (!serial || !spec || !*spec)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	fields = g_strsplit(spec, "/", 0);
 	if (!fields)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	count = g_strv_length(fields);
 
 	valid = TRUE;
@@ -114,7 +114,7 @@ static int ser_tcpraw_parse_conn_spec(
 	}
 	/* Silently ignore trailing fields. Could be future options. */
 	if (count > 3)
-		sr_warn("Ignoring excess parameters in %s.", spec);
+		otc_warn("Ignoring excess parameters in %s.", spec);
 
 	if (valid) {
 		if (host_ref && host)
@@ -123,14 +123,14 @@ static int ser_tcpraw_parse_conn_spec(
 			*port_ref = g_strdup(port);
 	}
 	g_strfreev(fields);
-	return valid ? SR_OK : SR_ERR_ARG;
+	return valid ? OTC_OK : OTC_ERR_ARG;
 }
 
 /* }}} */
 /* {{{ transport methods called by the common serial.c code */
 
 /* See if a serial port's name refers to a raw TCP connection. */
-SR_PRIV int ser_name_is_tcpraw(struct sr_serial_dev_inst *serial)
+OTC_PRIV int ser_name_is_tcpraw(struct otc_serial_dev_inst *serial)
 {
 	char *p;
 
@@ -149,7 +149,7 @@ SR_PRIV int ser_name_is_tcpraw(struct sr_serial_dev_inst *serial)
 	return 1;
 }
 
-static int ser_tcpraw_open(struct sr_serial_dev_inst *serial, int flags)
+static int ser_tcpraw_open(struct otc_serial_dev_inst *serial, int flags)
 {
 	char *host, *port;
 	int ret;
@@ -158,65 +158,65 @@ static int ser_tcpraw_open(struct sr_serial_dev_inst *serial, int flags)
 
 	ret = ser_tcpraw_parse_conn_spec(serial, serial->port,
 			&host, &port);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		g_free(host);
 		g_free(port);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
-	serial->tcp_dev = sr_tcp_dev_inst_new(host, port);
+	serial->tcp_dev = otc_tcp_dev_inst_new(host, port);
 	g_free(host);
 	g_free(port);
 	if (!serial->tcp_dev)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
 	/*
 	 * Open the TCP socket. Only keep caller's parameters (and the
 	 * resulting socket fd) when open completes successfully.
 	 */
-	ret = sr_tcp_connect(serial->tcp_dev);
-	if (ret != SR_OK) {
-		sr_err("Failed to establish TCP connection.");
-		sr_tcp_dev_inst_free(serial->tcp_dev);
+	ret = otc_tcp_connect(serial->tcp_dev);
+	if (ret != OTC_OK) {
+		otc_err("Failed to establish TCP connection.");
+		otc_tcp_dev_inst_free(serial->tcp_dev);
 		serial->tcp_dev = NULL;
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int ser_tcpraw_close(struct sr_serial_dev_inst *serial)
+static int ser_tcpraw_close(struct otc_serial_dev_inst *serial)
 {
 
 	if (!serial)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (!serial->tcp_dev)
-		return SR_OK;
+		return OTC_OK;
 
-	(void)sr_tcp_disconnect(serial->tcp_dev);
-	return SR_OK;
+	(void)otc_tcp_disconnect(serial->tcp_dev);
+	return OTC_OK;
 }
 
-static int ser_tcpraw_setup_source_add(struct sr_session *session,
-	struct sr_serial_dev_inst *serial, int events, int timeout,
-	sr_receive_data_callback cb, void *cb_data)
+static int ser_tcpraw_setup_source_add(struct otc_session *session,
+	struct otc_serial_dev_inst *serial, int events, int timeout,
+	otc_receive_data_callback cb, void *cb_data)
 {
 	if (!serial || !serial->tcp_dev)
-		return SR_ERR_ARG;
-	return sr_tcp_source_add(session, serial->tcp_dev,
+		return OTC_ERR_ARG;
+	return otc_tcp_source_add(session, serial->tcp_dev,
 		events, timeout, cb, cb_data);
 }
 
-static int ser_tcpraw_setup_source_remove(struct sr_session *session,
-	struct sr_serial_dev_inst *serial)
+static int ser_tcpraw_setup_source_remove(struct otc_session *session,
+	struct otc_serial_dev_inst *serial)
 {
 	if (!serial || !serial->tcp_dev)
-		return SR_ERR_ARG;
-	(void)sr_tcp_source_remove(session, serial->tcp_dev);
-	return SR_OK;
+		return OTC_ERR_ARG;
+	(void)otc_tcp_source_remove(session, serial->tcp_dev);
+	return OTC_OK;
 }
 
-static int ser_tcpraw_write(struct sr_serial_dev_inst *serial,
+static int ser_tcpraw_write(struct otc_serial_dev_inst *serial,
 	const void *buf, size_t count,
 	int nonblocking, unsigned int timeout_ms)
 {
@@ -228,18 +228,18 @@ static int ser_tcpraw_write(struct sr_serial_dev_inst *serial,
 	(void)timeout_ms;
 
 	if (!serial || !serial->tcp_dev)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	total = 0;
 	while (count) {
-		ret = sr_tcp_write_bytes(serial->tcp_dev, buf, count);
+		ret = otc_tcp_write_bytes(serial->tcp_dev, buf, count);
 		if (ret < 0 && !total) {
-			sr_err("Error sending TCP transmit data.");
+			otc_err("Error sending TCP transmit data.");
 			return total;
 		}
 		if (ret <= 0) {
 			count += total;
-			sr_warn("Short transmission of TCP data (%zu/%zu).",
+			otc_warn("Short transmission of TCP data (%zu/%zu).",
 				total, count);
 			return total;
 		}
@@ -252,7 +252,7 @@ static int ser_tcpraw_write(struct sr_serial_dev_inst *serial,
 	return total;
 }
 
-static int ser_tcpraw_read(struct sr_serial_dev_inst *serial,
+static int ser_tcpraw_read(struct otc_serial_dev_inst *serial,
 	void *buf, size_t count,
 	int nonblocking, unsigned int timeout_ms)
 {
@@ -261,7 +261,7 @@ static int ser_tcpraw_read(struct sr_serial_dev_inst *serial,
 	ssize_t ret;
 
 	if (!serial || !serial->tcp_dev)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!count)
 		return 0;
 
@@ -284,10 +284,10 @@ static int ser_tcpraw_read(struct sr_serial_dev_inst *serial,
 	 */
 	total = 0;
 	while (count) {
-		ret = sr_tcp_read_bytes(serial->tcp_dev,
+		ret = otc_tcp_read_bytes(serial->tcp_dev,
 			buf, count, nonblocking);
 		if (ret < 0 && !total) {
-			sr_err("Failed to receive TCP data.");
+			otc_err("Failed to receive TCP data.");
 			break;
 		}
 		if (ret < 0) {
@@ -323,6 +323,6 @@ static struct ser_lib_functions serlib_tcpraw = {
 	.setup_source_remove = ser_tcpraw_setup_source_remove,
 	.get_frame_format = NULL,
 };
-SR_PRIV struct ser_lib_functions *ser_lib_funcs_tcpraw = &serlib_tcpraw;
+OTC_PRIV struct ser_lib_functions *ser_lib_funcs_tcpraw = &serlib_tcpraw;
 
 /** @} */

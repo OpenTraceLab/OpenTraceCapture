@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2020 Timo Kokkonen <tjko@iki.fi>
  *
@@ -19,33 +19,33 @@
 
 #include <config.h>
 #include <string.h>
-#include "scpi.h"
+#include "../../scpi.h"
 #include "protocol.h"
 
-static struct sr_dev_driver rigol_dg_driver_info;
+static struct otc_dev_driver rigol_dg_driver_info;
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_SIGNAL_GENERATOR,
+	OTC_CONF_SIGNAL_GENERATOR,
 };
 
 static const uint32_t dg1000z_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t dg1000z_devopts_cg[] = {
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_PATTERN_MODE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OUTPUT_FREQUENCY | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_AMPLITUDE | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OFFSET | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_PHASE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_DUTY_CYCLE | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_PATTERN_MODE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OUTPUT_FREQUENCY | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_AMPLITUDE | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OFFSET | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_PHASE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_DUTY_CYCLE | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const double dg1000z_phase_min_max_step[] = { 0.0, 360.0, 0.001 };
@@ -231,13 +231,13 @@ static const uint32_t mso5000_devopts[] = {
 };
 
 static const uint32_t mso5000_devopts_cg[] = {
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_PATTERN_MODE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OUTPUT_FREQUENCY | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_AMPLITUDE | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OFFSET | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_PHASE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_DUTY_CYCLE | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_PATTERN_MODE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OUTPUT_FREQUENCY | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_AMPLITUDE | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OFFSET | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_PHASE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_DUTY_CYCLE | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const double mso5000_phase_min_max_step[] = { 0.0, 360.0, 0.1 };
@@ -414,7 +414,7 @@ static const struct device_spec device_models[] = {
 	},
 };
 
-static void check_device_quirks(struct sr_dev_inst *sdi)
+static void check_device_quirks(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	gboolean is_8xx, is_9xx;
@@ -435,15 +435,15 @@ static void check_device_quirks(struct sr_dev_inst *sdi)
 	}
 }
 
-static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
+static struct otc_dev_inst *probe_device(struct otc_scpi_dev_inst *scpi)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_scpi_hw_info *hw_info;
+	struct otc_scpi_hw_info *hw_info;
 	const struct device_spec *device;
 	const struct scpi_command *cmdset;
-	struct sr_channel *ch;
-	struct sr_channel_group *cg;
+	struct otc_channel *ch;
+	struct otc_channel_group *cg;
 	const char *command;
 	unsigned int i, ch_idx;
 	char tmp[16];
@@ -452,7 +452,7 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 	devc = NULL;
 	hw_info = NULL;
 
-	if (sr_scpi_get_hw_id(scpi, &hw_info) != SR_OK)
+	if (otc_scpi_get_hw_id(scpi, &hw_info) != OTC_OK)
 		goto error;
 
 	device = NULL;
@@ -477,42 +477,42 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 	sdi->serial_num = g_strdup(hw_info->serial_number);
 	sdi->conn = scpi;
 	sdi->driver = &rigol_dg_driver_info;
-	sdi->inst_type = SR_INST_SCPI;
+	sdi->inst_type = OTC_INST_SCPI;
 
 	devc = g_malloc0(sizeof(*devc));
 	devc->cmdset = cmdset;
 	devc->device = device;
 	devc->ch_status = g_malloc0((device->num_channels + 1) *
 			sizeof(devc->ch_status[0]));
-	sr_sw_limits_init(&devc->limits);
+	otc_sw_limits_init(&devc->limits);
 	sdi->priv = devc;
 
 	/* Create channel group and channel for each device channel. */
 	ch_idx = 0;
 	for (i = 0; i < device->num_channels; i++) {
-		ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG, TRUE,
+		ch = otc_channel_new(sdi, ch_idx++, OTC_CHANNEL_ANALOG, TRUE,
 				device->channels[i].name);
 		snprintf(tmp, sizeof(tmp), "%u", i + 1);
-		cg = sr_channel_group_new(sdi, tmp, NULL);
+		cg = otc_channel_group_new(sdi, tmp, NULL);
 		cg->channels = g_slist_append(cg->channels, ch);
 	}
 
 	if (device->has_counter) {
 		/* Create channels for the frequency counter output. */
-		ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG, TRUE, "FREQ1");
-		ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG, TRUE, "PERIOD1");
-		ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG, TRUE, "DUTY1");
-		ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG, TRUE, "WIDTH1");
+		ch = otc_channel_new(sdi, ch_idx++, OTC_CHANNEL_ANALOG, TRUE, "FREQ1");
+		ch = otc_channel_new(sdi, ch_idx++, OTC_CHANNEL_ANALOG, TRUE, "PERIOD1");
+		ch = otc_channel_new(sdi, ch_idx++, OTC_CHANNEL_ANALOG, TRUE, "DUTY1");
+		ch = otc_channel_new(sdi, ch_idx++, OTC_CHANNEL_ANALOG, TRUE, "WIDTH1");
 	}
 
 	/* Put device back to "local" mode, in case only a scan was done... */
-	command = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_SETUP_LOCAL);
+	command = otc_scpi_cmd_get(devc->cmdset, PSG_CMD_SETUP_LOCAL);
 	if (command && *command) {
-		sr_scpi_get_opc(scpi);
-		sr_scpi_send(scpi, command);
+		otc_scpi_get_opc(scpi);
+		otc_scpi_send(scpi, command);
 	}
 
-	sr_scpi_hw_info_free(hw_info);
+	otc_scpi_hw_info_free(hw_info);
 
 	/* Check for device/firmware specific issues. */
 	check_device_quirks(sdi);
@@ -520,73 +520,73 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 	return sdi;
 
 error:
-	sr_scpi_hw_info_free(hw_info);
+	otc_scpi_hw_info_free(hw_info);
 	g_free(devc);
-	sr_dev_inst_free(sdi);
+	otc_dev_inst_free(sdi);
 
 	return NULL;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
-	return sr_scpi_scan(di->context, options, probe_device);
+	return otc_scpi_scan(di->context, options, probe_device);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	return sr_scpi_open(sdi->conn);
+	return otc_scpi_open(sdi->conn);
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	const char *command;
 
 	devc = sdi->priv;
 	scpi = sdi->conn;
 	if (!scpi)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	/* Put unit back to "local" mode. */
-	command = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_SETUP_LOCAL);
+	command = otc_scpi_cmd_get(devc->cmdset, PSG_CMD_SETUP_LOCAL);
 	if (command && *command) {
-		sr_scpi_get_opc(scpi);
-		sr_scpi_send(scpi, command);
+		otc_scpi_get_opc(scpi);
+		otc_scpi_send(scpi, command);
 	}
 
-	return sr_scpi_close(sdi->conn);
+	return otc_scpi_close(sdi->conn);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
-	struct sr_channel *ch;
+	struct otc_scpi_dev_inst *scpi;
+	struct otc_channel *ch;
 	struct channel_status *ch_status;
-	const struct sr_key_info *kinfo;
+	const struct otc_key_info *kinfo;
 	uint32_t cmd;
 	int ret;
 
 	if (!sdi || !data)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 	scpi = sdi->conn;
-	ret = SR_OK;
-	kinfo = sr_key_info_get(SR_KEY_CONFIG, key);
+	ret = OTC_OK;
+	kinfo = otc_key_info_get(OTC_KEY_CONFIG, key);
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_LIMIT_SAMPLES:
-		case SR_CONF_LIMIT_MSEC:
-			ret = sr_sw_limits_config_get(&devc->limits, key, data);
+		case OTC_CONF_LIMIT_SAMPLES:
+		case OTC_CONF_LIMIT_MSEC:
+			ret = otc_sw_limits_config_get(&devc->limits, key, data);
 			break;
 		default:
-			sr_dbg("%s: Unsupported key: %d (%s)", __func__,
+			otc_dbg("%s: Unsupported key: %d (%s)", __func__,
 				(int)key, (kinfo ? kinfo->name : "unknown"));
-			ret = SR_ERR_NA;
+			ret = OTC_ERR_NA;
 			break;
 		}
 	} else {
@@ -594,55 +594,55 @@ static int config_get(uint32_t key, GVariant **data,
 		ch_status = &devc->ch_status[ch->index];
 
 		switch (key) {
-		case SR_CONF_ENABLED:
-			sr_scpi_get_opc(scpi);
-			ret = sr_scpi_cmd_resp(sdi, devc->cmdset,
+		case OTC_CONF_ENABLED:
+			otc_scpi_get_opc(scpi);
+			ret = otc_scpi_cmd_resp(sdi, devc->cmdset,
 				PSG_CMD_SELECT_CHANNEL, cg->name, data,
 				G_VARIANT_TYPE_BOOLEAN, PSG_CMD_GET_ENABLED,
 				cg->name);
 			break;
-		case SR_CONF_PATTERN_MODE:
-			if ((ret = rigol_dg_get_channel_state(sdi, cg)) == SR_OK) {
+		case OTC_CONF_PATTERN_MODE:
+			if ((ret = rigol_dg_get_channel_state(sdi, cg)) == OTC_OK) {
 				*data = g_variant_new_string(
 					ch_status->wf_spec->user_name);
 			}
 			break;
-		case SR_CONF_OUTPUT_FREQUENCY:
-			if ((ret = rigol_dg_get_channel_state(sdi, cg)) == SR_OK)
+		case OTC_CONF_OUTPUT_FREQUENCY:
+			if ((ret = rigol_dg_get_channel_state(sdi, cg)) == OTC_OK)
 				*data = g_variant_new_double(ch_status->freq);
 			break;
-		case SR_CONF_AMPLITUDE:
-			if ((ret = rigol_dg_get_channel_state(sdi, cg)) == SR_OK)
+		case OTC_CONF_AMPLITUDE:
+			if ((ret = rigol_dg_get_channel_state(sdi, cg)) == OTC_OK)
 				*data = g_variant_new_double(ch_status->ampl);
 			break;
-		case SR_CONF_OFFSET:
-			if ((ret = rigol_dg_get_channel_state(sdi, cg)) == SR_OK)
+		case OTC_CONF_OFFSET:
+			if ((ret = rigol_dg_get_channel_state(sdi, cg)) == OTC_OK)
 				*data = g_variant_new_double(ch_status->offset);
 			break;
-		case SR_CONF_PHASE:
-			if ((ret = rigol_dg_get_channel_state(sdi, cg)) == SR_OK)
+		case OTC_CONF_PHASE:
+			if ((ret = rigol_dg_get_channel_state(sdi, cg)) == OTC_OK)
 				*data = g_variant_new_double(ch_status->phase);
 			break;
-		case SR_CONF_DUTY_CYCLE:
-			if ((ret = rigol_dg_get_channel_state(sdi, cg)) != SR_OK)
+		case OTC_CONF_DUTY_CYCLE:
+			if ((ret = rigol_dg_get_channel_state(sdi, cg)) != OTC_OK)
 				break;
 			if (ch_status->wf == WF_SQUARE) {
 				cmd = PSG_CMD_GET_DCYCL_SQUARE;
 			} else if (ch_status->wf == WF_PULSE) {
 				cmd = PSG_CMD_GET_DCYCL_PULSE;
 			} else {
-				ret = SR_ERR_NA;
+				ret = OTC_ERR_NA;
 				break;
 			}
-			sr_scpi_get_opc(scpi);
-			ret = sr_scpi_cmd_resp(sdi, devc->cmdset,
+			otc_scpi_get_opc(scpi);
+			ret = otc_scpi_cmd_resp(sdi, devc->cmdset,
 				PSG_CMD_SELECT_CHANNEL, cg->name, data,
 				G_VARIANT_TYPE_DOUBLE, cmd, cg->name);
 			break;
 		default:
-			sr_dbg("%s: Unsupported (cg) key: %d (%s)", __func__,
+			otc_dbg("%s: Unsupported (cg) key: %d (%s)", __func__,
 				(int)key, (kinfo ? kinfo->name : "unknown"));
-			ret = SR_ERR_NA;
+			ret = OTC_ERR_NA;
 			break;
 		}
 	}
@@ -651,38 +651,38 @@ static int config_get(uint32_t key, GVariant **data,
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
-	struct sr_channel *ch;
+	struct otc_scpi_dev_inst *scpi;
+	struct otc_channel *ch;
 	const struct channel_spec *ch_spec;
 	struct channel_status *ch_status;
-	const struct sr_key_info *kinfo;
+	const struct otc_key_info *kinfo;
 	int ret;
 	uint32_t cmd;
 	const char *mode, *new_mode;
 	unsigned int i;
 
 	if (!data || !sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 	scpi = sdi->conn;
-	kinfo = sr_key_info_get(SR_KEY_CONFIG, key);
+	kinfo = otc_key_info_get(OTC_KEY_CONFIG, key);
 
-	ret = SR_OK;
+	ret = OTC_OK;
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_LIMIT_MSEC:
-		case SR_CONF_LIMIT_SAMPLES:
-			ret = sr_sw_limits_config_set(&devc->limits, key, data);
+		case OTC_CONF_LIMIT_MSEC:
+		case OTC_CONF_LIMIT_SAMPLES:
+			ret = otc_sw_limits_config_set(&devc->limits, key, data);
 			break;
 		default:
-			sr_dbg("%s: Unsupported key: %d (%s)", __func__,
+			otc_dbg("%s: Unsupported key: %d (%s)", __func__,
 				(int)key, (kinfo ? kinfo->name : "unknown"));
-			ret = SR_ERR_NA;
+			ret = OTC_ERR_NA;
 			break;
 		}
 	} else {
@@ -690,21 +690,21 @@ static int config_set(uint32_t key, GVariant *data,
 		ch_spec = &devc->device->channels[ch->index];
 		ch_status = &devc->ch_status[ch->index];
 
-		if ((ret = rigol_dg_get_channel_state(sdi, cg)) != SR_OK)
+		if ((ret = rigol_dg_get_channel_state(sdi, cg)) != OTC_OK)
 			return ret;
-		sr_scpi_get_opc(scpi);
+		otc_scpi_get_opc(scpi);
 
 		switch (key) {
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			if (g_variant_get_boolean(data))
 				cmd = PSG_CMD_SET_ENABLE;
 			else
 				cmd = PSG_CMD_SET_DISABLE;
-			ret = sr_scpi_cmd(sdi, devc->cmdset,
+			ret = otc_scpi_cmd(sdi, devc->cmdset,
 				PSG_CMD_SELECT_CHANNEL, cg->name, cmd, cg->name);
 			break;
-		case SR_CONF_PATTERN_MODE:
-			ret = SR_ERR_NA;
+		case OTC_CONF_PATTERN_MODE:
+			ret = OTC_ERR_NA;
 			new_mode = NULL;
 			mode = g_variant_get_string(data, NULL);
 			for (i = 0; i < ch_spec->num_waveforms; i++) {
@@ -715,48 +715,48 @@ static int config_set(uint32_t key, GVariant *data,
 				}
 			}
 			if (new_mode)
-				ret = sr_scpi_cmd(sdi, devc->cmdset,
+				ret = otc_scpi_cmd(sdi, devc->cmdset,
 					PSG_CMD_SELECT_CHANNEL, cg->name,
 					PSG_CMD_SET_SOURCE, cg->name, new_mode);
 			break;
-		case SR_CONF_OUTPUT_FREQUENCY:
-			ret = SR_ERR_NA;
+		case OTC_CONF_OUTPUT_FREQUENCY:
+			ret = OTC_ERR_NA;
 			if (!(ch_status->wf_spec->opts & WFO_FREQUENCY))
 				break;
-			ret = sr_scpi_cmd(sdi, devc->cmdset,
+			ret = otc_scpi_cmd(sdi, devc->cmdset,
 				PSG_CMD_SELECT_CHANNEL, cg->name,
 				PSG_CMD_SET_FREQUENCY, cg->name,
 				g_variant_get_double(data));
 			break;
-		case SR_CONF_AMPLITUDE:
-			ret = SR_ERR_NA;
+		case OTC_CONF_AMPLITUDE:
+			ret = OTC_ERR_NA;
 			if (!(ch_status->wf_spec->opts & WFO_AMPLITUDE))
 				break;
-			ret = sr_scpi_cmd(sdi, devc->cmdset,
+			ret = otc_scpi_cmd(sdi, devc->cmdset,
 				PSG_CMD_SELECT_CHANNEL, cg->name,
 				PSG_CMD_SET_AMPLITUDE, cg->name,
 				g_variant_get_double(data));
 			break;
-		case SR_CONF_OFFSET:
-			ret = SR_ERR_NA;
+		case OTC_CONF_OFFSET:
+			ret = OTC_ERR_NA;
 			if (!(ch_status->wf_spec->opts & WFO_OFFSET))
 				break;
-			ret = sr_scpi_cmd(sdi, devc->cmdset,
+			ret = otc_scpi_cmd(sdi, devc->cmdset,
 				PSG_CMD_SELECT_CHANNEL, cg->name,
 				PSG_CMD_SET_OFFSET, cg->name,
 				g_variant_get_double(data));
 			break;
-		case SR_CONF_PHASE:
-			ret = SR_ERR_NA;
+		case OTC_CONF_PHASE:
+			ret = OTC_ERR_NA;
 			if (!(ch_status->wf_spec->opts & WFO_PHASE))
 				break;
-			ret = sr_scpi_cmd(sdi, devc->cmdset,
+			ret = otc_scpi_cmd(sdi, devc->cmdset,
 				PSG_CMD_SELECT_CHANNEL, cg->name,
 				PSG_CMD_SET_PHASE, cg->name,
 				g_variant_get_double(data));
 			break;
-		case SR_CONF_DUTY_CYCLE:
-			ret = SR_ERR_NA;
+		case OTC_CONF_DUTY_CYCLE:
+			ret = OTC_ERR_NA;
 			if (!(ch_status->wf_spec->opts & WFO_DUTY_CYCLE))
 				break;
 			if (ch_status->wf == WF_SQUARE)
@@ -765,14 +765,14 @@ static int config_set(uint32_t key, GVariant *data,
 				cmd = PSG_CMD_SET_DCYCL_PULSE;
 			else
 				break;
-			ret = sr_scpi_cmd(sdi, devc->cmdset,
+			ret = otc_scpi_cmd(sdi, devc->cmdset,
 				PSG_CMD_SELECT_CHANNEL, cg->name,
 				cmd, cg->name, g_variant_get_double(data));
 			break;
 		default:
-			sr_dbg("%s: Unsupported key: %d (%s)", __func__,
+			otc_dbg("%s: Unsupported key: %d (%s)", __func__,
 				(int)key, (kinfo ? kinfo->name : "unknown"));
-			ret = SR_ERR_NA;
+			ret = OTC_ERR_NA;
 			break;
 		}
 	}
@@ -781,10 +781,10 @@ static int config_set(uint32_t key, GVariant *data,
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	const struct channel_spec *ch_spec;
 	const struct waveform_spec *wf_spec;
 	struct channel_status *ch_status;
@@ -798,29 +798,29 @@ static int config_list(uint32_t key, GVariant **data,
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_SCAN_OPTIONS:
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_SCAN_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			return std_opts_config_list(key, data, sdi, cg,
 				ARRAY_AND_SIZE(scanopts),
 				ARRAY_AND_SIZE(drvopts),
 				(devc && devc->device) ? devc->device->devopts : NULL,
 				(devc && devc->device) ? devc->device->num_devopts : 0);
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		if (!devc || !devc->device)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		ch = cg->channels->data;
 		ch_spec = &devc->device->channels[ch->index];
 		ch_status = &devc->ch_status[ch->index];
 
 		switch(key) {
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			*data = std_gvar_array_u32(devc->device->devopts_cg,
 					devc->device->num_devopts_cg);
 			break;
-		case SR_CONF_PATTERN_MODE:
+		case OTC_CONF_PATTERN_MODE:
 			b = g_variant_builder_new(G_VARIANT_TYPE("as"));
 			for (i = 0; i < ch_spec->num_waveforms; i++) {
 				g_variant_builder_add(b, "s",
@@ -829,37 +829,37 @@ static int config_list(uint32_t key, GVariant **data,
 			*data = g_variant_new("as", b);
 			g_variant_builder_unref(b);
 			break;
-		case SR_CONF_OUTPUT_FREQUENCY:
+		case OTC_CONF_OUTPUT_FREQUENCY:
 			/*
 			 * Frequency range depends on the currently active
 			 * wave form.
 			 */
-			if (rigol_dg_get_channel_state(sdi, cg) != SR_OK)
-				return SR_ERR_NA;
+			if (rigol_dg_get_channel_state(sdi, cg) != OTC_OK)
+				return OTC_ERR_NA;
 			wf_spec = rigol_dg_get_waveform_spec(ch_spec,
 					ch_status->wf);
 			if (!wf_spec)
-				return SR_ERR_BUG;
+				return OTC_ERR_BUG;
 			fspec[0] = wf_spec->freq_min;
 			fspec[1] = wf_spec->freq_max;
 			fspec[2] = wf_spec->freq_step;
 			*data = std_gvar_min_max_step_array(fspec);
 			break;
-		case SR_CONF_PHASE:
+		case OTC_CONF_PHASE:
 			*data = std_gvar_min_max_step_array(ch_spec->phase_min_max_step);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	const char *cmd;
 	char *response;
 	GVariant *data;
@@ -868,23 +868,23 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 	scpi = sdi->conn;
 	response = NULL;
 	data = NULL;
-	ret = SR_OK;
+	ret = OTC_OK;
 
 	if (!scpi)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
-	cmd = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_COUNTER_GET_ENABLED);
+	cmd = otc_scpi_cmd_get(devc->cmdset, PSG_CMD_COUNTER_GET_ENABLED);
 	if (cmd && *cmd) {
 		/* Check if counter is currently enabled. */
-		ret = sr_scpi_get_string(scpi, cmd, &response);
-		if (ret != SR_OK)
-			return SR_ERR_NA;
+		ret = otc_scpi_get_string(scpi, cmd, &response);
+		if (ret != OTC_OK)
+			return OTC_ERR_NA;
 		if (g_ascii_strncasecmp(response, "RUN", strlen("RUN")) == 0)
 			devc->counter_enabled = TRUE;
 		else
@@ -902,31 +902,31 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			need_quirk = devc->quirks & RIGOL_DG_COUNTER_CH2_CONFLICT;
 			need_quirk &= devc->device->num_channels > 1;
 			if (need_quirk) {
-				sr_scpi_get_opc(scpi);
-				ret = sr_scpi_cmd_resp(sdi, devc->cmdset,
+				otc_scpi_get_opc(scpi);
+				ret = otc_scpi_cmd_resp(sdi, devc->cmdset,
 					PSG_CMD_SELECT_CHANNEL, "2",
 					&data, G_VARIANT_TYPE_BOOLEAN,
 					PSG_CMD_GET_ENABLED, "2");
-				if (ret != SR_OK)
-					return SR_ERR_NA;
+				if (ret != OTC_OK)
+					return OTC_ERR_NA;
 				ch_active = g_variant_get_boolean(data);
 				g_variant_unref(data);
 				if (ch_active) {
-					sr_scpi_get_opc(scpi);
-					ret = sr_scpi_cmd(sdi, devc->cmdset,
+					otc_scpi_get_opc(scpi);
+					ret = otc_scpi_cmd(sdi, devc->cmdset,
 						PSG_CMD_SELECT_CHANNEL, "2",
 						PSG_CMD_SET_DISABLE, "2");
-					if (ret != SR_OK)
-						return SR_ERR_NA;
+					if (ret != OTC_OK)
+						return OTC_ERR_NA;
 				}
 			}
 
-			cmd = sr_scpi_cmd_get(devc->cmdset,
+			cmd = otc_scpi_cmd_get(devc->cmdset,
 					PSG_CMD_COUNTER_SET_ENABLE);
 			if (!cmd)
-				return SR_ERR_BUG;
-			sr_scpi_get_opc(scpi);
-			ret = sr_scpi_send(scpi, cmd);
+				return OTC_ERR_BUG;
+			otc_scpi_get_opc(scpi);
+			ret = otc_scpi_send(scpi, cmd);
 
 			need_quirk = devc->quirks & RIGOL_DG_COUNTER_BUG;
 			if (need_quirk)
@@ -934,11 +934,11 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		}
 	}
 
-	if (ret == SR_OK) {
-		sr_sw_limits_acquisition_start(&devc->limits);
+	if (ret == OTC_OK) {
+		otc_sw_limits_acquisition_start(&devc->limits);
 		ret = std_session_send_df_header(sdi);
-		if (ret == SR_OK) {
-			ret = sr_scpi_source_add(sdi->session, scpi,
+		if (ret == OTC_OK) {
+			ret = otc_scpi_source_add(sdi->session, scpi,
 				G_IO_IN, 100, rigol_dg_receive_data,
 				(void *)sdi);
 		}
@@ -947,40 +947,40 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	return ret;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	const char *cmd;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 	scpi = sdi->conn;
-	ret = SR_OK;
+	ret = OTC_OK;
 
-	cmd = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_COUNTER_SET_DISABLE);
+	cmd = otc_scpi_cmd_get(devc->cmdset, PSG_CMD_COUNTER_SET_DISABLE);
 	if (cmd && *cmd && !devc->counter_enabled) {
 		/*
 		 * If counter was not running when acquisiton started,
 		 * turn it off now. Some devices need a delay after
 		 * disabling the counter.
 		 */
-		sr_scpi_get_opc(scpi);
-		ret = sr_scpi_send(scpi, cmd);
+		otc_scpi_get_opc(scpi);
+		ret = otc_scpi_send(scpi, cmd);
 		if (devc->quirks & RIGOL_DG_COUNTER_BUG)
 			g_usleep(RIGOL_DG_COUNTER_BUG_DELAY);
 	}
 
-	sr_scpi_source_remove(sdi->session, scpi);
+	otc_scpi_source_remove(sdi->session, scpi);
 	std_session_send_df_end(sdi);
 
 	return ret;
 }
 
-static struct sr_dev_driver rigol_dg_driver_info = {
+static struct otc_dev_driver rigol_dg_driver_info = {
 	.name = "rigol-dg",
 	.longname = "Rigol DG Series",
 	.api_version = 1,
@@ -998,4 +998,4 @@ static struct sr_dev_driver rigol_dg_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(rigol_dg_driver_info);
+OTC_REGISTER_DEV_DRIVER(rigol_dg_driver_info);

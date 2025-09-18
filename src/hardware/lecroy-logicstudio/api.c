@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Tilman Sauerbeck <tilman@code-monkey.de>
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
@@ -38,62 +38,62 @@
 #define NUM_CHANNELS 16
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CAPTURE_RATIO | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
 };
 
 static const int32_t trigger_matches[] = {
-	SR_TRIGGER_ZERO,
-	SR_TRIGGER_ONE,
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
-	SR_TRIGGER_EDGE,
+	OTC_TRIGGER_ZERO,
+	OTC_TRIGGER_ONE,
+	OTC_TRIGGER_RISING,
+	OTC_TRIGGER_FALLING,
+	OTC_TRIGGER_EDGE,
 };
 
 static const uint64_t samplerates[] = {
-	SR_HZ(1000),
-	SR_HZ(2500),
-	SR_KHZ(5),
-	SR_KHZ(10),
-	SR_KHZ(25),
-	SR_KHZ(50),
-	SR_KHZ(100),
-	SR_KHZ(250),
-	SR_KHZ(500),
-	SR_KHZ(1000),
-	SR_KHZ(2500),
-	SR_MHZ(5),
-	SR_MHZ(10),
-	SR_MHZ(25),
-	SR_MHZ(50),
-	SR_MHZ(100),
-	SR_MHZ(250),
-	SR_MHZ(500),
+	OTC_HZ(1000),
+	OTC_HZ(2500),
+	OTC_KHZ(5),
+	OTC_KHZ(10),
+	OTC_KHZ(25),
+	OTC_KHZ(50),
+	OTC_KHZ(100),
+	OTC_KHZ(250),
+	OTC_KHZ(500),
+	OTC_KHZ(1000),
+	OTC_KHZ(2500),
+	OTC_MHZ(5),
+	OTC_MHZ(10),
+	OTC_MHZ(25),
+	OTC_MHZ(50),
+	OTC_MHZ(100),
+	OTC_MHZ(250),
+	OTC_MHZ(500),
 };
 
-static struct sr_dev_inst *create_device(struct sr_usb_dev_inst *usb,
-		enum sr_dev_inst_status status, int64_t fw_updated)
+static struct otc_dev_inst *create_device(struct otc_usb_dev_inst *usb,
+		enum otc_dev_inst_status status, int64_t fw_updated)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	char channel_name[8];
 	int i;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
 	sdi->status = status;
 	sdi->vendor = g_strdup("LeCroy");
 	sdi->model = g_strdup("LogicStudio16");
-	sdi->inst_type = SR_INST_USB;
+	sdi->inst_type = OTC_INST_USB;
 	sdi->conn = usb;
 
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		snprintf(channel_name, sizeof(channel_name), "D%i", i);
-		sr_channel_new(sdi, i, SR_CHANNEL_LOGIC, TRUE, channel_name);
+		otc_channel_new(sdi, i, OTC_CHANNEL_LOGIC, TRUE, channel_name);
 	}
 
 	devc = g_malloc0(sizeof(struct dev_context));
@@ -103,16 +103,16 @@ static struct sr_dev_inst *create_device(struct sr_usb_dev_inst *usb,
 	devc->fw_updated = fw_updated;
 	devc->capture_ratio = 50;
 
-	lls_set_samplerate(sdi, SR_MHZ(500));
+	lls_set_samplerate(sdi, OTC_MHZ(500));
 
 	return sdi;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct drv_context *drvc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct libusb_device_descriptor des;
 	libusb_device **devlist;
 	GSList *devices;
@@ -126,7 +126,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	devices = NULL;
 
-	libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+	libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 
 	for (i = 0; devlist[i]; i++) {
 		libusb_get_device_descriptor(devlist[i], &des);
@@ -141,15 +141,15 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 		switch (des.idProduct) {
 		case LOGICSTUDIO16_PID_HAVE_FIRMWARE:
-			usb = sr_usb_dev_inst_new(libusb_get_bus_number(devlist[i]),
+			usb = otc_usb_dev_inst_new(libusb_get_bus_number(devlist[i]),
 				libusb_get_device_address(devlist[i]), NULL);
 
-			sdi = create_device(usb, SR_ST_INACTIVE, 0);
+			sdi = create_device(usb, OTC_ST_INACTIVE, 0);
 			break;
 		case LOGICSTUDIO16_PID_LACK_FIRMWARE:
-			r = ezusb_upload_firmware(drvc->sr_ctx, devlist[i],
+			r = ezusb_upload_firmware(drvc->otc_ctx, devlist[i],
 				USB_CONFIGURATION, FX2_FIRMWARE);
-			if (r != SR_OK) {
+			if (r != OTC_OK) {
 				/*
 				 * An error message has already been logged by
 				 * ezusb_upload_firmware().
@@ -162,10 +162,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			 * need to get the proper address after the device
 			 * renumerates.
 			 */
-			usb = sr_usb_dev_inst_new(libusb_get_bus_number(devlist[i]),
+			usb = otc_usb_dev_inst_new(libusb_get_bus_number(devlist[i]),
 				UNKNOWN_ADDRESS, NULL);
 
-			sdi = create_device(usb, SR_ST_INITIALIZING,
+			sdi = create_device(usb, OTC_ST_INITIALIZING,
 				g_get_monotonic_time());
 			break;
 		default:
@@ -186,10 +186,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	return std_scan_complete(di, devices);
 }
 
-static int open_device(struct sr_dev_inst *sdi)
+static int open_device(struct otc_dev_inst *sdi)
 {
 	struct drv_context *drvc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct libusb_device_descriptor des;
 	libusb_device **devlist;
 	char connection_id[64];
@@ -202,7 +202,7 @@ static int open_device(struct sr_dev_inst *sdi)
 
 	is_opened = FALSE;
 
-	libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+	libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 
 	for (i = 0; devlist[i]; i++) {
 		libusb_get_device_descriptor(devlist[i], &des);
@@ -224,7 +224,7 @@ static int open_device(struct sr_dev_inst *sdi)
 		r = libusb_open(devlist[i], &usb->devhdl);
 
 		if (r) {
-			sr_err("Failed to open device: %s.",
+			otc_err("Failed to open device: %s.",
 				libusb_error_name(r));
 			break;
 		}
@@ -241,20 +241,20 @@ static int open_device(struct sr_dev_inst *sdi)
 	libusb_free_device_list(devlist, 1);
 
 	if (!is_opened)
-		return SR_ERR;
+		return OTC_ERR;
 
 	if ((r = libusb_claim_interface(usb->devhdl, USB_INTERFACE))) {
-		sr_err("Failed to claim interface: %s.",
+		otc_err("Failed to claim interface: %s.",
 			libusb_error_name(r));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	sdi->status = SR_ST_ACTIVE;
+	sdi->status = OTC_ST_ACTIVE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int64_t timediff_us, timediff_ms;
@@ -270,7 +270,7 @@ static int dev_open(struct sr_dev_inst *sdi)
 	if (!devc->fw_updated) {
 		ret = open_device(sdi);
 	} else {
-		sr_info("Waiting for device to reset.");
+		otc_info("Waiting for device to reset.");
 
 		/* Takes >= 300ms for the FX2 to be gone from the USB bus. */
 		g_usleep(300 * 1000);
@@ -279,7 +279,7 @@ static int dev_open(struct sr_dev_inst *sdi)
 		while (timediff_ms < MAX_RENUM_DELAY_MS) {
 			ret = open_device(sdi);
 
-			if (ret == SR_OK)
+			if (ret == OTC_OK)
 				break;
 
 			g_usleep(100 * 1000);
@@ -287,19 +287,19 @@ static int dev_open(struct sr_dev_inst *sdi)
 			timediff_us = g_get_monotonic_time() - devc->fw_updated;
 			timediff_ms = timediff_us / 1000;
 
-			sr_spew("Waited %" PRIi64 "ms.", timediff_ms);
+			otc_spew("Waited %" PRIi64 "ms.", timediff_ms);
 		}
 
-		if (ret != SR_OK) {
-			sr_err("Device failed to renumerate.");
-			return SR_ERR;
+		if (ret != OTC_OK) {
+			otc_err("Device failed to renumerate.");
+			return OTC_ERR;
 		}
 
-		sr_info("Device came back after %" PRIi64 "ms.", timediff_ms);
+		otc_info("Device came back after %" PRIi64 "ms.", timediff_ms);
 	}
 
-	if (ret != SR_OK) {
-		sr_err("Unable to open device.");
+	if (ret != OTC_OK) {
+		otc_err("Unable to open device.");
 		return ret;
 	}
 
@@ -314,12 +314,12 @@ static int dev_open(struct sr_dev_inst *sdi)
 	devc->intr_xfer = libusb_alloc_transfer(0);
 	devc->bulk_xfer = libusb_alloc_transfer(0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct dev_context *devc;
 
 	usb = sdi->conn;
@@ -344,87 +344,87 @@ static int dev_close(struct sr_dev_inst *sdi)
 	}
 
 	if (!usb->devhdl)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	libusb_release_interface(usb->devhdl, 0);
 
 	libusb_close(usb->devhdl);
 	usb->devhdl = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(lls_get_samplerate(sdi));
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		*data = g_variant_new_uint64(devc->capture_ratio);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		return lls_set_samplerate(sdi, g_variant_get_uint64(data));
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		devc->capture_ratio = g_variant_get_uint64(data);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	switch (key) {
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, NO_OPTS, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates));
 		break;
-	case SR_CONF_TRIGGER_MATCH:
+	case OTC_CONF_TRIGGER_MATCH:
 		*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int config_commit(const struct sr_dev_inst *sdi)
+static int config_commit(const struct otc_dev_inst *sdi)
 {
 	return lls_setup_acquisition(sdi);
 }
@@ -442,13 +442,13 @@ static int receive_usb_data(int fd, int revents, void *cb_data)
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 
-	libusb_handle_events_timeout_completed(drvc->sr_ctx->libusb_ctx,
+	libusb_handle_events_timeout_completed(drvc->otc_ctx->libusb_ctx,
 		&tv, NULL);
 
 	return TRUE;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct drv_context *drvc;
 	int ret;
@@ -460,16 +460,16 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 	std_session_send_df_header(sdi);
 
-	return usb_source_add(sdi->session, drvc->sr_ctx, 100,
+	return usb_source_add(sdi->session, drvc->otc_ctx, 100,
 		receive_usb_data, drvc);
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	return lls_stop_acquisition(sdi);
 }
 
-static struct sr_dev_driver lecroy_logicstudio_driver_info = {
+static struct otc_dev_driver lecroy_logicstudio_driver_info = {
 	.name = "lecroy-logicstudio",
 	.longname = "LeCroy LogicStudio",
 	.api_version = 1,
@@ -488,4 +488,4 @@ static struct sr_dev_driver lecroy_logicstudio_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(lecroy_logicstudio_driver_info);
+OTC_REGISTER_DEV_DRIVER(lecroy_logicstudio_driver_info);

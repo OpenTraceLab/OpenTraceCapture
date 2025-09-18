@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -31,43 +31,43 @@
 #include <math.h>
 #include <sys/time.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 #include "scpi.h"
 
 #define LOG_PREFIX "std"
 
-SR_PRIV const uint32_t NO_OPTS[1] = {};
+OTC_PRIV const uint32_t NO_OPTS[1] = {};
 
 /**
  * Standard driver init() callback API helper.
  *
  * This function can be used to simplify most driver's init() API callback.
  *
- * Create a new 'struct drv_context' (drvc), assign sr_ctx to it, and
- * then assign 'drvc' to the 'struct sr_dev_driver' (di) that is passed.
+ * Create a new 'struct drv_context' (drvc), assign otc_ctx to it, and
+ * then assign 'drvc' to the 'struct otc_dev_driver' (di) that is passed.
  *
  * @param[in] di The driver instance to use. Must not be NULL.
- * @param[in] sr_ctx The libsigrok context to assign. May be NULL.
+ * @param[in] otc_ctx The libopentracecapture context to assign. May be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  */
-SR_PRIV int std_init(struct sr_dev_driver *di, struct sr_context *sr_ctx)
+OTC_PRIV int std_init(struct otc_dev_driver *di, struct otc_context *otc_ctx)
 {
 	struct drv_context *drvc;
 
 	if (!di) {
-		sr_err("%s: Invalid argument.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: Invalid argument.", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	drvc = g_malloc0(sizeof(struct drv_context));
-	drvc->sr_ctx = sr_ctx;
+	drvc->otc_ctx = otc_ctx;
 	drvc->instances = NULL;
 	di->context = drvc;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -75,25 +75,25 @@ SR_PRIV int std_init(struct sr_dev_driver *di, struct sr_context *sr_ctx)
  *
  * This function can be used to simplify most driver's cleanup() API callback.
  *
- * Free all device instances by calling sr_dev_clear() and then release any
+ * Free all device instances by calling otc_dev_clear() and then release any
  * resources allocated by std_init().
  *
  * @param[in] di The driver instance to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  * @retval other Other error.
  */
-SR_PRIV int std_cleanup(const struct sr_dev_driver *di)
+OTC_PRIV int std_cleanup(const struct otc_dev_driver *di)
 {
 	int ret;
 
 	if (!di) {
-		sr_err("%s: Invalid argument.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: Invalid argument.", __func__);
+		return OTC_ERR_ARG;
 	}
 
-	ret = sr_dev_clear(di);
+	ret = otc_dev_clear(di);
 	g_free(di->context);
 
 	return ret;
@@ -104,13 +104,13 @@ SR_PRIV int std_cleanup(const struct sr_dev_driver *di)
  *
  * @param[in] sdi The device instance to use. May be NULL (unused).
  *
- * @retval SR_OK Success.
+ * @retval OTC_OK Success.
  */
-SR_PRIV int std_dummy_dev_open(struct sr_dev_inst *sdi)
+OTC_PRIV int std_dummy_dev_open(struct otc_dev_inst *sdi)
 {
 	(void)sdi;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -118,13 +118,13 @@ SR_PRIV int std_dummy_dev_open(struct sr_dev_inst *sdi)
  *
  * @param[in] sdi The device instance to use. May be NULL (unused).
  *
- * @retval SR_OK Success.
+ * @retval OTC_OK Success.
  */
-SR_PRIV int std_dummy_dev_close(struct sr_dev_inst *sdi)
+OTC_PRIV int std_dummy_dev_close(struct otc_dev_inst *sdi)
 {
 	(void)sdi;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -132,13 +132,13 @@ SR_PRIV int std_dummy_dev_close(struct sr_dev_inst *sdi)
  *
  * @param[in] sdi The device instance to use. May be NULL (unused).
  *
- * @retval SR_OK Success.
+ * @retval OTC_OK Success.
  */
-SR_PRIV int std_dummy_dev_acquisition_start(const struct sr_dev_inst *sdi)
+OTC_PRIV int std_dummy_dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	(void)sdi;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -146,64 +146,64 @@ SR_PRIV int std_dummy_dev_acquisition_start(const struct sr_dev_inst *sdi)
  *
  * @param[in] sdi The device instance to use. May be NULL (unused).
  *
- * @retval SR_OK Success.
+ * @retval OTC_OK Success.
  */
-SR_PRIV int std_dummy_dev_acquisition_stop(struct sr_dev_inst *sdi)
+OTC_PRIV int std_dummy_dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	(void)sdi;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
- * Standard API helper for sending an SR_DF_HEADER packet.
+ * Standard API helper for sending an OTC_DF_HEADER packet.
  *
  * This function can be used to simplify most drivers'
  * dev_acquisition_start() API callback.
  *
  * @param[in] sdi The device instance to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  * @retval other Other error.
  */
-SR_PRIV int std_session_send_df_header(const struct sr_dev_inst *sdi)
+OTC_PRIV int std_session_send_df_header(const struct otc_dev_inst *sdi)
 {
 	const char *prefix;
 	int ret;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_header header;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_header header;
 
 	if (!sdi) {
-		sr_err("%s: Invalid argument.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: Invalid argument.", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	prefix = (sdi->driver) ? sdi->driver->name : "unknown";
 
 	/* Send header packet to the session bus. */
-	packet.type = SR_DF_HEADER;
+	packet.type = OTC_DF_HEADER;
 	packet.payload = (uint8_t *)&header;
 	header.feed_version = 1;
 	gettimeofday(&header.starttime, NULL);
 
-	if ((ret = sr_session_send(sdi, &packet)) < 0) {
-		sr_err("%s: Failed to send SR_DF_HEADER packet: %d.", prefix, ret);
+	if ((ret = otc_session_send(sdi, &packet)) < 0) {
+		otc_err("%s: Failed to send OTC_DF_HEADER packet: %d.", prefix, ret);
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int send_df_without_payload(const struct sr_dev_inst *sdi, uint16_t packet_type)
+static int send_df_without_payload(const struct otc_dev_inst *sdi, uint16_t packet_type)
 {
 	const char *prefix;
 	int ret;
-	struct sr_datafeed_packet packet;
+	struct otc_datafeed_packet packet;
 
 	if (!sdi) {
-		sr_err("%s: Invalid argument.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: Invalid argument.", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	prefix = (sdi->driver) ? sdi->driver->name : "unknown";
@@ -211,77 +211,77 @@ static int send_df_without_payload(const struct sr_dev_inst *sdi, uint16_t packe
 	packet.type = packet_type;
 	packet.payload = NULL;
 
-	if ((ret = sr_session_send(sdi, &packet)) < 0) {
-		sr_err("%s: Failed to send packet of type %d: %d.", prefix, packet_type, ret);
+	if ((ret = otc_session_send(sdi, &packet)) < 0) {
+		otc_err("%s: Failed to send packet of type %d: %d.", prefix, packet_type, ret);
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
- * Standard API helper for sending an SR_DF_END packet.
+ * Standard API helper for sending an OTC_DF_END packet.
  *
  * This function can be used to simplify most drivers'
  * dev_acquisition_stop() API callback.
  *
  * @param[in] sdi The device instance to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  * @retval other Other error.
  */
-SR_PRIV int std_session_send_df_end(const struct sr_dev_inst *sdi)
+OTC_PRIV int std_session_send_df_end(const struct otc_dev_inst *sdi)
 {
-	return send_df_without_payload(sdi, SR_DF_END);
+	return send_df_without_payload(sdi, OTC_DF_END);
 }
 
 /**
- * Standard API helper for sending an SR_DF_TRIGGER packet.
+ * Standard API helper for sending an OTC_DF_TRIGGER packet.
  *
  * This function can be used to simplify most drivers' trigger handling.
  *
  * @param[in] sdi The device instance to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  * @retval other Other error.
  */
-SR_PRIV int std_session_send_df_trigger(const struct sr_dev_inst *sdi)
+OTC_PRIV int std_session_send_df_trigger(const struct otc_dev_inst *sdi)
 {
-	return send_df_without_payload(sdi, SR_DF_TRIGGER);
+	return send_df_without_payload(sdi, OTC_DF_TRIGGER);
 }
 
 /**
- * Standard API helper for sending an SR_DF_FRAME_BEGIN packet.
+ * Standard API helper for sending an OTC_DF_FRAME_BEGIN packet.
  *
  * This function can be used to simplify most drivers' frame handling.
  *
  * @param[in] sdi The device instance to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  * @retval other Other error.
  */
-SR_PRIV int std_session_send_df_frame_begin(const struct sr_dev_inst *sdi)
+OTC_PRIV int std_session_send_df_frame_begin(const struct otc_dev_inst *sdi)
 {
-	return send_df_without_payload(sdi, SR_DF_FRAME_BEGIN);
+	return send_df_without_payload(sdi, OTC_DF_FRAME_BEGIN);
 }
 
 /**
- * Standard API helper for sending an SR_DF_FRAME_END packet.
+ * Standard API helper for sending an OTC_DF_FRAME_END packet.
  *
  * This function can be used to simplify most drivers' frame handling.
  *
  * @param[in] sdi The device instance to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  * @retval other Other error.
  */
-SR_PRIV int std_session_send_df_frame_end(const struct sr_dev_inst *sdi)
+OTC_PRIV int std_session_send_df_frame_end(const struct otc_dev_inst *sdi)
 {
-	return send_df_without_payload(sdi, SR_DF_FRAME_END);
+	return send_df_without_payload(sdi, OTC_DF_FRAME_END);
 }
 
 #ifdef HAVE_SERIAL_COMM
@@ -295,17 +295,17 @@ SR_PRIV int std_session_send_df_frame_end(const struct sr_dev_inst *sdi)
  *
  * @param[in] sdi The device instance to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  * @retval other Serial port open failed.
  */
-SR_PRIV int std_serial_dev_open(struct sr_dev_inst *sdi)
+OTC_PRIV int std_serial_dev_open(struct otc_dev_inst *sdi)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	if (!sdi) {
-		sr_err("%s: Invalid argument.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: Invalid argument.", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	serial = sdi->conn;
@@ -321,17 +321,17 @@ SR_PRIV int std_serial_dev_open(struct sr_dev_inst *sdi)
  *
  * @param[in] sdi The device instance to use. Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  * @retval other Serial port close failed.
  */
-SR_PRIV int std_serial_dev_close(struct sr_dev_inst *sdi)
+OTC_PRIV int std_serial_dev_close(struct otc_dev_inst *sdi)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	if (!sdi) {
-		sr_err("%s: Invalid argument.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: Invalid argument.", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	serial = sdi->conn;
@@ -348,26 +348,26 @@ SR_PRIV int std_serial_dev_close(struct sr_dev_inst *sdi)
  * @param[in] sdi The device instance for which acquisition should stop.
  *                Must not be NULL.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
  * @retval other Other error.
  */
-SR_PRIV int std_serial_dev_acquisition_stop(struct sr_dev_inst *sdi)
+OTC_PRIV int std_serial_dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	const char *prefix;
 	int ret;
 
 	if (!sdi) {
-		sr_err("%s: Invalid argument.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: Invalid argument.", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	serial = sdi->conn;
 	prefix = sdi->driver->name;
 
 	if ((ret = serial_source_remove(sdi->session, serial)) < 0) {
-		sr_err("%s: Failed to remove source: %d.", prefix, ret);
+		otc_err("%s: Failed to remove source: %d.", prefix, ret);
 		return ret;
 	}
 
@@ -382,7 +382,7 @@ SR_PRIV int std_serial_dev_acquisition_stop(struct sr_dev_inst *sdi)
  * Clear driver, this means, close all instances.
  *
  * This function can be used to implement the dev_clear() driver API
- * callback. dev_close() is called before every sr_dev_inst is cleared.
+ * callback. dev_close() is called before every otc_dev_inst is cleared.
  *
  * The only limitation is driver-specific device contexts (sdi->priv / devc).
  * These are freed, but any dynamic allocation within structs stored
@@ -397,49 +397,51 @@ SR_PRIV int std_serial_dev_acquisition_stop(struct sr_dev_inst *sdi)
  *            since this function will always free it after clear_private()
  *            has run.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR_ARG Invalid argument.
- * @retval SR_ERR_BUG Implementation bug.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR_ARG Invalid argument.
+ * @retval OTC_ERR_BUG Implementation bug.
  * @retval other Other error.
  */
-SR_PRIV int std_dev_clear_with_callback(const struct sr_dev_driver *driver,
+OTC_PRIV int std_dev_clear_with_callback(const struct otc_dev_driver *driver,
 		std_dev_clear_callback clear_private)
 {
 	struct drv_context *drvc;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	GSList *l;
 	int ret;
 
 	if (!driver) {
-		sr_err("%s: Invalid argument.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: Invalid argument.", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	drvc = driver->context; /* Caller checked for context != NULL. */
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	for (l = drvc->instances; l; l = l->next) {
 		if (!(sdi = l->data)) {
-			sr_err("%s: Invalid device instance.", __func__);
-			ret = SR_ERR_BUG;
+			otc_err("%s: Invalid device instance.", __func__);
+			ret = OTC_ERR_BUG;
 			continue;
 		}
-		if (driver->dev_close && sdi->status == SR_ST_ACTIVE)
+		if (driver->dev_close && sdi->status == OTC_ST_ACTIVE)
 			driver->dev_close(sdi);
 
 		if (sdi->conn) {
 #ifdef HAVE_SERIAL_COMM
-			if (sdi->inst_type == SR_INST_SERIAL)
-				sr_serial_dev_inst_free(sdi->conn);
+			if (sdi->inst_type == OTC_INST_SERIAL)
+				otc_serial_dev_inst_free(sdi->conn);
 #endif
 #ifdef HAVE_LIBUSB_1_0
-			if (sdi->inst_type == SR_INST_USB)
-				sr_usb_dev_inst_free(sdi->conn);
+			if (sdi->inst_type == OTC_INST_USB)
+				otc_usb_dev_inst_free(sdi->conn);
 #endif
-			if (sdi->inst_type == SR_INST_SCPI)
-				sr_scpi_free(sdi->conn);
-			if (sdi->inst_type == SR_INST_MODBUS)
-				sr_modbus_free(sdi->conn);
+			/* TODO: Add SCPI/Modbus support later
+			if (sdi->inst_type == OTC_INST_SCPI)
+				otc_scpi_free(sdi->conn);
+			if (sdi->inst_type == OTC_INST_MODBUS)
+				otc_modbus_free(sdi->conn);
+			*/
 		}
 
 		/* Clear driver-specific stuff, if any. */
@@ -449,7 +451,7 @@ SR_PRIV int std_dev_clear_with_callback(const struct sr_dev_driver *driver,
 		/* Clear sdi->priv (devc). */
 		g_free(sdi->priv);
 
-		sr_dev_inst_free(sdi);
+		otc_dev_inst_free(sdi);
 	}
 
 	g_slist_free(drvc->instances);
@@ -458,7 +460,7 @@ SR_PRIV int std_dev_clear_with_callback(const struct sr_dev_driver *driver,
 	return ret;
 }
 
-SR_PRIV int std_dev_clear(const struct sr_dev_driver *driver)
+OTC_PRIV int std_dev_clear(const struct otc_dev_driver *driver)
 {
 	return std_dev_clear_with_callback(driver, NULL);
 }
@@ -475,12 +477,12 @@ SR_PRIV int std_dev_clear(const struct sr_dev_driver *driver)
  * @retval NULL Error, or the list is empty.
  * @retval other The list of device instances of this driver.
  */
-SR_PRIV GSList *std_dev_list(const struct sr_dev_driver *di)
+OTC_PRIV GSList *std_dev_list(const struct otc_dev_driver *di)
 {
 	struct drv_context *drvc;
 
 	if (!di) {
-		sr_err("%s: Invalid argument.", __func__);
+		otc_err("%s: Invalid argument.", __func__);
 		return NULL;
 	}
 
@@ -503,12 +505,12 @@ SR_PRIV GSList *std_dev_list(const struct sr_dev_driver *di)
  *
  * Example:
  * @code{c}
- * static GSList *scan(struct sr_dev_driver *di, GSList *options)
+ * static GSList *scan(struct otc_dev_driver *di, GSList *options)
  * {
  *     struct GSList *device;
- *     struct sr_dev_inst *sdi;
+ *     struct otc_dev_inst *sdi;
  *
- *     sdi = g_new0(sr_dev_inst, 1);
+ *     sdi = g_new0(otc_dev_inst, 1);
  *     sdi->vendor = ...;
  *     ...
  *     devices = g_slist_append(devices, sdi);
@@ -518,27 +520,27 @@ SR_PRIV GSList *std_dev_list(const struct sr_dev_driver *di)
  * @endcode
  *
  * @param[in] di The driver instance to use. Must not be NULL.
- * @param[in] devices List of newly discovered devices (struct sr_dev_inst).
+ * @param[in] devices List of newly discovered devices (struct otc_dev_inst).
  *                    May be NULL.
  *
  * @return The @p devices list.
  */
-SR_PRIV GSList *std_scan_complete(struct sr_dev_driver *di, GSList *devices)
+OTC_PRIV GSList *std_scan_complete(struct otc_dev_driver *di, GSList *devices)
 {
 	struct drv_context *drvc;
 	GSList *l;
 
 	if (!di) {
-		sr_err("Invalid driver instance (di), cannot complete scan.");
+		otc_err("Invalid driver instance (di), cannot complete scan.");
 		return NULL;
 	}
 
 	drvc = di->context;
 
 	for (l = devices; l; l = l->next) {
-		struct sr_dev_inst *sdi = l->data;
+		struct otc_dev_inst *sdi = l->data;
 		if (!sdi) {
-			sr_err("Invalid device instance, cannot complete scan.");
+			otc_err("Invalid device instance, cannot complete scan.");
 			return NULL;
 		}
 		sdi->driver = di;
@@ -549,30 +551,30 @@ SR_PRIV GSList *std_scan_complete(struct sr_dev_driver *di, GSList *devices)
 	return devices;
 }
 
-SR_PRIV int std_opts_config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg,
+OTC_PRIV int std_opts_config_list(uint32_t key, GVariant **data,
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg,
 	const uint32_t scanopts[], size_t scansize, const uint32_t drvopts[],
 	size_t drvsize, const uint32_t devopts[], size_t devsize)
 {
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
 		/* Always return scanopts, regardless of sdi or cg. */
 		if (!scanopts || scanopts == NO_OPTS)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_fixed_array(G_VARIANT_TYPE_UINT32,
 			scanopts, scansize, sizeof(uint32_t));
 		break;
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		if (!sdi) {
 			/* sdi == NULL: return drvopts. */
 			if (!drvopts || drvopts == NO_OPTS)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			*data = g_variant_new_fixed_array(G_VARIANT_TYPE_UINT32,
 				drvopts, drvsize, sizeof(uint32_t));
 		} else if (sdi && !cg) {
 			/* sdi != NULL, cg == NULL: return devopts. */
 			if (!devopts || devopts == NO_OPTS)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			*data = g_variant_new_fixed_array(G_VARIANT_TYPE_UINT32,
 				devopts, devsize, sizeof(uint32_t));
 		} else {
@@ -580,19 +582,19 @@ SR_PRIV int std_opts_config_list(uint32_t key, GVariant **data,
 			 * Note: sdi != NULL, cg != NULL is not handled by
 			 * this function since it's very driver-specific.
 			 */
-			sr_err("%s: %s: sdi/cg != NULL: not handling.",
+			otc_err("%s: %s: sdi/cg != NULL: not handling.",
 			       sdi->driver->name, __func__);
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		}
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV GVariant *std_gvar_tuple_array(const uint64_t a[][2], unsigned int n)
+OTC_PRIV GVariant *std_gvar_tuple_array(const uint64_t a[][2], unsigned int n)
 {
 	unsigned int i;
 	GVariant *rational[2];
@@ -612,7 +614,7 @@ SR_PRIV GVariant *std_gvar_tuple_array(const uint64_t a[][2], unsigned int n)
 	return g_variant_builder_end(&gvb);
 }
 
-SR_PRIV GVariant *std_gvar_tuple_rational(const struct sr_rational *r, unsigned int n)
+OTC_PRIV GVariant *std_gvar_tuple_rational(const struct otc_rational *r, unsigned int n)
 {
 	unsigned int i;
 	GVariant *rational[2];
@@ -645,17 +647,17 @@ static GVariant *samplerate_helper(const uint64_t samplerates[], unsigned int n,
 	return g_variant_builder_end(&gvb);
 }
 
-SR_PRIV GVariant *std_gvar_samplerates(const uint64_t samplerates[], unsigned int n)
+OTC_PRIV GVariant *std_gvar_samplerates(const uint64_t samplerates[], unsigned int n)
 {
 	return samplerate_helper(samplerates, n, "samplerates");
 }
 
-SR_PRIV GVariant *std_gvar_samplerates_steps(const uint64_t samplerates[], unsigned int n)
+OTC_PRIV GVariant *std_gvar_samplerates_steps(const uint64_t samplerates[], unsigned int n)
 {
 	return samplerate_helper(samplerates, n, "samplerate-steps");
 }
 
-SR_PRIV GVariant *std_gvar_min_max_step(double min, double max, double step)
+OTC_PRIV GVariant *std_gvar_min_max_step(double min, double max, double step)
 {
 	GVariantBuilder gvb;
 
@@ -668,7 +670,7 @@ SR_PRIV GVariant *std_gvar_min_max_step(double min, double max, double step)
 	return g_variant_builder_end(&gvb);
 }
 
-SR_PRIV GVariant *std_gvar_min_max_step_array(const double a[3])
+OTC_PRIV GVariant *std_gvar_min_max_step_array(const double a[3])
 {
 	unsigned int i;
 	GVariantBuilder gvb;
@@ -681,7 +683,7 @@ SR_PRIV GVariant *std_gvar_min_max_step_array(const double a[3])
 	return g_variant_builder_end(&gvb);
 }
 
-SR_PRIV GVariant *std_gvar_min_max_step_thresholds(const double min, const double max, const double step)
+OTC_PRIV GVariant *std_gvar_min_max_step_thresholds(const double min, const double max, const double step)
 {
 	double d, v;
 	GVariant *gvar, *range[2];
@@ -706,7 +708,7 @@ SR_PRIV GVariant *std_gvar_min_max_step_thresholds(const double min, const doubl
 	return g_variant_builder_end(&gvb);
 }
 
-SR_PRIV GVariant *std_gvar_tuple_u64(uint64_t low, uint64_t high)
+OTC_PRIV GVariant *std_gvar_tuple_u64(uint64_t low, uint64_t high)
 {
 	GVariant *range[2];
 
@@ -716,7 +718,7 @@ SR_PRIV GVariant *std_gvar_tuple_u64(uint64_t low, uint64_t high)
 	return g_variant_new_tuple(range, ARRAY_SIZE(range));
 }
 
-SR_PRIV GVariant *std_gvar_tuple_double(double low, double high)
+OTC_PRIV GVariant *std_gvar_tuple_double(double low, double high)
 {
 	GVariant *range[2];
 
@@ -726,25 +728,25 @@ SR_PRIV GVariant *std_gvar_tuple_double(double low, double high)
 	return g_variant_new_tuple(range, ARRAY_SIZE(range));
 }
 
-SR_PRIV GVariant *std_gvar_array_i32(const int32_t a[], unsigned int n)
+OTC_PRIV GVariant *std_gvar_array_i32(const int32_t a[], unsigned int n)
 {
 	return g_variant_new_fixed_array(G_VARIANT_TYPE_INT32,
 				a, n, sizeof(int32_t));
 }
 
-SR_PRIV GVariant *std_gvar_array_u32(const uint32_t a[], unsigned int n)
+OTC_PRIV GVariant *std_gvar_array_u32(const uint32_t a[], unsigned int n)
 {
 	return g_variant_new_fixed_array(G_VARIANT_TYPE_UINT32,
 				a, n, sizeof(uint32_t));
 }
 
-SR_PRIV GVariant *std_gvar_array_u64(const uint64_t a[], unsigned int n)
+OTC_PRIV GVariant *std_gvar_array_u64(const uint64_t a[], unsigned int n)
 {
 	return g_variant_new_fixed_array(G_VARIANT_TYPE_UINT64,
 				a, n, sizeof(uint64_t));
 }
 
-SR_PRIV GVariant *std_gvar_array_str(const char *a[], unsigned int n)
+OTC_PRIV GVariant *std_gvar_array_str(const char *a[], unsigned int n)
 {
 	GVariant *gvar;
 	GVariantBuilder *builder;
@@ -761,7 +763,7 @@ SR_PRIV GVariant *std_gvar_array_str(const char *a[], unsigned int n)
 	return gvar;
 }
 
-SR_PRIV GVariant *std_gvar_thresholds(const double a[][2], unsigned int n)
+OTC_PRIV GVariant *std_gvar_thresholds(const double a[][2], unsigned int n)
 {
 	unsigned int i;
 	GVariant *gvar, *range[2];
@@ -825,22 +827,22 @@ static int find_in_array(GVariant *data, const GVariantType *type,
 	return -1;
 }
 
-SR_PRIV int std_str_idx(GVariant *data, const char *a[], unsigned int n)
+OTC_PRIV int std_str_idx(GVariant *data, const char *a[], unsigned int n)
 {
 	return find_in_array(data, G_VARIANT_TYPE_STRING, a, n);
 }
 
-SR_PRIV int std_u64_idx(GVariant *data, const uint64_t a[], unsigned int n)
+OTC_PRIV int std_u64_idx(GVariant *data, const uint64_t a[], unsigned int n)
 {
 	return find_in_array(data, G_VARIANT_TYPE_UINT64, a, n);
 }
 
-SR_PRIV int std_u8_idx(GVariant *data, const uint8_t a[], unsigned int n)
+OTC_PRIV int std_u8_idx(GVariant *data, const uint8_t a[], unsigned int n)
 {
 	return find_in_array(data, G_VARIANT_TYPE_BYTE, a, n);
 }
 
-SR_PRIV int std_str_idx_s(const char *s, const char *a[], unsigned int n)
+OTC_PRIV int std_str_idx_s(const char *s, const char *a[], unsigned int n)
 {
 	int idx;
 	GVariant *data;
@@ -852,7 +854,7 @@ SR_PRIV int std_str_idx_s(const char *s, const char *a[], unsigned int n)
 	return idx;
 }
 
-SR_PRIV int std_u8_idx_s(uint8_t b, const uint8_t a[], unsigned int n)
+OTC_PRIV int std_u8_idx_s(uint8_t b, const uint8_t a[], unsigned int n)
 {
 	int idx;
 	GVariant *data;
@@ -864,7 +866,7 @@ SR_PRIV int std_u8_idx_s(uint8_t b, const uint8_t a[], unsigned int n)
 	return idx;
 }
 
-SR_PRIV int std_u64_tuple_idx(GVariant *data, const uint64_t a[][2], unsigned int n)
+OTC_PRIV int std_u64_tuple_idx(GVariant *data, const uint64_t a[][2], unsigned int n)
 {
 	unsigned int i;
 	uint64_t low, high;
@@ -878,7 +880,7 @@ SR_PRIV int std_u64_tuple_idx(GVariant *data, const uint64_t a[][2], unsigned in
 	return -1;
 }
 
-SR_PRIV int std_double_tuple_idx(GVariant *data, const double a[][2], unsigned int n)
+OTC_PRIV int std_double_tuple_idx(GVariant *data, const double a[][2], unsigned int n)
 {
 	unsigned int i;
 	double low, high;
@@ -892,7 +894,7 @@ SR_PRIV int std_double_tuple_idx(GVariant *data, const double a[][2], unsigned i
 	return -1;
 }
 
-SR_PRIV int std_double_tuple_idx_d0(const double d, const double a[][2], unsigned int n)
+OTC_PRIV int std_double_tuple_idx_d0(const double d, const double a[][2], unsigned int n)
 {
 	unsigned int i;
 
@@ -903,7 +905,7 @@ SR_PRIV int std_double_tuple_idx_d0(const double d, const double a[][2], unsigne
 	return -1;
 }
 
-SR_PRIV int std_cg_idx(const struct sr_channel_group *cg, struct sr_channel_group *a[], unsigned int n)
+OTC_PRIV int std_cg_idx(const struct otc_channel_group *cg, struct otc_channel_group *a[], unsigned int n)
 {
 	unsigned int i;
 
@@ -914,7 +916,7 @@ SR_PRIV int std_cg_idx(const struct sr_channel_group *cg, struct sr_channel_grou
 	return -1;
 }
 
-SR_PRIV int std_dummy_set_params(struct sr_serial_dev_inst *serial,
+OTC_PRIV int std_dummy_set_params(struct otc_serial_dev_inst *serial,
 	int baudrate, int bits, int parity, int stopbits,
 	int flowcontrol, int rts, int dtr)
 {
@@ -927,15 +929,15 @@ SR_PRIV int std_dummy_set_params(struct sr_serial_dev_inst *serial,
 	(void)rts;
 	(void)dtr;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int std_dummy_set_handshake(struct sr_serial_dev_inst *serial,
+OTC_PRIV int std_dummy_set_handshake(struct otc_serial_dev_inst *serial,
 	int rts, int dtr)
 {
 	(void)serial;
 	(void)rts;
 	(void)dtr;
 
-	return SR_OK;
+	return OTC_OK;
 }

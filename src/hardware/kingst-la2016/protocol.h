@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2022 Gerhard Sittig <gerhard.sittig@gmx.net>
  * Copyright (C) 2020 Florian Schmidt <schmidt_florian@gmx.de>
@@ -24,7 +24,7 @@
 #ifndef LIBSIGROK_HARDWARE_KINGST_LA2016_PROTOCOL_H
 #define LIBSIGROK_HARDWARE_KINGST_LA2016_PROTOCOL_H
 
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <stdint.h>
 
 #define LOG_PREFIX	"kingst-la2016"
@@ -38,7 +38,7 @@
 #define USB_EP_CAPTURE_DATA	6
 
 /*
- * On Windows sigrok uses WinUSB RAW_IO policy which requires the
+ * On Windows opentracelab uses WinUSB RAW_IO policy which requires the
  * USB transfer buffer size to be a multiple of the endpoint max packet
  * size, which is 512 bytes in this case. Also, the maximum allowed size
  * of the transfer buffer is normally read from WinUSB_GetPipePolicy API
@@ -84,8 +84,8 @@
 #define LA2016_NUM_SAMPLES_MAX	(UINT64_C(10 * 1000 * 1000 * 1000))
 
 /* Maximum device capabilities. May differ between models. */
-#define MAX_PWM_FREQ		SR_MHZ(20)
-#define PWM_CLOCK		SR_MHZ(200)	/* 200MHz for both LA2016 and LA1016 */
+#define MAX_PWM_FREQ		OTC_MHZ(20)
+#define PWM_CLOCK		OTC_MHZ(200)	/* 200MHz for both LA2016 and LA1016 */
 
 #define LA2016_NUM_PWMCH_MAX	2
 
@@ -122,7 +122,7 @@ struct dev_context {
 	uint8_t identify_magic, identify_magic2;
 	const struct kingst_model *model;
 	char **channel_names_logic;
-	struct sr_channel_group *cg_logic, *cg_pwm;
+	struct otc_channel_group *cg_logic, *cg_pwm;
 
 	/* User specified parameters. */
 	struct pwm_setting {
@@ -132,7 +132,7 @@ struct dev_context {
 	} pwm_setting[LA2016_NUM_PWMCH_MAX];
 	size_t threshold_voltage_idx;
 	uint64_t samplerate;
-	struct sr_sw_limits sw_limits;
+	struct otc_sw_limits sw_limits;
 	uint64_t capture_ratio;
 	gboolean continuous;
 
@@ -170,18 +170,18 @@ struct dev_context {
 	} stream;
 };
 
-SR_PRIV int la2016_upload_firmware(const struct sr_dev_inst *sdi,
-	struct sr_context *sr_ctx, libusb_device *dev, gboolean skip_upload);
-SR_PRIV int la2016_identify_device(const struct sr_dev_inst *sdi,
+OTC_PRIV int la2016_upload_firmware(const struct otc_dev_inst *sdi,
+	struct otc_context *otc_ctx, libusb_device *dev, gboolean skip_upload);
+OTC_PRIV int la2016_identify_device(const struct otc_dev_inst *sdi,
 	gboolean show_message);
-SR_PRIV int la2016_init_hardware(const struct sr_dev_inst *sdi);
-SR_PRIV int la2016_deinit_hardware(const struct sr_dev_inst *sdi);
-SR_PRIV int la2016_write_pwm_config(const struct sr_dev_inst *sdi, size_t idx);
-SR_PRIV int la2016_setup_acquisition(const struct sr_dev_inst *sdi,
+OTC_PRIV int la2016_init_hardware(const struct otc_dev_inst *sdi);
+OTC_PRIV int la2016_deinit_hardware(const struct otc_dev_inst *sdi);
+OTC_PRIV int la2016_write_pwm_config(const struct otc_dev_inst *sdi, size_t idx);
+OTC_PRIV int la2016_setup_acquisition(const struct otc_dev_inst *sdi,
 	double voltage);
-SR_PRIV int la2016_start_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV int la2016_abort_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV int la2016_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV void la2016_release_resources(const struct sr_dev_inst *sdi);
+OTC_PRIV int la2016_start_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV int la2016_abort_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV int la2016_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV void la2016_release_resources(const struct otc_dev_inst *sdi);
 
 #endif

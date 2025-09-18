@@ -1,0 +1,96 @@
+##
+## This file is part of the OpenTraceCapture project.
+##
+## Copyright (C) 2010-2013 Uwe Hermann <uwe@hermann-uwe.de>
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, see <http://www.gnu.org/licenses/>.
+##
+
+##
+## Please keep this list sorted alphabetically by vendor/device name.
+##
+
+ACTION!="add|change", GOTO="opentracecapture_rules_end"
+SUBSYSTEM!="usb|usbmisc|usb_device", GOTO="opentracecapture_rules_end"
+
+# Agilent DSO1000 series
+ATTRS{idVendor}=="0957", ATTRS{idProduct}=="0588", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# ASIX SIGMA/SIGMA2
+ATTRS{idVendor}=="a600", ATTRS{idProduct}=="a000", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="a600", ATTRS{idProduct}=="a001", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# Atorch USB meters
+ATTRS{idVendor}=="3125", ATTRS{idProduct}=="0001", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# ChronoVu LA8/LA16 USB logic analyzer
+ATTRS{idVendor}=="0403", ATTRS{idProduct}=="8867", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# DreamSourceLab DSLogic
+ATTRS{idVendor}=="2a0e", ATTRS{idProduct}=="0001", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="2a0e", ATTRS{idProduct}=="0002", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="2a0e", ATTRS{idProduct}=="0003", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# fx2lafw (mostly Cypress FX2 based devices)
+ATTRS{idVendor}=="04b4", ATTRS{idProduct}=="8613", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="04b4", ATTRS{idProduct}=="6473", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# Hantek DSO-2xxx/5xxx/6xxx series
+ATTRS{idVendor}=="04b4", ATTRS{idProduct}=="2150", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="04b5", ATTRS{idProduct}=="2150", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# IKALOGIC ScanaPLUS
+ATTRS{idVendor}=="20a0", ATTRS{idProduct}=="4123", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# IKALOGIC Scanalogic-2
+ATTRS{idVendor}=="20a0", ATTRS{idProduct}=="4321", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# Kingst LA series logic analyzers
+ATTRS{idVendor}=="77a1", ATTRS{idProduct}=="01a0", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="77a1", ATTRS{idProduct}=="01a1", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# Lascar EL-USB series
+ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="0002", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# Link Instruments MSO-19
+ATTRS{idVendor}=="3195", ATTRS{idProduct}=="f190", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# Logic Shrimp
+ATTRS{idVendor}=="04d8", ATTRS{idProduct}=="fa95", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# MiniLA Mockup
+ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6010", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# Openbench Logic Sniffer
+ATTRS{idVendor}=="04d8", ATTRS{idProduct}=="000a", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# Rigol DS series oscilloscopes
+ATTRS{idVendor}=="1ab1", ATTRS{idProduct}=="0588", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="1ab1", ATTRS{idProduct}=="04b0", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# Saleae Logic analyzers
+ATTRS{idVendor}=="0925", ATTRS{idProduct}=="3881", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="21a9", ATTRS{idProduct}=="1001", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="21a9", ATTRS{idProduct}=="1003", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="21a9", ATTRS{idProduct}=="1004", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="21a9", ATTRS{idProduct}=="1005", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# Siglent SDS series oscilloscopes
+ATTRS{idVendor}=="f4ed", ATTRS{idProduct}=="ee3a", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+# ZEROPLUS Logic Cube series
+ATTRS{idVendor}=="0c12", ATTRS{idProduct}=="700e", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="0c12", ATTRS{idProduct}=="7016", MODE="664", GROUP="plugdev", TAG+="uaccess"
+
+LABEL="opentracecapture_rules_end"

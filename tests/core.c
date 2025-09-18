@@ -20,145 +20,145 @@
 #include <config.h>
 #include <stdlib.h>
 #include <check.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libsigrok.h>
 #include "lib.h"
 
 /*
  * Check various basic init related things.
  *
- *  - Check whether an sr_init() call with a proper sr_ctx works.
- *    If it returns != SR_OK (or segfaults) this test will fail.
- *    The sr_init() call (among other things) also runs sanity checks on
+ *  - Check whether an otc_init() call with a proper otc_ctx works.
+ *    If it returns != OTC_OK (or segfaults) this test will fail.
+ *    The otc_init() call (among other things) also runs sanity checks on
  *    all libsigrok hardware drivers and errors out upon issues.
  *
- *  - Check whether a subsequent sr_exit() with that sr_ctx works.
- *    If it returns != SR_OK (or segfaults) this test will fail.
+ *  - Check whether a subsequent otc_exit() with that otc_ctx works.
+ *    If it returns != OTC_OK (or segfaults) this test will fail.
  */
 START_TEST(test_init_exit)
 {
 	int ret;
-	struct sr_context *sr_ctx;
+	struct otc_context *otc_ctx;
 
-	ret = sr_init(&sr_ctx);
-	fail_unless(ret == SR_OK, "sr_init() failed: %d.", ret);
-	ret = sr_exit(sr_ctx);
-	fail_unless(ret == SR_OK, "sr_exit() failed: %d.", ret);
+	ret = otc_init(&otc_ctx);
+	fail_unless(ret == OTC_OK, "otc_init() failed: %d.", ret);
+	ret = otc_exit(otc_ctx);
+	fail_unless(ret == OTC_OK, "otc_exit() failed: %d.", ret);
 }
 END_TEST
 
 /*
- * Check whether two nested sr_init() and sr_exit() calls work.
+ * Check whether two nested otc_init() and otc_exit() calls work.
  * The two functions have two different contexts.
- * If any function returns != SR_OK (or segfaults) this test will fail.
+ * If any function returns != OTC_OK (or segfaults) this test will fail.
  */
 START_TEST(test_init_exit_2)
 {
 	int ret;
-	struct sr_context *sr_ctx1, *sr_ctx2;
+	struct otc_context *otc_ctx1, *otc_ctx2;
 
-	ret = sr_init(&sr_ctx1);
-	fail_unless(ret == SR_OK, "sr_init() 1 failed: %d.", ret);
-	ret = sr_init(&sr_ctx2);
-	fail_unless(ret == SR_OK, "sr_init() 2 failed: %d.", ret);
-	ret = sr_exit(sr_ctx2);
-	fail_unless(ret == SR_OK, "sr_exit() 2 failed: %d.", ret);
-	ret = sr_exit(sr_ctx1);
-	fail_unless(ret == SR_OK, "sr_exit() 1 failed: %d.", ret);
+	ret = otc_init(&otc_ctx1);
+	fail_unless(ret == OTC_OK, "otc_init() 1 failed: %d.", ret);
+	ret = otc_init(&otc_ctx2);
+	fail_unless(ret == OTC_OK, "otc_init() 2 failed: %d.", ret);
+	ret = otc_exit(otc_ctx2);
+	fail_unless(ret == OTC_OK, "otc_exit() 2 failed: %d.", ret);
+	ret = otc_exit(otc_ctx1);
+	fail_unless(ret == OTC_OK, "otc_exit() 1 failed: %d.", ret);
 }
 END_TEST
 
 /*
- * Same as above, but sr_exit() in the "wrong" order.
+ * Same as above, but otc_exit() in the "wrong" order.
  * This should work fine, it's not a bug to do this.
  */
 START_TEST(test_init_exit_2_reverse)
 {
 	int ret;
-	struct sr_context *sr_ctx1, *sr_ctx2;
+	struct otc_context *otc_ctx1, *otc_ctx2;
 
-	ret = sr_init(&sr_ctx1);
-	fail_unless(ret == SR_OK, "sr_init() 1 failed: %d.", ret);
-	ret = sr_init(&sr_ctx2);
-	fail_unless(ret == SR_OK, "sr_init() 2 failed: %d.", ret);
-	ret = sr_exit(sr_ctx1);
-	fail_unless(ret == SR_OK, "sr_exit() 1 failed: %d.", ret);
-	ret = sr_exit(sr_ctx2);
-	fail_unless(ret == SR_OK, "sr_exit() 2 failed: %d.", ret);
+	ret = otc_init(&otc_ctx1);
+	fail_unless(ret == OTC_OK, "otc_init() 1 failed: %d.", ret);
+	ret = otc_init(&otc_ctx2);
+	fail_unless(ret == OTC_OK, "otc_init() 2 failed: %d.", ret);
+	ret = otc_exit(otc_ctx1);
+	fail_unless(ret == OTC_OK, "otc_exit() 1 failed: %d.", ret);
+	ret = otc_exit(otc_ctx2);
+	fail_unless(ret == OTC_OK, "otc_exit() 2 failed: %d.", ret);
 }
 END_TEST
 
 /*
- * Check whether three nested sr_init() and sr_exit() calls work.
+ * Check whether three nested otc_init() and otc_exit() calls work.
  * The three functions have three different contexts.
- * If any function returns != SR_OK (or segfaults) this test will fail.
+ * If any function returns != OTC_OK (or segfaults) this test will fail.
  */
 START_TEST(test_init_exit_3)
 {
 	int ret;
-	struct sr_context *sr_ctx1, *sr_ctx2, *sr_ctx3;
+	struct otc_context *otc_ctx1, *otc_ctx2, *otc_ctx3;
 
-	ret = sr_init(&sr_ctx1);
-	fail_unless(ret == SR_OK, "sr_init() 1 failed: %d.", ret);
-	ret = sr_init(&sr_ctx2);
-	fail_unless(ret == SR_OK, "sr_init() 2 failed: %d.", ret);
-	ret = sr_init(&sr_ctx3);
-	fail_unless(ret == SR_OK, "sr_init() 3 failed: %d.", ret);
-	ret = sr_exit(sr_ctx3);
-	fail_unless(ret == SR_OK, "sr_exit() 3 failed: %d.", ret);
-	ret = sr_exit(sr_ctx2);
-	fail_unless(ret == SR_OK, "sr_exit() 2 failed: %d.", ret);
-	ret = sr_exit(sr_ctx1);
-	fail_unless(ret == SR_OK, "sr_exit() 1 failed: %d.", ret);
+	ret = otc_init(&otc_ctx1);
+	fail_unless(ret == OTC_OK, "otc_init() 1 failed: %d.", ret);
+	ret = otc_init(&otc_ctx2);
+	fail_unless(ret == OTC_OK, "otc_init() 2 failed: %d.", ret);
+	ret = otc_init(&otc_ctx3);
+	fail_unless(ret == OTC_OK, "otc_init() 3 failed: %d.", ret);
+	ret = otc_exit(otc_ctx3);
+	fail_unless(ret == OTC_OK, "otc_exit() 3 failed: %d.", ret);
+	ret = otc_exit(otc_ctx2);
+	fail_unless(ret == OTC_OK, "otc_exit() 2 failed: %d.", ret);
+	ret = otc_exit(otc_ctx1);
+	fail_unless(ret == OTC_OK, "otc_exit() 1 failed: %d.", ret);
 }
 END_TEST
 
 /*
- * Same as above, but sr_exit() in the "wrong" order.
+ * Same as above, but otc_exit() in the "wrong" order.
  * This should work fine, it's not a bug to do this.
  */
 START_TEST(test_init_exit_3_reverse)
 {
 	int ret;
-	struct sr_context *sr_ctx1, *sr_ctx2, *sr_ctx3;
+	struct otc_context *otc_ctx1, *otc_ctx2, *otc_ctx3;
 
-	ret = sr_init(&sr_ctx1);
-	fail_unless(ret == SR_OK, "sr_init() 1 failed: %d.", ret);
-	ret = sr_init(&sr_ctx2);
-	fail_unless(ret == SR_OK, "sr_init() 2 failed: %d.", ret);
-	ret = sr_init(&sr_ctx3);
-	fail_unless(ret == SR_OK, "sr_init() 3 failed: %d.", ret);
-	ret = sr_exit(sr_ctx1);
-	fail_unless(ret == SR_OK, "sr_exit() 1 failed: %d.", ret);
-	ret = sr_exit(sr_ctx2);
-	fail_unless(ret == SR_OK, "sr_exit() 2 failed: %d.", ret);
-	ret = sr_exit(sr_ctx3);
-	fail_unless(ret == SR_OK, "sr_exit() 3 failed: %d.", ret);
+	ret = otc_init(&otc_ctx1);
+	fail_unless(ret == OTC_OK, "otc_init() 1 failed: %d.", ret);
+	ret = otc_init(&otc_ctx2);
+	fail_unless(ret == OTC_OK, "otc_init() 2 failed: %d.", ret);
+	ret = otc_init(&otc_ctx3);
+	fail_unless(ret == OTC_OK, "otc_init() 3 failed: %d.", ret);
+	ret = otc_exit(otc_ctx1);
+	fail_unless(ret == OTC_OK, "otc_exit() 1 failed: %d.", ret);
+	ret = otc_exit(otc_ctx2);
+	fail_unless(ret == OTC_OK, "otc_exit() 2 failed: %d.", ret);
+	ret = otc_exit(otc_ctx3);
+	fail_unless(ret == OTC_OK, "otc_exit() 3 failed: %d.", ret);
 }
 END_TEST
 
-/* Check whether sr_init(NULL) fails as it should. */
+/* Check whether otc_init(NULL) fails as it should. */
 START_TEST(test_init_null)
 {
 	int ret;
 
-        ret = sr_log_loglevel_set(SR_LOG_NONE);
-        fail_unless(ret == SR_OK, "sr_log_loglevel_set() failed: %d.", ret);
+        ret = otc_log_loglevel_set(OTC_LOG_NONE);
+        fail_unless(ret == OTC_OK, "otc_log_loglevel_set() failed: %d.", ret);
 
-	ret = sr_init(NULL);
-	fail_unless(ret != SR_OK, "sr_init(NULL) should have failed.");
+	ret = otc_init(NULL);
+	fail_unless(ret != OTC_OK, "otc_init(NULL) should have failed.");
 }
 END_TEST
 
-/* Check whether sr_exit(NULL) fails as it should. */
+/* Check whether otc_exit(NULL) fails as it should. */
 START_TEST(test_exit_null)
 {
 	int ret;
 
-        ret = sr_log_loglevel_set(SR_LOG_NONE);
-        fail_unless(ret == SR_OK, "sr_log_loglevel_set() failed: %d.", ret);
+        ret = otc_log_loglevel_set(OTC_LOG_NONE);
+        fail_unless(ret == OTC_OK, "otc_log_loglevel_set() failed: %d.", ret);
 
-	ret = sr_exit(NULL);
-	fail_unless(ret != SR_OK, "sr_exit(NULL) should have failed.");
+	ret = otc_exit(NULL);
+	fail_unless(ret != OTC_OK, "otc_exit(NULL) should have failed.");
 }
 END_TEST
 

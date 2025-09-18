@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -25,8 +25,8 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdint.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "input/wav"
 
@@ -60,7 +60,7 @@ static int parse_wav_header(GString *buf, struct context *inc)
 	unsigned int fmt_code, samplesize, num_channels, unitsize;
 
 	if (buf->len < MIN_DATA_CHUNK_OFFSET)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	fmt_code = RL16(buf->str + 20);
 	samplerate = RL32(buf->str + 24);
@@ -68,49 +68,49 @@ static int parse_wav_header(GString *buf, struct context *inc)
 	samplesize = RL16(buf->str + 32);
 	num_channels = RL16(buf->str + 22);
 	if (num_channels == 0)
-		return SR_ERR;
+		return OTC_ERR;
 	unitsize = samplesize / num_channels;
 	if (unitsize != 1 && unitsize != 2 && unitsize != 4) {
-		sr_err("Only 8, 16 or 32 bits per sample supported.");
-		return SR_ERR_DATA;
+		otc_err("Only 8, 16 or 32 bits per sample supported.");
+		return OTC_ERR_DATA;
 	}
 
 	if (fmt_code == WAVE_FORMAT_PCM_) {
 	} else if (fmt_code == WAVE_FORMAT_IEEE_FLOAT_) {
 		if (unitsize != 4) {
-			sr_err("only 32-bit floats supported.");
-			return SR_ERR_DATA;
+			otc_err("only 32-bit floats supported.");
+			return OTC_ERR_DATA;
 		}
 	} else if (fmt_code == WAVE_FORMAT_EXTENSIBLE_) {
 		if (buf->len < 70)
 			/* Not enough for extensible header and next chunk. */
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 
 		if (RL16(buf->str + 16) != 40) {
-			sr_err("WAV extensible format chunk must be 40 bytes.");
-			return SR_ERR;
+			otc_err("WAV extensible format chunk must be 40 bytes.");
+			return OTC_ERR;
 		}
 		if (RL16(buf->str + 36) != 22) {
-			sr_err("WAV extension must be 22 bytes.");
-			return SR_ERR;
+			otc_err("WAV extension must be 22 bytes.");
+			return OTC_ERR;
 		}
 		if (RL16(buf->str + 34) != RL16(buf->str + 38)) {
-			sr_err("Reduced valid bits per sample not supported.");
-			return SR_ERR_DATA;
+			otc_err("Reduced valid bits per sample not supported.");
+			return OTC_ERR_DATA;
 		}
 		/* Real format code is the first two bytes of the GUID. */
 		fmt_code = RL16(buf->str + 44);
 		if (fmt_code != WAVE_FORMAT_PCM_ && fmt_code != WAVE_FORMAT_IEEE_FLOAT_) {
-			sr_err("Only PCM and floating point samples are supported.");
-			return SR_ERR_DATA;
+			otc_err("Only PCM and floating point samples are supported.");
+			return OTC_ERR_DATA;
 		}
 		if (fmt_code == WAVE_FORMAT_IEEE_FLOAT_ && unitsize != 4) {
-			sr_err("only 32-bit floats supported.");
-			return SR_ERR_DATA;
+			otc_err("only 32-bit floats supported.");
+			return OTC_ERR_DATA;
 		}
 	} else {
-		sr_err("Only PCM and floating point samples are supported.");
-		return SR_ERR_DATA;
+		otc_err("Only PCM and floating point samples are supported.");
+		return OTC_ERR_DATA;
 	}
 
 	if (inc) {
@@ -122,7 +122,7 @@ static int parse_wav_header(GString *buf, struct context *inc)
 		inc->found_data = FALSE;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int format_match(GHashTable *metadata, unsigned int *confidence)
@@ -130,33 +130,33 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	GString *buf;
 	int ret;
 
-	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(SR_INPUT_META_HEADER));
+	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(OTC_INPUT_META_HEADER));
 	if (strncmp(buf->str, "RIFF", 4))
-		return SR_ERR;
+		return OTC_ERR;
 	if (strncmp(buf->str + 8, "WAVE", 4))
-		return SR_ERR;
+		return OTC_ERR;
 	if (strncmp(buf->str + 12, "fmt ", 4))
-		return SR_ERR;
+		return OTC_ERR;
 	/*
 	 * Only gets called when we already know this is a WAV file, so
 	 * this parser can log error messages.
 	 */
-	if ((ret = parse_wav_header(buf, NULL)) != SR_OK)
+	if ((ret = parse_wav_header(buf, NULL)) != OTC_OK)
 		return ret;
 
 	*confidence = 1;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	(void)options;
 
-	in->sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	in->sdi = g_malloc0(sizeof(struct otc_dev_inst));
 	in->priv = g_malloc0(sizeof(struct context));
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int find_data_chunk(GString *buf, int initial_offset)
@@ -184,13 +184,13 @@ static int find_data_chunk(GString *buf, int initial_offset)
 	return offset;
 }
 
-static void send_chunk(const struct sr_input *in, int offset, int num_samples)
+static void send_chunk(const struct otc_input *in, int offset, int num_samples)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	struct context *inc;
 	float *fdata;
 	int total_samples, samplenum;
@@ -232,8 +232,8 @@ static void send_chunk(const struct sr_input *in, int offset, int num_samples)
 	}
 
 	/* TODO: Use proper 'digits' value for this device (and its modes). */
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 2);
-	packet.type = SR_DF_ANALOG;
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 2);
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
 	analog.num_samples = num_samples;
 	analog.data = fdata;
@@ -241,11 +241,11 @@ static void send_chunk(const struct sr_input *in, int offset, int num_samples)
 	analog.meaning->mq = 0;
 	analog.meaning->mqflags = 0;
 	analog.meaning->unit = 0;
-	sr_session_send(in->sdi, &packet);
+	otc_session_send(in->sdi, &packet);
 	g_free(fdata);
 }
 
-static int process_buffer(struct sr_input *in)
+static int process_buffer(struct otc_input *in)
 {
 	struct context *inc;
 	int offset, chunk_samples, total_samples, processed, max_chunk_samples;
@@ -254,7 +254,7 @@ static int process_buffer(struct sr_input *in)
 	inc = in->priv;
 	if (!inc->started) {
 		std_session_send_df_header(in->sdi);
-		(void)sr_session_send_meta(in->sdi, SR_CONF_SAMPLERATE,
+		(void)otc_session_send_meta(in->sdi, OTC_CONF_SAMPLERATE,
 			g_variant_new_uint64(inc->samplerate));
 		inc->started = TRUE;
 	}
@@ -265,8 +265,8 @@ static int process_buffer(struct sr_input *in)
 		offset = find_data_chunk(in->buf, i);
 		if (offset < 0) {
 			if (in->buf->len > MAX_DATA_CHUNK_OFFSET) {
-				sr_err("Couldn't find data chunk.");
-				return SR_ERR;
+				otc_err("Couldn't find data chunk.");
+				return OTC_ERR;
 			}
 		}
 		inc->found_data = TRUE;
@@ -298,7 +298,7 @@ static int process_buffer(struct sr_input *in)
 	} else
 		g_string_truncate(in->buf, 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -306,17 +306,17 @@ static int process_buffer(struct sr_input *in)
  * the VCD input module for more details and motivation.
  */
 
-static void keep_header_for_reread(const struct sr_input *in)
+static void keep_header_for_reread(const struct otc_input *in)
 {
 	struct context *inc;
 
 	inc = in->priv;
-	g_slist_free_full(inc->prev_sr_channels, sr_channel_free_cb);
+	g_slist_free_full(inc->prev_sr_channels, otc_channel_free_cb);
 	inc->prev_sr_channels = in->sdi->channels;
 	in->sdi->channels = NULL;
 }
 
-static int check_header_in_reread(const struct sr_input *in)
+static int check_header_in_reread(const struct otc_input *in)
 {
 	struct context *inc;
 
@@ -328,18 +328,18 @@ static int check_header_in_reread(const struct sr_input *in)
 	if (!inc->prev_sr_channels)
 		return TRUE;
 
-	if (sr_channel_lists_differ(inc->prev_sr_channels, in->sdi->channels)) {
-		sr_err("Channel list change not supported for file re-read.");
+	if (otc_channel_lists_differ(inc->prev_sr_channels, in->sdi->channels)) {
+		otc_err("Channel list change not supported for file re-read.");
 		return FALSE;
 	}
-	g_slist_free_full(in->sdi->channels, sr_channel_free_cb);
+	g_slist_free_full(in->sdi->channels, otc_channel_free_cb);
 	in->sdi->channels = inc->prev_sr_channels;
 	inc->prev_sr_channels = NULL;
 
 	return TRUE;
 }
 
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 	struct context *inc;
 	int ret;
@@ -352,27 +352,27 @@ static int receive(struct sr_input *in, GString *buf)
 		 * Don't even try until there's enough room
 		 * for the data segment to start.
 		 */
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	inc = in->priv;
 	if (!in->sdi_ready) {
-		if ((ret = parse_wav_header(in->buf, inc)) == SR_ERR_NA)
+		if ((ret = parse_wav_header(in->buf, inc)) == OTC_ERR_NA)
 			/* Not enough data yet. */
-			return SR_OK;
-		else if (ret != SR_OK)
+			return OTC_OK;
+		else if (ret != OTC_OK)
 			return ret;
 
 		for (int i = 0; i < inc->num_channels; i++) {
 			snprintf(channelname, sizeof(channelname), "CH%d", i + 1);
-			sr_channel_new(in->sdi, i, SR_CHANNEL_ANALOG, TRUE, channelname);
+			otc_channel_new(in->sdi, i, OTC_CHANNEL_ANALOG, TRUE, channelname);
 		}
 		if (!check_header_in_reread(in))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 
 		/* sdi is ready, notify frontend. */
 		in->sdi_ready = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	ret = process_buffer(in);
@@ -380,7 +380,7 @@ static int receive(struct sr_input *in, GString *buf)
 	return ret;
 }
 
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	struct context *inc;
 	int ret;
@@ -388,7 +388,7 @@ static int end(struct sr_input *in)
 	if (in->sdi_ready)
 		ret = process_buffer(in);
 	else
-		ret = SR_OK;
+		ret = OTC_OK;
 
 	inc = in->priv;
 	if (inc->started)
@@ -397,7 +397,7 @@ static int end(struct sr_input *in)
 	return ret;
 }
 
-static int reset(struct sr_input *in)
+static int reset(struct otc_input *in)
 {
 	struct context *inc;
 
@@ -414,15 +414,15 @@ static int reset(struct sr_input *in)
 
 	g_string_truncate(in->buf, 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_input_module input_wav = {
+OTC_PRIV struct otc_input_module input_wav = {
 	.id = "wav",
 	.name = "WAV",
 	.desc = "Microsoft WAV file format data",
 	.exts = (const char*[]){"wav", NULL},
-	.metadata = { SR_INPUT_META_HEADER | SR_INPUT_META_REQUIRED },
+	.metadata = { OTC_INPUT_META_HEADER | OTC_INPUT_META_REQUIRED },
 	.format_match = format_match,
 	.init = init,
 	.receive = receive,

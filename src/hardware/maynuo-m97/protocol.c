@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Aurelien Jacobs <aurel@gnuage.org>
  *
@@ -20,88 +20,88 @@
 #include <config.h>
 #include "protocol.h"
 
-SR_PRIV int maynuo_m97_get_bit(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_get_bit(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_coil address, int *value)
 {
 	uint8_t coil;
-	int ret = sr_modbus_read_coils(modbus, address, 1, &coil);
+	int ret = otc_modbus_read_coils(modbus, address, 1, &coil);
 	*value = coil & 1;
 	return ret;
 }
 
-SR_PRIV int maynuo_m97_set_bit(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_set_bit(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_coil address, int value)
 {
-	return sr_modbus_write_coil(modbus, address, value);
+	return otc_modbus_write_coil(modbus, address, value);
 }
 
-SR_PRIV int maynuo_m97_get_float(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_get_float(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_register address, float *value)
 {
 	uint16_t registers[2];
-	int ret = sr_modbus_read_holding_registers(modbus, address, 2, registers);
-	if (ret == SR_OK)
+	int ret = otc_modbus_read_holding_registers(modbus, address, 2, registers);
+	if (ret == OTC_OK)
 		*value = RBFL(registers);
 	return ret;
 }
 
-SR_PRIV int maynuo_m97_set_float(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_set_float(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_register address, float value)
 {
 	uint16_t registers[2];
 	WBFL(registers, value);
-	return sr_modbus_write_multiple_registers(modbus, address, 2, registers);
+	return otc_modbus_write_multiple_registers(modbus, address, 2, registers);
 }
 
 
-static int maynuo_m97_cmd(struct sr_modbus_dev_inst *modbus,
+static int maynuo_m97_cmd(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_mode cmd)
 {
 	uint16_t registers[1];
 	WB16(registers, cmd);
-	return sr_modbus_write_multiple_registers(modbus, CMD, 1, registers);
+	return otc_modbus_write_multiple_registers(modbus, CMD, 1, registers);
 }
 
-SR_PRIV int maynuo_m97_get_mode(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_get_mode(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_mode *mode)
 {
 	uint16_t registers[1];
 	int ret;
-	ret = sr_modbus_read_holding_registers(modbus, SETMODE, 1, registers);
+	ret = otc_modbus_read_holding_registers(modbus, SETMODE, 1, registers);
 	*mode = RB16(registers) & 0xFF;
 	return ret;
 }
 
-SR_PRIV int maynuo_m97_set_mode(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_set_mode(struct otc_modbus_dev_inst *modbus,
 		enum maynuo_m97_mode mode)
 {
 	return maynuo_m97_cmd(modbus, mode);
 }
 
-SR_PRIV int maynuo_m97_set_input(struct sr_modbus_dev_inst *modbus, int enable)
+OTC_PRIV int maynuo_m97_set_input(struct otc_modbus_dev_inst *modbus, int enable)
 {
 	enum maynuo_m97_mode mode;
 	int ret;
-	if ((ret = maynuo_m97_get_mode(modbus, &mode)) != SR_OK)
+	if ((ret = maynuo_m97_get_mode(modbus, &mode)) != OTC_OK)
 		return ret;
-	if ((ret = maynuo_m97_cmd(modbus, enable ? INPUT_ON : INPUT_OFF)) != SR_OK)
+	if ((ret = maynuo_m97_cmd(modbus, enable ? INPUT_ON : INPUT_OFF)) != OTC_OK)
 		return ret;
 	return maynuo_m97_set_mode(modbus, mode);
 }
 
-SR_PRIV int maynuo_m97_get_model_version(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int maynuo_m97_get_model_version(struct otc_modbus_dev_inst *modbus,
 		uint16_t *model, uint16_t *version)
 {
 	uint16_t registers[2];
 	int ret;
-	ret = sr_modbus_read_holding_registers(modbus, MODEL, 2, registers);
+	ret = otc_modbus_read_holding_registers(modbus, MODEL, 2, registers);
 	*model   = RB16(registers + 0);
 	*version = RB16(registers + 1);
 	return ret;
 }
 
 
-SR_PRIV const char *maynuo_m97_mode_to_str(enum maynuo_m97_mode mode)
+OTC_PRIV const char *maynuo_m97_mode_to_str(enum maynuo_m97_mode mode)
 {
 	switch (mode) {
 	case CC:             return "CC";
@@ -125,47 +125,47 @@ SR_PRIV const char *maynuo_m97_mode_to_str(enum maynuo_m97_mode mode)
 }
 
 
-static void maynuo_m97_session_send_value(const struct sr_dev_inst *sdi, struct sr_channel *ch, float value, enum sr_mq mq, enum sr_unit unit, int digits)
+static void maynuo_m97_session_send_value(const struct otc_dev_inst *sdi, struct otc_channel *ch, float value, enum otc_mq mq, enum otc_unit unit, int digits)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, digits);
 	analog.meaning->channels = g_slist_append(NULL, ch);
 	analog.num_samples = 1;
 	analog.data = &value;
 	analog.meaning->mq = mq;
 	analog.meaning->unit = unit;
-	analog.meaning->mqflags = SR_MQFLAG_DC;
+	analog.meaning->mqflags = OTC_MQFLAG_DC;
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 	g_slist_free(analog.meaning->channels);
 }
 
-SR_PRIV int maynuo_m97_capture_start(const struct sr_dev_inst *sdi)
+OTC_PRIV int maynuo_m97_capture_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_modbus_dev_inst *modbus;
+	struct otc_modbus_dev_inst *modbus;
 	int ret;
 
 	modbus = sdi->conn;
 	devc = sdi->priv;
 
-	if ((ret = sr_modbus_read_holding_registers(modbus, U, 4, NULL)) == SR_OK)
+	if ((ret = otc_modbus_read_holding_registers(modbus, U, 4, NULL)) == OTC_OK)
 		devc->expecting_registers = 4;
 	return ret;
 }
 
-SR_PRIV int maynuo_m97_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int maynuo_m97_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_modbus_dev_inst *modbus;
+	struct otc_modbus_dev_inst *modbus;
 	uint16_t registers[4];
 
 	(void)fd;
@@ -178,22 +178,22 @@ SR_PRIV int maynuo_m97_receive_data(int fd, int revents, void *cb_data)
 	devc = sdi->priv;
 
 	devc->expecting_registers = 0;
-	if (sr_modbus_read_holding_registers(modbus, -1, 4, registers) == SR_OK) {
+	if (otc_modbus_read_holding_registers(modbus, -1, 4, registers) == OTC_OK) {
 		std_session_send_df_frame_begin(sdi);
 
 		maynuo_m97_session_send_value(sdi, sdi->channels->data,
 		                              RBFL(registers + 0),
-		                              SR_MQ_VOLTAGE, SR_UNIT_VOLT, 3);
+		                              OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, 3);
 		maynuo_m97_session_send_value(sdi, sdi->channels->next->data,
 		                              RBFL(registers + 2),
-		                              SR_MQ_CURRENT, SR_UNIT_AMPERE, 4);
+		                              OTC_MQ_CURRENT, OTC_UNIT_AMPERE, 4);
 
 		std_session_send_df_frame_end(sdi);
-		sr_sw_limits_update_samples_read(&devc->limits, 1);
+		otc_sw_limits_update_samples_read(&devc->limits, 1);
 	}
 
-	if (sr_sw_limits_check(&devc->limits)) {
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits)) {
+		otc_dev_acquisition_stop(sdi);
 		return TRUE;
 	}
 

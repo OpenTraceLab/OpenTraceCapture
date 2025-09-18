@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -28,8 +28,8 @@
 #include <ctype.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "ut71x"
 
@@ -64,22 +64,22 @@ static int parse_value(const uint8_t *buf, struct ut71x_info *info, float *resul
 
 	/* Bytes 0-4: Value (5 decimal digits) */
 	if (!strncmp((const char *)buf, "::0<:", 5)) {
-		sr_spew("Over limit.");
+		otc_spew("Over limit.");
 		*result = INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	} else if (!strncmp((const char *)buf, ":<0::", 5)) {
-		sr_spew("Under limit.");
+		otc_spew("Under limit.");
 		*result = INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	} else if (buf[4] == ':') {
-		sr_dbg("4000 count mode, only 4 digits used.");
+		otc_dbg("4000 count mode, only 4 digits used.");
 		num_digits = 4;
 	} else if (!isdigit(buf[0]) || !isdigit(buf[1]) ||
 	           !isdigit(buf[2]) || !isdigit(buf[3]) || !isdigit(buf[4])) {
-		sr_dbg("Invalid digits: %02x %02x %02x %02x %02x (%c %c "
+		otc_dbg("Invalid digits: %02x %02x %02x %02x %02x (%c %c "
 		       "%c %c %c).", buf[0], buf[1], buf[2], buf[3], buf[4],
 		       buf[0], buf[1], buf[2], buf[3], buf[4]);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	for (i = 0, intval = 0; i < num_digits; i++)
@@ -101,9 +101,9 @@ static int parse_value(const uint8_t *buf, struct ut71x_info *info, float *resul
 
 	/* Note: The decimal point position will be parsed later. */
 	*result = (float)intval;
-	sr_spew("The display value is %f.", *result);
+	otc_spew("The display value is %f.", *result);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int parse_range(const uint8_t *buf, float *floatval, int *exponent)
@@ -112,25 +112,25 @@ static int parse_range(const uint8_t *buf, float *floatval, int *exponent)
 
 	idx = buf[5] - '0';
 	if (idx < 0 || idx > 7) {
-		sr_dbg("Invalid range byte 0x%02x (idx 0x%02x).", buf[5], idx);
-		return SR_ERR;
+		otc_dbg("Invalid range byte 0x%02x (idx 0x%02x).", buf[5], idx);
+		return OTC_ERR;
 	}
 
 	mode = buf[6] - '0';
 	if (mode < 0 || mode > 15) {
-		sr_dbg("Invalid mode byte 0x%02x (idx 0x%02x).", buf[6], mode);
-		return SR_ERR;
+		otc_dbg("Invalid mode byte 0x%02x (idx 0x%02x).", buf[6], mode);
+		return OTC_ERR;
 	}
 
-	sr_spew("mode/idx = %d/%d", mode, idx);
+	otc_spew("mode/idx = %d/%d", mode, idx);
 
 	*exponent = exponents[mode][idx];
 
 	/* Apply respective exponent (mode-dependent) on the value. */
 	*floatval *= powf(10, *exponent);
-	sr_dbg("Applying exponent %d, new value is %g.", *exponent, *floatval);
+	otc_dbg("Applying exponent %d, new value is %g.", *exponent, *floatval);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void parse_flags(const uint8_t *buf, struct ut71x_info *info)
@@ -187,7 +187,7 @@ static void parse_flags(const uint8_t *buf, struct ut71x_info *info)
 		info->is_loop_current = TRUE;
 		break;
 	default:
-		sr_dbg("Invalid function byte: 0x%02x.", buf[6]);
+		otc_dbg("Invalid function byte: 0x%02x.", buf[6]);
 		break;
 	}
 
@@ -218,73 +218,73 @@ static void parse_flags(const uint8_t *buf, struct ut71x_info *info)
 	}
 }
 
-static void handle_flags(struct sr_datafeed_analog *analog,
+static void handle_flags(struct otc_datafeed_analog *analog,
 		float *floatval, const struct ut71x_info *info)
 {
 	/* Measurement modes */
 	if (info->is_voltage) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_current) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 	}
 	if (info->is_resistance) {
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 	if (info->is_frequency) {
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 	}
 	if (info->is_capacitance) {
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 	}
 	if (info->is_temperature && info->is_celsius) {
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
-		analog->meaning->unit = SR_UNIT_CELSIUS;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
+		analog->meaning->unit = OTC_UNIT_CELSIUS;
 	}
 	if (info->is_temperature && info->is_fahrenheit) {
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
-		analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
+		analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 	}
 	if (info->is_continuity) {
-		analog->meaning->mq = SR_MQ_CONTINUITY;
-		analog->meaning->unit = SR_UNIT_BOOLEAN;
+		analog->meaning->mq = OTC_MQ_CONTINUITY;
+		analog->meaning->unit = OTC_UNIT_BOOLEAN;
 		*floatval = (*floatval < 0.0 || *floatval > 60.0) ? 0.0 : 1.0;
 	}
 	if (info->is_diode) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_duty_cycle) {
-		analog->meaning->mq = SR_MQ_DUTY_CYCLE;
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 	}
 	if (info->is_power) {
-		analog->meaning->mq = SR_MQ_POWER;
-		analog->meaning->unit = SR_UNIT_WATT;
+		analog->meaning->mq = OTC_MQ_POWER;
+		analog->meaning->unit = OTC_UNIT_WATT;
 	}
 	if (info->is_loop_current) {
 		/* 4mA = 0%, 20mA = 100% */
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 	}
 
 	/* Measurement related flags */
 	if (info->is_ac)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (info->is_dc)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	if (info->is_ac)
 		/* All AC modes do True-RMS measurements. */
-		analog->meaning->mqflags |= SR_MQFLAG_RMS;
+		analog->meaning->mqflags |= OTC_MQFLAG_RMS;
 	if (info->is_auto)
-		analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 	if (info->is_diode)
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 }
 
 static gboolean flags_valid(const struct ut71x_info *info)
@@ -303,20 +303,20 @@ static gboolean flags_valid(const struct ut71x_info *info)
 	count += (info->is_power) ? 1 : 0;
 	count += (info->is_loop_current) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one measurement type detected in packet.");
+		otc_dbg("More than one measurement type detected in packet.");
 		return FALSE;
 	}
 
 	/* Auto and manual can't be active at the same time. */
 	if (info->is_auto && info->is_manual) {
-		sr_dbg("Auto and manual modes are both active.");
+		otc_dbg("Auto and manual modes are both active.");
 		return FALSE;
 	}
 
 	return TRUE;
 }
 
-SR_PRIV gboolean sr_ut71x_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_ut71x_packet_valid(const uint8_t *buf)
 {
 	struct ut71x_info info;
 
@@ -330,8 +330,8 @@ SR_PRIV gboolean sr_ut71x_packet_valid(const uint8_t *buf)
 	return flags_valid(&info);
 }
 
-SR_PRIV int sr_ut71x_parse(const uint8_t *buf, float *floatval,
-		struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_ut71x_parse(const uint8_t *buf, float *floatval,
+		struct otc_datafeed_analog *analog, void *info)
 {
 	int ret, exponent = 0;
 	struct ut71x_info *info_local;
@@ -339,17 +339,17 @@ SR_PRIV int sr_ut71x_parse(const uint8_t *buf, float *floatval,
 	info_local = info;
 	memset(info_local, 0, sizeof(struct ut71x_info));
 
-	if (!sr_ut71x_packet_valid(buf))
-		return SR_ERR;
+	if (!otc_ut71x_packet_valid(buf))
+		return OTC_ERR;
 
 	parse_flags(buf, info_local);
 
-	if ((ret = parse_value(buf, info, floatval)) != SR_OK) {
-		sr_dbg("Error parsing value: %d.", ret);
+	if ((ret = parse_value(buf, info, floatval)) != OTC_OK) {
+		otc_dbg("Error parsing value: %d.", ret);
 		return ret;
 	}
 
-	if ((ret = parse_range(buf, floatval, &exponent)) != SR_OK)
+	if ((ret = parse_range(buf, floatval, &exponent)) != OTC_OK)
 		return ret;
 
 	handle_flags(analog, floatval, info);
@@ -357,5 +357,5 @@ SR_PRIV int sr_ut71x_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 }

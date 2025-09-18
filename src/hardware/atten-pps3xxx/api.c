@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  *
@@ -32,26 +32,26 @@
 #define SERIALCOMM "9600/8n2"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_POWER_SUPPLY,
+	OTC_CONF_POWER_SUPPLY,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_CHANNEL_CONFIG | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_CHANNEL_CONFIG | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t devopts_cg[] = {
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const char *channel_modes[] = {
@@ -75,14 +75,14 @@ static const struct pps_model models[] = {
 	},
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options, int modelid)
+static GSList *scan(struct otc_dev_driver *di, GSList *options, int modelid)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_config *src;
-	struct sr_channel *ch;
-	struct sr_channel_group *cg;
-	struct sr_serial_dev_inst *serial;
+	struct otc_config *src;
+	struct otc_channel *ch;
+	struct otc_channel_group *cg;
+	struct otc_serial_dev_inst *serial;
 	GSList *l;
 	const struct pps_model *model;
 	uint8_t packet[PACKET_SIZE];
@@ -95,10 +95,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options, int modelid)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -108,9 +108,9 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options, int modelid)
 	if (!serialcomm)
 		serialcomm = SERIALCOMM;
 
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
 
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
 		return NULL;
 
 	/* This is how the vendor software scans for hardware. */
@@ -119,7 +119,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options, int modelid)
 	packet[1] = 0xaa;
 	delay_ms = serial_timeout(serial, PACKET_SIZE);
 	if (serial_write_blocking(serial, packet, PACKET_SIZE, delay_ms) < PACKET_SIZE) {
-		sr_err("Unable to write while probing for hardware.");
+		otc_err("Unable to write while probing for hardware.");
 		return NULL;
 	}
 	/* The device responds with a 24-byte packet when it receives a packet.
@@ -127,8 +127,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options, int modelid)
 	g_usleep(300 * 1000);
 	memset(packet, 0, PACKET_SIZE);
 	if ((ret = serial_read_nonblocking(serial, packet, PACKET_SIZE)) < 0) {
-		sr_err("Unable to read while probing for hardware: %s",
-				sr_strerror(ret));
+		otc_err("Unable to read while probing for hardware: %s",
+				otc_strerror(ret));
 		return NULL;
 	}
 	if (ret != PACKET_SIZE || packet[0] != 0xaa || packet[1] != 0xaa) {
@@ -144,20 +144,20 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options, int modelid)
 		}
 	}
 	if (!model) {
-		sr_err("Unknown modelid %d", modelid);
+		otc_err("Unknown modelid %d", modelid);
 		return NULL;
 	}
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("Atten");
 	sdi->model = g_strdup(model->name);
-	sdi->inst_type = SR_INST_SERIAL;
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->conn = serial;
 	for (i = 0; i < MAX_CHANNELS; i++) {
 		snprintf(channel, 10, "CH%d", i + 1);
-		ch = sr_channel_new(sdi, i, SR_CHANNEL_ANALOG, TRUE, channel);
-		cg = sr_channel_group_new(sdi, channel, NULL);
+		ch = otc_channel_new(sdi, i, OTC_CHANNEL_ANALOG, TRUE, channel);
+		cg = otc_channel_group_new(sdi, channel, NULL);
 		cg->channels = g_slist_append(NULL, ch);
 	}
 
@@ -172,33 +172,33 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options, int modelid)
 	return std_scan_complete(di, g_slist_append(NULL, sdi));
 }
 
-static GSList *scan_3203(struct sr_dev_driver *di, GSList *options)
+static GSList *scan_3203(struct otc_dev_driver *di, GSList *options)
 {
 	return scan(di, options, PPS_3203T_3S);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	int channel;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_CHANNEL_CONFIG:
+		case OTC_CONF_CHANNEL_CONFIG:
 			*data = g_variant_new_string(channel_modes[devc->channel_mode]);
 			break;
-		case SR_CONF_OVER_CURRENT_PROTECTION_ENABLED:
+		case OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED:
 			*data = g_variant_new_boolean(devc->over_current_protection);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		/* We only ever have one channel per channel group in this driver. */
@@ -206,34 +206,34 @@ static int config_get(uint32_t key, GVariant **data,
 		channel = ch->index;
 
 		switch (key) {
-		case SR_CONF_VOLTAGE:
+		case OTC_CONF_VOLTAGE:
 			*data = g_variant_new_double(devc->config[channel].output_voltage_last);
 			break;
-		case SR_CONF_VOLTAGE_TARGET:
+		case OTC_CONF_VOLTAGE_TARGET:
 			*data = g_variant_new_double(devc->config[channel].output_voltage_max);
 			break;
-		case SR_CONF_CURRENT:
+		case OTC_CONF_CURRENT:
 			*data = g_variant_new_double(devc->config[channel].output_current_last);
 			break;
-		case SR_CONF_CURRENT_LIMIT:
+		case OTC_CONF_CURRENT_LIMIT:
 			*data = g_variant_new_double(devc->config[channel].output_current_max);
 			break;
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			*data = g_variant_new_boolean(devc->config[channel].output_enabled);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	gdouble dval;
 	int channel, ival;
 	gboolean bval;
@@ -242,17 +242,17 @@ static int config_set(uint32_t key, GVariant *data,
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_CHANNEL_CONFIG:
+		case OTC_CONF_CHANNEL_CONFIG:
 			if ((ival = std_str_idx(data, ARRAY_AND_SIZE(channel_modes))) < 0)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			if (devc->model->channel_modes && (1 << ival) == 0)
-				return SR_ERR_ARG; /* Not supported on this model. */
+				return OTC_ERR_ARG; /* Not supported on this model. */
 			if (ival == devc->channel_mode_set)
 				break; /* Nothing to do. */
 			devc->channel_mode_set = ival;
 			devc->config_dirty = TRUE;
 			break;
-		case SR_CONF_OVER_CURRENT_PROTECTION_ENABLED:
+		case OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED:
 			bval = g_variant_get_boolean(data);
 			if (bval == devc->over_current_protection_set)
 				break; /* Nothing to do. */
@@ -260,7 +260,7 @@ static int config_set(uint32_t key, GVariant *data,
 			devc->config_dirty = TRUE;
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		/* We only ever have one channel per channel group in this driver. */
@@ -268,21 +268,21 @@ static int config_set(uint32_t key, GVariant *data,
 		channel = ch->index;
 
 		switch (key) {
-		case SR_CONF_VOLTAGE_TARGET:
+		case OTC_CONF_VOLTAGE_TARGET:
 			dval = g_variant_get_double(data);
 			if (dval < 0 || dval > devc->model->channels[channel].voltage[1])
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			devc->config[channel].output_voltage_max = dval;
 			devc->config_dirty = TRUE;
 			break;
-		case SR_CONF_CURRENT_LIMIT:
+		case OTC_CONF_CURRENT_LIMIT:
 			dval = g_variant_get_double(data);
 			if (dval < 0 || dval > devc->model->channels[channel].current[1])
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			devc->config[channel].output_current_max = dval;
 			devc->config_dirty = TRUE;
 			break;
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			bval = g_variant_get_boolean(data);
 			if (bval == devc->config[channel].output_enabled_set)
 				break; /* Nothing to do. */
@@ -290,30 +290,30 @@ static int config_set(uint32_t key, GVariant *data,
 			devc->config_dirty = TRUE;
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	int channel;
 
 	devc = (sdi) ? sdi->priv : NULL;
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_SCAN_OPTIONS:
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_SCAN_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-		case SR_CONF_CHANNEL_CONFIG:
+		case OTC_CONF_CHANNEL_CONFIG:
 			if (!devc || !devc->model)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			if (devc->model->channel_modes == CHANMODE_INDEPENDENT) {
 				/* The 1-channel models. */
 				*data = g_variant_new_strv(channel_modes, 1);
@@ -323,7 +323,7 @@ static int config_list(uint32_t key, GVariant **data,
 			}
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		/* We only ever have one channel per channel group in this driver. */
@@ -331,28 +331,28 @@ static int config_list(uint32_t key, GVariant **data,
 		channel = ch->index;
 
 		switch (key) {
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg));
 			break;
-		case SR_CONF_VOLTAGE_TARGET:
+		case OTC_CONF_VOLTAGE_TARGET:
 			if (!devc || !devc->model)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			*data = std_gvar_min_max_step_array(devc->model->channels[channel].voltage);
 			break;
-		case SR_CONF_CURRENT_LIMIT:
+		case OTC_CONF_CURRENT_LIMIT:
 			if (!devc || !devc->model)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			*data = std_gvar_min_max_step_array(devc->model->channels[channel].current);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -367,10 +367,10 @@ static int dev_close(struct sr_dev_inst *sdi)
 	return std_serial_dev_close(sdi);
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	uint8_t packet[PACKET_SIZE];
 
 	devc = sdi->priv;
@@ -390,20 +390,20 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	packet[1] = 0xaa;
 	send_packet(sdi, packet);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
 	devc = sdi->priv;
 	devc->acquisition_running = FALSE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver atten_pps3203_driver_info = {
+static struct otc_dev_driver atten_pps3203_driver_info = {
 	.name = "atten-pps3203",
 	.longname = "Atten PPS3203T-3S",
 	.api_version = 1,
@@ -421,4 +421,4 @@ static struct sr_dev_driver atten_pps3203_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(atten_pps3203_driver_info);
+OTC_REGISTER_DEV_DRIVER(atten_pps3203_driver_info);

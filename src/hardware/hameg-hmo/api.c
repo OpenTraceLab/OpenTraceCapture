@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 poljar (Damir Jelić) <poljarinho@gmail.com>
  * Copyright (C) 2018 Guido Trentalancia <guido@trentalancia.com>
@@ -20,10 +20,10 @@
 
 #include <config.h>
 #include <stdlib.h>
-#include "scpi.h"
+#include "../../scpi.h"
 #include "protocol.h"
 
-static struct sr_dev_driver hameg_hmo_driver_info;
+static struct otc_dev_driver hameg_hmo_driver_info;
 
 static const char *manufacturers[] = {
 	"HAMEG",
@@ -31,13 +31,13 @@ static const char *manufacturers[] = {
 };
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_OSCILLOSCOPE,
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_OSCILLOSCOPE,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 enum {
@@ -47,56 +47,56 @@ enum {
 	CG_DIGITAL,
 };
 
-static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
+static struct otc_dev_inst *probe_device(struct otc_scpi_dev_inst *scpi)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_scpi_hw_info *hw_info;
+	struct otc_scpi_hw_info *hw_info;
 
 	sdi = NULL;
 	devc = NULL;
 	hw_info = NULL;
 
-	if (sr_scpi_get_hw_id(scpi, &hw_info) != SR_OK) {
-		sr_info("Couldn't get IDN response.");
+	if (otc_scpi_get_hw_id(scpi, &hw_info) != OTC_OK) {
+		otc_info("Couldn't get IDN response.");
 		goto fail;
 	}
 
 	if (std_str_idx_s(hw_info->manufacturer, ARRAY_AND_SIZE(manufacturers)) < 0)
 		goto fail;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
 	sdi->vendor = g_strdup(hw_info->manufacturer);
 	sdi->model = g_strdup(hw_info->model);
 	sdi->version = g_strdup(hw_info->firmware_version);
 	sdi->serial_num = g_strdup(hw_info->serial_number);
 	sdi->driver = &hameg_hmo_driver_info;
-	sdi->inst_type = SR_INST_SCPI;
+	sdi->inst_type = OTC_INST_SCPI;
 	sdi->conn = scpi;
 
-	sr_scpi_hw_info_free(hw_info);
+	otc_scpi_hw_info_free(hw_info);
 	hw_info = NULL;
 
 	devc = g_malloc0(sizeof(struct dev_context));
 
 	sdi->priv = devc;
 
-	if (hmo_init_device(sdi) != SR_OK)
+	if (hmo_init_device(sdi) != OTC_OK)
 		goto fail;
 
 	return sdi;
 
 fail:
-	sr_scpi_hw_info_free(hw_info);
-	sr_dev_inst_free(sdi);
+	otc_scpi_hw_info_free(hw_info);
+	otc_dev_inst_free(sdi);
 	g_free(devc);
 
 	return NULL;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
-	return sr_scpi_scan(di->context, options, probe_device);
+	return otc_scpi_scan(di->context, options, probe_device);
 }
 
 static void clear_helper(struct dev_context *devc)
@@ -106,29 +106,29 @@ static void clear_helper(struct dev_context *devc)
 	g_free(devc->digital_groups);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	if (sr_scpi_open(sdi->conn) != SR_OK)
-		return SR_ERR;
+	if (otc_scpi_open(sdi->conn) != OTC_OK)
+		return OTC_ERR;
 
-	if (hmo_scope_state_get(sdi) != SR_OK)
-		return SR_ERR;
+	if (hmo_scope_state_get(sdi) != OTC_OK)
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	return sr_scpi_close(sdi->conn);
+	return otc_scpi_close(sdi->conn);
 }
 
 static int check_channel_group(struct dev_context *devc,
-			     const struct sr_channel_group *cg)
+			     const struct otc_channel_group *cg)
 {
 	const struct scope_config *model;
 
@@ -143,13 +143,13 @@ static int check_channel_group(struct dev_context *devc,
 	if (std_cg_idx(cg, devc->digital_groups, model->digital_pods) >= 0)
 		return CG_DIGITAL;
 
-	sr_err("Invalid channel group specified.");
+	otc_err("Invalid channel group specified.");
 
 	return CG_INVALID;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int cg_type, idx, i;
 	struct dev_context *devc;
@@ -157,120 +157,120 @@ static int config_get(uint32_t key, GVariant **data,
 	struct scope_state *state;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	if ((cg_type = check_channel_group(devc, cg)) == CG_INVALID)
-		return SR_ERR;
+		return OTC_ERR;
 
 	model = devc->model_config;
 	state = devc->model_state;
 
 	switch (key) {
-	case SR_CONF_NUM_HDIV:
+	case OTC_CONF_NUM_HDIV:
 		*data = g_variant_new_int32(model->num_xdivs);
 		break;
-	case SR_CONF_TIMEBASE:
+	case OTC_CONF_TIMEBASE:
 		*data = g_variant_new("(tt)", (*model->timebases)[state->timebase][0],
 				      (*model->timebases)[state->timebase][1]);
 		break;
-	case SR_CONF_NUM_VDIV:
+	case OTC_CONF_NUM_VDIV:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if (cg_type != CG_ANALOG)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if (std_cg_idx(cg, devc->analog_groups, model->analog_channels) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_int32(model->num_ydivs);
 		break;
-	case SR_CONF_VDIV:
+	case OTC_CONF_VDIV:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if (cg_type != CG_ANALOG)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if ((idx = std_cg_idx(cg, devc->analog_groups, model->analog_channels)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new("(tt)",
 				      (*model->vdivs)[state->analog_channels[idx].vdiv][0],
 				      (*model->vdivs)[state->analog_channels[idx].vdiv][1]);
 		break;
-	case SR_CONF_TRIGGER_SOURCE:
+	case OTC_CONF_TRIGGER_SOURCE:
 		*data = g_variant_new_string((*model->trigger_sources)[state->trigger_source]);
 		break;
-	case SR_CONF_TRIGGER_SLOPE:
+	case OTC_CONF_TRIGGER_SLOPE:
 		*data = g_variant_new_string((*model->trigger_slopes)[state->trigger_slope]);
 		break;
-	case SR_CONF_TRIGGER_PATTERN:
+	case OTC_CONF_TRIGGER_PATTERN:
 		*data = g_variant_new_string(state->trigger_pattern);
 		break;
-	case SR_CONF_HIGH_RESOLUTION:
+	case OTC_CONF_HIGH_RESOLUTION:
 		*data = g_variant_new_boolean(state->high_resolution);
 		break;
-	case SR_CONF_PEAK_DETECTION:
+	case OTC_CONF_PEAK_DETECTION:
 		*data = g_variant_new_boolean(state->peak_detection);
 		break;
-	case SR_CONF_HORIZ_TRIGGERPOS:
+	case OTC_CONF_HORIZ_TRIGGERPOS:
 		*data = g_variant_new_double(state->horiz_triggerpos);
 		break;
-	case SR_CONF_COUPLING:
+	case OTC_CONF_COUPLING:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if (cg_type != CG_ANALOG)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if ((idx = std_cg_idx(cg, devc->analog_groups, model->analog_channels)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_string((*model->coupling_options)[state->analog_channels[idx].coupling]);
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(state->sample_rate);
 		break;
-	case SR_CONF_LOGIC_THRESHOLD:
+	case OTC_CONF_LOGIC_THRESHOLD:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if (cg_type != CG_DIGITAL)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if ((idx = std_cg_idx(cg, devc->digital_groups, model->digital_pods)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_string((*model->logic_threshold)[state->digital_pods[idx].threshold]);
 		break;
-	case SR_CONF_LOGIC_THRESHOLD_CUSTOM:
+	case OTC_CONF_LOGIC_THRESHOLD_CUSTOM:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if (cg_type != CG_DIGITAL)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if ((idx = std_cg_idx(cg, devc->digital_groups, model->digital_pods)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		/* Check if the oscilloscope is currently in custom threshold mode. */
 		for (i = 0; i < model->num_logic_threshold; i++) {
 			if (!strcmp("USER2", (*model->logic_threshold)[i]))
 				if (strcmp("USER2", (*model->logic_threshold)[state->digital_pods[idx].threshold]))
-					return SR_ERR_NA;
+					return OTC_ERR_NA;
 			if (!strcmp("USER", (*model->logic_threshold)[i]))
 				if (strcmp("USER", (*model->logic_threshold)[state->digital_pods[idx].threshold]))
-					return SR_ERR_NA;
+					return OTC_ERR_NA;
 			if (!strcmp("MAN", (*model->logic_threshold)[i]))
 				if (strcmp("MAN", (*model->logic_threshold)[state->digital_pods[idx].threshold]))
-					return SR_ERR_NA;
+					return OTC_ERR_NA;
 		}
 		*data = g_variant_new_double(state->digital_pods[idx].user_threshold);
 		break;
-	case SR_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_FRAMES:
 		*data = g_variant_new_uint64(devc->frame_limit);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int ret, cg_type, idx, i, j;
 	char command[MAX_COMMAND_SIZE], command2[MAX_COMMAND_SIZE];
@@ -282,63 +282,63 @@ static int config_set(uint32_t key, GVariant *data,
 	gboolean update_sample_rate, tmp_bool;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	if ((cg_type = check_channel_group(devc, cg)) == CG_INVALID)
-		return SR_ERR;
+		return OTC_ERR;
 
 	model = devc->model_config;
 	state = devc->model_state;
 	update_sample_rate = FALSE;
 
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		devc->samples_limit = g_variant_get_uint64(data);
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_FRAMES:
 		devc->frame_limit = g_variant_get_uint64(data);
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_VDIV:
+	case OTC_CONF_VDIV:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if ((idx = std_u64_tuple_idx(data, *model->vdivs, model->num_vdivs)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if ((j = std_cg_idx(cg, devc->analog_groups, model->analog_channels)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		g_ascii_formatd(float_str, sizeof(float_str), "%E",
 			(float) (*model->vdivs)[idx][0] / (*model->vdivs)[idx][1]);
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_SET_VERTICAL_SCALE],
 			   j + 1, float_str);
-		if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
 		state->analog_channels[j].vdiv = idx;
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_TIMEBASE:
+	case OTC_CONF_TIMEBASE:
 		if ((idx = std_u64_tuple_idx(data, *model->timebases, model->num_timebases)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		g_ascii_formatd(float_str, sizeof(float_str), "%E",
 			(float) (*model->timebases)[idx][0] / (*model->timebases)[idx][1]);
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_SET_TIMEBASE],
 			   float_str);
-		if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
 		state->timebase = idx;
-		ret = SR_OK;
+		ret = OTC_OK;
 		update_sample_rate = TRUE;
 		break;
-	case SR_CONF_HORIZ_TRIGGERPOS:
+	case OTC_CONF_HORIZ_TRIGGERPOS:
 		tmp_d = g_variant_get_double(data);
 		if (tmp_d < 0.0 || tmp_d > 1.0)
-			return SR_ERR;
+			return OTC_ERR;
 		tmp_d2 = -(tmp_d - 0.5) *
 			((double) (*model->timebases)[state->timebase][0] /
 			(*model->timebases)[state->timebase][1])
@@ -347,121 +347,121 @@ static int config_set(uint32_t key, GVariant *data,
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_SET_HORIZ_TRIGGERPOS],
 			   float_str);
-		if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
 		state->horiz_triggerpos = tmp_d;
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_TRIGGER_SOURCE:
+	case OTC_CONF_TRIGGER_SOURCE:
 		if ((idx = std_str_idx(data, *model->trigger_sources, model->num_trigger_sources)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_SET_TRIGGER_SOURCE],
 			   (*model->trigger_sources)[idx]);
-		if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
 		state->trigger_source = idx;
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_TRIGGER_SLOPE:
+	case OTC_CONF_TRIGGER_SLOPE:
 		if ((idx = std_str_idx(data, *model->trigger_slopes, model->num_trigger_slopes)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_SET_TRIGGER_SLOPE],
 			   (*model->trigger_slopes)[idx]);
-		if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
 		state->trigger_slope = idx;
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_TRIGGER_PATTERN:
+	case OTC_CONF_TRIGGER_PATTERN:
 		tmp_str = (char *)g_variant_get_string(data, 0);
 		idx = strlen(tmp_str);
 		if (idx == 0 || idx > model->analog_channels + model->digital_channels)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_SET_TRIGGER_PATTERN],
 			   tmp_str);
-		if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
 		strncpy(state->trigger_pattern,
 			tmp_str,
 			MAX_ANALOG_CHANNEL_COUNT + MAX_DIGITAL_CHANNEL_COUNT);
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_HIGH_RESOLUTION:
+	case OTC_CONF_HIGH_RESOLUTION:
 		tmp_bool = g_variant_get_boolean(data);
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_SET_HIGH_RESOLUTION],
 			   tmp_bool ? "AUTO" : "OFF");
-		if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
 		/* High Resolution mode automatically switches off Peak Detection. */
 		if (tmp_bool) {
 			g_snprintf(command, sizeof(command),
 				   (*model->scpi_dialect)[SCPI_CMD_SET_PEAK_DETECTION],
 				   "OFF");
-			if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-					 sr_scpi_get_opc(sdi->conn) != SR_OK)
-				return SR_ERR;
+			if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+					 otc_scpi_get_opc(sdi->conn) != OTC_OK)
+				return OTC_ERR;
 			state->peak_detection = FALSE;
 		}
 		state->high_resolution = tmp_bool;
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_PEAK_DETECTION:
+	case OTC_CONF_PEAK_DETECTION:
 		tmp_bool = g_variant_get_boolean(data);
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_SET_PEAK_DETECTION],
 			   tmp_bool ? "AUTO" : "OFF");
-		if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
 		/* Peak Detection automatically switches off High Resolution mode. */
 		if (tmp_bool) {
 			g_snprintf(command, sizeof(command),
 				   (*model->scpi_dialect)[SCPI_CMD_SET_HIGH_RESOLUTION],
 				   "OFF");
-			if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-					 sr_scpi_get_opc(sdi->conn) != SR_OK)
-				return SR_ERR;
+			if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+					 otc_scpi_get_opc(sdi->conn) != OTC_OK)
+				return OTC_ERR;
 			state->high_resolution = FALSE;
 		}
 		state->peak_detection = tmp_bool;
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_COUPLING:
+	case OTC_CONF_COUPLING:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if ((idx = std_str_idx(data, *model->coupling_options, model->num_coupling_options)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if ((j = std_cg_idx(cg, devc->analog_groups, model->analog_channels)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_SET_COUPLING],
 			   j + 1, (*model->coupling_options)[idx]);
-		if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
 		state->analog_channels[j].coupling = idx;
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_LOGIC_THRESHOLD:
+	case OTC_CONF_LOGIC_THRESHOLD:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if (cg_type != CG_DIGITAL)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if ((idx = std_str_idx(data, *model->logic_threshold, model->num_logic_threshold)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if ((j = std_cg_idx(cg, devc->digital_groups, model->digital_pods)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
                 /* Check if the threshold command is based on the POD or digital channel index. */
 		if (model->logic_threshold_for_pod)
 			i = j + 1;
@@ -470,24 +470,24 @@ static int config_set(uint32_t key, GVariant *data,
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_SET_DIG_POD_THRESHOLD],
 			   i, (*model->logic_threshold)[idx]);
-		if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
 		state->digital_pods[j].threshold = idx;
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
-	case SR_CONF_LOGIC_THRESHOLD_CUSTOM:
+	case OTC_CONF_LOGIC_THRESHOLD_CUSTOM:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if (cg_type != CG_DIGITAL)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if ((j = std_cg_idx(cg, devc->digital_groups, model->digital_pods)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		tmp_d = g_variant_get_double(data);
 		if (tmp_d < -2.0 || tmp_d > 8.0)
-			return SR_ERR;
+			return OTC_ERR;
 		g_ascii_formatd(float_str, sizeof(float_str), "%E", tmp_d);
 		/* Check if the threshold command is based on the POD or digital channel index. */
 		if (model->logic_threshold_for_pod)
@@ -524,28 +524,28 @@ static int config_set(uint32_t key, GVariant *data,
 				break;
 			}
 		}
-		if (sr_scpi_send(sdi->conn, command) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
-		if (sr_scpi_send(sdi->conn, command2) != SR_OK ||
-		    sr_scpi_get_opc(sdi->conn) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_send(sdi->conn, command) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
+		if (otc_scpi_send(sdi->conn, command2) != OTC_OK ||
+		    otc_scpi_get_opc(sdi->conn) != OTC_OK)
+			return OTC_ERR;
 		state->digital_pods[j].user_threshold = tmp_d;
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
 	default:
-		ret = SR_ERR_NA;
+		ret = OTC_ERR_NA;
 		break;
 	}
 
-	if (ret == SR_OK && update_sample_rate)
+	if (ret == OTC_OK && update_sample_rate)
 		ret = hmo_update_sample_rate(sdi);
 
 	return ret;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int cg_type = CG_NONE;
 	struct dev_context *devc = NULL;
@@ -554,16 +554,16 @@ static int config_list(uint32_t key, GVariant **data,
 	if (sdi) {
 		devc = sdi->priv;
 		if ((cg_type = check_channel_group(devc, cg)) == CG_INVALID)
-			return SR_ERR;
+			return OTC_ERR;
 
 		model = devc->model_config;
 	}
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
 		*data = std_gvar_array_u32(ARRAY_AND_SIZE(scanopts));
 		break;
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		if (!cg) {
 			if (model)
 				*data = std_gvar_array_u32(*model->devopts, model->num_devopts);
@@ -577,53 +577,53 @@ static int config_list(uint32_t key, GVariant **data,
 			*data = std_gvar_array_u32(NULL, 0);
 		}
 		break;
-	case SR_CONF_COUPLING:
+	case OTC_CONF_COUPLING:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_strv(*model->coupling_options, model->num_coupling_options);
 		break;
-	case SR_CONF_TRIGGER_SOURCE:
+	case OTC_CONF_TRIGGER_SOURCE:
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_strv(*model->trigger_sources, model->num_trigger_sources);
 		break;
-	case SR_CONF_TRIGGER_SLOPE:
+	case OTC_CONF_TRIGGER_SLOPE:
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_strv(*model->trigger_slopes, model->num_trigger_slopes);
 		break;
-	case SR_CONF_TIMEBASE:
+	case OTC_CONF_TIMEBASE:
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = std_gvar_tuple_array(*model->timebases, model->num_timebases);
 		break;
-	case SR_CONF_VDIV:
+	case OTC_CONF_VDIV:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = std_gvar_tuple_array(*model->vdivs, model->num_vdivs);
 		break;
-	case SR_CONF_LOGIC_THRESHOLD:
+	case OTC_CONF_LOGIC_THRESHOLD:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if (!model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_strv(*model->logic_threshold, model->num_logic_threshold);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int hmo_request_data(const struct sr_dev_inst *sdi)
+OTC_PRIV int hmo_request_data(const struct otc_dev_inst *sdi)
 {
 	char command[MAX_COMMAND_SIZE];
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	struct dev_context *devc;
 	const struct scope_config *model;
 
@@ -633,7 +633,7 @@ SR_PRIV int hmo_request_data(const struct sr_dev_inst *sdi)
 	ch = devc->current_channel->data;
 
 	switch (ch->type) {
-	case SR_CHANNEL_ANALOG:
+	case OTC_CHANNEL_ANALOG:
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_GET_ANALOG_DATA],
 #ifdef WORDS_BIGENDIAN
@@ -643,23 +643,23 @@ SR_PRIV int hmo_request_data(const struct sr_dev_inst *sdi)
 #endif
 			   ch->index + 1);
 		break;
-	case SR_CHANNEL_LOGIC:
+	case OTC_CHANNEL_LOGIC:
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_GET_DIG_DATA],
 			   ch->index / DIGITAL_CHANNELS_PER_POD + 1);
 		break;
 	default:
-		sr_err("Invalid channel type.");
+		otc_err("Invalid channel type.");
 		break;
 	}
 
-	return sr_scpi_send(sdi->conn, command);
+	return otc_scpi_send(sdi->conn, command);
 }
 
 static int hmo_check_channels(GSList *channels)
 {
 	GSList *l;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	gboolean enabled_chan[MAX_ANALOG_CHANNEL_COUNT];
 	gboolean enabled_pod[MAX_DIGITAL_GROUP_COUNT];
 	size_t idx;
@@ -677,18 +677,18 @@ static int hmo_check_channels(GSList *channels)
 	for (l = channels; l; l = l->next) {
 		ch = l->data;
 		switch (ch->type) {
-		case SR_CHANNEL_ANALOG:
+		case OTC_CHANNEL_ANALOG:
 			idx = ch->index;
 			if (idx < ARRAY_SIZE(enabled_chan))
 				enabled_chan[idx] = TRUE;
 			break;
-		case SR_CHANNEL_LOGIC:
+		case OTC_CHANNEL_LOGIC:
 			idx = ch->index / DIGITAL_CHANNELS_PER_POD;
 			if (idx < ARRAY_SIZE(enabled_pod))
 				enabled_pod[idx] = TRUE;
 			break;
 		default:
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	}
 
@@ -701,13 +701,13 @@ static int hmo_check_channels(GSList *channels)
 	 * models gets added to the driver.
 	 */
 	if (enabled_pod[0] && enabled_chan[2])
-		return SR_ERR;
+		return OTC_ERR;
 	if (enabled_pod[1] && enabled_chan[3])
-		return SR_ERR;
-	return SR_OK;
+		return OTC_ERR;
+	return OTC_OK;
 }
 
-static int hmo_setup_channels(const struct sr_dev_inst *sdi)
+static int hmo_setup_channels(const struct otc_dev_inst *sdi)
 {
 	GSList *l;
 	unsigned int i;
@@ -715,9 +715,9 @@ static int hmo_setup_channels(const struct sr_dev_inst *sdi)
 	char command[MAX_COMMAND_SIZE];
 	struct scope_state *state;
 	const struct scope_config *model;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	int ret;
 
 	devc = sdi->priv;
@@ -731,21 +731,21 @@ static int hmo_setup_channels(const struct sr_dev_inst *sdi)
 	for (l = sdi->channels; l; l = l->next) {
 		ch = l->data;
 		switch (ch->type) {
-		case SR_CHANNEL_ANALOG:
+		case OTC_CHANNEL_ANALOG:
 			if (ch->enabled == state->analog_channels[ch->index].state)
 				break;
 			g_snprintf(command, sizeof(command),
 				   (*model->scpi_dialect)[SCPI_CMD_SET_ANALOG_CHAN_STATE],
 				   ch->index + 1, ch->enabled);
 
-			if (sr_scpi_send(scpi, command) != SR_OK) {
+			if (otc_scpi_send(scpi, command) != OTC_OK) {
 				g_free(pod_enabled);
-				return SR_ERR;
+				return OTC_ERR;
 			}
 			state->analog_channels[ch->index].state = ch->enabled;
 			setup_changed = TRUE;
 			break;
-		case SR_CHANNEL_LOGIC:
+		case OTC_CHANNEL_LOGIC:
 			/*
 			 * A digital POD needs to be enabled for every group of
 			 * DIGITAL_CHANNELS_PER_POD channels.
@@ -759,9 +759,9 @@ static int hmo_setup_channels(const struct sr_dev_inst *sdi)
 				   (*model->scpi_dialect)[SCPI_CMD_SET_DIG_CHAN_STATE],
 				   ch->index, ch->enabled);
 
-			if (sr_scpi_send(scpi, command) != SR_OK) {
+			if (otc_scpi_send(scpi, command) != OTC_OK) {
 				g_free(pod_enabled);
-				return SR_ERR;
+				return OTC_ERR;
 			}
 
 			state->digital_channels[ch->index] = ch->enabled;
@@ -769,42 +769,42 @@ static int hmo_setup_channels(const struct sr_dev_inst *sdi)
 			break;
 		default:
 			g_free(pod_enabled);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	}
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	for (i = 0; i < model->digital_pods; i++) {
 		if (state->digital_pods[i].state == pod_enabled[i])
 			continue;
 		g_snprintf(command, sizeof(command),
 			   (*model->scpi_dialect)[SCPI_CMD_SET_DIG_POD_STATE],
 			   i + 1, pod_enabled[i]);
-		if (sr_scpi_send(scpi, command) != SR_OK) {
-			ret = SR_ERR;
+		if (otc_scpi_send(scpi, command) != OTC_OK) {
+			ret = OTC_ERR;
 			break;
 		}
 		state->digital_pods[i].state = pod_enabled[i];
 		setup_changed = TRUE;
 	}
 	g_free(pod_enabled);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	if (setup_changed && hmo_update_sample_rate(sdi) != SR_OK)
-		return SR_ERR;
+	if (setup_changed && hmo_update_sample_rate(sdi) != OTC_OK)
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	GSList *l;
 	gboolean digital_added[MAX_DIGITAL_GROUP_COUNT];
 	size_t group, pod_count;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	int ret;
 
 	scpi = sdi->conn;
@@ -830,10 +830,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			continue;
 		/* Only add a single digital channel per group (pod). */
 		group = ch->index / DIGITAL_CHANNELS_PER_POD;
-		if (ch->type != SR_CHANNEL_LOGIC || !digital_added[group]) {
+		if (ch->type != OTC_CHANNEL_LOGIC || !digital_added[group]) {
 			devc->enabled_channels = g_slist_append(
 					devc->enabled_channels, ch);
-			if (ch->type == SR_CHANNEL_LOGIC) {
+			if (ch->type == OTC_CHANNEL_LOGIC) {
 				digital_added[group] = TRUE;
 				if (pod_count < group + 1)
 					pod_count = group + 1;
@@ -841,7 +841,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		}
 	}
 	if (!devc->enabled_channels)
-		return SR_ERR;
+		return OTC_ERR;
 	devc->pod_count = pod_count;
 	devc->logic_data = NULL;
 
@@ -849,9 +849,9 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	 * Check constraints. Some channels can be either analog or
 	 * digital, but not both at the same time.
 	 */
-	if (hmo_check_channels(devc->enabled_channels) != SR_OK) {
-		sr_err("Invalid channel configuration specified!");
-		ret = SR_ERR_NA;
+	if (hmo_check_channels(devc->enabled_channels) != OTC_OK) {
+		otc_err("Invalid channel configuration specified!");
+		ret = OTC_ERR_NA;
 		goto free_enabled;
 	}
 
@@ -859,9 +859,9 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	 * Configure the analog and digital channels and the
 	 * corresponding digital pods.
 	 */
-	if (hmo_setup_channels(sdi) != SR_OK) {
-		sr_err("Failed to setup channel configuration!");
-		ret = SR_ERR;
+	if (hmo_setup_channels(sdi) != OTC_OK) {
+		otc_err("Failed to setup channel configuration!");
+		ret = OTC_ERR;
 		goto free_enabled;
 	}
 
@@ -869,7 +869,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	 * Start acquisition on the first enabled channel. The
 	 * receive routine will continue driving the acquisition.
 	 */
-	sr_scpi_source_add(sdi->session, scpi, G_IO_IN, 50,
+	otc_scpi_source_add(sdi->session, scpi, G_IO_IN, 50,
 			hmo_receive_data, (void *)sdi);
 
 	std_session_send_df_header(sdi);
@@ -884,10 +884,10 @@ free_enabled:
 	return ret;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 
 	std_session_send_df_end(sdi);
 
@@ -898,12 +898,12 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	g_slist_free(devc->enabled_channels);
 	devc->enabled_channels = NULL;
 	scpi = sdi->conn;
-	sr_scpi_source_remove(sdi->session, scpi);
+	otc_scpi_source_remove(sdi->session, scpi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver hameg_hmo_driver_info = {
+static struct otc_dev_driver hameg_hmo_driver_info = {
 	.name = "hameg-hmo",
 	.longname = "Hameg HMO",
 	.api_version = 1,
@@ -921,4 +921,4 @@ static struct sr_dev_driver hameg_hmo_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(hameg_hmo_driver_info);
+OTC_REGISTER_DEV_DRIVER(hameg_hmo_driver_info);

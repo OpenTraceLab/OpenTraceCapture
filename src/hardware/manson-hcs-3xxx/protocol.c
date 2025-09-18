@@ -1,8 +1,8 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Uwe Hermann <uwe@hermann-uwe.de>
- * Copyright (C) 2014 Matthias Heidbrink <m-sigrok@heidbrink.biz>
+ * Copyright (C) 2014 Matthias Heidbrink <m-opentracelab@heidbrink.biz>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@
 
 #define REQ_TIMEOUT_MS 500
 
-SR_PRIV int hcs_send_cmd(struct sr_serial_dev_inst *serial, const char *cmd, ...)
+OTC_PRIV int hcs_send_cmd(struct otc_serial_dev_inst *serial, const char *cmd, ...)
 {
 	int ret;
 	char cmdbuf[50];
@@ -35,12 +35,12 @@ SR_PRIV int hcs_send_cmd(struct sr_serial_dev_inst *serial, const char *cmd, ...
 	va_end(args);
 
 	cmd_esc = g_strescape(cmdbuf, NULL);
-	sr_dbg("Sending '%s'.", cmd_esc);
+	otc_dbg("Sending '%s'.", cmd_esc);
 	g_free(cmd_esc);
 
 	if ((ret = serial_write_blocking(serial, cmdbuf, strlen(cmdbuf),
 			serial_timeout(serial, strlen(cmdbuf)))) < 0) {
-		sr_err("Error sending command: %d.", ret);
+		otc_err("Error sending command: %d.", ret);
 		return ret;
 	}
 
@@ -56,23 +56,23 @@ SR_PRIV int hcs_send_cmd(struct sr_serial_dev_inst *serial, const char *cmd, ...
  * @param buf Buffer for result. Contents is NUL-terminated on success.
  * @param[in] buflen Buffer length (>0).
  *
- * @retval SR_OK Lines received and ending with "OK\r" (success).
- * @retval SR_ERR Error.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK Lines received and ending with "OK\r" (success).
+ * @retval OTC_ERR Error.
+ * @retval OTC_ERR_ARG Invalid argument.
  */
-SR_PRIV int hcs_read_reply(struct sr_serial_dev_inst *serial, int lines, char *buf, int buflen)
+OTC_PRIV int hcs_read_reply(struct otc_serial_dev_inst *serial, int lines, char *buf, int buflen)
 {
 	int l_recv = 0;
 	int bufpos = 0;
 	int retc;
 
 	if (!serial || (lines <= 0) || !buf || (buflen <= 0))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	while ((l_recv < lines) && (bufpos < (buflen + 1))) {
 		retc = serial_read_blocking(serial, &buf[bufpos], 1, 0);
 		if (retc != 1)
-			return SR_ERR;
+			return OTC_ERR;
 		if (buf[bufpos] == '\r')
 			l_recv++;
 		bufpos++;
@@ -80,13 +80,13 @@ SR_PRIV int hcs_read_reply(struct sr_serial_dev_inst *serial, int lines, char *b
 	buf[bufpos] = '\0';
 
 	if ((l_recv == lines) && (g_str_has_suffix(buf, "OK\r")))
-		return SR_OK;
+		return OTC_OK;
 	else
-		return SR_ERR;
+		return OTC_ERR;
 }
 
 /** Interpret result of GETD command. */
-SR_PRIV int hcs_parse_volt_curr_mode(struct sr_dev_inst *sdi, char **tokens)
+OTC_PRIV int hcs_parse_volt_curr_mode(struct otc_dev_inst *sdi, char **tokens)
 {
 	char *str;
 	double val;
@@ -112,44 +112,44 @@ SR_PRIV int hcs_parse_volt_curr_mode(struct sr_dev_inst *sdi, char **tokens)
 	/* Output enabled? Works because voltage cannot be set to 0.0 directly. */
 	devc->output_enabled = devc->voltage != 0.0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void send_sample(struct sr_dev_inst *sdi)
+static void send_sample(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
 	devc = sdi->priv;
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 2);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 2);
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
 	analog.meaning->channels = sdi->channels;
 	analog.num_samples = 1;
 
-	analog.meaning->mq = SR_MQ_VOLTAGE;
-	analog.meaning->unit = SR_UNIT_VOLT;
-	analog.meaning->mqflags = SR_MQFLAG_DC;
+	analog.meaning->mq = OTC_MQ_VOLTAGE;
+	analog.meaning->unit = OTC_UNIT_VOLT;
+	analog.meaning->mqflags = OTC_MQFLAG_DC;
 	analog.data = &devc->voltage;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
-	analog.meaning->mq = SR_MQ_CURRENT;
-	analog.meaning->unit = SR_UNIT_AMPERE;
+	analog.meaning->mq = OTC_MQ_CURRENT;
+	analog.meaning->unit = OTC_UNIT_AMPERE;
 	analog.meaning->mqflags = 0;
 	analog.data = &devc->current;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 }
 
-static int parse_reply(struct sr_dev_inst *sdi)
+static int parse_reply(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	char *reply_esc, **tokens;
@@ -158,39 +158,39 @@ static int parse_reply(struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	reply_esc = g_strescape(devc->buf, NULL);
-	sr_dbg("Received '%s'.", reply_esc);
+	otc_dbg("Received '%s'.", reply_esc);
 	g_free(reply_esc);
 
 	tokens = g_strsplit(devc->buf, "\r", 0);
 	retc = hcs_parse_volt_curr_mode(sdi, tokens);
 	g_strfreev(tokens);
 	if (retc < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
 	send_sample(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int handle_new_data(struct sr_dev_inst *sdi)
+static int handle_new_data(struct otc_dev_inst *sdi)
 {
 	int len;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 	serial = sdi->conn;
 
 	len = serial_read_blocking(serial, devc->buf + devc->buflen, 1, 0);
 	if (len < 1)
-		return SR_ERR;
+		return OTC_ERR;
 
 	devc->buflen += len;
 	devc->buf[devc->buflen] = '\0';
 
 	/* Wait until we received an "OK\r" (among other bytes). */
 	if (!g_str_has_suffix(devc->buf, "OK\r"))
-		return SR_OK;
+		return OTC_OK;
 
 	parse_reply(sdi);
 
@@ -199,15 +199,15 @@ static int handle_new_data(struct sr_dev_inst *sdi)
 
 	devc->reply_pending = FALSE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** Driver/serial data reception function. */
-SR_PRIV int hcs_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int hcs_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	uint64_t elapsed_us;
 
 	(void)fd;
@@ -227,13 +227,13 @@ SR_PRIV int hcs_receive_data(int fd, int revents, void *cb_data)
 		/* Timeout. */
 	}
 
-	if (sr_sw_limits_check(&devc->limits)) {
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits)) {
+		otc_dev_acquisition_stop(sdi);
 		return TRUE;
 	}
 
 	/* Request next packet, if required. */
-	if (sdi->status == SR_ST_ACTIVE) {
+	if (sdi->status == OTC_ST_ACTIVE) {
 		if (devc->reply_pending) {
 			elapsed_us = g_get_monotonic_time() - devc->req_sent_at;
 			if (elapsed_us > (REQ_TIMEOUT_MS * 1000))

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2012 Joel Holdsworth <joel@airwebreathe.org.uk>
@@ -91,24 +91,24 @@ static const struct fx2lafw_profile supported_fx2[] = {
 		DEV_CAPS_16BIT, NULL, NULL },
 
 	/*
-	 * sigrok FX2 based 8-channel logic analyzer
+	 * opentracelab FX2 based 8-channel logic analyzer
 	 * fx2grok-flat (before and after renumeration)
 	 */
-	{ 0x1d50, 0x608c, "sigrok", "FX2 LA (8ch)", NULL,
-		"fx2lafw-sigrok-fx2-8ch.fw",
+	{ 0x1d50, 0x608c, "opentracelab", "FX2 LA (8ch)", NULL,
+		"fx2lafw-opentracelab-fx2-8ch.fw",
 		0, NULL, NULL},
 
 	/*
-	 * sigrok FX2 based 16-channel logic analyzer
+	 * opentracelab FX2 based 16-channel logic analyzer
 	 */
-	{ 0x1d50, 0x608d, "sigrok", "FX2 LA (16ch)", NULL,
-		"fx2lafw-sigrok-fx2-16ch.fw",
+	{ 0x1d50, 0x608d, "opentracelab", "FX2 LA (16ch)", NULL,
+		"fx2lafw-opentracelab-fx2-16ch.fw",
 		DEV_CAPS_16BIT, NULL, NULL },
 
 	/*
 	 * usb-c-grok
 	 */
-	{ 0x1d50, 0x608f, "sigrok", "usb-c-grok", NULL,
+	{ 0x1d50, 0x608f, "opentracelab", "usb-c-grok", NULL,
 		"fx2lafw-usb-c-grok.fw",
 		0, NULL, NULL},
 
@@ -116,50 +116,50 @@ static const struct fx2lafw_profile supported_fx2[] = {
 };
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_PROBE_NAMES,
+	OTC_CONF_CONN,
+	OTC_CONF_PROBE_NAMES,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_FRAMES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_FRAMES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
+	OTC_CONF_CAPTURE_RATIO | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const int32_t trigger_matches[] = {
-	SR_TRIGGER_ZERO,
-	SR_TRIGGER_ONE,
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
-	SR_TRIGGER_EDGE,
+	OTC_TRIGGER_ZERO,
+	OTC_TRIGGER_ONE,
+	OTC_TRIGGER_RISING,
+	OTC_TRIGGER_FALLING,
+	OTC_TRIGGER_EDGE,
 };
 
 static const uint64_t samplerates[] = {
-	SR_KHZ(20),
-	SR_KHZ(25),
-	SR_KHZ(50),
-	SR_KHZ(100),
-	SR_KHZ(200),
-	SR_KHZ(250),
-	SR_KHZ(500),
-	SR_MHZ(1),
-	SR_MHZ(2),
-	SR_MHZ(3),
-	SR_MHZ(4),
-	SR_MHZ(6),
-	SR_MHZ(8),
-	SR_MHZ(12),
-	SR_MHZ(16),
-	SR_MHZ(24),
-	SR_MHZ(48),
+	OTC_KHZ(20),
+	OTC_KHZ(25),
+	OTC_KHZ(50),
+	OTC_KHZ(100),
+	OTC_KHZ(200),
+	OTC_KHZ(250),
+	OTC_KHZ(500),
+	OTC_MHZ(1),
+	OTC_MHZ(2),
+	OTC_MHZ(3),
+	OTC_MHZ(4),
+	OTC_MHZ(6),
+	OTC_MHZ(8),
+	OTC_MHZ(12),
+	OTC_MHZ(16),
+	OTC_MHZ(24),
+	OTC_MHZ(48),
 };
 
 static const char *channel_names_logic[] = {
@@ -185,15 +185,15 @@ static gboolean is_plausible(const struct libusb_device_descriptor *des)
 	return FALSE;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct drv_context *drvc;
 	struct dev_context *devc;
-	struct sr_dev_inst *sdi;
-	struct sr_usb_dev_inst *usb;
-	struct sr_channel *ch;
-	struct sr_channel_group *cg;
-	struct sr_config *src;
+	struct otc_dev_inst *sdi;
+	struct otc_usb_dev_inst *usb;
+	struct otc_channel *ch;
+	struct otc_channel_group *cg;
+	struct otc_config *src;
 	const struct fx2lafw_profile *prof;
 	GSList *l, *devices, *conn_devices;
 	gboolean has_firmware;
@@ -215,22 +215,22 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_PROBE_NAMES:
+		case OTC_CONF_PROBE_NAMES:
 			probe_names = g_variant_get_string(src->data, NULL);
 			break;
 		}
 	}
 	if (conn)
-		conn_devices = sr_usb_find(drvc->sr_ctx->libusb_ctx, conn);
+		conn_devices = otc_usb_find(drvc->otc_ctx->libusb_ctx, conn);
 	else
 		conn_devices = NULL;
 
 	/* Find all fx2lafw compatible devices and upload firmware to them. */
 	devices = NULL;
-	libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+	libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 	for (i = 0; devlist[i]; i++) {
 		if (conn) {
 			usb = NULL;
@@ -252,7 +252,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			continue;
 
 		if ((ret = libusb_open(devlist[i], &hdl)) < 0) {
-			sr_warn("Failed to open potential device with "
+			otc_warn("Failed to open potential device with "
 				"VID:PID %04x:%04x: %s.", des.idVendor,
 				des.idProduct, libusb_error_name(ret));
 			continue;
@@ -263,7 +263,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		} else if ((ret = libusb_get_string_descriptor_ascii(hdl,
 				des.iManufacturer, (unsigned char *) manufacturer,
 				sizeof(manufacturer))) < 0) {
-			sr_warn("Failed to get manufacturer string descriptor: %s.",
+			otc_warn("Failed to get manufacturer string descriptor: %s.",
 				libusb_error_name(ret));
 			continue;
 		}
@@ -273,7 +273,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		} else if ((ret = libusb_get_string_descriptor_ascii(hdl,
 				des.iProduct, (unsigned char *) product,
 				sizeof(product))) < 0) {
-			sr_warn("Failed to get product string descriptor: %s.",
+			otc_warn("Failed to get product string descriptor: %s.",
 				libusb_error_name(ret));
 			continue;
 		}
@@ -283,7 +283,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		} else if ((ret = libusb_get_string_descriptor_ascii(hdl,
 				des.iSerialNumber, (unsigned char *) serial_num,
 				sizeof(serial_num))) < 0) {
-			sr_warn("Failed to get serial number string descriptor: %s.",
+			otc_warn("Failed to get serial number string descriptor: %s.",
 				libusb_error_name(ret));
 			continue;
 		}
@@ -309,8 +309,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		if (!prof)
 			continue;
 
-		sdi = g_malloc0(sizeof(struct sr_dev_inst));
-		sdi->status = SR_ST_INITIALIZING;
+		sdi = g_malloc0(sizeof(struct otc_dev_inst));
+		sdi->status = OTC_ST_INITIALIZING;
 		sdi->vendor = g_strdup(prof->vendor);
 		sdi->model = g_strdup(prof->model);
 		sdi->version = g_strdup(prof->model_version);
@@ -344,60 +344,60 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		 * key is protocol decoders, which are logic only.
 		 */
 		ch_max = num_logic_channels;
-		devc->channel_names = sr_parse_probe_names(probe_names,
+		devc->channel_names = otc_parse_probe_names(probe_names,
 			channel_names_logic, ch_max, ch_max, &ch_max);
 		ch_idx = 0;
 
 		/* Logic channels, all in one channel group. */
-		cg = sr_channel_group_new(sdi, "Logic", NULL);
+		cg = otc_channel_group_new(sdi, "Logic", NULL);
 		for (j = 0; j < num_logic_channels; j++) {
 			channel_name = devc->channel_names[j];
-			ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_LOGIC,
+			ch = otc_channel_new(sdi, ch_idx++, OTC_CHANNEL_LOGIC,
 				TRUE, channel_name);
 			cg->channels = g_slist_append(cg->channels, ch);
 		}
 
 		for (j = 0; j < num_analog_channels; j++) {
 			channel_name = channel_names_analog[j];
-			ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG,
+			ch = otc_channel_new(sdi, ch_idx++, OTC_CHANNEL_ANALOG,
 				TRUE, channel_name);
 
 			/* Every analog channel gets its own channel group. */
-			cg = sr_channel_group_new(sdi, channel_name, NULL);
+			cg = otc_channel_group_new(sdi, channel_name, NULL);
 			cg->channels = g_slist_append(NULL, ch);
 		}
 
 		devc->samplerates = samplerates;
 		devc->num_samplerates = ARRAY_SIZE(samplerates);
 		has_firmware = usb_match_manuf_prod(devlist[i],
-				"sigrok", "fx2lafw");
+				"opentracelab", "fx2lafw");
 
 		if (has_firmware) {
 			/* Already has the firmware, so fix the new address. */
-			sr_dbg("Found an fx2lafw device.");
-			sdi->status = SR_ST_INACTIVE;
-			sdi->inst_type = SR_INST_USB;
-			sdi->conn = sr_usb_dev_inst_new(libusb_get_bus_number(devlist[i]),
+			otc_dbg("Found an fx2lafw device.");
+			sdi->status = OTC_ST_INACTIVE;
+			sdi->inst_type = OTC_INST_USB;
+			sdi->conn = otc_usb_dev_inst_new(libusb_get_bus_number(devlist[i]),
 					libusb_get_device_address(devlist[i]), NULL);
 		} else {
-			if (ezusb_upload_firmware(drvc->sr_ctx, devlist[i],
-					USB_CONFIGURATION, prof->firmware) == SR_OK) {
+			if (ezusb_upload_firmware(drvc->otc_ctx, devlist[i],
+					USB_CONFIGURATION, prof->firmware) == OTC_OK) {
 				/* Store when this device's FW was updated. */
 				devc->fw_updated = g_get_monotonic_time();
 			} else {
-				sr_err("Firmware upload failed for "
+				otc_err("Firmware upload failed for "
 				       "device %d.%d (logical), name %s.",
 				       libusb_get_bus_number(devlist[i]),
 				       libusb_get_device_address(devlist[i]),
 				       prof->firmware);
 			}
-			sdi->inst_type = SR_INST_USB;
-			sdi->conn = sr_usb_dev_inst_new(libusb_get_bus_number(devlist[i]),
+			sdi->inst_type = OTC_INST_USB;
+			sdi->conn = otc_usb_dev_inst_new(libusb_get_bus_number(devlist[i]),
 					0xff, NULL);
 		}
 	}
 	libusb_free_device_list(devlist, 1);
-	g_slist_free_full(conn_devices, (GDestroyNotify)sr_usb_dev_inst_free);
+	g_slist_free_full(conn_devices, (GDestroyNotify)otc_usb_dev_inst_free);
 
 	return std_scan_complete(di, devices);
 }
@@ -407,15 +407,15 @@ static void clear_helper(struct dev_context *devc)
 	g_slist_free(devc->enabled_analog_channels);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	struct sr_dev_driver *di = sdi->driver;
-	struct sr_usb_dev_inst *usb;
+	struct otc_dev_driver *di = sdi->driver;
+	struct otc_usb_dev_inst *usb;
 	struct dev_context *devc;
 	int ret;
 	int64_t timediff_us, timediff_ms;
@@ -427,53 +427,53 @@ static int dev_open(struct sr_dev_inst *sdi)
 	 * If the firmware was recently uploaded, wait up to MAX_RENUM_DELAY_MS
 	 * milliseconds for the FX2 to renumerate.
 	 */
-	ret = SR_ERR;
+	ret = OTC_ERR;
 	if (devc->fw_updated > 0) {
-		sr_info("Waiting for device to reset.");
+		otc_info("Waiting for device to reset.");
 		/* Takes >= 300ms for the FX2 to be gone from the USB bus. */
 		g_usleep(300 * 1000);
 		timediff_ms = 0;
 		while (timediff_ms < MAX_RENUM_DELAY_MS) {
-			if ((ret = fx2lafw_dev_open(sdi, di)) == SR_OK)
+			if ((ret = fx2lafw_dev_open(sdi, di)) == OTC_OK)
 				break;
 			g_usleep(100 * 1000);
 
 			timediff_us = g_get_monotonic_time() - devc->fw_updated;
 			timediff_ms = timediff_us / 1000;
-			sr_spew("Waited %" PRIi64 "ms.", timediff_ms);
+			otc_spew("Waited %" PRIi64 "ms.", timediff_ms);
 		}
-		if (ret != SR_OK) {
-			sr_err("Device failed to renumerate.");
-			return SR_ERR;
+		if (ret != OTC_OK) {
+			otc_err("Device failed to renumerate.");
+			return OTC_ERR;
 		}
-		sr_info("Device came back after %" PRIi64 "ms.", timediff_ms);
+		otc_info("Device came back after %" PRIi64 "ms.", timediff_ms);
 	} else {
-		sr_info("Firmware upload was not needed.");
+		otc_info("Firmware upload was not needed.");
 		ret = fx2lafw_dev_open(sdi, di);
 	}
 
-	if (ret != SR_OK) {
-		sr_err("Unable to open device.");
-		return SR_ERR;
+	if (ret != OTC_OK) {
+		otc_err("Unable to open device.");
+		return OTC_ERR;
 	}
 
 	ret = libusb_claim_interface(usb->devhdl, USB_INTERFACE);
 	if (ret != 0) {
 		switch (ret) {
 		case LIBUSB_ERROR_BUSY:
-			sr_err("Unable to claim USB interface. Another "
+			otc_err("Unable to claim USB interface. Another "
 			       "program or driver has already claimed it.");
 			break;
 		case LIBUSB_ERROR_NO_DEVICE:
-			sr_err("Device has been disconnected.");
+			otc_err("Device has been disconnected.");
 			break;
 		default:
-			sr_err("Unable to claim interface: %s.",
+			otc_err("Unable to claim interface: %s.",
 			       libusb_error_name(ret));
 			break;
 		}
 
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if (devc->cur_samplerate == 0) {
@@ -481,72 +481,72 @@ static int dev_open(struct sr_dev_inst *sdi)
 		devc->cur_samplerate = devc->samplerates[0];
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 
 	usb = sdi->conn;
 
 	if (!usb->devhdl)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
-	sr_info("Closing device on %d.%d (logical) / %s (physical) interface %d.",
+	otc_info("Closing device on %d.%d (logical) / %s (physical) interface %d.",
 		usb->bus, usb->address, sdi->connection_id, USB_INTERFACE);
 	libusb_release_interface(usb->devhdl, USB_INTERFACE);
 	libusb_close(usb->devhdl);
 	usb->devhdl = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_CONN:
+	case OTC_CONF_CONN:
 		if (!sdi->conn)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		usb = sdi->conn;
 		if (usb->address == 255)
 			/* Device still needs to re-enumerate after firmware
 			 * upload, so we don't know its (future) address. */
-			return SR_ERR;
+			return OTC_ERR;
 		*data = g_variant_new_printf("%d.%d", usb->bus, usb->address);
 		break;
-	case SR_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_FRAMES:
 		*data = g_variant_new_uint64(devc->limit_frames);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		*data = g_variant_new_uint64(devc->limit_samples);
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(devc->cur_samplerate);
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		*data = g_variant_new_uint64(devc->capture_ratio);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	int idx;
@@ -554,68 +554,68 @@ static int config_set(uint32_t key, GVariant *data,
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		if ((idx = std_u64_idx(data, devc->samplerates, devc->num_samplerates)) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->cur_samplerate = devc->samplerates[idx];
 		break;
-	case SR_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_FRAMES:
 		devc->limit_frames = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		devc->limit_samples = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		devc->capture_ratio = g_variant_get_uint64(data);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	devc = (sdi) ? sdi->priv : NULL;
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		if (cg)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		if (!devc)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		*data = std_gvar_samplerates(devc->samplerates, devc->num_samplerates);
 		break;
-	case SR_CONF_TRIGGER_MATCH:
+	case OTC_CONF_TRIGGER_MATCH:
 		*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	fx2lafw_abort_acquisition(sdi->priv);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver fx2lafw_driver_info = {
+static struct otc_dev_driver fx2lafw_driver_info = {
 	.name = "fx2lafw",
 	.longname = "fx2lafw (generic driver for FX2 based LAs)",
 	.api_version = 1,
@@ -633,4 +633,4 @@ static struct sr_dev_driver fx2lafw_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(fx2lafw_driver_info);
+OTC_REGISTER_DEV_DRIVER(fx2lafw_driver_info);

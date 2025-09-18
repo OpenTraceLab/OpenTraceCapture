@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Aurelien Jacobs <aurel@gnuage.org>
  *
@@ -20,14 +20,14 @@
 #include <config.h>
 #include <glib.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "modbus"
 
-SR_PRIV extern const struct sr_modbus_dev_inst modbus_serial_rtu_dev;
+OTC_PRIV extern const struct otc_modbus_dev_inst modbus_serial_rtu_dev;
 
-static const struct sr_modbus_dev_inst *modbus_devs[] = {
+static const struct otc_modbus_dev_inst *modbus_devs[] = {
 #ifdef HAVE_SERIAL_COMM
 	&modbus_serial_rtu_dev, /* Must be last as it matches any resource. */
 #endif
@@ -35,28 +35,28 @@ static const struct sr_modbus_dev_inst *modbus_devs[] = {
 
 static const unsigned int modbus_devs_size = ARRAY_SIZE(modbus_devs);
 
-static struct sr_dev_inst *sr_modbus_scan_resource(const char *resource,
+static struct otc_dev_inst *otc_modbus_scan_resource(const char *resource,
 	const char *serialcomm, int modbusaddr,
-	struct sr_dev_inst *(*probe_device)(struct sr_modbus_dev_inst *modbus))
+	struct otc_dev_inst *(*probe_device)(struct otc_modbus_dev_inst *modbus))
 {
-	struct sr_modbus_dev_inst *modbus;
-	struct sr_dev_inst *sdi;
+	struct otc_modbus_dev_inst *modbus;
+	struct otc_dev_inst *sdi;
 
 	if (!(modbus = modbus_dev_inst_new(resource, serialcomm, modbusaddr)))
 		return NULL;
 
-	if (sr_modbus_open(modbus) != SR_OK) {
-		sr_info("Couldn't open Modbus device.");
-		sr_modbus_free(modbus);
+	if (otc_modbus_open(modbus) != OTC_OK) {
+		otc_info("Couldn't open Modbus device.");
+		otc_modbus_free(modbus);
 		return NULL;
 	};
 
 	sdi = probe_device(modbus);
 
-	sr_modbus_close(modbus);
+	otc_modbus_close(modbus);
 
 	if (!sdi)
-		sr_modbus_free(modbus);
+		otc_modbus_free(modbus);
 
 	return sdi;
 }
@@ -72,11 +72,11 @@ static struct sr_dev_inst *sr_modbus_scan_resource(const char *resource,
  *
  * @return A list of the devices found or NULL if no devices were found.
  */
-SR_PRIV GSList *sr_modbus_scan(struct drv_context *drvc, GSList *options,
-	struct sr_dev_inst *(*probe_device)(struct sr_modbus_dev_inst *modbus))
+OTC_PRIV GSList *otc_modbus_scan(struct drv_context *drvc, GSList *options,
+	struct otc_dev_inst *(*probe_device)(struct otc_modbus_dev_inst *modbus))
 {
 	GSList *resources, *l, *devices;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	const char *resource = NULL;
 	const char *serialcomm = NULL;
 	int modbusaddr = 1;
@@ -84,15 +84,15 @@ SR_PRIV GSList *sr_modbus_scan(struct drv_context *drvc, GSList *options,
 	unsigned int i;
 
 	for (l = options; l; l = l->next) {
-		struct sr_config *src = l->data;
+		struct otc_config *src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			resource = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_MODBUSADDR:
+		case OTC_CONF_MODBUSADDR:
 			modbusaddr = g_variant_get_uint64(src->data);
 			break;
 		}
@@ -106,7 +106,7 @@ SR_PRIV GSList *sr_modbus_scan(struct drv_context *drvc, GSList *options,
 		resources = modbus_devs[i]->scan(modbusaddr);
 		for (l = resources; l; l = l->next) {
 			res = g_strsplit(l->data, ":", 2);
-			if (res[0] && (sdi = sr_modbus_scan_resource(res[0],
+			if (res[0] && (sdi = otc_modbus_scan_resource(res[0],
 					serialcomm ? serialcomm : res[1],
 					modbusaddr, probe_device))) {
 				devices = g_slist_append(devices, sdi);
@@ -118,7 +118,7 @@ SR_PRIV GSList *sr_modbus_scan(struct drv_context *drvc, GSList *options,
 	}
 
 	if (!devices && resource) {
-		sdi = sr_modbus_scan_resource(resource, serialcomm, modbusaddr,
+		sdi = otc_modbus_scan_resource(resource, serialcomm, modbusaddr,
 		                              probe_device);
 		if (sdi)
 			devices = g_slist_append(NULL, sdi);
@@ -137,28 +137,28 @@ SR_PRIV GSList *sr_modbus_scan(struct drv_context *drvc, GSList *options,
  * @param resource The resource description string.
  * @param serialcomm Additionnal parameters for serial port resources.
  *
- * @return The allocated sr_modbus_dev_inst structure or NULL on failure.
+ * @return The allocated otc_modbus_dev_inst structure or NULL on failure.
  */
-SR_PRIV struct sr_modbus_dev_inst *modbus_dev_inst_new(const char *resource,
+OTC_PRIV struct otc_modbus_dev_inst *modbus_dev_inst_new(const char *resource,
 		const char *serialcomm, int modbusaddr)
 {
-	struct sr_modbus_dev_inst *modbus = NULL;
-	const struct sr_modbus_dev_inst *modbus_dev;
+	struct otc_modbus_dev_inst *modbus = NULL;
+	const struct otc_modbus_dev_inst *modbus_dev;
 	gchar **params;
 	unsigned int i;
 
 	for (i = 0; i < modbus_devs_size; i++) {
 		modbus_dev = modbus_devs[i];
 		if (!strncmp(resource, modbus_dev->prefix, strlen(modbus_dev->prefix))) {
-			sr_dbg("Opening %s device %s.", modbus_dev->name, resource);
+			otc_dbg("Opening %s device %s.", modbus_dev->name, resource);
 			modbus = g_malloc(sizeof(*modbus));
 			*modbus = *modbus_dev;
 			modbus->priv = g_malloc0(modbus->priv_size);
 			modbus->read_timeout_ms = 1000;
 			params = g_strsplit(resource, "/", 0);
 			if (modbus->dev_inst_new(modbus->priv, resource,
-			                         params, serialcomm, modbusaddr) != SR_OK) {
-				sr_modbus_free(modbus);
+			                         params, serialcomm, modbusaddr) != OTC_OK) {
+				otc_modbus_free(modbus);
 				modbus = NULL;
 			}
 			g_strfreev(params);
@@ -174,9 +174,9 @@ SR_PRIV struct sr_modbus_dev_inst *modbus_dev_inst_new(const char *resource,
  *
  * @param modbus Previously initialized Modbus device structure.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-SR_PRIV int sr_modbus_open(struct sr_modbus_dev_inst *modbus)
+OTC_PRIV int otc_modbus_open(struct otc_modbus_dev_inst *modbus)
 {
 	return modbus->open(modbus->priv);
 }
@@ -191,12 +191,12 @@ SR_PRIV int sr_modbus_open(struct sr_modbus_dev_inst *modbus)
  * @param cb Callback function to add. Must not be NULL.
  * @param cb_data Data for the callback function. Can be NULL.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments, or
- *         SR_ERR_MALLOC upon memory allocation errors.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments, or
+ *         OTC_ERR_MALLOC upon memory allocation errors.
  */
-SR_PRIV int sr_modbus_source_add(struct sr_session *session,
-		struct sr_modbus_dev_inst *modbus, int events, int timeout,
-		sr_receive_data_callback cb, void *cb_data)
+OTC_PRIV int otc_modbus_source_add(struct otc_session *session,
+		struct otc_modbus_dev_inst *modbus, int events, int timeout,
+		otc_receive_data_callback cb, void *cb_data)
 {
 	return modbus->source_add(session, modbus->priv, events, timeout, cb, cb_data);
 }
@@ -207,12 +207,12 @@ SR_PRIV int sr_modbus_source_add(struct sr_session *session,
  * @param session The session to remove the event source from.
  * @param modbus Previously initialized Modbus device structure.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments, or
- *         SR_ERR_MALLOC upon memory allocation errors, SR_ERR_BUG upon
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments, or
+ *         OTC_ERR_MALLOC upon memory allocation errors, OTC_ERR_BUG upon
  *         internal errors.
  */
-SR_PRIV int sr_modbus_source_remove(struct sr_session *session,
-		struct sr_modbus_dev_inst *modbus)
+OTC_PRIV int otc_modbus_source_remove(struct otc_session *session,
+		struct otc_modbus_dev_inst *modbus)
 {
 	return modbus->source_remove(session, modbus->priv);
 }
@@ -224,14 +224,14 @@ SR_PRIV int sr_modbus_source_remove(struct sr_session *session,
  * @param request Buffer containing the Modbus command to send.
  * @param request_size The size of the request buffer.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments, or
- *         SR_ERR on failure.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments, or
+ *         OTC_ERR on failure.
  */
-SR_PRIV int sr_modbus_request(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int otc_modbus_request(struct otc_modbus_dev_inst *modbus,
 		uint8_t *request, int request_size)
 {
 	if (!request || request_size < 1)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	return modbus->send(modbus->priv, request, request_size);
 }
@@ -243,10 +243,10 @@ SR_PRIV int sr_modbus_request(struct sr_modbus_dev_inst *modbus,
  * @param reply Buffer to store the received Modbus reply.
  * @param reply_size The size of the reply buffer.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments, or
- *         SR_ERR on failure.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments, or
+ *         OTC_ERR on failure.
  */
-SR_PRIV int sr_modbus_reply(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int otc_modbus_reply(struct otc_modbus_dev_inst *modbus,
 		uint8_t *reply, int reply_size)
 {
 	int len, ret;
@@ -254,12 +254,12 @@ SR_PRIV int sr_modbus_reply(struct sr_modbus_dev_inst *modbus,
 	unsigned int elapsed_ms;
 
 	if (!reply || reply_size < 2)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	laststart = g_get_monotonic_time();
 
 	ret = modbus->read_begin(modbus->priv, reply);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	if (*reply & 0x80)
 		reply_size = 2;
@@ -270,8 +270,8 @@ SR_PRIV int sr_modbus_reply(struct sr_modbus_dev_inst *modbus,
 	while (reply_size > 0) {
 		len = modbus->read_data(modbus->priv, reply, reply_size);
 		if (len < 0) {
-			sr_err("Incompletely read Modbus response.");
-			return SR_ERR;
+			otc_err("Incompletely read Modbus response.");
+			return OTC_ERR;
 		} else if (len > 0) {
 			laststart = g_get_monotonic_time();
 		}
@@ -279,16 +279,16 @@ SR_PRIV int sr_modbus_reply(struct sr_modbus_dev_inst *modbus,
 		reply_size -= len;
 		elapsed_ms = (g_get_monotonic_time() - laststart) / 1000;
 		if (elapsed_ms >= modbus->read_timeout_ms) {
-			sr_err("Timed out waiting for Modbus response.");
-			return SR_ERR;
+			otc_err("Timed out waiting for Modbus response.");
+			return OTC_ERR;
 		}
 	}
 
 	ret = modbus->read_end(modbus->priv);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -300,17 +300,17 @@ SR_PRIV int sr_modbus_reply(struct sr_modbus_dev_inst *modbus,
  * @param reply Buffer to store the received Modbus reply.
  * @param reply_size The size of the reply buffer.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments, or
- *         SR_ERR on failure.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments, or
+ *         OTC_ERR on failure.
  */
-SR_PRIV int sr_modbus_request_reply(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int otc_modbus_request_reply(struct otc_modbus_dev_inst *modbus,
 		uint8_t *request, int request_size, uint8_t *reply, int reply_size)
 {
 	int ret;
-	ret = sr_modbus_request(modbus, request, request_size);
-	if (ret != SR_OK)
+	ret = otc_modbus_request(modbus, request, request_size);
+	if (ret != OTC_OK)
 		return ret;
-	return sr_modbus_reply(modbus, reply, reply_size);
+	return otc_modbus_reply(modbus, reply, reply_size);
 }
 
 enum {
@@ -320,7 +320,7 @@ enum {
 	MODBUS_WRITE_MULTIPLE_REGISTERS = 0x10,
 };
 
-static int sr_modbus_error_check(const uint8_t *reply)
+static int otc_modbus_error_check(const uint8_t *reply)
 {
 	const char *function = "UNKNOWN";
 	const char *error = NULL;
@@ -378,7 +378,7 @@ static int sr_modbus_error_check(const uint8_t *reply)
 		error = buf;
 	}
 
-	sr_err("%s error executing %s function.", error, function);
+	otc_err("%s error executing %s function.", error, function);
 
 	return TRUE;
 }
@@ -393,40 +393,40 @@ static int sr_modbus_error_check(const uint8_t *reply)
  * @param coils Buffer to store all the received coils values (1 bit per coil),
  *              or NULL to send the read coil command without reading the reply.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments,
- *         SR_ERR_DATA upon invalid data, or SR_ERR on failure.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments,
+ *         OTC_ERR_DATA upon invalid data, or OTC_ERR on failure.
  */
-SR_PRIV int sr_modbus_read_coils(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int otc_modbus_read_coils(struct otc_modbus_dev_inst *modbus,
 		int address, int nb_coils, uint8_t *coils)
 {
 	uint8_t request[5], reply[2 + (nb_coils + 7) / 8];
 	int ret;
 
 	if (address < -1 || address > 0xFFFF || nb_coils < 1 || nb_coils > 2000)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	W8(request + 0, MODBUS_READ_COILS);
 	WB16(request + 1, address);
 	WB16(request + 3, nb_coils);
 
 	if (address >= 0) {
-		ret = sr_modbus_request(modbus, request, sizeof(request));
-		if (ret != SR_OK)
+		ret = otc_modbus_request(modbus, request, sizeof(request));
+		if (ret != OTC_OK)
 			return ret;
 	}
 
 	if (coils) {
-		ret = sr_modbus_reply(modbus, reply, sizeof(reply));
-		if (ret != SR_OK)
+		ret = otc_modbus_reply(modbus, reply, sizeof(reply));
+		if (ret != OTC_OK)
 			return ret;
-		if (sr_modbus_error_check(reply))
-			return SR_ERR_DATA;
+		if (otc_modbus_error_check(reply))
+			return OTC_ERR_DATA;
 		if (reply[0] != request[0] || R8(reply + 1) != (uint8_t)((nb_coils + 7) / 8))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		memcpy(coils, reply + 2, (nb_coils + 7) / 8);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -441,10 +441,10 @@ SR_PRIV int sr_modbus_read_coils(struct sr_modbus_dev_inst *modbus,
  *                  or NULL to send the read holding registers command
  *                  without reading the reply.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments,
- *         SR_ERR_DATA upon invalid data, or SR_ERR on failure.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments,
+ *         OTC_ERR_DATA upon invalid data, or OTC_ERR on failure.
  */
-SR_PRIV int sr_modbus_read_holding_registers(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int otc_modbus_read_holding_registers(struct otc_modbus_dev_inst *modbus,
 		int address, int nb_registers, uint16_t *registers)
 {
 	uint8_t request[5], reply[2 + (2 * nb_registers)];
@@ -452,30 +452,30 @@ SR_PRIV int sr_modbus_read_holding_registers(struct sr_modbus_dev_inst *modbus,
 
 	if (address < -1 || address > 0xFFFF
 	    || nb_registers < 1 || nb_registers > 125)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	W8(request + 0, MODBUS_READ_HOLDING_REGISTERS);
 	WB16(request + 1, address);
 	WB16(request + 3, nb_registers);
 
 	if (address >= 0) {
-		ret = sr_modbus_request(modbus, request, sizeof(request));
-		if (ret != SR_OK)
+		ret = otc_modbus_request(modbus, request, sizeof(request));
+		if (ret != OTC_OK)
 			return ret;
 	}
 
 	if (registers) {
-		ret = sr_modbus_reply(modbus, reply, sizeof(reply));
-		if (ret != SR_OK)
+		ret = otc_modbus_reply(modbus, reply, sizeof(reply));
+		if (ret != OTC_OK)
 			return ret;
-		if (sr_modbus_error_check(reply))
-			return SR_ERR_DATA;
+		if (otc_modbus_error_check(reply))
+			return OTC_ERR_DATA;
 		if (reply[0] != request[0] || R8(reply + 1) != (uint8_t)(2 * nb_registers))
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		memcpy(registers, reply + 2, 2 * nb_registers);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -485,32 +485,32 @@ SR_PRIV int sr_modbus_read_holding_registers(struct sr_modbus_dev_inst *modbus,
  * @param address The Modbus address of the coil to write.
  * @param value The new value to assign to this coil.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments,
- *         SR_ERR_DATA upon invalid data, or SR_ERR on failure.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments,
+ *         OTC_ERR_DATA upon invalid data, or OTC_ERR on failure.
  */
-SR_PRIV int sr_modbus_write_coil(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int otc_modbus_write_coil(struct otc_modbus_dev_inst *modbus,
 		int address, int value)
 {
 	uint8_t request[5], reply[5];
 	int ret;
 
 	if (address < 0 || address > 0xFFFF)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	W8(request + 0, MODBUS_WRITE_COIL);
 	WB16(request + 1, address);
 	WB16(request + 3, value ? 0xFF00 : 0);
 
-	ret = sr_modbus_request_reply(modbus, request, sizeof(request),
+	ret = otc_modbus_request_reply(modbus, request, sizeof(request),
 				      reply, sizeof(reply));
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	if (sr_modbus_error_check(reply))
-		return SR_ERR_DATA;
+	if (otc_modbus_error_check(reply))
+		return OTC_ERR_DATA;
 	if (memcmp(request, reply, sizeof(reply)))
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -521,10 +521,10 @@ SR_PRIV int sr_modbus_write_coil(struct sr_modbus_dev_inst *modbus,
  * @param nb_registers The number of registers to write.
  * @param registers Buffer holding all the registers values to write.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments,
- *         SR_ERR_DATA upon invalid data, or SR_ERR on failure.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments,
+ *         OTC_ERR_DATA upon invalid data, or OTC_ERR on failure.
  */
-SR_PRIV int sr_modbus_write_multiple_registers(struct sr_modbus_dev_inst*modbus,
+OTC_PRIV int otc_modbus_write_multiple_registers(struct otc_modbus_dev_inst*modbus,
 		int address, int nb_registers, uint16_t *registers)
 {
 	uint8_t request[6 + (2 * nb_registers)], reply[5];
@@ -532,7 +532,7 @@ SR_PRIV int sr_modbus_write_multiple_registers(struct sr_modbus_dev_inst*modbus,
 
 	if (address < 0 || address > 0xFFFF
 	    || nb_registers < 1 || nb_registers > 123 || !registers)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	W8(request + 0, MODBUS_WRITE_MULTIPLE_REGISTERS);
 	WB16(request + 1, address);
@@ -540,16 +540,16 @@ SR_PRIV int sr_modbus_write_multiple_registers(struct sr_modbus_dev_inst*modbus,
 	W8(request + 5, 2 * nb_registers);
 	memcpy(request + 6, registers, 2 * nb_registers);
 
-	ret = sr_modbus_request_reply(modbus, request, sizeof(request),
+	ret = otc_modbus_request_reply(modbus, request, sizeof(request),
 				      reply, sizeof(reply));
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	if (sr_modbus_error_check(reply))
-		return SR_ERR_DATA;
+	if (otc_modbus_error_check(reply))
+		return OTC_ERR_DATA;
 	if (memcmp(request, reply, sizeof(reply)))
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -557,9 +557,9 @@ SR_PRIV int sr_modbus_write_multiple_registers(struct sr_modbus_dev_inst*modbus,
  *
  * @param modbus Previously initialized Modbus device structure.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-SR_PRIV int sr_modbus_close(struct sr_modbus_dev_inst *modbus)
+OTC_PRIV int otc_modbus_close(struct otc_modbus_dev_inst *modbus)
 {
 	return modbus->close(modbus->priv);
 }
@@ -569,9 +569,9 @@ SR_PRIV int sr_modbus_close(struct sr_modbus_dev_inst *modbus)
  *
  * @param modbus Previously initialized Modbus device structure.
  *
- * @return SR_OK on success, SR_ERR on failure.
+ * @return OTC_OK on success, OTC_ERR on failure.
  */
-SR_PRIV void sr_modbus_free(struct sr_modbus_dev_inst *modbus)
+OTC_PRIV void otc_modbus_free(struct otc_modbus_dev_inst *modbus)
 {
 	modbus->free(modbus->priv);
 	g_free(modbus->priv);

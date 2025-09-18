@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2015 Google, Inc.
@@ -33,23 +33,23 @@
 
 /* Agilent/Keysight N5700A series */
 static const uint32_t agilent_n5700a_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t agilent_n5700a_devopts_cg[] = {
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const struct channel_group_spec agilent_n5700a_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
 };
 
 static const struct channel_spec agilent_n5767a_ch[] = {
@@ -89,18 +89,18 @@ static const struct scpi_command agilent_n5700a_cmd[] = {
 
 /* BK Precision 9130 series */
 static const uint32_t bk_9130_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t bk_9130_devopts_cg[] = {
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const struct channel_spec bk_9130_ch[] = {
@@ -110,9 +110,9 @@ static const struct channel_spec bk_9130_ch[] = {
 };
 
 static const struct channel_group_spec bk_9130_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP, SR_MQFLAG_DC },
-	{ "2", CH_IDX(1), PPS_OVP, SR_MQFLAG_DC },
-	{ "3", CH_IDX(2), PPS_OVP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP, OTC_MQFLAG_DC },
+	{ "2", CH_IDX(1), PPS_OVP, OTC_MQFLAG_DC },
+	{ "3", CH_IDX(2), PPS_OVP, OTC_MQFLAG_DC },
 };
 
 static const struct scpi_command bk_9130_cmd[] = {
@@ -136,20 +136,20 @@ static const struct scpi_command bk_9130_cmd[] = {
 
 /* Chroma 61600 series AC source */
 static const uint32_t chroma_61604_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t chroma_61604_devopts_cg[] = {
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OUTPUT_FREQUENCY | SR_CONF_GET,
-	SR_CONF_OUTPUT_FREQUENCY_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OUTPUT_FREQUENCY | OTC_CONF_GET,
+	OTC_CONF_OUTPUT_FREQUENCY_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const struct channel_spec chroma_61604_ch[] = {
@@ -157,7 +157,7 @@ static const struct channel_spec chroma_61604_ch[] = {
 };
 
 static const struct channel_group_spec chroma_61604_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, SR_MQFLAG_AC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_AC },
 };
 
 static const struct scpi_command chroma_61604_cmd[] = {
@@ -184,23 +184,23 @@ static const struct scpi_command chroma_61604_cmd[] = {
 
 /* Chroma 62000 series DC source */
 static const uint32_t chroma_62000_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t chroma_62000_devopts_cg[] = {
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const struct channel_group_spec chroma_62000_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
 };
 
 static const struct scpi_command chroma_62000_cmd[] = {
@@ -226,8 +226,8 @@ static const struct scpi_command chroma_62000_cmd[] = {
 	ALL_ZERO
 };
 
-static int chroma_62000p_probe_channels(struct sr_dev_inst *sdi,
-		struct sr_scpi_hw_info *hw_info,
+static int chroma_62000p_probe_channels(struct otc_dev_inst *sdi,
+		struct otc_scpi_hw_info *hw_info,
 		struct channel_spec **channels, unsigned int *num_channels,
 		struct channel_group_spec **channel_groups,
 		unsigned int *num_channel_groups)
@@ -239,21 +239,21 @@ static int chroma_62000p_probe_channels(struct sr_dev_inst *sdi,
 
 	sscanf(hw_info->model, "620%uP-%u-%u", &watts, &volts, &amps);
 	watts *= 100;
-	sr_dbg("Found device rated for %d V, %d A and %d W", volts, amps, watts);
+	otc_dbg("Found device rated for %d V, %d A and %d W", volts, amps, watts);
 
 	if (volts > 600) {
-		sr_err("Probed max voltage of %u V is out of spec.", volts);
-		return SR_ERR_BUG;
+		otc_err("Probed max voltage of %u V is out of spec.", volts);
+		return OTC_ERR_BUG;
 	}
 
 	if (amps > 120) {
-		sr_err("Probed max current of %u A is out of spec.", amps);
-		return SR_ERR_BUG;
+		otc_err("Probed max current of %u A is out of spec.", amps);
+		return OTC_ERR_BUG;
 	}
 
 	if (watts > 5000) {
-		sr_err("Probed max power of %u W is out of spec.", watts);
-		return SR_ERR_BUG;
+		otc_err("Probed max power of %u W is out of spec.", watts);
+		return OTC_ERR_BUG;
 	}
 
 	channel = g_malloc0(sizeof(struct channel_spec));
@@ -272,27 +272,27 @@ static int chroma_62000p_probe_channels(struct sr_dev_inst *sdi,
 	**channel_groups = chroma_62000_cg[0];
 	*num_channel_groups = 1;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Envox EEZ PSU Series */
 static const uint32_t eez_psu_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t eez_psu_devopts_cg[] = {
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_REGULATION | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | SR_CONF_GET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | OTC_CONF_GET,
 };
 
 static const struct scpi_command eez_psu_cmd[] = {
@@ -324,13 +324,13 @@ static const struct scpi_command eez_psu_cmd[] = {
  */
 static const char *eez_psu_channel_names[] = { "1", "2", "3", "4", "5", "6", };
 
-static int eez_psu_probe_channels(struct sr_dev_inst *sdi,
-		struct sr_scpi_hw_info *hw_info,
+static int eez_psu_probe_channels(struct otc_dev_inst *sdi,
+		struct otc_scpi_hw_info *hw_info,
 		struct channel_spec **channels, unsigned int *num_channels,
 		struct channel_group_spec **channel_groups,
 		unsigned int *num_channel_groups)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	int ret, intval;
 	size_t i, channel_count;
 	double limit_val;
@@ -355,14 +355,14 @@ static int eez_psu_probe_channels(struct sr_dev_inst *sdi,
 	 */
 
 	scpi = sdi->conn;
-	ret = sr_scpi_get_int(scpi, ":SYST:CHAN:COUN?", &intval);
-	if (ret != SR_OK) {
-		sr_err("Failed to probe EEZ PSU channel count.");
+	ret = otc_scpi_get_int(scpi, ":SYST:CHAN:COUN?", &intval);
+	if (ret != OTC_OK) {
+		otc_err("Failed to probe EEZ PSU channel count.");
 		return ret;
 	}
 	if (intval < 0) {
-		sr_err("Suspicious channel count %d, ignoring.", intval);
-		return SR_ERR_DATA;
+		otc_err("Suspicious channel count %d, ignoring.", intval);
+		return OTC_ERR_DATA;
 	}
 	channel_count = intval;
 	if (channel_count > ARRAY_SIZE(eez_psu_channel_names)) {
@@ -371,12 +371,12 @@ static int eez_psu_probe_channels(struct sr_dev_inst *sdi,
 		 * the time of writing, so it would be weird to get here
 		 * but we'll allow it to be robust.
 		 */
-		sr_warn("Only using first %zu of %zu EEZ PSU channels.",
+		otc_warn("Only using first %zu of %zu EEZ PSU channels.",
 			channel_count, ARRAY_SIZE(eez_psu_channel_names));
 		channel_count = ARRAY_SIZE(eez_psu_channel_names);
 	}
 
-	sr_spew("EEZ PSU (%s) has channel count %zu.",
+	otc_spew("EEZ PSU (%s) has channel count %zu.",
 		hw_info->model, channel_count);
 
 	*channels = g_malloc0(sizeof(**channels) * channel_count);
@@ -388,9 +388,9 @@ static int eez_psu_probe_channels(struct sr_dev_inst *sdi,
 		 * Select the channel to prepare for our various "get"
 		 * calls below.
 		 */
-		ret = sr_scpi_send(scpi, ":INST:NSEL %s", channel_name);
-		if (ret != SR_OK) {
-			sr_err("Failed to select %s to retrieve its limits.",
+		ret = otc_scpi_send(scpi, ":INST:NSEL %s", channel_name);
+		if (ret != OTC_OK) {
+			otc_err("Failed to select %s to retrieve its limits.",
 				channel_name);
 			return ret;
 		}
@@ -398,14 +398,14 @@ static int eez_psu_probe_channels(struct sr_dev_inst *sdi,
 		(*channel_groups)[i].name = channel_name;
 		(*channel_groups)[i].channel_index_mask = CH_IDX(i);
 		(*channel_groups)[i].features = PPS_OVP | PPS_OCP;
-		(*channel_groups)[i].mqflags = SR_MQFLAG_DC;
+		(*channel_groups)[i].mqflags = OTC_MQFLAG_DC;
 
 		(*channels)[i].name = channel_name;
 
-		ret = sr_scpi_get_double(scpi,
+		ret = otc_scpi_get_double(scpi,
 			":SYST:CHAN:INFO:CURR?", &limit_val);
-		if (ret != SR_OK) {
-			sr_err("Failed to read the current limit for %s.",
+		if (ret != OTC_OK) {
+			otc_err("Failed to read the current limit for %s.",
 				channel_name);
 			return ret;
 		}
@@ -415,10 +415,10 @@ static int eez_psu_probe_channels(struct sr_dev_inst *sdi,
 		(*channels)[i].current[3] = 2; /* Spec digits. */
 		(*channels)[i].current[4] = 2; /* Encoding digits. */
 
-		ret = sr_scpi_get_double(scpi,
+		ret = otc_scpi_get_double(scpi,
 			":SYST:CHAN:INFO:VOLT?", &limit_val);
-		if (ret != SR_OK) {
-			sr_err("Failed to read the voltage limit for %s.",
+		if (ret != OTC_OK) {
+			otc_err("Failed to read the voltage limit for %s.",
 				channel_name);
 			return ret;
 		}
@@ -428,10 +428,10 @@ static int eez_psu_probe_channels(struct sr_dev_inst *sdi,
 		(*channels)[i].voltage[3] = 2; /* Spec digits. */
 		(*channels)[i].voltage[4] = 2; /* Encoding digits. */
 
-		ret = sr_scpi_get_double(scpi,
+		ret = otc_scpi_get_double(scpi,
 			":SYST:CHAN:INFO:POW?", &limit_val);
-		if (ret != SR_OK) {
-			sr_err("Failed to read the power limit for %s.",
+		if (ret != OTC_OK) {
+			otc_err("Failed to read the power limit for %s.",
 				channel_name);
 			return ret;
 		}
@@ -443,29 +443,29 @@ static int eez_psu_probe_channels(struct sr_dev_inst *sdi,
 	}
 	*num_channels = *num_channel_groups = channel_count;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Rigol DP700 series */
 static const uint32_t rigol_dp700_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t rigol_dp700_devopts_cg[] = {
-	SR_CONF_REGULATION | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const struct channel_spec rigol_dp711_ch[] = {
@@ -477,7 +477,7 @@ static const struct channel_spec rigol_dp712_ch[] = {
 };
 
 static const struct channel_group_spec rigol_dp700_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
 };
 
 /* Same as the DP800 series, except for the missing :SYST:OTP* commands. */
@@ -516,25 +516,25 @@ static const struct scpi_command rigol_dp700_cmd[] = {
 
 /* Rigol DP800 series */
 static const uint32_t rigol_dp800_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_OVER_TEMPERATURE_PROTECTION | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_OVER_TEMPERATURE_PROTECTION | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t rigol_dp800_devopts_cg[] = {
-	SR_CONF_REGULATION | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const struct channel_spec rigol_dp821a_ch[] = {
@@ -555,14 +555,14 @@ static const struct channel_spec rigol_dp832_ch[] = {
 };
 
 static const struct channel_group_spec rigol_dp820_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
-	{ "2", CH_IDX(1), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
+	{ "2", CH_IDX(1), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
 };
 
 static const struct channel_group_spec rigol_dp830_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
-	{ "2", CH_IDX(1), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
-	{ "3", CH_IDX(2), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
+	{ "2", CH_IDX(1), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
+	{ "3", CH_IDX(2), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
 };
 
 static const struct scpi_command rigol_dp800_cmd[] = {
@@ -603,23 +603,23 @@ static const struct scpi_command rigol_dp800_cmd[] = {
 
 /* HP 663xA series */
 static const uint32_t hp_6630a_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t hp_6630a_devopts_cg[] = {
-	SR_CONF_ENABLED | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_REGULATION | SR_CONF_GET,
+	OTC_CONF_ENABLED | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
 };
 
 static const struct channel_spec hp_6632a_ch[] = {
@@ -635,7 +635,7 @@ static const struct channel_spec hp_6634a_ch[] = {
 };
 
 static const struct channel_group_spec hp_6630a_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
 };
 
 static const struct scpi_command hp_6630a_cmd[] = {
@@ -655,9 +655,9 @@ static const struct scpi_command hp_6630a_cmd[] = {
 	ALL_ZERO
 };
 
-static int hp_6630a_init_acquisition(const struct sr_dev_inst *sdi)
+static int hp_6630a_init_acquisition(const struct otc_dev_inst *sdi)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 
 	scpi = sdi->conn;
 
@@ -665,12 +665,12 @@ static int hp_6630a_init_acquisition(const struct sr_dev_inst *sdi)
 	 * Monitor CV (1), CC+ (2), UR (4), OVP (8), OTP (16), OCP (64) and
 	 * CC- (256) bits of the Status Register for the FAULT? query.
 	 */
-	return sr_scpi_send(scpi, "UNMASK 607");
+	return otc_scpi_send(scpi, "UNMASK 607");
 }
 
-static int hp_6630a_update_status(const struct sr_dev_inst *sdi)
+static int hp_6630a_update_status(const struct otc_dev_inst *sdi)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	int ret;
 	int fault;
 	gboolean cv, cc_pos, unreg, cc_neg;
@@ -687,23 +687,23 @@ static int hp_6630a_update_status(const struct sr_dev_inst *sdi)
 	 * compared to the states in STS/ASTS.
 	 * TODO: Use SPoll or SRQ when SCPI over GPIB is used.
 	 */
-	ret = sr_scpi_get_int(scpi, "FAULT?", &fault);
-	if (ret != SR_OK)
+	ret = otc_scpi_get_int(scpi, "FAULT?", &fault);
+	if (ret != OTC_OK)
 		return ret;
 
 	/* OVP */
 	if (fault & (1 << 3))
-		sr_session_send_meta(sdi, SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE,
+		otc_session_send_meta(sdi, OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE,
 			g_variant_new_boolean(fault & (1 << 3)));
 
 	/* OCP */
 	if (fault & (1 << 6))
-		sr_session_send_meta(sdi, SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE,
+		otc_session_send_meta(sdi, OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE,
 			g_variant_new_boolean(fault & (1 << 6)));
 
 	/* OTP */
 	if (fault & (1 << 4))
-		sr_session_send_meta(sdi, SR_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE,
+		otc_session_send_meta(sdi, OTC_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE,
 			g_variant_new_boolean(fault & (1 << 4)));
 
 	/* CV */
@@ -731,37 +731,37 @@ static int hp_6630a_update_status(const struct sr_dev_inst *sdi)
 		else if (!cv && !cc_pos && !cc_neg && !unreg)
 			regulation = "";
 		else {
-			sr_dbg("Undefined regulation for HP 66xxA "
+			otc_dbg("Undefined regulation for HP 66xxA "
 				"(CV=%i, CC+=%i, CC-=%i, UR=%i).",
 				cv, cc_pos, cc_neg, unreg);
 			return FALSE;
 		}
-		sr_session_send_meta(sdi, SR_CONF_REGULATION,
+		otc_session_send_meta(sdi, OTC_CONF_REGULATION,
 			g_variant_new_string(regulation));
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* HP 663xB series */
 static const uint32_t hp_6630b_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t hp_6630b_devopts_cg[] = {
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_REGULATION | SR_CONF_GET,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
 };
 
 static const struct channel_spec hp_6611c_ch[] = {
@@ -805,7 +805,7 @@ static const struct channel_spec hp_6634b_ch[] = {
 };
 
 static const struct channel_group_spec hp_6630b_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
 };
 
 static const struct scpi_command hp_6630b_cmd[] = {
@@ -836,9 +836,9 @@ static const struct scpi_command hp_6630b_cmd[] = {
 	ALL_ZERO
 };
 
-static int hp_6630b_init_acquisition(const struct sr_dev_inst *sdi)
+static int hp_6630b_init_acquisition(const struct otc_dev_inst *sdi)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	int ret;
 
 	scpi = sdi->conn;
@@ -848,8 +848,8 @@ static int hp_6630b_init_acquisition(const struct sr_dev_inst *sdi)
 	 * Operational Status Register.
 	 * Use both positive and negative transitions of the status bits.
 	 */
-	ret = sr_scpi_send(scpi, "STAT:OPER:PTR 3328;NTR 3328;ENAB 3328");
-	if (ret != SR_OK)
+	ret = otc_scpi_send(scpi, "STAT:OPER:PTR 3328;NTR 3328;ENAB 3328");
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -857,8 +857,8 @@ static int hp_6630b_init_acquisition(const struct sr_dev_inst *sdi)
 	 * Questionable Status Register.
 	 * Use both positive and negative transitions of the status bits.
 	 */
-	ret = sr_scpi_send(scpi, "STAT:QUES:PTR 1043;NTR 1043;ENAB 1043");
-	if (ret != SR_OK)
+	ret = otc_scpi_send(scpi, "STAT:QUES:PTR 1043;NTR 1043;ENAB 1043");
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -867,17 +867,17 @@ static int hp_6630b_init_acquisition(const struct sr_dev_inst *sdi)
 	 * This masks the Status Register generating a SRQ/RQS. Not implemented yet!
 	 */
 	/*
-	ret = sr_scpi_send(scpi, "*SRE 136");
-	if (ret != SR_OK)
+	ret = otc_scpi_send(scpi, "*SRE 136");
+	if (ret != OTC_OK)
 		return ret;
 	*/
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int hp_6630b_update_status(const struct sr_dev_inst *sdi)
+static int hp_6630b_update_status(const struct otc_dev_inst *sdi)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	int ret;
 	int stb;
 	int ques_even, ques_cond;
@@ -903,15 +903,15 @@ static int hp_6630b_update_status(const struct sr_dev_inst *sdi)
 	char spoll_buf;
 
 	if (scpi->transport == SCPI_TRANSPORT_LIBGPIB) {
-		ret = sr_scpi_gpib_spoll(scpi, &spoll_buf);
-		if (ret != SR_OK)
+		ret = otc_scpi_gpib_spoll(scpi, &spoll_buf);
+		if (ret != OTC_OK)
 			return ret;
 		stb = (uint8_t)spoll_buf;
 	}
 	else {
 #endif
-		ret = sr_scpi_get_int(scpi, "*STB?", &stb);
-		if (ret != SR_OK)
+		ret = otc_scpi_get_int(scpi, "*STB?", &stb);
+		if (ret != OTC_OK)
 			return ret;
 #ifdef HAVE_LIBGPIB
 	}
@@ -920,27 +920,27 @@ static int hp_6630b_update_status(const struct sr_dev_inst *sdi)
 	/* Questionable status summary bit */
 	if (stb & (1 << 3)) {
 		/* Read the event register to clear it! */
-		ret = sr_scpi_get_int(scpi, "STAT:QUES:EVEN?", &ques_even);
-		if (ret != SR_OK)
+		ret = otc_scpi_get_int(scpi, "STAT:QUES:EVEN?", &ques_even);
+		if (ret != OTC_OK)
 			return ret;
 		/* Now get the values. */
-		ret = sr_scpi_get_int(scpi, "STAT:QUES:COND?", &ques_cond);
-		if (ret != SR_OK)
+		ret = otc_scpi_get_int(scpi, "STAT:QUES:COND?", &ques_cond);
+		if (ret != OTC_OK)
 			return ret;
 
 		/* OVP */
 		if (ques_even & (1 << 0))
-			sr_session_send_meta(sdi, SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE,
+			otc_session_send_meta(sdi, OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE,
 				g_variant_new_boolean(ques_cond & (1 << 0)));
 
 		/* OCP */
 		if (ques_even & (1 << 1))
-			sr_session_send_meta(sdi, SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE,
+			otc_session_send_meta(sdi, OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE,
 				g_variant_new_boolean(ques_cond & (1 << 1)));
 
 		/* OTP */
 		if (ques_even & (1 << 4))
-			sr_session_send_meta(sdi, SR_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE,
+			otc_session_send_meta(sdi, OTC_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE,
 				g_variant_new_boolean(ques_cond & (1 << 4)));
 
 		/* UNREG */
@@ -953,22 +953,22 @@ static int hp_6630b_update_status(const struct sr_dev_inst *sdi)
 		 * NOTE: The output state is sent even if it hasn't changed,
 		 * but that only happens rarely.
 		 */
-		ret = sr_scpi_get_bool(scpi, "OUTP:STAT?", &output_enabled);
-		if (ret != SR_OK)
+		ret = otc_scpi_get_bool(scpi, "OUTP:STAT?", &output_enabled);
+		if (ret != OTC_OK)
 			return ret;
-		sr_session_send_meta(sdi, SR_CONF_ENABLED,
+		otc_session_send_meta(sdi, OTC_CONF_ENABLED,
 			g_variant_new_boolean(output_enabled));
 	}
 
 	/* Operation status summary bit */
 	if (stb & (1 << 7)) {
 		/* Read the event register to clear it! */
-		ret = sr_scpi_get_int(scpi, "STAT:OPER:EVEN?", &oper_even);
-		if (ret != SR_OK)
+		ret = otc_scpi_get_int(scpi, "STAT:OPER:EVEN?", &oper_even);
+		if (ret != OTC_OK)
 			return ret;
 		/* Now get the values. */
-		ret = sr_scpi_get_int(scpi, "STAT:OPER:COND?", &oper_cond);
-		if (ret != SR_OK)
+		ret = otc_scpi_get_int(scpi, "STAT:OPER:COND?", &oper_cond);
+		if (ret != OTC_OK)
 			return ret;
 
 		/* CV */
@@ -996,39 +996,39 @@ static int hp_6630b_update_status(const struct sr_dev_inst *sdi)
 			regulation = "";
 		else {
 			/* This happens from time to time (CV and CC+ active). */
-			sr_dbg("Undefined regulation for HP 66xxB "
+			otc_dbg("Undefined regulation for HP 66xxB "
 				"(CV=%i, CC+=%i, CC-=%i, UR=%i).",
 				cv, cc_pos, cc_neg, unreg);
 			return FALSE;
 		}
-		sr_session_send_meta(sdi, SR_CONF_REGULATION,
+		otc_session_send_meta(sdi, OTC_CONF_REGULATION,
 			g_variant_new_string(regulation));
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 
 /* Keysight E36300A series */
 
 static const uint32_t keysight_e36300a_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t keysight_e36300a_devopts_cg[] = {
-	SR_CONF_ENABLED | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_SET | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_REGULATION | SR_CONF_GET,
+	OTC_CONF_ENABLED | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_SET | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
 };
 
 /* NOT TESTED; estimated from the E36312A results and data sheet. */
@@ -1055,9 +1055,9 @@ static const struct channel_spec keysight_e36313a_ch[] = {
 };
 
 static const struct channel_group_spec keysight_e36300a_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP | PPS_OTP, SR_MQFLAG_DC },
-	{ "2", CH_IDX(1), PPS_OVP | PPS_OCP | PPS_OTP, SR_MQFLAG_DC },
-	{ "3", CH_IDX(2), PPS_OVP | PPS_OCP | PPS_OTP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP | PPS_OTP, OTC_MQFLAG_DC },
+	{ "2", CH_IDX(1), PPS_OVP | PPS_OCP | PPS_OTP, OTC_MQFLAG_DC },
+	{ "3", CH_IDX(2), PPS_OVP | PPS_OCP | PPS_OTP, OTC_MQFLAG_DC },
 };
 
 static const struct scpi_command keysight_e36300a_cmd[] = {
@@ -1093,19 +1093,19 @@ static const struct scpi_command keysight_e36300a_cmd[] = {
 
 /* Owon P4000 series */
 static const uint32_t owon_p4000_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET
 };
 
 static const uint32_t owon_p4000_devopts_cg[] = {
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const struct channel_spec owon_p4603_ch[] = {
@@ -1117,7 +1117,7 @@ static const struct channel_spec owon_p4305_ch[] = {
 };
 
 static const struct channel_group_spec owon_p4000_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
 };
 
 static const struct scpi_command owon_p4000_cmd[] = {
@@ -1166,22 +1166,22 @@ static const struct scpi_command owon_spe6103_cmd[] = {
 
 /* Philips/Fluke PM2800 series */
 static const uint32_t philips_pm2800_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t philips_pm2800_devopts_cg[] = {
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_REGULATION | SR_CONF_GET,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
 };
 
 enum philips_pm2800_modules {
@@ -1239,8 +1239,8 @@ static const struct philips_pm2800_model {
 
 static const char *philips_pm2800_names[] = { "1", "2", "3" };
 
-static int philips_pm2800_probe_channels(struct sr_dev_inst *sdi,
-		struct sr_scpi_hw_info *hw_info,
+static int philips_pm2800_probe_channels(struct otc_dev_inst *sdi,
+		struct otc_scpi_hw_info *hw_info,
 		struct channel_spec **channels, unsigned int *num_channels,
 		struct channel_group_spec **channel_groups, unsigned int *num_channel_groups)
 {
@@ -1268,17 +1268,17 @@ static int philips_pm2800_probe_channels(struct sr_dev_inst *sdi,
 			break;
 	}
 	if (m == ARRAY_SIZE(philips_pm2800_matrix)) {
-		sr_dbg("Model %s not found in matrix.", hw_info->model);
-		return SR_ERR;
+		otc_dbg("Model %s not found in matrix.", hw_info->model);
+		return OTC_ERR;
 	}
 
-	sr_dbg("Found %d output channel%s:", num_modules, num_modules > 1 ? "s" : "");
+	otc_dbg("Found %d output channel%s:", num_modules, num_modules > 1 ? "s" : "");
 	*channels = g_malloc0(sizeof(struct channel_spec) * num_modules);
 	*channel_groups = g_malloc0(sizeof(struct channel_group_spec) * num_modules);
 	for (i = 0; i < num_modules; i++) {
 		module = model->modules[i];
 		spec = &philips_pm2800_module_specs[module];
-		sr_dbg("output %d: %.0f - %.0fV, %.0f - %.0fA, %.0f - %.0fW", i + 1,
+		otc_dbg("output %d: %.0f - %.0fV, %.0f - %.0fA, %.0f - %.0fW", i + 1,
 				spec->voltage[0], spec->voltage[1],
 				spec->current[0], spec->current[1],
 				spec->power[0], spec->power[1]);
@@ -1287,11 +1287,11 @@ static int philips_pm2800_probe_channels(struct sr_dev_inst *sdi,
 		(*channel_groups)[i].name = (char *)philips_pm2800_names[i];
 		(*channel_groups)[i].channel_index_mask = 1 << i;
 		(*channel_groups)[i].features = PPS_OTP | PPS_OVP | PPS_OCP;
-		(*channel_groups)[i].mqflags = SR_MQFLAG_DC;
+		(*channel_groups)[i].mqflags = OTC_MQFLAG_DC;
 	}
 	*num_channels = *num_channel_groups = num_modules;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static const struct scpi_command philips_pm2800_cmd[] = {
@@ -1317,23 +1317,23 @@ static const struct scpi_command philips_pm2800_cmd[] = {
 };
 
 static const uint32_t rs_hmc8043_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t rs_hmc8043_devopts_cg[] = {
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_DELAY | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_DELAY | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const struct channel_spec rs_hmc8043_ch[] = {
@@ -1343,9 +1343,9 @@ static const struct channel_spec rs_hmc8043_ch[] = {
 };
 
 static const struct channel_group_spec rs_hmc8043_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
-	{ "2", CH_IDX(1), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
-	{ "3", CH_IDX(2), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
+	{ "2", CH_IDX(1), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
+	{ "3", CH_IDX(2), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
 };
 
 static const struct scpi_command rs_hmc8043_cmd[] = {
@@ -1375,23 +1375,23 @@ static const struct scpi_command rs_hmc8043_cmd[] = {
 };
 
 static const uint32_t rs_nge100b_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t rs_nge100b_devopts_cg[] = {
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_DELAY | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_DELAY | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const struct channel_spec rs_nge100b_ch[] = {
@@ -1401,9 +1401,9 @@ static const struct channel_spec rs_nge100b_ch[] = {
 };
 
 static const struct channel_group_spec rs_nge100b_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
-	{ "2", CH_IDX(1), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
-	{ "3", CH_IDX(2), PPS_OVP | PPS_OCP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
+	{ "2", CH_IDX(1), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
+	{ "3", CH_IDX(2), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
 };
 
 static const struct scpi_command rs_nge100b_cmd[] = {
@@ -1433,22 +1433,22 @@ static const struct scpi_command rs_nge100b_cmd[] = {
 };
 
 static const uint32_t rs_hmp4040_devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t rs_hmp4040_devopts_cg[] = {
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE | SR_CONF_GET,
-	SR_CONF_REGULATION | SR_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
 };
 
 static const struct channel_spec rs_hmp2020_ch[] = {
@@ -1470,10 +1470,10 @@ static const struct channel_spec rs_hmp4040_ch[] = {
 };
 
 static const struct channel_group_spec rs_hmp4040_cg[] = {
-	{ "1", CH_IDX(0), PPS_OVP | PPS_OTP, SR_MQFLAG_DC },
-	{ "2", CH_IDX(1), PPS_OVP | PPS_OTP, SR_MQFLAG_DC },
-	{ "3", CH_IDX(2), PPS_OVP | PPS_OTP, SR_MQFLAG_DC },
-	{ "4", CH_IDX(3), PPS_OVP | PPS_OTP, SR_MQFLAG_DC },
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OTP, OTC_MQFLAG_DC },
+	{ "2", CH_IDX(1), PPS_OVP | PPS_OTP, OTC_MQFLAG_DC },
+	{ "3", CH_IDX(2), PPS_OVP | PPS_OTP, OTC_MQFLAG_DC },
+	{ "4", CH_IDX(3), PPS_OVP | PPS_OTP, OTC_MQFLAG_DC },
 };
 
 /*
@@ -1481,7 +1481,7 @@ static const struct channel_group_spec rs_hmp4040_cg[] = {
  * are not in use because SCPI_CMD codes are not defined yet.
  *   OUTP:GEN
  *   VOLT? MAX, CURR? MAX
- *   VOLT:PROT:CLE (could set SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE)
+ *   VOLT:PROT:CLE (could set OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE)
  *   VOLT:PROT:MODE
  *   FUSE:STAT, FUSE:TRIP?, FUSE:LINK, FUSE:UNL
  *   ARB:...
@@ -1509,7 +1509,7 @@ static const struct scpi_command rs_hmp4040_cmd[] = {
 	ALL_ZERO
 };
 
-SR_PRIV const struct scpi_pps pps_profiles[] = {
+OTC_PRIV const struct scpi_pps pps_profiles[] = {
 	/* Agilent N5763A */
 	{ "Agilent", "N5763A", SCPI_DIALECT_UNKNOWN, 0,
 		ARRAY_AND_SIZE(agilent_n5700a_devopts),
@@ -2031,4 +2031,4 @@ SR_PRIV const struct scpi_pps pps_profiles[] = {
 	},
 };
 
-SR_PRIV unsigned int num_pps_profiles = ARRAY_SIZE(pps_profiles);
+OTC_PRIV unsigned int num_pps_profiles = ARRAY_SIZE(pps_profiles);

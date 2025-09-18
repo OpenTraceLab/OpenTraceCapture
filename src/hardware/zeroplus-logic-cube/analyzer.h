@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010 Sven Peter <sven@fail0verflow.com>
  * Copyright (C) 2010 Haxx Enterprises <bushing@gmail.com>
@@ -33,7 +33,7 @@
 #define LIBSIGROK_HARDWARE_ZEROPLUS_LOGIC_CUBE_ANALYZER_H
 
 #include <libusb.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include "protocol.h"
 
 #define STATUS_FLAG_NONE	0x00
@@ -75,38 +75,38 @@
 #define COMPRESSION_ENABLE	0x8001
 #define COMPRESSION_DOUBLE	0x8002
 
-SR_PRIV void analyzer_set_ext_clock(int enable, ext_clock_edge_t edge);
-SR_PRIV void analyzer_set_freq(int freq, int scale);
-SR_PRIV void analyzer_set_ramsize_trigger_address(unsigned int address);
-SR_PRIV void analyzer_set_triggerbar_address(unsigned int address);
-SR_PRIV unsigned int analyzer_get_ramsize_trigger_address(void );
-SR_PRIV unsigned int analyzer_get_triggerbar_address(void);
-SR_PRIV void analyzer_set_compression(unsigned int type);
-SR_PRIV void analyzer_set_memory_size(unsigned int size);
-SR_PRIV int analyzer_add_triggers(const struct sr_dev_inst *sdi);
-SR_PRIV void analyzer_set_trigger_count(int count);
-SR_PRIV void analyzer_add_filter(int channel, int type);
-SR_PRIV void analyzer_set_voltage_threshold(int thresh);
+OTC_PRIV void analyzer_set_ext_clock(int enable, ext_clock_edge_t edge);
+OTC_PRIV void analyzer_set_freq(int freq, int scale);
+OTC_PRIV void analyzer_set_ramsize_trigger_address(unsigned int address);
+OTC_PRIV void analyzer_set_triggerbar_address(unsigned int address);
+OTC_PRIV unsigned int analyzer_get_ramsize_trigger_address(void );
+OTC_PRIV unsigned int analyzer_get_triggerbar_address(void);
+OTC_PRIV void analyzer_set_compression(unsigned int type);
+OTC_PRIV void analyzer_set_memory_size(unsigned int size);
+OTC_PRIV int analyzer_add_triggers(const struct otc_dev_inst *sdi);
+OTC_PRIV void analyzer_set_trigger_count(int count);
+OTC_PRIV void analyzer_add_filter(int channel, int type);
+OTC_PRIV void analyzer_set_voltage_threshold(int thresh);
 
-SR_PRIV unsigned int analyzer_read_status(libusb_device_handle *devh);
-SR_PRIV unsigned int analyzer_read_id(libusb_device_handle *devh);
-SR_PRIV unsigned int analyzer_get_stop_address(libusb_device_handle *devh);
-SR_PRIV unsigned int analyzer_get_now_address(libusb_device_handle *devh);
-SR_PRIV unsigned int analyzer_get_trigger_address(libusb_device_handle *devh);
-SR_PRIV int analyzer_decompress(void *input, unsigned int input_len,
+OTC_PRIV unsigned int analyzer_read_status(libusb_device_handle *devh);
+OTC_PRIV unsigned int analyzer_read_id(libusb_device_handle *devh);
+OTC_PRIV unsigned int analyzer_get_stop_address(libusb_device_handle *devh);
+OTC_PRIV unsigned int analyzer_get_now_address(libusb_device_handle *devh);
+OTC_PRIV unsigned int analyzer_get_trigger_address(libusb_device_handle *devh);
+OTC_PRIV int analyzer_decompress(void *input, unsigned int input_len,
 				void *output, unsigned int output_len);
 
-SR_PRIV void analyzer_reset(libusb_device_handle *devh);
-SR_PRIV void analyzer_initialize(libusb_device_handle *devh);
-SR_PRIV void analyzer_wait(libusb_device_handle *devh, int set, int unset);
-SR_PRIV void analyzer_read_start(libusb_device_handle *devh);
-SR_PRIV int analyzer_read_data(libusb_device_handle *devh, void *buffer,
+OTC_PRIV void analyzer_reset(libusb_device_handle *devh);
+OTC_PRIV void analyzer_initialize(libusb_device_handle *devh);
+OTC_PRIV void analyzer_wait(libusb_device_handle *devh, int set, int unset);
+OTC_PRIV void analyzer_read_start(libusb_device_handle *devh);
+OTC_PRIV int analyzer_read_data(libusb_device_handle *devh, void *buffer,
 		unsigned int size);
-SR_PRIV void analyzer_read_stop(libusb_device_handle *devh);
-SR_PRIV void analyzer_start(libusb_device_handle *devh);
-SR_PRIV void analyzer_configure(libusb_device_handle *devh);
+OTC_PRIV void analyzer_read_stop(libusb_device_handle *devh);
+OTC_PRIV void analyzer_start(libusb_device_handle *devh);
+OTC_PRIV void analyzer_configure(libusb_device_handle *devh);
 
-SR_PRIV void analyzer_wait_button(libusb_device_handle *devh);
-SR_PRIV void analyzer_wait_data(libusb_device_handle *devh);
+OTC_PRIV void analyzer_wait_button(libusb_device_handle *devh);
+OTC_PRIV void analyzer_wait_data(libusb_device_handle *devh);
 
 #endif

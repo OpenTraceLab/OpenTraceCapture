@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Daniel Glöckner <daniel-gl@gmx.net>
  *
@@ -23,36 +23,36 @@
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_OSCILLOSCOPE,
+	OTC_CONF_OSCILLOSCOPE,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_LIMIT_FRAMES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_SLOPE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_BUFFERSIZE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_LIMIT_FRAMES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_TRIGGER_SOURCE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_TRIGGER_SLOPE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_BUFFERSIZE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const uint32_t devopts_cg[] = {
-	SR_CONF_VDIV | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_COUPLING | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_PROBE_FACTOR | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_VDIV | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_COUPLING | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_PROBE_FACTOR | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint64_t samplerates[] = {
-	SR_MHZ(100), SR_MHZ(50),  SR_MHZ(25),   SR_MHZ(20),
-	SR_MHZ(10),  SR_MHZ(5),   SR_KHZ(2500), SR_MHZ(2),
-	SR_MHZ(1),   SR_KHZ(500), SR_KHZ(250),  SR_KHZ(200),
-	SR_KHZ(100), SR_KHZ(50),  SR_KHZ(25),   SR_KHZ(20),
-	SR_KHZ(10),  SR_KHZ(5),   SR_HZ(2500),  SR_KHZ(2),
-	SR_KHZ(1),   SR_HZ(500),  SR_HZ(250),   SR_HZ(200),
-	SR_HZ(100),  SR_HZ(50),   SR_HZ(25),    SR_HZ(20)
+	OTC_MHZ(100), OTC_MHZ(50),  OTC_MHZ(25),   OTC_MHZ(20),
+	OTC_MHZ(10),  OTC_MHZ(5),   OTC_KHZ(2500), OTC_MHZ(2),
+	OTC_MHZ(1),   OTC_KHZ(500), OTC_KHZ(250),  OTC_KHZ(200),
+	OTC_KHZ(100), OTC_KHZ(50),  OTC_KHZ(25),   OTC_KHZ(20),
+	OTC_KHZ(10),  OTC_KHZ(5),   OTC_HZ(2500),  OTC_KHZ(2),
+	OTC_KHZ(1),   OTC_HZ(500),  OTC_HZ(250),   OTC_HZ(200),
+	OTC_HZ(100),  OTC_HZ(50),   OTC_HZ(25),    OTC_HZ(20)
 };
 
 /* must be in sync with readout_steps[] in protocol.c */
@@ -104,33 +104,33 @@ static const uint8_t coupling_map[] = {
 
 static GSList *scan_port(GSList *devices, struct parport *port)
 {
-	struct sr_dev_inst *sdi;
-	struct sr_channel *ch;
-	struct sr_channel_group *cg;
+	struct otc_dev_inst *sdi;
+	struct otc_channel *ch;
+	struct otc_channel_group *cg;
 	struct dev_context *devc;
 	int i;
 
 	if (ieee1284_open(port, 0, &i) != E1284_OK) {
-		sr_err("Can't open parallel port %s", port->name);
+		otc_err("Can't open parallel port %s", port->name);
 		goto fail1;
 	}
 
 	if ((i & (CAP1284_RAW | CAP1284_BYTE)) != (CAP1284_RAW | CAP1284_BYTE)) {
-		sr_err("Parallel port %s does not provide low-level bidirection access",
+		otc_err("Parallel port %s does not provide low-level bidirection access",
 		       port->name);
 		goto fail2;
 	}
 
 	if (ieee1284_claim(port) != E1284_OK) {
-		sr_err("Parallel port %s already in use", port->name);
+		otc_err("Parallel port %s already in use", port->name);
 		goto fail2;
 	}
 
 	if (!hung_chang_dso_2100_check_id(port))
 		goto fail3;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("Hung-Chang");
 	sdi->model = g_strdup("DSO-2100");
 	sdi->inst_type = 0; /* FIXME */
@@ -138,8 +138,8 @@ static GSList *scan_port(GSList *devices, struct parport *port)
 	ieee1284_ref(port);
 
 	for (i = 0; i < NUM_CHANNELS; i++) {
-		cg = sr_channel_group_new(sdi, trigger_sources[i], NULL);
-		ch = sr_channel_new(sdi, i, SR_CHANNEL_ANALOG, FALSE, trigger_sources[i]);
+		cg = otc_channel_group_new(sdi, trigger_sources[i], NULL);
+		ch = otc_channel_new(sdi, i, OTC_CHANNEL_ANALOG, FALSE, trigger_sources[i]);
 		cg->channels = g_slist_append(cg->channels, ch);
 	}
 
@@ -173,10 +173,10 @@ fail1:
 	return devices;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct parport_list ports;
-	struct sr_config *src;
+	struct otc_config *src;
 	const char *conn = NULL;
 	GSList *devices, *option;
 	gboolean port_found;
@@ -185,7 +185,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	for (option = options; option; option = option->next) {
 		src = option->data;
-		if (src->key == SR_CONF_CONN) {
+		if (src->key == OTC_CONF_CONN) {
 			conn = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -206,9 +206,9 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		}
 
 	if (!port_found) {
-		sr_err("Parallel port %s not found. Valid names are:", conn);
+		otc_err("Parallel port %s not found. Valid names are:", conn);
 		for (i = 0; i < ports.portc; i++)
-			sr_err("\t%s", ports.portv[i]->name);
+			otc_err("\t%s", ports.portv[i]->name);
 	}
 
 	ieee1284_free_ports(&ports);
@@ -221,10 +221,10 @@ static void clear_helper(struct dev_context *devc)
 	g_slist_free(devc->enabled_channel);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	struct drv_context *drvc = di->context;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	GSList *l;
 
 	if (drvc) {
@@ -237,7 +237,7 @@ static int dev_clear(const struct sr_dev_driver *di)
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	int i;
@@ -258,7 +258,7 @@ static int dev_open(struct sr_dev_inst *sdi)
 	if (!devc->samples)
 		goto fail3;
 
-	return SR_OK;
+	return OTC_OK;
 
 fail3:
 	hung_chang_dso_2100_reset_port(sdi->conn);
@@ -266,10 +266,10 @@ fail3:
 fail2:
 	ieee1284_close(sdi->conn);
 fail1:
-	return SR_ERR;
+	return OTC_ERR;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 
@@ -278,157 +278,157 @@ static int dev_close(struct sr_dev_inst *sdi)
 	ieee1284_release(sdi->conn);
 	ieee1284_close(sdi->conn);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc = sdi->priv;
 	struct parport *port;
 	int idx, ch = -1;
 
-	if (cg) /* sr_config_get will validate cg using config_list */
-		ch = ((struct sr_channel *)cg->channels->data)->index;
+	if (cg) /* otc_config_get will validate cg using config_list */
+		ch = ((struct otc_channel *)cg->channels->data)->index;
 
 	switch (key) {
-	case SR_CONF_CONN:
+	case OTC_CONF_CONN:
 		port = sdi->conn;
 		*data = g_variant_new_string(port->name);
 		break;
-	case SR_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_FRAMES:
 		*data = g_variant_new_uint64(devc->frame_limit);
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(samplerates[devc->rate]);
 		break;
-	case SR_CONF_TRIGGER_SOURCE:
+	case OTC_CONF_TRIGGER_SOURCE:
 		if ((idx = std_u8_idx_s(devc->cctl[0] & 0xC0, ARRAY_AND_SIZE(trigger_sources_map))) < 0)
-			return SR_ERR_BUG;
+			return OTC_ERR_BUG;
 		*data = g_variant_new_string(trigger_sources[idx]);
 		break;
-	case SR_CONF_TRIGGER_SLOPE:
+	case OTC_CONF_TRIGGER_SLOPE:
 		if (devc->edge >= ARRAY_SIZE(trigger_slopes))
-			return SR_ERR;
+			return OTC_ERR;
 		*data = g_variant_new_string(trigger_slopes[devc->edge]);
 		break;
-	case SR_CONF_BUFFERSIZE:
+	case OTC_CONF_BUFFERSIZE:
 		*data = g_variant_new_uint64(buffersizes[devc->last_step]);
 		break;
-	case SR_CONF_VDIV:
+	case OTC_CONF_VDIV:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if ((idx = std_u8_idx_s(devc->cctl[ch] & 0x33, ARRAY_AND_SIZE(vdivs_map))) < 0)
-			return SR_ERR_BUG;
+			return OTC_ERR_BUG;
 		*data = g_variant_new("(tt)", vdivs[idx][0], vdivs[idx][1]);
 		break;
-	case SR_CONF_COUPLING:
+	case OTC_CONF_COUPLING:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if ((idx = std_u8_idx_s(devc->cctl[ch] & 0x0C, ARRAY_AND_SIZE(coupling_map))) < 0)
-			return SR_ERR_BUG;
+			return OTC_ERR_BUG;
 		*data = g_variant_new_string(coupling[idx]);
 		break;
-	case SR_CONF_PROBE_FACTOR:
+	case OTC_CONF_PROBE_FACTOR:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		*data = g_variant_new_uint64(devc->probe[ch]);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc = sdi->priv;
 	int idx, ch = -1;
 	uint64_t u;
 
-	if (cg) /* sr_config_set will validate cg using config_list */
-		ch = ((struct sr_channel *)cg->channels->data)->index;
+	if (cg) /* otc_config_set will validate cg using config_list */
+		ch = ((struct otc_channel *)cg->channels->data)->index;
 
 	switch (key) {
-	case SR_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_FRAMES:
 		devc->frame_limit = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		if ((idx = std_u64_idx(data, ARRAY_AND_SIZE(samplerates))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->rate = idx;
 		break;
-	case SR_CONF_TRIGGER_SOURCE:
+	case OTC_CONF_TRIGGER_SOURCE:
 		if ((idx = std_str_idx(data, ARRAY_AND_SIZE(trigger_sources))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->cctl[0] = (devc->cctl[0] & 0x3F) | trigger_sources_map[idx];
 		break;
-	case SR_CONF_TRIGGER_SLOPE:
+	case OTC_CONF_TRIGGER_SLOPE:
 		if ((idx = std_str_idx(data, ARRAY_AND_SIZE(trigger_slopes))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->edge = idx;
 		break;
-	case SR_CONF_BUFFERSIZE:
+	case OTC_CONF_BUFFERSIZE:
 		if ((idx = std_u64_idx(data, ARRAY_AND_SIZE(buffersizes))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->last_step = idx;
 		break;
-	case SR_CONF_VDIV:
+	case OTC_CONF_VDIV:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if (!g_variant_is_of_type(data, G_VARIANT_TYPE("(tt)")))
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if ((idx = std_u64_tuple_idx(data, ARRAY_AND_SIZE(vdivs))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->cctl[ch] = (devc->cctl[ch] & 0xCC) | vdivs_map[idx];
 		break;
-	case SR_CONF_COUPLING:
+	case OTC_CONF_COUPLING:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if ((idx = std_str_idx(data, ARRAY_AND_SIZE(coupling))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->cctl[ch] = (devc->cctl[ch] & 0xF3) | coupling_map[idx];
 		break;
-	case SR_CONF_PROBE_FACTOR:
+	case OTC_CONF_PROBE_FACTOR:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		u = g_variant_get_uint64(data);
 		if (!u)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->probe[ch] = u;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int config_channel_set(const struct sr_dev_inst *sdi,
-	struct sr_channel *ch, unsigned int changes)
+static int config_channel_set(const struct otc_dev_inst *sdi,
+	struct otc_channel *ch, unsigned int changes)
 {
 	struct dev_context *devc = sdi->priv;
 	uint8_t v;
 
-	if (!(changes & SR_CHANNEL_SET_ENABLED))
-		return SR_OK;
+	if (!(changes & OTC_CHANNEL_SET_ENABLED))
+		return OTC_OK;
 
 	if (ch->enabled) {
 		v = devc->channel | (1 << ch->index);
 		if (v & (v - 1))
-			return SR_ERR;
+			return OTC_ERR;
 		devc->channel = v;
 		devc->enabled_channel->data = ch;
 	} else {
 		devc->channel &= ~(1 << ch->index);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int config_commit(const struct sr_dev_inst *sdi)
+static int config_commit(const struct otc_dev_inst *sdi)
 {
 	uint8_t state = hung_chang_dso_2100_read_mbox(sdi->conn, 0.02);
 	int ret;
@@ -444,80 +444,80 @@ static int config_commit(const struct sr_dev_inst *sdi)
 		/* Fallthrough */
 	default:
 		ret = hung_chang_dso_2100_move_to(sdi, 1);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		/* Fallthrough */
 	case 0x01:
 		hung_chang_dso_2100_write_mbox(sdi->conn, 4);
 	}
 	ret = hung_chang_dso_2100_move_to(sdi, 1);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	return hung_chang_dso_2100_move_to(sdi, state);
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	GSList *l;
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		break;
-	case SR_CONF_SAMPLERATE:
-	case SR_CONF_TRIGGER_SOURCE:
-	case SR_CONF_TRIGGER_SLOPE:
-	case SR_CONF_BUFFERSIZE:
+	case OTC_CONF_SAMPLERATE:
+	case OTC_CONF_TRIGGER_SOURCE:
+	case OTC_CONF_TRIGGER_SLOPE:
+	case OTC_CONF_BUFFERSIZE:
 		if (!sdi || cg)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		break;
-	case SR_CONF_VDIV:
-	case SR_CONF_COUPLING:
+	case OTC_CONF_VDIV:
+	case OTC_CONF_COUPLING:
 		if (!sdi)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		l = g_slist_find(sdi->channel_groups, cg);
 		if (!l)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, NO_OPTS, NO_OPTS);
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		if (!cg)
 			return STD_CONFIG_LIST(key, data, sdi, cg, NO_OPTS, drvopts, devopts);
 		*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg));
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates));
 		break;
-	case SR_CONF_TRIGGER_SOURCE:
+	case OTC_CONF_TRIGGER_SOURCE:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_sources));
 		break;
-	case SR_CONF_TRIGGER_SLOPE:
+	case OTC_CONF_TRIGGER_SLOPE:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(trigger_slopes));
 		break;
-	case SR_CONF_BUFFERSIZE:
+	case OTC_CONF_BUFFERSIZE:
 		*data = std_gvar_array_u64(ARRAY_AND_SIZE(buffersizes));
 		break;
-	case SR_CONF_VDIV:
+	case OTC_CONF_VDIV:
 		*data = std_gvar_tuple_array(ARRAY_AND_SIZE(vdivs));
 		break;
-	case SR_CONF_COUPLING:
+	case OTC_CONF_COUPLING:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(coupling));
 		break;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	int ret;
@@ -536,27 +536,27 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	devc->retries = MAX_RETRIES;
 
 	ret = hung_chang_dso_2100_move_to(sdi, 0x21);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	std_session_send_df_header(sdi);
 
-	sr_session_source_add(sdi->session, -1, 0, 8,
+	otc_session_source_add(sdi->session, -1, 0, 8,
 			      hung_chang_dso_2100_poll, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	std_session_send_df_end(sdi);
-	sr_session_source_remove(sdi->session, -1);
+	otc_session_source_remove(sdi->session, -1);
 	hung_chang_dso_2100_move_to(sdi, 1);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver hung_chang_dso_2100_driver_info = {
+static struct otc_dev_driver hung_chang_dso_2100_driver_info = {
 	.name = "hung-chang-dso-2100",
 	.longname = "Hung-Chang DSO-2100",
 	.api_version = 1,
@@ -576,4 +576,4 @@ static struct sr_dev_driver hung_chang_dso_2100_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(hung_chang_dso_2100_driver_info);
+OTC_REGISTER_DEV_DRIVER(hung_chang_dso_2100_driver_info);

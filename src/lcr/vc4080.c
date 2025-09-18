@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -19,8 +19,8 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
@@ -128,14 +128,14 @@
  */
 
 static const double frequencies[] = {
-	SR_HZ(120), SR_KHZ(1),
+	OTC_HZ(120), OTC_KHZ(1),
 };
 
 static uint64_t get_frequency(char code)
 {
 	switch (code) {
-	case 'A': return SR_KHZ(1);
-	case 'B': return SR_HZ(120);
+	case 'A': return OTC_KHZ(1);
+	case 'B': return OTC_HZ(120);
 	default: return 0;
 	}
 }
@@ -190,9 +190,9 @@ static float parse_number(const uint8_t *digits, size_t length)
 
 	memcpy(value_text, digits, length);
 	value_text[length] = '\0';
-	ret = sr_atof_ascii(value_text, &number);
+	ret = otc_atof_ascii(value_text, &number);
 
-	return (ret == SR_OK) ? number : 0;
+	return (ret == OTC_OK) ? number : 0;
 }
 
 /*
@@ -242,25 +242,25 @@ static int get_main_scale_rs(int *digits, int *rs,
 
 	/* The 'range' input value is only valid between 0..6. */
 	if (range > 6)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	if (lcr == LCR_IS_R) {
 		digits_table = dig_r;
 		rs_table = rs_r_l;
-	} else if (lcr == LCR_IS_L && freq == SR_KHZ(1)) {
+	} else if (lcr == LCR_IS_L && freq == OTC_KHZ(1)) {
 		digits_table = dig_l_1k;
 		rs_table = rs_r_l;
-	} else if (lcr == LCR_IS_L && freq == SR_HZ(120)) {
+	} else if (lcr == LCR_IS_L && freq == OTC_HZ(120)) {
 		digits_table = dig_l_120;
 		rs_table = rs_r_l;
-	} else if (lcr == LCR_IS_C && freq == SR_KHZ(1)) {
+	} else if (lcr == LCR_IS_C && freq == OTC_KHZ(1)) {
 		digits_table = dig_c_1k;
 		rs_table = rs_c;
-	} else if (lcr == LCR_IS_C && freq == SR_HZ(120)) {
+	} else if (lcr == LCR_IS_C && freq == OTC_HZ(120)) {
 		digits_table = dig_c_120;
 		rs_table = rs_c;
 	} else {
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
 	if (digits)
@@ -268,7 +268,7 @@ static int get_main_scale_rs(int *digits, int *rs,
 	if (rs)
 		*rs = rs_table[range];
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int get_sec_scale(int *digits, uint8_t range, enum dqr_kind dqr, int rs)
@@ -285,34 +285,34 @@ static int get_sec_scale(int *digits, uint8_t range, enum dqr_kind dqr, int rs)
 	 * invalid positions (these get checked below).
 	 */
 	if (range < 1 || range > 5)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	if (dqr == DQR_IS_D || dqr == DQR_IS_Q) {
 		if (range > 4)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		digits_table = dig_d_q;
 	} else if (dqr == DQR_IS_R && rs == 100) {
 		if (range > 4)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		digits_table = dig_r_100;
 	} else if (dqr == DQR_IS_R && (rs == 1000 || rs == 10000)) {
 		digits_table = dig_r_1k_10k;
 	} else if (dqr == DQR_IS_R && rs == 100000) {
 		if (range < 2)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		digits_table = dig_r_100k;
 	} else {
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
 	if (digits)
 		*digits = digits_table[range];
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void parse_measurement(const uint8_t *pkt, float *floatval,
-	struct sr_datafeed_analog *analog, size_t disp_idx)
+	struct otc_datafeed_analog *analog, size_t disp_idx)
 {
 	enum lcr_kind lcr;
 	enum dqr_kind dqr;
@@ -424,7 +424,7 @@ static void parse_measurement(const uint8_t *pkt, float *floatval,
 	switch (pkt[31]) {
 	case 'R': is_relative = TRUE; break;
 	case 'S': return;	/* Relative setup. Not supported. */
-				/* TODO Is this SR_MQFLAG_REFERENCE? */
+				/* TODO Is this OTC_MQFLAG_REFERENCE? */
 	case '_': is_relative = FALSE; break;
 	default: return;	/* Unknown. */
 	}
@@ -442,16 +442,16 @@ static void parse_measurement(const uint8_t *pkt, float *floatval,
 	rs = main_digits = sec_digits = d_digits = q_digits = 0;
 	main_invalid = sec_invalid = d_invalid = q_invalid = 0;
 	ret = get_main_scale_rs(&main_digits, &rs, main_range, lcr, freq);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		main_invalid = 1;
 	ret = get_sec_scale(&sec_digits, sec_range, dqr, rs);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		sec_invalid = 1;
 	ret = get_sec_scale(&d_digits, d_range, dqr, rs);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		d_invalid = 1;
 	ret = get_sec_scale(&q_digits, q_range, dqr, rs);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		q_invalid = 1;
 
 	/* Determine the measurement value and its units. Apply scaling. */
@@ -466,19 +466,19 @@ static void parse_measurement(const uint8_t *pkt, float *floatval,
 			break;
 		if (lcr == LCR_IS_L) {
 			mq = is_parallel
-				? SR_MQ_PARALLEL_INDUCTANCE
-				: SR_MQ_SERIES_INDUCTANCE;
-			unit = SR_UNIT_HENRY;
+				? OTC_MQ_PARALLEL_INDUCTANCE
+				: OTC_MQ_SERIES_INDUCTANCE;
+			unit = OTC_UNIT_HENRY;
 		} else if (lcr == LCR_IS_C) {
 			mq = is_parallel
-				? SR_MQ_PARALLEL_CAPACITANCE
-				: SR_MQ_SERIES_CAPACITANCE;
-			unit = SR_UNIT_FARAD;
+				? OTC_MQ_PARALLEL_CAPACITANCE
+				: OTC_MQ_SERIES_CAPACITANCE;
+			unit = OTC_UNIT_FARAD;
 		} else if (lcr == LCR_IS_R) {
 			mq = is_parallel
-				? SR_MQ_PARALLEL_RESISTANCE
-				: SR_MQ_SERIES_RESISTANCE;
-			unit = SR_UNIT_OHM;
+				? OTC_MQ_PARALLEL_RESISTANCE
+				: OTC_MQ_SERIES_RESISTANCE;
+			unit = OTC_UNIT_OHM;
 		}
 		value = main_value;
 		ol = main_ol;
@@ -490,14 +490,14 @@ static void parse_measurement(const uint8_t *pkt, float *floatval,
 		if (invalid)
 			break;
 		if (dqr == DQR_IS_D) {
-			mq = SR_MQ_DISSIPATION_FACTOR;
-			unit = SR_UNIT_UNITLESS;
+			mq = OTC_MQ_DISSIPATION_FACTOR;
+			unit = OTC_UNIT_UNITLESS;
 		} else if (dqr == DQR_IS_Q) {
-			mq = SR_MQ_QUALITY_FACTOR;
-			unit = SR_UNIT_UNITLESS;
+			mq = OTC_MQ_QUALITY_FACTOR;
+			unit = OTC_UNIT_UNITLESS;
 		} else if (dqr == DQR_IS_R) {
-			mq = SR_MQ_RESISTANCE;
-			unit = SR_UNIT_OHM;
+			mq = OTC_MQ_RESISTANCE;
+			unit = OTC_UNIT_OHM;
 		}
 		value = sec_value;
 		ol = sec_ol;
@@ -509,8 +509,8 @@ static void parse_measurement(const uint8_t *pkt, float *floatval,
 		invalid = d_invalid;
 		if (invalid)
 			break;
-		mq = SR_MQ_DISSIPATION_FACTOR;
-		unit = SR_UNIT_UNITLESS;
+		mq = OTC_MQ_DISSIPATION_FACTOR;
+		unit = OTC_UNIT_UNITLESS;
 		value = d_value;
 		ol = d_ol;
 		digits = 4;
@@ -520,8 +520,8 @@ static void parse_measurement(const uint8_t *pkt, float *floatval,
 		invalid = q_invalid;
 		if (invalid)
 			break;
-		mq = SR_MQ_QUALITY_FACTOR;
-		unit = SR_UNIT_UNITLESS;
+		mq = OTC_MQ_QUALITY_FACTOR;
+		unit = OTC_UNIT_UNITLESS;
 		value = q_value;
 		ol = q_ol;
 		digits = 4;
@@ -544,25 +544,25 @@ static void parse_measurement(const uint8_t *pkt, float *floatval,
 	if (invalid)
 		return;
 	if (is_auto)
-		mqflags |= SR_MQFLAG_AUTORANGE;
+		mqflags |= OTC_MQFLAG_AUTORANGE;
 	if (is_hold)
-		mqflags |= SR_MQFLAG_HOLD;
+		mqflags |= OTC_MQFLAG_HOLD;
 	if (is_relative)
-		mqflags |= SR_MQFLAG_RELATIVE;
+		mqflags |= OTC_MQFLAG_RELATIVE;
 	if (has_adapter)
-		mqflags |= SR_MQFLAG_FOUR_WIRE;
+		mqflags |= OTC_MQFLAG_FOUR_WIRE;
 	switch (minmax) {
 	case MINMAX_MAX:
-		mqflags |= SR_MQFLAG_MAX;
+		mqflags |= OTC_MQFLAG_MAX;
 		break;
 	case MINMAX_MIN:
-		mqflags |= SR_MQFLAG_MIN;
+		mqflags |= OTC_MQFLAG_MIN;
 		break;
 	case MINMAX_SPAN:
-		mqflags |= SR_MQFLAG_MAX | SR_MQFLAG_RELATIVE;
+		mqflags |= OTC_MQFLAG_MAX | OTC_MQFLAG_RELATIVE;
 		break;
 	case MINMAX_AVG:
-		mqflags |= SR_MQFLAG_AVG;
+		mqflags |= OTC_MQFLAG_AVG;
 		break;
 	case MINMAX_CURR:
 	case MINMAX_NONE:
@@ -587,12 +587,12 @@ static void parse_measurement(const uint8_t *pkt, float *floatval,
 
 	/* Low battery is rather severe, the measurement could be invalid. */
 	if (is_lowbatt)
-		sr_warn("Low battery.");
+		otc_warn("Low battery.");
 }
 
 /*
  * Workaround for cables' improper(?) parity handling.
- * TODO Should this move to serial-lcr or even common libsigrok code?
+ * TODO Should this move to serial-lcr or even common libopentracecapture code?
  *
  * Implementor's note: Serial communication is documented to be 1200/7e1.
  * But practial setups with the shipped FT232R cable received no response
@@ -625,23 +625,23 @@ static void strip_parity_bit(uint8_t *p, size_t l)
 
 /* LCR packet parser's public API. */
 
-SR_PRIV const char *vc4080_channel_formats[VC4080_CHANNEL_COUNT] = {
+OTC_PRIV const char *vc4080_channel_formats[VC4080_CHANNEL_COUNT] = {
 	"P1", "P2",
 #if VC4080_WITH_DQ_CHANS
 	"D", "Q",
 #endif
 };
 
-SR_PRIV int vc4080_packet_request(struct sr_serial_dev_inst *serial)
+OTC_PRIV int vc4080_packet_request(struct otc_serial_dev_inst *serial)
 {
 	static const char *command = "N";
 
 	serial_write_blocking(serial, command, strlen(command), 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV gboolean vc4080_packet_valid(const uint8_t *pkt)
+OTC_PRIV gboolean vc4080_packet_valid(const uint8_t *pkt)
 {
 	/* Workaround for funny serial cables. */
 	strip_parity_bit((void *)pkt, VC4080_PACKET_SIZE);
@@ -653,8 +653,8 @@ SR_PRIV gboolean vc4080_packet_valid(const uint8_t *pkt)
 	return TRUE;
 }
 
-SR_PRIV int vc4080_packet_parse(const uint8_t *pkt, float *val,
-	struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int vc4080_packet_parse(const uint8_t *pkt, float *val,
+	struct otc_datafeed_analog *analog, void *info)
 {
 	struct lcr_parse_info *parse_info;
 
@@ -669,7 +669,7 @@ SR_PRIV int vc4080_packet_parse(const uint8_t *pkt, float *val,
 	if (val && analog)
 		parse_measurement(pkt, val, analog, parse_info->ch_idx);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -677,23 +677,23 @@ SR_PRIV int vc4080_packet_parse(const uint8_t *pkt, float *val,
  * the _device_ driver resides in src/hardware/serial-lcr/ instead.
  */
 
-SR_PRIV int vc4080_config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+OTC_PRIV int vc4080_config_list(uint32_t key, GVariant **data,
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 
 	(void)sdi;
 	(void)cg;
 
 	switch (key) {
-	case SR_CONF_OUTPUT_FREQUENCY:
+	case OTC_CONF_OUTPUT_FREQUENCY:
 		*data = g_variant_new_fixed_array(G_VARIANT_TYPE_DOUBLE,
 			ARRAY_AND_SIZE(frequencies), sizeof(frequencies[0]));
-		return SR_OK;
-	case SR_CONF_EQUIV_CIRCUIT_MODEL:
+		return OTC_OK;
+	case OTC_CONF_EQUIV_CIRCUIT_MODEL:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(circuit_models));
-		return SR_OK;
+		return OTC_OK;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 	/* UNREACH */
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2020 Timo Kokkonen <tjko@iki.fi>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "rigol-dg"
 
@@ -131,19 +131,19 @@ struct dev_context {
 	const struct scpi_command *cmdset;
 	const struct device_spec *device;
 	struct channel_status *ch_status;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	gboolean counter_enabled;
 	uint32_t quirks;
 };
 
-SR_PRIV int rigol_dg_string_to_waveform(
+OTC_PRIV int rigol_dg_string_to_waveform(
 		const struct channel_spec *ch, const char *s, enum waveform_type *wf);
-SR_PRIV const struct waveform_spec *rigol_dg_get_waveform_spec(
+OTC_PRIV const struct waveform_spec *rigol_dg_get_waveform_spec(
 		const struct channel_spec *ch, enum waveform_type wf);
-SR_PRIV int rigol_dg_get_double_param(const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg, int psg_cmd, double *value);
-SR_PRIV int rigol_dg_get_channel_state(const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg);
-SR_PRIV int rigol_dg_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int rigol_dg_get_double_param(const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg, int psg_cmd, double *value);
+OTC_PRIV int rigol_dg_get_channel_state(const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg);
+OTC_PRIV int rigol_dg_receive_data(int fd, int revents, void *cb_data);
 
 #endif

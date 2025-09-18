@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Marcus Comstedt <marcus@mc.pp.se>
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
@@ -27,18 +27,18 @@
 #include <stdio.h>
 #include <errno.h>
 #include <math.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 #define FPGA_FIRMWARE_18	"saleae-logic16-fpga-18.bitstream"
 #define FPGA_FIRMWARE_33	"saleae-logic16-fpga-33.bitstream"
 
-#define MAX_SAMPLE_RATE		SR_MHZ(100)
-#define MAX_SAMPLE_RATE_X_CH	SR_MHZ(300)
+#define MAX_SAMPLE_RATE		OTC_MHZ(100)
+#define MAX_SAMPLE_RATE_X_CH	OTC_MHZ(300)
 
-#define BASE_CLOCK_0_FREQ	SR_MHZ(100)
-#define BASE_CLOCK_1_FREQ	SR_MHZ(160)
+#define BASE_CLOCK_0_FREQ	OTC_MHZ(100)
+#define BASE_CLOCK_1_FREQ	OTC_MHZ(160)
 
 #define COMMAND_START_ACQUISITION	1
 #define COMMAND_ABORT_ACQUISITION_ASYNC	2
@@ -187,56 +187,56 @@ static void decrypt(uint8_t *dest, const uint8_t *src, uint8_t cnt)
 	}
 }
 
-static int do_ep1_command(const struct sr_dev_inst *sdi,
+static int do_ep1_command(const struct otc_dev_inst *sdi,
 			  const uint8_t *command, uint8_t cmd_len,
 			  uint8_t *reply, uint8_t reply_len)
 {
 	uint8_t buf[64];
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	int ret, xfer;
 
 	usb = sdi->conn;
 
 	if (cmd_len < 1 || cmd_len > 64 || reply_len > 64 ||
 	    !command || (reply_len > 0 && !reply))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	encrypt(buf, command, cmd_len);
 
 	ret = libusb_bulk_transfer(usb->devhdl, 1, buf, cmd_len, &xfer, 1000);
 	if (ret != 0) {
-		sr_dbg("Failed to send EP1 command 0x%02x: %s.",
+		otc_dbg("Failed to send EP1 command 0x%02x: %s.",
 		       command[0], libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	if (xfer != cmd_len) {
-		sr_dbg("Failed to send EP1 command 0x%02x: incorrect length "
+		otc_dbg("Failed to send EP1 command 0x%02x: incorrect length "
 		       "%d != %d.", command[0], xfer, cmd_len);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if (reply_len == 0)
-		return SR_OK;
+		return OTC_OK;
 
 	ret = libusb_bulk_transfer(usb->devhdl, 0x80 | 1, buf, reply_len,
 				   &xfer, 1000);
 	if (ret != 0) {
-		sr_dbg("Failed to receive reply to EP1 command 0x%02x: %s.",
+		otc_dbg("Failed to receive reply to EP1 command 0x%02x: %s.",
 		       command[0], libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	if (xfer != reply_len) {
-		sr_dbg("Failed to receive reply to EP1 command 0x%02x: "
+		otc_dbg("Failed to receive reply to EP1 command 0x%02x: "
 		       "incorrect length %d != %d.", command[0], xfer, reply_len);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	decrypt(reply, buf, reply_len);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int read_eeprom(const struct sr_dev_inst *sdi,
+static int read_eeprom(const struct otc_dev_inst *sdi,
 		       uint8_t address, uint8_t length, uint8_t *buf)
 {
 	uint8_t command[5] = {
@@ -250,14 +250,14 @@ static int read_eeprom(const struct sr_dev_inst *sdi,
 	return do_ep1_command(sdi, command, 5, buf, length);
 }
 
-static int upload_led_table(const struct sr_dev_inst *sdi,
+static int upload_led_table(const struct otc_dev_inst *sdi,
 			    const uint8_t *table, uint8_t offset, uint8_t cnt)
 {
 	uint8_t chunk, command[64];
 	int ret;
 
 	if (cnt < 1 || cnt + offset > 64 || !table)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	while (cnt > 0) {
 		chunk = (cnt > 32 ? 32 : cnt);
@@ -268,7 +268,7 @@ static int upload_led_table(const struct sr_dev_inst *sdi,
 		memcpy(command + 3, table, chunk);
 
 		ret = do_ep1_command(sdi, command, 3 + chunk, NULL, 0);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		table += chunk;
@@ -276,10 +276,10 @@ static int upload_led_table(const struct sr_dev_inst *sdi,
 		cnt -= chunk;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int set_led_mode(const struct sr_dev_inst *sdi,
+static int set_led_mode(const struct otc_dev_inst *sdi,
 			uint8_t animate, uint16_t t2reload, uint8_t div,
 			uint8_t repeat)
 {
@@ -295,7 +295,7 @@ static int set_led_mode(const struct sr_dev_inst *sdi,
 	return do_ep1_command(sdi, command, 6, NULL, 0);
 }
 
-static int read_fpga_register(const struct sr_dev_inst *sdi,
+static int read_fpga_register(const struct otc_dev_inst *sdi,
 			      uint8_t address, uint8_t *value)
 {
 	uint8_t command[3] = {
@@ -307,14 +307,14 @@ static int read_fpga_register(const struct sr_dev_inst *sdi,
 	return do_ep1_command(sdi, command, 3, value, 1);
 }
 
-static int write_fpga_registers(const struct sr_dev_inst *sdi,
+static int write_fpga_registers(const struct otc_dev_inst *sdi,
 				uint8_t (*regs)[2], uint8_t cnt)
 {
 	uint8_t command[64];
 	int i;
 
 	if (cnt < 1 || cnt > 31)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	command[0] = COMMAND_FPGA_WRITE_REGISTER;
 	command[1] = cnt;
@@ -326,7 +326,7 @@ static int write_fpga_registers(const struct sr_dev_inst *sdi,
 	return do_ep1_command(sdi, command, 2 * (cnt + 1), NULL, 0);
 }
 
-static int write_fpga_register(const struct sr_dev_inst *sdi,
+static int write_fpga_register(const struct otc_dev_inst *sdi,
 			       uint8_t address, uint8_t value)
 {
 	uint8_t regs[2] = { address, value };
@@ -339,7 +339,7 @@ static uint8_t map_eeprom_data(uint8_t v)
 	return (((v ^ 0x80) + 0x44) ^ 0xd5) + 0x69;
 }
 
-static int setup_register_mapping(const struct sr_dev_inst *sdi)
+static int setup_register_mapping(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -354,17 +354,17 @@ static int setup_register_mapping(const struct sr_dev_inst *sdi)
 		 * version register at the old and new location.
 		 */
 
-		if ((ret = read_fpga_register(sdi, 0 /* No mapping */, &reg0)) != SR_OK)
+		if ((ret = read_fpga_register(sdi, 0 /* No mapping */, &reg0)) != OTC_OK)
 			return ret;
 
-		if ((ret = read_fpga_register(sdi, 7 /* No mapping */, &reg7)) != SR_OK)
+		if ((ret = read_fpga_register(sdi, 7 /* No mapping */, &reg7)) != OTC_OK)
 			return ret;
 
 		if (reg0 == 0 && reg7 > 0x10) {
-			sr_info("Original Saleae Logic16 using new bitstream.");
+			otc_info("Original Saleae Logic16 using new bitstream.");
 			devc->fpga_variant = FPGA_VARIANT_ORIGINAL_NEW_BITSTREAM;
 		} else {
-			sr_info("Original Saleae Logic16 using old bitstream.");
+			otc_info("Original Saleae Logic16 using old bitstream.");
 			devc->fpga_variant = FPGA_VARIANT_ORIGINAL;
 		}
 	}
@@ -379,10 +379,10 @@ static int setup_register_mapping(const struct sr_dev_inst *sdi)
 		devc->fpga_mode_bit_map = fpga_mode_bit_map_old;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int prime_fpga(const struct sr_dev_inst *sdi)
+static int prime_fpga(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	uint8_t eeprom_data[16];
@@ -399,10 +399,10 @@ static int prime_fpga(const struct sr_dev_inst *sdi)
 	};
 	int i, ret;
 
-	if ((ret = read_eeprom(sdi, 16, 16, eeprom_data)) != SR_OK)
+	if ((ret = read_eeprom(sdi, 16, 16, eeprom_data)) != OTC_OK)
 		return ret;
 
-	if ((ret = read_fpga_register(sdi, FPGA_REG(MODE), &old_mode_reg)) != SR_OK)
+	if ((ret = read_fpga_register(sdi, FPGA_REG(MODE), &old_mode_reg)) != OTC_OK)
 		return ret;
 
 	regs[0][1] = (old_mode_reg &= ~FPGA_MODE(UNKNOWN2));
@@ -417,21 +417,21 @@ static int prime_fpga(const struct sr_dev_inst *sdi)
 			ret = write_fpga_registers(sdi, &regs[2], 6);
 		else
 			ret = write_fpga_registers(sdi, &regs[0], 8);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	if ((ret = write_fpga_register(sdi, FPGA_REG(MODE), old_mode_reg)) != SR_OK)
+	if ((ret = write_fpga_register(sdi, FPGA_REG(MODE), old_mode_reg)) != OTC_OK)
 		return ret;
 
-	if ((ret = read_fpga_register(sdi, FPGA_REG(VERSION), &version)) != SR_OK)
+	if ((ret = read_fpga_register(sdi, FPGA_REG(VERSION), &version)) != OTC_OK)
 		return ret;
 
 	if (version != 0x10 && version != 0x13 && version != 0x40 && version != 0x41) {
-		sr_warn("Unsupported FPGA version: 0x%02x.", version);
+		otc_warn("Unsupported FPGA version: 0x%02x.", version);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void make_heartbeat(uint8_t *table, int len)
@@ -445,23 +445,23 @@ static void make_heartbeat(uint8_t *table, int len)
 			*table++ = sin(j * G_PI / len) * 255;
 }
 
-static int configure_led(const struct sr_dev_inst *sdi)
+static int configure_led(const struct otc_dev_inst *sdi)
 {
 	uint8_t table[64];
 	int ret;
 
 	make_heartbeat(table, 64);
-	if ((ret = upload_led_table(sdi, table, 0, 64)) != SR_OK)
+	if ((ret = upload_led_table(sdi, table, 0, 64)) != OTC_OK)
 		return ret;
 
 	return set_led_mode(sdi, 1, 6250, 0, 1);
 }
 
-static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
+static int upload_fpga_bitstream(const struct otc_dev_inst *sdi,
 				 enum voltage_range vrange)
 {
 	uint64_t sum;
-	struct sr_resource bitstream;
+	struct otc_resource bitstream;
 	struct dev_context *devc;
 	struct drv_context *drvc;
 	const char *name;
@@ -473,7 +473,7 @@ static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
 	drvc = sdi->driver->context;
 
 	if (devc->cur_voltage_range == vrange)
-		return SR_OK;
+		return OTC_OK;
 
 	if (devc->fpga_variant != FPGA_VARIANT_MCUPRO) {
 		switch (vrange) {
@@ -484,29 +484,29 @@ static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
 			name = FPGA_FIRMWARE_33;
 			break;
 		default:
-			sr_err("Unsupported voltage range.");
-			return SR_ERR;
+			otc_err("Unsupported voltage range.");
+			return OTC_ERR;
 		}
 
-		sr_info("Uploading FPGA bitstream '%s'.", name);
-		ret = sr_resource_open(drvc->sr_ctx, &bitstream,
-				SR_RESOURCE_FIRMWARE, name);
-		if (ret != SR_OK)
+		otc_info("Uploading FPGA bitstream '%s'.", name);
+		ret = otc_resource_open(drvc->otc_ctx, &bitstream,
+				OTC_RESOURCE_FIRMWARE, name);
+		if (ret != OTC_OK)
 			return ret;
 
 		command[0] = COMMAND_FPGA_UPLOAD_INIT;
-		if ((ret = do_ep1_command(sdi, command, 1, NULL, 0)) != SR_OK) {
-			sr_resource_close(drvc->sr_ctx, &bitstream);
+		if ((ret = do_ep1_command(sdi, command, 1, NULL, 0)) != OTC_OK) {
+			otc_resource_close(drvc->otc_ctx, &bitstream);
 			return ret;
 		}
 
 		sum = 0;
 		while (1) {
-			chunksize = sr_resource_read(drvc->sr_ctx, &bitstream,
+			chunksize = otc_resource_read(drvc->otc_ctx, &bitstream,
 					&command[2], sizeof(command) - 2);
 			if (chunksize < 0) {
-				sr_resource_close(drvc->sr_ctx, &bitstream);
-				return SR_ERR;
+				otc_resource_close(drvc->otc_ctx, &bitstream);
+				return OTC_ERR;
 			}
 			if (chunksize == 0)
 				break;
@@ -515,31 +515,31 @@ static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
 
 			ret = do_ep1_command(sdi, command, chunksize + 2,
 					NULL, 0);
-			if (ret != SR_OK) {
-				sr_resource_close(drvc->sr_ctx, &bitstream);
+			if (ret != OTC_OK) {
+				otc_resource_close(drvc->otc_ctx, &bitstream);
 				return ret;
 			}
 			sum += chunksize;
 		}
-		sr_resource_close(drvc->sr_ctx, &bitstream);
-		sr_info("FPGA bitstream upload (%" PRIu64 " bytes) done.", sum);
+		otc_resource_close(drvc->otc_ctx, &bitstream);
+		otc_info("FPGA bitstream upload (%" PRIu64 " bytes) done.", sum);
 	}
 
 	/* This needs to be called before accessing any FPGA registers. */
-	if ((ret = setup_register_mapping(sdi)) != SR_OK)
+	if ((ret = setup_register_mapping(sdi)) != OTC_OK)
 		return ret;
 
-	if ((ret = prime_fpga(sdi)) != SR_OK)
+	if ((ret = prime_fpga(sdi)) != OTC_OK)
 		return ret;
 
-	if ((ret = configure_led(sdi)) != SR_OK)
+	if ((ret = configure_led(sdi)) != OTC_OK)
 		return ret;
 
 	devc->cur_voltage_range = vrange;
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int abort_acquisition_sync(const struct sr_dev_inst *sdi)
+static int abort_acquisition_sync(const struct otc_dev_inst *sdi)
 {
 	static const uint8_t command[2] = {
 		COMMAND_ABORT_ACQUISITION_SYNC,
@@ -548,20 +548,20 @@ static int abort_acquisition_sync(const struct sr_dev_inst *sdi)
 	uint8_t reply, expected_reply;
 	int ret;
 
-	if ((ret = do_ep1_command(sdi, command, 2, &reply, 1)) != SR_OK)
+	if ((ret = do_ep1_command(sdi, command, 2, &reply, 1)) != OTC_OK)
 		return ret;
 
 	expected_reply = ~command[1];
 	if (reply != expected_reply) {
-		sr_err("Invalid response for abort acquisition command: "
+		otc_err("Invalid response for abort acquisition command: "
 		       "0x%02x != 0x%02x.", reply, expected_reply);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int logic16_setup_acquisition(const struct sr_dev_inst *sdi,
+OTC_PRIV int logic16_setup_acquisition(const struct otc_dev_inst *sdi,
 			     uint64_t samplerate, uint16_t channels)
 {
 	uint8_t clock_select, sta_con_reg, mode_reg;
@@ -572,8 +572,8 @@ SR_PRIV int logic16_setup_acquisition(const struct sr_dev_inst *sdi,
 	devc = sdi->priv;
 
 	if (samplerate == 0 || samplerate > MAX_SAMPLE_RATE) {
-		sr_err("Unable to sample at %" PRIu64 "Hz.", samplerate);
-		return SR_ERR;
+		otc_err("Unable to sample at %" PRIu64 "Hz.", samplerate);
+		return OTC_ERR;
 	}
 
 	if (BASE_CLOCK_0_FREQ % samplerate == 0 &&
@@ -583,8 +583,8 @@ SR_PRIV int logic16_setup_acquisition(const struct sr_dev_inst *sdi,
 		   (div = BASE_CLOCK_1_FREQ / samplerate) <= 256) {
 		clock_select = 1;
 	} else {
-		sr_err("Unable to sample at %" PRIu64 "Hz.", samplerate);
-		return SR_ERR;
+		otc_err("Unable to sample at %" PRIu64 "Hz.", samplerate);
+		return OTC_ERR;
 	}
 
 	for (i = 0; i < 16; i++)
@@ -592,67 +592,67 @@ SR_PRIV int logic16_setup_acquisition(const struct sr_dev_inst *sdi,
 			nchan++;
 
 	if (nchan * samplerate > MAX_SAMPLE_RATE_X_CH) {
-		sr_err("Unable to sample at %" PRIu64 "Hz "
+		otc_err("Unable to sample at %" PRIu64 "Hz "
 		       "with this many channels.", samplerate);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	ret = upload_fpga_bitstream(sdi, devc->selected_voltage_range);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	if ((ret = read_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), &sta_con_reg)) != SR_OK)
+	if ((ret = read_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), &sta_con_reg)) != OTC_OK)
 		return ret;
 
 	/* Ignore FIFO overflow on previous capture */
 	sta_con_reg &= ~FPGA_STATUS_CONTROL(OVERFLOW);
 
 	if (devc->fpga_variant != FPGA_VARIANT_MCUPRO && sta_con_reg != FPGA_STATUS_CONTROL(UNKNOWN1)) {
-		sr_dbg("Invalid state at acquisition setup register 1: 0x%02x != 0x%02x. "
+		otc_dbg("Invalid state at acquisition setup register 1: 0x%02x != 0x%02x. "
 		       "Proceeding anyway.", sta_con_reg, FPGA_STATUS_CONTROL(UNKNOWN1));
 	}
 
-	if ((ret = write_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), FPGA_STATUS_CONTROL(UNKNOWN2))) != SR_OK)
+	if ((ret = write_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), FPGA_STATUS_CONTROL(UNKNOWN2))) != OTC_OK)
 		return ret;
 
-	if ((ret = write_fpga_register(sdi, FPGA_REG(MODE), (clock_select? FPGA_MODE(CLOCK) : 0))) != SR_OK)
+	if ((ret = write_fpga_register(sdi, FPGA_REG(MODE), (clock_select? FPGA_MODE(CLOCK) : 0))) != OTC_OK)
 		return ret;
 
-	if ((ret = write_fpga_register(sdi, FPGA_REG(SAMPLE_RATE_DIVISOR), (uint8_t)(div - 1))) != SR_OK)
+	if ((ret = write_fpga_register(sdi, FPGA_REG(SAMPLE_RATE_DIVISOR), (uint8_t)(div - 1))) != OTC_OK)
 		return ret;
 
-	if ((ret = write_fpga_register(sdi, FPGA_REG(CHANNEL_SELECT_LOW), (uint8_t)(channels & 0xff))) != SR_OK)
+	if ((ret = write_fpga_register(sdi, FPGA_REG(CHANNEL_SELECT_LOW), (uint8_t)(channels & 0xff))) != OTC_OK)
 		return ret;
 
-	if ((ret = write_fpga_register(sdi, FPGA_REG(CHANNEL_SELECT_HIGH), (uint8_t)(channels >> 8))) != SR_OK)
+	if ((ret = write_fpga_register(sdi, FPGA_REG(CHANNEL_SELECT_HIGH), (uint8_t)(channels >> 8))) != OTC_OK)
 		return ret;
 
-	if ((ret = write_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), FPGA_STATUS_CONTROL(UNKNOWN2) | FPGA_STATUS_CONTROL(UPDATE))) != SR_OK)
+	if ((ret = write_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), FPGA_STATUS_CONTROL(UNKNOWN2) | FPGA_STATUS_CONTROL(UPDATE))) != OTC_OK)
 		return ret;
 
-	if ((ret = write_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), FPGA_STATUS_CONTROL(UNKNOWN2))) != SR_OK)
+	if ((ret = write_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), FPGA_STATUS_CONTROL(UNKNOWN2))) != OTC_OK)
 		return ret;
 
-	if ((ret = read_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), &sta_con_reg)) != SR_OK)
+	if ((ret = read_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), &sta_con_reg)) != OTC_OK)
 		return ret;
 
 	if (devc->fpga_variant != FPGA_VARIANT_MCUPRO && sta_con_reg != (FPGA_STATUS_CONTROL(UNKNOWN2) | FPGA_STATUS_CONTROL(UNKNOWN1))) {
-		sr_dbg("Invalid state at acquisition setup register 1: 0x%02x != 0x%02x. "
+		otc_dbg("Invalid state at acquisition setup register 1: 0x%02x != 0x%02x. "
 		       "Proceeding anyway.", sta_con_reg, FPGA_STATUS_CONTROL(UNKNOWN2) | FPGA_STATUS_CONTROL(UNKNOWN1));
 	}
 
-	if ((ret = read_fpga_register(sdi, FPGA_REG(MODE), &mode_reg)) != SR_OK)
+	if ((ret = read_fpga_register(sdi, FPGA_REG(MODE), &mode_reg)) != OTC_OK)
 		return ret;
 
 	if (devc->fpga_variant != FPGA_VARIANT_MCUPRO && mode_reg != (clock_select? FPGA_MODE(CLOCK) : 0)) {
-		sr_dbg("Invalid state at acquisition setup register 10: 0x%02x != 0x%02x. "
+		otc_dbg("Invalid state at acquisition setup register 10: 0x%02x != 0x%02x. "
 		       "Proceeding anyway.", mode_reg, (clock_select? FPGA_MODE(CLOCK) : 0));
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int logic16_start_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int logic16_start_acquisition(const struct otc_dev_inst *sdi)
 {
 	static const uint8_t command[1] = {
 		COMMAND_START_ACQUISITION,
@@ -662,13 +662,13 @@ SR_PRIV int logic16_start_acquisition(const struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 
-	if ((ret = do_ep1_command(sdi, command, 1, NULL, 0)) != SR_OK)
+	if ((ret = do_ep1_command(sdi, command, 1, NULL, 0)) != OTC_OK)
 		return ret;
 
 	return write_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), FPGA_STATUS_CONTROL(UNKNOWN2) | FPGA_STATUS_CONTROL(RUNNING));
 }
 
-SR_PRIV int logic16_abort_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int logic16_abort_acquisition(const struct otc_dev_inst *sdi)
 {
 	static const uint8_t command[1] = {
 		COMMAND_ABORT_ACQUISITION_ASYNC,
@@ -679,40 +679,40 @@ SR_PRIV int logic16_abort_acquisition(const struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 
-	if ((ret = do_ep1_command(sdi, command, 1, NULL, 0)) != SR_OK)
+	if ((ret = do_ep1_command(sdi, command, 1, NULL, 0)) != OTC_OK)
 		return ret;
 
-	if ((ret = write_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), 0x00)) != SR_OK)
+	if ((ret = write_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), 0x00)) != OTC_OK)
 		return ret;
 
-	if ((ret = read_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), &sta_con_reg)) != SR_OK)
+	if ((ret = read_fpga_register(sdi, FPGA_REG(STATUS_CONTROL), &sta_con_reg)) != OTC_OK)
 		return ret;
 
 	if (devc->fpga_variant != FPGA_VARIANT_MCUPRO && (sta_con_reg & ~FPGA_STATUS_CONTROL(OVERFLOW)) != FPGA_STATUS_CONTROL(UNKNOWN1)) {
-		sr_dbg("Invalid state at acquisition stop: 0x%02x != 0x%02x.", sta_con_reg & ~0x20, FPGA_STATUS_CONTROL(UNKNOWN1));
-		return SR_ERR;
+		otc_dbg("Invalid state at acquisition stop: 0x%02x != 0x%02x.", sta_con_reg & ~0x20, FPGA_STATUS_CONTROL(UNKNOWN1));
+		return OTC_ERR;
 	}
 
 
 	if (devc->fpga_variant == FPGA_VARIANT_ORIGINAL) {
 		uint8_t reg8, reg9;
 
-		if ((ret = read_fpga_register(sdi, 8, &reg8)) != SR_OK)
+		if ((ret = read_fpga_register(sdi, 8, &reg8)) != OTC_OK)
 			return ret;
 
-		if ((ret = read_fpga_register(sdi, 9, &reg9)) != SR_OK)
+		if ((ret = read_fpga_register(sdi, 9, &reg9)) != OTC_OK)
 			return ret;
 	}
 
 	if (devc->fpga_variant != FPGA_VARIANT_MCUPRO && sta_con_reg & FPGA_STATUS_CONTROL(OVERFLOW)) {
-		sr_warn("FIFO overflow, capture data may be truncated.");
-		return SR_ERR;
+		otc_warn("FIFO overflow, capture data may be truncated.");
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int logic16_init_device(const struct sr_dev_inst *sdi)
+OTC_PRIV int logic16_init_device(const struct otc_dev_inst *sdi)
 {
 	uint8_t version;
 	struct dev_context *devc;
@@ -722,31 +722,31 @@ SR_PRIV int logic16_init_device(const struct sr_dev_inst *sdi)
 
 	devc->cur_voltage_range = VOLTAGE_RANGE_UNKNOWN;
 
-	if ((ret = abort_acquisition_sync(sdi)) != SR_OK)
+	if ((ret = abort_acquisition_sync(sdi)) != OTC_OK)
 		return ret;
 
-	if ((ret = read_eeprom(sdi, 8, 8, devc->eeprom_data)) != SR_OK)
+	if ((ret = read_eeprom(sdi, 8, 8, devc->eeprom_data)) != OTC_OK)
 		return ret;
 
 	/* mcupro Saleae16 has firmware pre-stored in FPGA.
 	   So, we can query it right away. */
-	if (read_fpga_register(sdi, 0 /* No mapping */, &version) == SR_OK &&
+	if (read_fpga_register(sdi, 0 /* No mapping */, &version) == OTC_OK &&
 	    (version == 0x40 || version == 0x41)) {
-		sr_info("mcupro Saleae16 detected.");
+		otc_info("mcupro Saleae16 detected.");
 		devc->fpga_variant = FPGA_VARIANT_MCUPRO;
 	} else {
-		sr_info("Original Saleae Logic16 detected.");
+		otc_info("Original Saleae Logic16 detected.");
 		devc->fpga_variant = FPGA_VARIANT_ORIGINAL;
 	}
 
 	ret = upload_fpga_bitstream(sdi, devc->selected_voltage_range);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void finish_acquisition(struct sr_dev_inst *sdi)
+static void finish_acquisition(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -767,7 +767,7 @@ static void finish_acquisition(struct sr_dev_inst *sdi)
 
 static void free_transfer(struct libusb_transfer *transfer)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	unsigned int i;
 
@@ -800,7 +800,7 @@ static void resubmit_transfer(struct libusb_transfer *transfer)
 	free_transfer(transfer);
 	/* TODO: Stop session? */
 
-	sr_err("%s: %s", __func__, libusb_error_name(ret));
+	otc_err("%s: %s", __func__, libusb_error_name(ret));
 }
 
 static size_t convert_sample_data(struct dev_context *devc,
@@ -829,7 +829,7 @@ static size_t convert_sample_data(struct dev_context *devc,
 		if (++cur_channel == devc->num_channels) {
 			cur_channel = 0;
 			if (destcnt < 16 * 2) {
-				sr_err("Conversion buffer too small!");
+				otc_err("Conversion buffer too small!");
 				break;
 			}
 			memcpy(dest, channel_data, 16 * 2);
@@ -845,12 +845,12 @@ static size_t convert_sample_data(struct dev_context *devc,
 	return ret;
 }
 
-SR_PRIV void LIBUSB_CALL logic16_receive_transfer(struct libusb_transfer *transfer)
+OTC_PRIV void LIBUSB_CALL logic16_receive_transfer(struct libusb_transfer *transfer)
 {
 	gboolean packet_has_error = FALSE;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
-	struct sr_dev_inst *sdi;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	size_t new_samples, num_samples;
 	int trigger_offset;
@@ -868,7 +868,7 @@ SR_PRIV void LIBUSB_CALL logic16_receive_transfer(struct libusb_transfer *transf
 		return;
 	}
 
-	sr_info("receive_transfer(): status %s received %d bytes.",
+	otc_info("receive_transfer(): status %s received %d bytes.",
 		libusb_error_name(transfer->status), transfer->actual_length);
 
 	switch (transfer->status) {
@@ -885,7 +885,7 @@ SR_PRIV void LIBUSB_CALL logic16_receive_transfer(struct libusb_transfer *transf
 	}
 
 	if (transfer->actual_length & 1) {
-		sr_err("Got an odd number of bytes from the device. "
+		otc_err("Got an odd number of bytes from the device. "
 		       "This should not happen.");
 		/* Bail out right away. */
 		packet_has_error = TRUE;
@@ -920,7 +920,7 @@ SR_PRIV void LIBUSB_CALL logic16_receive_transfer(struct libusb_transfer *transf
 	/* At least one new sample. */
 	if (devc->trigger_fired) {
 		/* Send the incoming transfer to the session bus. */
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		if (devc->limit_samples &&
 				new_samples > devc->limit_samples - devc->sent_samples)
@@ -928,14 +928,14 @@ SR_PRIV void LIBUSB_CALL logic16_receive_transfer(struct libusb_transfer *transf
 		logic.length = new_samples * 2;
 		logic.unitsize = 2;
 		logic.data = devc->convbuffer;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 		devc->sent_samples += new_samples;
 	} else {
 		trigger_offset = soft_trigger_logic_check(devc->stl,
 				devc->convbuffer, new_samples * 2, &pre_trigger_samples);
 		if (trigger_offset > -1) {
 			devc->sent_samples += pre_trigger_samples;
-			packet.type = SR_DF_LOGIC;
+			packet.type = OTC_DF_LOGIC;
 			packet.payload = &logic;
 			num_samples = new_samples - trigger_offset;
 			if (devc->limit_samples &&
@@ -944,7 +944,7 @@ SR_PRIV void LIBUSB_CALL logic16_receive_transfer(struct libusb_transfer *transf
 			logic.length = num_samples * 2;
 			logic.unitsize = 2;
 			logic.data = devc->convbuffer + trigger_offset * 2;
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 			devc->sent_samples += num_samples;
 
 			devc->trigger_fired = TRUE;

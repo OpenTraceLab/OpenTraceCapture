@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Janne Huttunen <jahuttun@gmail.com>
  *
@@ -22,19 +22,19 @@
  *
  * qm1578.c
  *
- * Digitech QM1576 serial protocol parser for libsigrok.
+ * Digitech QM1576 serial protocol parser for libopentracecapture.
  * QM1576 is a 600 count RMS DMM, with Bluetooth 4.0 support.
  * https://www.jaycar.com.au/true-rms-digital-multimeter-with-bluetooth-connectivity/p/QM1578
  *
  * The protocol is described at https://www.airspayce.com/mikem/QM1578/protocol.txt
  *
- * You can use this decoder with libsigrok and Digitech QM1578 via ESP32 Bluetooth-Serial converter
+ * You can use this decoder with libopentracecapture and Digitech QM1578 via ESP32 Bluetooth-Serial converter
  * available from the author at:
  * https://www.airspayce.com/mikem/QM1578/QM1578BluetoothClient.ino
  * which connects to the QM1578 over Bluetooth LE, fetches the
  * data stream and sends it on the serial port to the host, where this driver can read it
  * with this command for example:
- * sigrok-cli --driver digitech-qm1578:conn=/dev/ttyUSB1 --continuous
+ * opentracelab-cli --driver digitech-qm1578:conn=/dev/ttyUSB1 --continuous
  *
  * See https://www.airspayce.com/mikem/QM1578//README for more data
  *
@@ -43,8 +43,8 @@
 
 #include <config.h>
 #include <math.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "digitech-qm1578"
 
@@ -63,7 +63,7 @@ static int decode_prefix(const uint8_t *buf)
 	case 0x05: return -3; /* For amps */
 	case 0x06: return -3; /* For volts */
 	default:
-		sr_dbg("Unknown multiplier: 0x%02x.", buf[11]);
+		otc_dbg("Unknown multiplier: 0x%02x.", buf[11]);
 		return -1;
 	}
 }
@@ -89,7 +89,7 @@ static float decode_value(const uint8_t *buf, int *exponent)
 	return val;
 }
 
-SR_PRIV gboolean sr_digitech_qm1578_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_digitech_qm1578_packet_valid(const uint8_t *buf)
 {
 	/*
 	 * First 4 digits on my meter are always 0d5 0xf0 0x00 0x0a
@@ -102,8 +102,8 @@ SR_PRIV gboolean sr_digitech_qm1578_packet_valid(const uint8_t *buf)
 	return TRUE;
 }
 
-SR_PRIV int sr_digitech_qm1578_parse(const uint8_t *buf, float *floatval,
-				     struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_digitech_qm1578_parse(const uint8_t *buf, float *floatval,
+				     struct otc_datafeed_analog *analog, void *info)
 {
 	int exponent = 0;
 	float val;
@@ -113,84 +113,84 @@ SR_PRIV int sr_digitech_qm1578_parse(const uint8_t *buf, float *floatval,
 	/* serial-dmm will dump the contents of packet by using -l 4 */
 
 	/* Defaults */
-	analog->meaning->mq = SR_MQ_GAIN;
-	analog->meaning->unit = SR_UNIT_UNITLESS;
+	analog->meaning->mq = OTC_MQ_GAIN;
+	analog->meaning->unit = OTC_UNIT_UNITLESS;
 	analog->meaning->mqflags = 0;
 
 	/* Decode sone flags */
 	if (buf[13] & 0x10)
-		analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 	if (buf[13] & 0x40)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	if (buf[13] & 0x80)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (buf[13] & 0x20)
-		analog->meaning->mqflags |= SR_MQFLAG_RELATIVE;
+		analog->meaning->mqflags |= OTC_MQFLAG_RELATIVE;
 	if (buf[12] & 0x40)
-		analog->meaning->mqflags |= SR_MQFLAG_HOLD;
+		analog->meaning->mqflags |= OTC_MQFLAG_HOLD;
 	if ((buf[13] & 0x0c) == 0x0c)
-		analog->meaning->mqflags |= SR_MQFLAG_MAX;
+		analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 	if ((buf[13] & 0x0c) == 0x08)
-		analog->meaning->mqflags |= SR_MQFLAG_MIN;
+		analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 	if ((buf[13] & 0x0c) == 0x0c)
-		analog->meaning->mqflags |= SR_MQFLAG_AVG;
+		analog->meaning->mqflags |= OTC_MQFLAG_AVG;
 
 	/* Decode the meter setting. Caution: there may be others on other meters: hFE? */
 	if (buf[4] == 0x01) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
-		analog->meaning->mqflags |= SR_MQFLAG_AC | SR_MQFLAG_RMS;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC | OTC_MQFLAG_RMS;
 	}
 	if (buf[4] == 0x02) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	}
 	/* what is 03 ? */
 	if (buf[4] == 0x04) {
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 	if (buf[4] == 0x05) {
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 	}
 	if (buf[4] == 0x06) {
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
 		if (buf[10] == 0x08)
-			analog->meaning->unit = SR_UNIT_CELSIUS;
+			analog->meaning->unit = OTC_UNIT_CELSIUS;
 		else
-			analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+			analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 	}
 	if (buf[4] == 0x07 || buf[4] == 0x08 ||buf[4] == 0x09) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	}
 	/* 0x0a ? 0x0b? */
 	if (buf[4] == 0x0c || buf[4] == 0x0d || buf[4] == 0x0e) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
-		analog->meaning->mqflags |= SR_MQFLAG_AC | SR_MQFLAG_RMS;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC | OTC_MQFLAG_RMS;
 	}
 	if (buf[4] == 0x0f) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE;
 	}
 	if (buf[4] == 0x10) {
 		if (buf[10] == 0x04) {
-			analog->meaning->mq = SR_MQ_FREQUENCY;
-			analog->meaning->unit = SR_UNIT_HERTZ;
+			analog->meaning->mq = OTC_MQ_FREQUENCY;
+			analog->meaning->unit = OTC_UNIT_HERTZ;
 		}
 		else {
-			analog->meaning->mq = SR_MQ_DUTY_CYCLE;
-			analog->meaning->unit = SR_UNIT_PERCENTAGE;
+			analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
+			analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 		}
 	}
 	if (buf[4] == 0x20) {
-		analog->meaning->mq = SR_MQ_CONTINUITY;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_CONTINUITY;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 
 
@@ -205,6 +205,6 @@ SR_PRIV int sr_digitech_qm1578_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 
 }

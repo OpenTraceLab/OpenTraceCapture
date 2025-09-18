@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Aurelien Jacobs <aurel@gnuage.org>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "teleinfo"
 
@@ -38,14 +38,14 @@ enum optarif {
 #define TELEINFO_BUF_SIZE 256
 
 struct dev_context {
-	struct sr_sw_limits sw_limits;
+	struct otc_sw_limits sw_limits;
 	enum optarif optarif; /**< The device mode (which measures are reported) */
 	uint8_t buf[TELEINFO_BUF_SIZE];
 	int buf_len;
 };
 
-SR_PRIV gboolean teleinfo_packet_valid(const uint8_t *buf);
-SR_PRIV int teleinfo_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV int teleinfo_get_optarif(const uint8_t *buf);
+OTC_PRIV gboolean teleinfo_packet_valid(const uint8_t *buf);
+OTC_PRIV int teleinfo_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int teleinfo_get_optarif(const uint8_t *buf);
 
 #endif

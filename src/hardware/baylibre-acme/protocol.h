@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Bartosz Golaszewski <bgolaszewski@baylibre.com>
  *
@@ -23,8 +23,8 @@
 #include <stdint.h>
 #include <glib.h>
 #include <unistd.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "baylibre-acme"
 
@@ -51,7 +51,7 @@ enum probe_type {
 
 struct dev_context {
 	uint64_t samplerate;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 
 	uint32_t num_channels;
 	uint64_t samples_missed;
@@ -59,34 +59,34 @@ struct dev_context {
 	GIOChannel *channel;
 };
 
-SR_PRIV uint8_t bl_acme_get_enrg_addr(int index);
-SR_PRIV uint8_t bl_acme_get_temp_addr(int index);
+OTC_PRIV uint8_t bl_acme_get_enrg_addr(int index);
+OTC_PRIV uint8_t bl_acme_get_temp_addr(int index);
 
-SR_PRIV gboolean bl_acme_is_sane(void);
+OTC_PRIV gboolean bl_acme_is_sane(void);
 
-SR_PRIV gboolean bl_acme_detect_probe(unsigned int addr,
+OTC_PRIV gboolean bl_acme_detect_probe(unsigned int addr,
 				      int prb_num, const char *prb_name);
-SR_PRIV gboolean bl_acme_register_probe(struct sr_dev_inst *sdi, int type,
+OTC_PRIV gboolean bl_acme_register_probe(struct otc_dev_inst *sdi, int type,
 					unsigned int addr, int prb_num);
 
-SR_PRIV int bl_acme_get_probe_type(const struct sr_channel_group *cg);
-SR_PRIV int bl_acme_probe_has_pws(const struct sr_channel_group *cg);
+OTC_PRIV int bl_acme_get_probe_type(const struct otc_channel_group *cg);
+OTC_PRIV int bl_acme_probe_has_pws(const struct otc_channel_group *cg);
 
-SR_PRIV void bl_acme_maybe_set_update_interval(const struct sr_dev_inst *sdi,
+OTC_PRIV void bl_acme_maybe_set_update_interval(const struct otc_dev_inst *sdi,
 					       uint64_t samplerate);
 
-SR_PRIV int bl_acme_get_shunt(const struct sr_channel_group *cg,
+OTC_PRIV int bl_acme_get_shunt(const struct otc_channel_group *cg,
 			      uint64_t *shunt);
-SR_PRIV int bl_acme_set_shunt(const struct sr_channel_group *cg,
+OTC_PRIV int bl_acme_set_shunt(const struct otc_channel_group *cg,
 			      uint64_t shunt);
-SR_PRIV int bl_acme_read_power_state(const struct sr_channel_group *cg,
+OTC_PRIV int bl_acme_read_power_state(const struct otc_channel_group *cg,
 				     gboolean *off);
-SR_PRIV int bl_acme_set_power_off(const struct sr_channel_group *cg,
+OTC_PRIV int bl_acme_set_power_off(const struct otc_channel_group *cg,
 				  gboolean off);
 
-SR_PRIV int bl_acme_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int bl_acme_receive_data(int fd, int revents, void *cb_data);
 
-SR_PRIV int bl_acme_open_channel(struct sr_channel *ch);
+OTC_PRIV int bl_acme_open_channel(struct otc_channel *ch);
 
-SR_PRIV void bl_acme_close_channel(struct sr_channel *ch);
+OTC_PRIV void bl_acme_close_channel(struct otc_channel *ch);
 #endif

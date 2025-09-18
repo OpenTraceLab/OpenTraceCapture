@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2011 Daniel Ribeiro <drwyrm@gmail.com>
  * Copyright (C) 2012 Renato Caldas <rmsc@fe.up.pt>
@@ -37,7 +37,7 @@
 static const char mso_head[] = { 0x40, 0x4c, 0x44, 0x53, 0x7e };
 static const char mso_foot[] = { 0x7e };
 
-static int mso_send_control_message(struct sr_serial_dev_inst *serial,
+static int mso_send_control_message(struct otc_serial_dev_inst *serial,
 				    uint16_t payload[], int n)
 {
 	int written, ret, payload_size, total_size;
@@ -45,7 +45,7 @@ static int mso_send_control_message(struct sr_serial_dev_inst *serial,
 
 	payload_size = n * sizeof(*payload);
 	total_size = payload_size + sizeof(mso_head) + sizeof(mso_foot);
-	ret = SR_ERR;
+	ret = OTC_ERR;
 
 	buf = g_malloc(total_size);
 
@@ -63,12 +63,12 @@ static int mso_send_control_message(struct sr_serial_dev_inst *serial,
 				total_size - written,
 				10);
 		if (ret < 0) {
-			ret = SR_ERR;
+			ret = OTC_ERR;
 			goto free;
 		}
 		written += ret;
 	}
-	ret = SR_OK;
+	ret = OTC_OK;
 free:
 	g_free(buf);
 	return ret;
@@ -77,7 +77,7 @@ free:
 static uint16_t mso_bank_select(const struct dev_context *devc, int bank)
 {
 	if (bank > 2) {
-		sr_err("Unsupported bank %d", bank);
+		otc_err("Unsupported bank %d", bank);
 	}
 	return mso_trans(REG_CTL2, devc->ctlbase2 | BITS_CTL2_BANK(bank));
 }
@@ -95,7 +95,7 @@ static uint16_t mso_calc_trigger_threshold(struct dev_context *devc)
 	return (uint16_t) (TRIG_THRESH_START - threshold);
 }
 
-SR_PRIV int mso_configure_trigger(const struct sr_dev_inst *sdi)
+OTC_PRIV int mso_configure_trigger(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint16_t threshold_value;
@@ -116,7 +116,7 @@ SR_PRIV int mso_configure_trigger(const struct sr_dev_inst *sdi)
 
 		mso_trans(REG_TRIG_WIDTH,
 			  devc->dso_trigger_width /
-			  SR_HZ_TO_NS(devc->cur_rate)),
+			  OTC_HZ_TO_NS(devc->cur_rate)),
 
 		/* Select the SPI/I2C trigger config bank */
 		mso_bank_select(devc, 2),
@@ -137,23 +137,23 @@ SR_PRIV int mso_configure_trigger(const struct sr_dev_inst *sdi)
 	return mso_send_control_message(devc->serial, ARRAY_AND_SIZE(ops));
 }
 
-SR_PRIV int mso_configure_threshold_level(const struct sr_dev_inst *sdi)
+OTC_PRIV int mso_configure_threshold_level(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 
 	return mso_dac_out(sdi, DAC_SELECT_LA | devc->logic_threshold_value);
 }
 
-SR_PRIV int mso_read_buffer(struct sr_dev_inst *sdi)
+OTC_PRIV int mso_read_buffer(struct otc_dev_inst *sdi)
 {
 	uint16_t ops[] = { mso_trans(REG_BUFFER, 0) };
 	struct dev_context *devc = sdi->priv;
 
-	sr_dbg("Requesting buffer dump.");
+	otc_dbg("Requesting buffer dump.");
 	return mso_send_control_message(devc->serial, ARRAY_AND_SIZE(ops));
 }
 
-SR_PRIV int mso_arm(const struct sr_dev_inst *sdi)
+OTC_PRIV int mso_arm(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	uint16_t ops[] = {
@@ -162,11 +162,11 @@ SR_PRIV int mso_arm(const struct sr_dev_inst *sdi)
 		mso_trans(REG_CTL1, devc->ctlbase1),
 	};
 
-	sr_dbg("Requesting trigger arm.");
+	otc_dbg("Requesting trigger arm.");
 	return mso_send_control_message(devc->serial, ARRAY_AND_SIZE(ops));
 }
 
-SR_PRIV int mso_force_capture(struct sr_dev_inst *sdi)
+OTC_PRIV int mso_force_capture(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	uint16_t ops[] = {
@@ -174,11 +174,11 @@ SR_PRIV int mso_force_capture(struct sr_dev_inst *sdi)
 		mso_trans(REG_CTL1, devc->ctlbase1),
 	};
 
-	sr_dbg("Requesting forced capture.");
+	otc_dbg("Requesting forced capture.");
 	return mso_send_control_message(devc->serial, ARRAY_AND_SIZE(ops));
 }
 
-SR_PRIV int mso_dac_out(const struct sr_dev_inst *sdi, uint16_t val)
+OTC_PRIV int mso_dac_out(const struct otc_dev_inst *sdi, uint16_t val)
 {
 	struct dev_context *devc = sdi->priv;
 	uint16_t ops[] = {
@@ -187,11 +187,11 @@ SR_PRIV int mso_dac_out(const struct sr_dev_inst *sdi, uint16_t val)
 		mso_trans(REG_CTL1, devc->ctlbase1 | BIT_CTL1_LOAD_DAC),
 	};
 
-	sr_dbg("Setting dac word to 0x%x.", val);
+	otc_dbg("Setting dac word to 0x%x.", val);
 	return mso_send_control_message(devc->serial, ARRAY_AND_SIZE(ops));
 }
 
-SR_PRIV int mso_parse_serial(const char *serial_num, const char *product,
+OTC_PRIV int mso_parse_serial(const char *serial_num, const char *product,
 			     struct dev_context *devc)
 {
 	unsigned int u1, u2, u3, u4, u5, u6;
@@ -209,7 +209,7 @@ SR_PRIV int mso_parse_serial(const char *serial_num, const char *product,
 	 * project https://github.com/tkrmnz/mso19fcgi */
 	if (serial_num[0] != '4' || sscanf(serial_num, "%5u%3u%3u%1u%1u%6u",
 					   &u1, &u2, &u3, &u4, &u5, &u6) != 6)
-		return SR_ERR;
+		return OTC_ERR;
 
 	/* Provide sane defaults if the serial number doesn't look right */
 	if (u1 == 0)
@@ -239,10 +239,10 @@ SR_PRIV int mso_parse_serial(const char *serial_num, const char *product,
 	 * I will not implement it yet
 	 */
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int mso_reset_adc(const struct sr_dev_inst *sdi)
+OTC_PRIV int mso_reset_adc(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	uint16_t ops[] = {
@@ -251,22 +251,22 @@ SR_PRIV int mso_reset_adc(const struct sr_dev_inst *sdi)
 		mso_trans(REG_CTL1, 0),
 	};
 
-	sr_dbg("Requesting ADC reset.");
+	otc_dbg("Requesting ADC reset.");
 	return mso_send_control_message(devc->serial, ARRAY_AND_SIZE(ops));
 }
 
-SR_PRIV int mso_reset_fsm(const struct sr_dev_inst *sdi)
+OTC_PRIV int mso_reset_fsm(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	uint16_t ops[] = {
 		mso_trans(REG_CTL1, devc->ctlbase1 | BIT_CTL1_RESETFSM),
 	};
 
-	sr_dbg("Requesting FSM reset.");
+	otc_dbg("Requesting FSM reset.");
 	return mso_send_control_message(devc->serial, ARRAY_AND_SIZE(ops));
 }
 
-SR_PRIV void stop_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV void stop_acquisition(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -276,38 +276,38 @@ SR_PRIV void stop_acquisition(const struct sr_dev_inst *sdi)
 	std_session_send_df_end(sdi);
 }
 
-SR_PRIV int mso_clkrate_out(struct sr_serial_dev_inst *serial, uint16_t val)
+OTC_PRIV int mso_clkrate_out(struct otc_serial_dev_inst *serial, uint16_t val)
 {
 	uint16_t ops[] = {
 		mso_trans(REG_CLKRATE1, (val >> 8) & 0xff),
 		mso_trans(REG_CLKRATE2, val & 0xff),
 	};
 
-	sr_dbg("Setting clkrate word to 0x%x.", val);
+	otc_dbg("Setting clkrate word to 0x%x.", val);
 	return mso_send_control_message(serial, ARRAY_AND_SIZE(ops));
 }
 
-SR_PRIV int mso_configure_rate(const struct sr_dev_inst *sdi, uint32_t rate)
+OTC_PRIV int mso_configure_rate(const struct otc_dev_inst *sdi, uint32_t rate)
 {
 	struct dev_context *devc;
 	unsigned int i;
 	int ret;
 
 	devc = sdi->priv;
-	ret = SR_ERR;
+	ret = OTC_ERR;
 
 	for (i = 0; i < ARRAY_SIZE(rate_map); i++) {
 		if (rate_map[i].rate == rate) {
 			devc->ctlbase2 = rate_map[i].slowmode;
 			ret = mso_clkrate_out(devc->serial, rate_map[i].val);
-			if (ret == SR_OK)
+			if (ret == OTC_OK)
 				devc->cur_rate = rate;
 			return ret;
 		}
 	}
 
-	if (ret != SR_OK)
-		sr_err("Unsupported rate.");
+	if (ret != OTC_OK)
+		otc_err("Unsupported rate.");
 
 	return ret;
 }
@@ -318,14 +318,14 @@ static int mso_validate_status(uint8_t val) {
 	action = BITS_STATUS_ACTION(val);
 	if (action == 0 || action > STATUS_DATA_READY
 			|| val & 0xC0) {
-		sr_err("Invalid status byte %.2x", val);
-		return SR_ERR;
+		otc_err("Invalid status byte %.2x", val);
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int mso_read_status(struct sr_serial_dev_inst *serial, uint8_t *status)
+OTC_PRIV int mso_read_status(struct otc_serial_dev_inst *serial, uint8_t *status)
 {
 	uint16_t ops[] = { mso_trans(REG_STATUS, 0) };
 	uint8_t buf;
@@ -333,35 +333,35 @@ SR_PRIV int mso_read_status(struct sr_serial_dev_inst *serial, uint8_t *status)
 
 	buf = 0;
 
-	sr_dbg("Requesting status.");
+	otc_dbg("Requesting status.");
 	ret = mso_send_control_message(serial, ARRAY_AND_SIZE(ops));
-	if (!status || ret != SR_OK) {
+	if (!status || ret != OTC_OK) {
 		return ret;
 	}
 
 	if (serial_read_blocking(serial, &buf, 1, 10) != 1) {
-		sr_err("Reading status failed");
-		return SR_ERR;
+		otc_err("Reading status failed");
+		return OTC_ERR;
 	}
 	ret = mso_validate_status(buf);
-	if (ret == SR_OK) {
+	if (ret == OTC_OK) {
 		*status = buf;
-		sr_dbg("Status is: 0x%x.", *status);
+		otc_dbg("Status is: 0x%x.", *status);
 	}
 
 	return ret;
 }
 
-SR_PRIV int mso_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int mso_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	int i;
 	int trigger_sample;
@@ -388,7 +388,7 @@ SR_PRIV int mso_receive_data(int fd, int revents, void *cb_data)
 	/* Check if we triggered, then send a command that we are ready
 	 * to read the data */
 	if (BITS_STATUS_ACTION(devc->status) != STATUS_DATA_READY) {
-		if (mso_validate_status(in[0]) != SR_OK) {
+		if (mso_validate_status(in[0]) != OTC_OK) {
 			return FALSE;
 		}
 		devc->status = in[0];
@@ -432,25 +432,25 @@ SR_PRIV int mso_receive_data(int fd, int revents, void *cb_data)
 
 	logic.unitsize = sizeof(*logic_out);
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 3);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 3);
 	analog.meaning->channels = g_slist_append(
 			NULL, g_slist_nth_data(sdi->channels, 0));
-	analog.meaning->mq = SR_MQ_VOLTAGE;
-	analog.meaning->unit = SR_UNIT_VOLT;
-	analog.meaning->mqflags = SR_MQFLAG_DC;
+	analog.meaning->mq = OTC_MQ_VOLTAGE;
+	analog.meaning->unit = OTC_UNIT_VOLT;
+	analog.meaning->mqflags = OTC_MQFLAG_DC;
 
 	if (pre_samples > 0) {
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		logic.length = pre_samples * sizeof(*logic_out);
 		logic.data = logic_out;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 
-		packet.type = SR_DF_ANALOG;
+		packet.type = OTC_DF_ANALOG;
 		packet.payload = &analog;
 		analog.num_samples = pre_samples;
 		analog.data = analog_out;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 	}
 
 	if (pre_samples == trigger_sample) {
@@ -460,36 +460,36 @@ SR_PRIV int mso_receive_data(int fd, int revents, void *cb_data)
 	post_samples = MSO_NUM_SAMPLES - pre_samples;
 
 	if (post_samples > 0) {
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		logic.length = post_samples * sizeof(*logic_out);
 		logic.data = logic_out + pre_samples;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 
-		packet.type = SR_DF_ANALOG;
+		packet.type = OTC_DF_ANALOG;
 		packet.payload = &analog;
 		analog.num_samples = post_samples;
 		analog.data = analog_out + pre_samples;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 	}
 	g_slist_free(analog.meaning->channels);
 
 	devc->num_samples += MSO_NUM_SAMPLES;
 
 	if (devc->limit_samples && devc->num_samples >= devc->limit_samples) {
-		sr_info("Requested number of samples reached.");
-		sr_dev_acquisition_stop(sdi);
+		otc_info("Requested number of samples reached.");
+		otc_dev_acquisition_stop(sdi);
 	}
 
 	return TRUE;
 }
 
-SR_PRIV int mso_configure_channels(const struct sr_dev_inst *sdi)
+OTC_PRIV int mso_configure_channels(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_trigger *trigger;
-	struct sr_trigger_stage *stage;
-	struct sr_trigger_match *match;
+	struct otc_trigger *trigger;
+	struct otc_trigger_stage *stage;
+	struct otc_trigger_match *match;
 	uint8_t channel_bit;
 	GSList *l, *m;
 
@@ -499,11 +499,11 @@ SR_PRIV int mso_configure_channels(const struct sr_dev_inst *sdi)
 	 * (bits set to 0 matter, those set to 1 are ignored). */
 	devc->la_trigger_mask = LA_TRIGGER_MASK_IGNORE_ALL;
 	/* The LA byte that generates a trigger event (in that mode).
-	 * Set to 0x00 and then bitwise-or in the SR_TRIGGER_ONE bits */
+	 * Set to 0x00 and then bitwise-or in the OTC_TRIGGER_ONE bits */
 	devc->la_trigger = 0x00;
-	trigger = sr_session_trigger_get(sdi->session);
+	trigger = otc_session_trigger_get(sdi->session);
 	if (!trigger)
-		return SR_OK;
+		return OTC_OK;
 	for (l = trigger->stages; l; l = l->next) {
 		stage = l->data;
 		for (m = stage->matches; m; m = m->next) {
@@ -513,10 +513,10 @@ SR_PRIV int mso_configure_channels(const struct sr_dev_inst *sdi)
 				continue;
 			channel_bit = 1 << match->channel->index;
 			devc->la_trigger_mask &= ~channel_bit;
-			if (match->match == SR_TRIGGER_ONE)
+			if (match->match == OTC_TRIGGER_ONE)
 				devc->la_trigger |= channel_bit;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }

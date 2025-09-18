@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Katherine J. Temkin <k@ktemkin.com>
  * Copyright (C) 2019 Mikaela Szekely <qyriad@gmail.com>
@@ -23,22 +23,22 @@
 #define LIBSIGROK_HARDWARE_GREATFET_PROTOCOL_H
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <stdint.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "greatfet"
 
 struct dev_context {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	GString *usb_comm_buffer;
 	char *firmware_version;
 	char *serial_number;
 	size_t channel_count;
 	char **channel_names;
 	size_t feed_unit_size;
-	struct sr_sw_limits sw_limits;
+	struct otc_sw_limits sw_limits;
 	uint64_t samplerate;
 	struct dev_acquisition_t {
 		uint64_t bandwidth_threshold;
@@ -74,15 +74,15 @@ struct dev_context {
 	} transfers;
 };
 
-SR_PRIV int greatfet_get_serial_number(const struct sr_dev_inst *sdi);
-SR_PRIV int greatfet_get_version_number(const struct sr_dev_inst *sdi);
+OTC_PRIV int greatfet_get_serial_number(const struct otc_dev_inst *sdi);
+OTC_PRIV int greatfet_get_version_number(const struct otc_dev_inst *sdi);
 
-SR_PRIV int greatfet_setup_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV int greatfet_start_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV void greatfet_abort_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV int greatfet_stop_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV void greatfet_release_resources(const struct sr_dev_inst *sdi);
+OTC_PRIV int greatfet_setup_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV int greatfet_start_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV void greatfet_abort_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV int greatfet_stop_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV void greatfet_release_resources(const struct otc_dev_inst *sdi);
 
-SR_PRIV int greatfet_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int greatfet_receive_data(int fd, int revents, void *cb_data);
 
 #endif

@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2013 Matthias Heidbrink <m-sigrok@heidbrink.biz>
+ * Copyright (C) 2013 Matthias Heidbrink <m-opentracelab@heidbrink.biz>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,8 +25,8 @@
 #include <ctype.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "norma-dmm"
 
@@ -52,7 +52,7 @@ extern const struct nmadmm_req nmadmm_requests[];
 struct dev_context {
 	int type;		/**< DM9x0, e.g. 5 = DM950 */
 
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 
 	int last_req;			/**< Last request. */
 	int64_t req_sent_at;		/**< Request sent. */
@@ -63,7 +63,7 @@ struct dev_context {
 	int buflen;			/**< Data len in buf */
 };
 
-SR_PRIV int norma_dmm_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV int xgittoint(char xgit);
+OTC_PRIV int norma_dmm_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int xgittoint(char xgit);
 
 #endif

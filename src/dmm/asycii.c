@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012-2013 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2016 Gerhard Sittig <gerhard.sittig@gmx.net>
@@ -37,8 +37,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "asycii"
 
@@ -74,7 +74,7 @@ static int parse_value(const char *buf, struct asycii_info *info,
 	}
 	valstr[cnt] = '\0';
 	valp = &valstr[0];
-	sr_spew("%s(), number buffer [%s]", __func__, valp);
+	otc_spew("%s(), number buffer [%s]", __func__, valp);
 
 	/*
 	 * Check for "over limit" conditions. Depending on the meter's
@@ -89,28 +89,28 @@ static int parse_value(const char *buf, struct asycii_info *info,
 	is_ol += (g_ascii_strncasecmp(valp, "X", 1) == 0) ? 1 : 0;
 	is_ol += (g_ascii_strncasecmp(valp, "-X", 2) == 0) ? 1 : 0;
 	if (is_ol) {
-		sr_spew("%s(), over limit", __func__);
+		otc_spew("%s(), over limit", __func__);
 		*result = INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/*
 	 * Convert the textual number representation to a float, and
 	 * an exponent.
 	 */
-	if (sr_atof_ascii(valp, result) != SR_OK) {
+	if (otc_atof_ascii(valp, result) != OTC_OK) {
 		info->is_invalid = TRUE;
-		sr_spew("%s(), cannot convert number", __func__);
-		return SR_ERR_DATA;
+		otc_spew("%s(), cannot convert number", __func__);
+		return OTC_ERR_DATA;
 	}
 	dot_pos = g_strstr_len(valstr, -1, ".");
 	if (dot_pos)
 		*exponent = -(valstr + strlen(valstr) - dot_pos - 1);
 	else
 		*exponent = 0;
-	sr_spew("%s(), display value is %f, exponent %d",
+	otc_spew("%s(), display value is %f, exponent %d",
 		__func__, *result, *exponent);
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -152,10 +152,10 @@ static void parse_flags(const char *buf, struct asycii_info *info)
 	}
 	unit[cnt] = '\0';
 	u = &unit[0];
-	sr_spew("%s(): unit/flag buffer [%s]", __func__, u);
+	otc_spew("%s(): unit/flag buffer [%s]", __func__, u);
 
 	/* Scan for the scale factor. */
-	sr_spew("%s(): scanning factor, buffer [%s]", __func__, u);
+	otc_spew("%s(): scanning factor, buffer [%s]", __func__, u);
 	if (*u == 'p') {
 		u++;
 		info->is_pico = TRUE;
@@ -181,7 +181,7 @@ static void parse_flags(const char *buf, struct asycii_info *info)
 	}
 
 	/* Scan for the measurement unit. */
-	sr_spew("%s(): scanning unit, buffer [%s]", __func__, u);
+	otc_spew("%s(): scanning unit, buffer [%s]", __func__, u);
 	if (g_str_has_prefix(u, "A")) {
 		u += strlen("A");
 		info->is_ampere = TRUE;
@@ -247,12 +247,12 @@ static void parse_flags(const char *buf, struct asycii_info *info)
 		}
 	} else {
 		/* Not strictly illegal, but unknown/unsupported. */
-		sr_spew("%s(): measurement: unsupported", __func__);
+		otc_spew("%s(): measurement: unsupported", __func__);
 		info->is_invalid = TRUE;
 	}
 
 	/* Scan for additional flags. */
-	sr_spew("%s(): scanning flags, buffer [%s]", __func__, u);
+	otc_spew("%s(): scanning flags, buffer [%s]", __func__, u);
 	if (g_str_has_prefix(u, "ac+dc")) {
 		u += strlen("ac+dc");
 		info->is_ac_and_dc = TRUE;
@@ -280,7 +280,7 @@ static void parse_flags(const char *buf, struct asycii_info *info)
 		/* Absence of any flags is acceptable. */
 	} else {
 		/* Presence of unknown flags is not. */
-		sr_dbg("%s(): flag: unknown", __func__);
+		otc_dbg("%s(): flag: unknown", __func__);
 		info->is_invalid = TRUE;
 	}
 
@@ -304,7 +304,7 @@ static void parse_flags(const char *buf, struct asycii_info *info)
  * @param[in]	exponent Augments the number value.
  * @param[in]	info Scale and unit and other attributes.
  */
-static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
+static void handle_flags(struct otc_datafeed_analog *analog, float *floatval,
 			 int *exponent, const struct asycii_info *info)
 {
 	int factor = 0;
@@ -327,63 +327,63 @@ static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
 
 	/* Measurement modes */
 	if (info->is_volt) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_volt_ampere) {
-		analog->meaning->mq = SR_MQ_POWER;
-		analog->meaning->unit = SR_UNIT_VOLT_AMPERE;
+		analog->meaning->mq = OTC_MQ_POWER;
+		analog->meaning->unit = OTC_UNIT_VOLT_AMPERE;
 	}
 	if (info->is_ampere) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 	}
 	if (info->is_frequency) {
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 	}
 	if (info->is_duty_cycle) {
-		analog->meaning->mq = SR_MQ_DUTY_CYCLE;
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 	}
 	if (info->is_pulse_width) {
-		analog->meaning->mq = SR_MQ_PULSE_WIDTH;
-		analog->meaning->unit = SR_UNIT_SECOND;
+		analog->meaning->mq = OTC_MQ_PULSE_WIDTH;
+		analog->meaning->unit = OTC_UNIT_SECOND;
 	}
 	if (info->is_pulse_count) {
-		analog->meaning->mq = SR_MQ_COUNT;
-		analog->meaning->unit = SR_UNIT_UNITLESS;
+		analog->meaning->mq = OTC_MQ_COUNT;
+		analog->meaning->unit = OTC_UNIT_UNITLESS;
 	}
 	if (info->is_resistance) {
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 	if (info->is_capacitance) {
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 	}
 	if (info->is_diode) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_gain) {
-		analog->meaning->mq = SR_MQ_GAIN;
-		analog->meaning->unit = SR_UNIT_DECIBEL_VOLT;
+		analog->meaning->mq = OTC_MQ_GAIN;
+		analog->meaning->unit = OTC_UNIT_DECIBEL_VOLT;
 	}
 
 	/* Measurement related flags */
 	if (info->is_ac)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (info->is_ac_and_dc)
-		analog->meaning->mqflags |= SR_MQFLAG_AC | SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC | OTC_MQFLAG_DC;
 	if (info->is_dc)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	if (info->is_diode)
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 	if (info->is_peak_max)
-		analog->meaning->mqflags |= SR_MQFLAG_MAX;
+		analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 	if (info->is_peak_min)
-		analog->meaning->mqflags |= SR_MQFLAG_MIN;
+		analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 }
 
 /**
@@ -399,7 +399,7 @@ static gboolean flags_valid(const struct asycii_info *info)
 
 	/* Have previous checks raised the "invalid" flag? */
 	if (info->is_invalid) {
-		sr_dbg("Previous parse raised \"invalid\" flag for packet.");
+		otc_dbg("Previous parse raised \"invalid\" flag for packet.");
 		return FALSE;
 	}
 
@@ -412,7 +412,7 @@ static gboolean flags_valid(const struct asycii_info *info)
 	count += (info->is_kilo) ? 1 : 0;
 	count += (info->is_mega) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one multiplier detected in packet.");
+		otc_dbg("More than one multiplier detected in packet.");
 		return FALSE;
 	}
 
@@ -429,7 +429,7 @@ static gboolean flags_valid(const struct asycii_info *info)
 	count += (info->is_pulse_width) ? 1 : 0;
 	count += (info->is_pulse_count) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one measurement type detected in packet.");
+		otc_dbg("More than one measurement type detected in packet.");
 		return FALSE;
 	}
 
@@ -439,7 +439,7 @@ static gboolean flags_valid(const struct asycii_info *info)
 	count += (info->is_ac_and_dc) ? 1 : 0;
 	count += (info->is_dc) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("Conflicting AC and DC flags detected in packet.");
+		otc_dbg("Conflicting AC and DC flags detected in packet.");
 		return FALSE;
 	}
 
@@ -456,7 +456,7 @@ static gboolean flags_valid(const struct asycii_info *info)
  *
  * @param[in]	serial The serial connection.
  */
-SR_PRIV int sr_asycii_packet_request(struct sr_serial_dev_inst *serial)
+OTC_PRIV int otc_asycii_packet_request(struct otc_serial_dev_inst *serial)
 {
 	/*
 	 * The current implementation assumes that the user pressed
@@ -464,8 +464,8 @@ SR_PRIV int sr_asycii_packet_request(struct sr_serial_dev_inst *serial)
 	 * reception from the meter.
 	 */
 	(void)serial;
-	sr_spew("NOT requesting DMM packet.");
-	return SR_OK;
+	otc_spew("NOT requesting DMM packet.");
+	return OTC_OK;
 }
 #endif
 
@@ -476,7 +476,7 @@ SR_PRIV int sr_asycii_packet_request(struct sr_serial_dev_inst *serial)
  *
  * @return	TRUE upon success, FALSE otherwise.
  */
-SR_PRIV gboolean sr_asycii_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_asycii_packet_valid(const uint8_t *buf)
 {
 	struct asycii_info info;
 
@@ -500,19 +500,19 @@ SR_PRIV gboolean sr_asycii_packet_valid(const uint8_t *buf)
  * @param[out]	floatval Pointer to a float variable. That variable will
  *		be modified in-place depending on the protocol packet.
  *		Must not be NULL.
- * @param[out]	analog Pointer to a struct sr_datafeed_analog. The struct
+ * @param[out]	analog Pointer to a struct otc_datafeed_analog. The struct
  *		will be filled with data according to the protocol packet.
  *		Must not be NULL.
  * @param[out]	info Pointer to a struct asycii_info. The struct will be
  * 		filled with data according to the protocol packet. Must
  *		not be NULL.
  *
- * @return	SR_OK upon success, SR_ERR upon failure. Upon errors, the
+ * @return	OTC_OK upon success, OTC_ERR upon failure. Upon errors, the
  *		'analog' variable contents are undefined and should not
  *		be used.
  */
-SR_PRIV int sr_asycii_parse(const uint8_t *buf, float *floatval,
-			    struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_asycii_parse(const uint8_t *buf, float *floatval,
+			    struct otc_datafeed_analog *analog, void *info)
 {
 	int ret, exponent;
 	struct asycii_info *info_local;
@@ -520,14 +520,14 @@ SR_PRIV int sr_asycii_parse(const uint8_t *buf, float *floatval,
 	info_local = info;
 
 	/* Don't print byte 15. That one contains the carriage return. */
-	sr_dbg("DMM packet: \"%.15s\"", buf);
+	otc_dbg("DMM packet: \"%.15s\"", buf);
 
 	memset(info_local, 0x00, sizeof(*info_local));
 
 	exponent = 0;
 	ret = parse_value((const char *)buf, info_local, floatval, &exponent);
-	if (ret != SR_OK) {
-		sr_dbg("Error parsing value: %d.", ret);
+	if (ret != OTC_OK) {
+		otc_dbg("Error parsing value: %d.", ret);
 		return ret;
 	}
 
@@ -537,5 +537,5 @@ SR_PRIV int sr_asycii_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 }

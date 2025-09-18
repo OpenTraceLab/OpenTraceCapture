@@ -1,0 +1,80 @@
+core_sources = files(
+  '../backend.c',
+  '../session.c', 
+  '../session_driver.c',
+  '../device.c',
+  '../hwdriver.c',
+  '../std.c',
+  '../log.c',
+  '../error.c',
+  '../version.c',
+  '../strutil.c',
+  '../usb.c',
+  '../resource.c',
+  '../trigger.c',
+  '../sw_limits.c',
+  '../binary_helpers.c',
+  '../drivers.c',
+  '../driver_list_start.c',
+  '../driver_list_stop.c',
+  '../soft-trigger.c',
+  '../ezusb.c',
+  '../analog.c',
+  '../stubs.c',
+  '../crc.c',
+  # Feed queue and complete serial support
+  '../input/feed_queue.c',
+  '../serial.c',
+  '../serial_libsp.c',
+  '../serial_bt.c',
+  '../serial_tcpraw.c',
+  '../tcp.c',
+  # DMM parsers
+  '../dmm/asycii.c',
+  '../dmm/bm25x.c',
+  '../dmm/bm52x.c',
+  '../dmm/bm85x.c',
+  '../dmm/bm86x.c',
+  '../dmm/dtm0660.c',
+  '../dmm/eev121gw.c',
+  '../dmm/es519xx.c',
+  '../dmm/fs9721.c',
+  '../dmm/fs9922.c',
+  '../dmm/m2110.c',
+  '../dmm/metex14.c',
+  '../dmm/mm38xr.c',
+  '../dmm/ms2115b.c',
+  '../dmm/ms8250d.c',
+  '../dmm/qm1578.c',
+  '../dmm/rs9lcd.c',
+  '../dmm/ut372.c',
+  '../dmm/ut71x.c',
+  '../dmm/vc870.c',
+  '../dmm/vc96.c',
+  # LCR parsers
+  '../lcr/es51919.c',
+  '../lcr/vc4080.c',
+  # Scale parsers
+  '../scale/kern.c',
+  # SCPI framework (complete)
+  '../scpi/scpi.c',
+  '../scpi/scpi_serial.c',
+  '../scpi/scpi_tcp.c',
+  '../scpi/scpi_usbtmc_libusb.c',
+  # Bluetooth support
+  '../bt/bt_bluez.c',
+  # Modbus support
+  '../modbus/modbus.c',
+  '../modbus/modbus_serial_rtu.c',
+)
+
+# Add HID serial support if HIDAPI is available
+if dep_hidapi.found()
+  core_sources += files(
+    '../serial_hid.c',
+    '../serial_hid_ch9325.c',
+    '../serial_hid_bu86x.c',
+    '../serial_hid_cp2110.c',
+    '../serial_hid_victor.c',
+  )
+endif

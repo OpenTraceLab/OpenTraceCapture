@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -21,19 +21,19 @@
 #define LIBSIGROK_HARDWARE_TONDAJ_SL_814_PROTOCOL_H
 
 #include <stdint.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "tondaj-sl-814"
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	int state;
 
 	uint8_t buf[4];
 	uint8_t buflen;
 };
 
-SR_PRIV int tondaj_sl_814_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int tondaj_sl_814_receive_data(int fd, int revents, void *cb_data);
 
 #endif

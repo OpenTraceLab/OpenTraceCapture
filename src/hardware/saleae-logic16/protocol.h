@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Marcus Comstedt <marcus@mc.pp.se>
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
@@ -24,8 +24,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "saleae-logic16"
 
@@ -88,18 +88,18 @@ struct dev_context {
 
 	unsigned int num_transfers;
 	struct libusb_transfer **transfers;
-	struct sr_context *ctx;
+	struct otc_context *ctx;
 
 	const uint8_t *fpga_register_map;
 	const uint8_t *fpga_status_control_bit_map;
 	const uint8_t *fpga_mode_bit_map;
 };
 
-SR_PRIV int logic16_setup_acquisition(const struct sr_dev_inst *sdi,
+OTC_PRIV int logic16_setup_acquisition(const struct otc_dev_inst *sdi,
 			uint64_t samplerate, uint16_t channels);
-SR_PRIV int logic16_start_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV int logic16_abort_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV int logic16_init_device(const struct sr_dev_inst *sdi);
-SR_PRIV void LIBUSB_CALL logic16_receive_transfer(struct libusb_transfer *transfer);
+OTC_PRIV int logic16_start_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV int logic16_abort_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV int logic16_init_device(const struct otc_dev_inst *sdi);
+OTC_PRIV void LIBUSB_CALL logic16_receive_transfer(struct libusb_transfer *transfer);
 
 #endif

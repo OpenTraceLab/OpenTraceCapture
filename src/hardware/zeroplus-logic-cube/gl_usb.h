@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010 Sven Peter <sven@fail0verflow.com>
  * Copyright (C) 2010 Haxx Enterprises <bushing@gmail.com>
@@ -33,13 +33,13 @@
 #define LIBSIGROK_HARDWARE_ZEROPLUS_LOGIC_CUBE_GL_USB_H
 
 #include <libusb.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 
-SR_PRIV int gl_read_bulk(libusb_device_handle *devh, void *buffer,
+OTC_PRIV int gl_read_bulk(libusb_device_handle *devh, void *buffer,
 			 unsigned int size);
-SR_PRIV int gl_reg_write(libusb_device_handle *devh, unsigned int reg,
+OTC_PRIV int gl_reg_write(libusb_device_handle *devh, unsigned int reg,
 			 unsigned int val);
-SR_PRIV int gl_reg_read(libusb_device_handle *devh, unsigned int reg);
-SR_PRIV int gl_reg_read_buf(libusb_device_handle *devh, unsigned int reg,
+OTC_PRIV int gl_reg_read(libusb_device_handle *devh, unsigned int reg);
+OTC_PRIV int gl_reg_read_buf(libusb_device_handle *devh, unsigned int reg,
 			unsigned char *buf, unsigned int len);
 #endif
