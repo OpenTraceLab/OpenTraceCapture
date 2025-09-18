@@ -1,0 +1,49 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux/macOS deps
+        if: runner.os != 'Windows'
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y ninja-build meson pkg-config \
+              libglib2.0-dev libusb-1.0-0-dev libhidapi-dev libftdi1-dev libzip-dev libserialport-dev
+          else
+            brew update
+            brew install meson ninja pkg-config glib libusb hidapi libftdi libzip libserialport
+          fi
+
+      - name: Windows deps
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            mingw-w64-x86_64-meson mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-cc mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-glib2 mingw-w64-x86_64-libusb
+            mingw-w64-x86_64-libftdi mingw-w64-x86_64-hidapi
+            mingw-w64-x86_64-libzip mingw-w64-x86_64-libserialport
+
+      - name: Configure
+        shell: bash
+        run: meson setup build
+
+      - name: Build
+        shell: bash
+        run: meson compile -C build
+
+      - name: Test
+        shell: bash
+        run: meson test -C build --print-errorlogs

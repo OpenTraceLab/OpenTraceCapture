@@ -127,6 +127,15 @@ udev_rulesdir = join_paths(udev_base, 'rules.d')
 
 install_data('contrib/60-opentracecapture.rules', install_dir: udev_rulesdir)
 
+# Test executable
+test_exe = executable('otc-smoke',
+  sources: ['tests/smoke.c'],
+  dependencies: all_deps,
+  link_with: lib,
+  include_directories: inc)
+
+test('smoke', test_exe)
+
 # Generate config header
 configure_file(
   output: 'otc_config.h',
