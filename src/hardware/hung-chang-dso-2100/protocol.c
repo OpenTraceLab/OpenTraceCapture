@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Daniel Glöckner <daniel-gl@gmx.net>
  *
@@ -176,14 +176,14 @@ static const struct {
 	{ 120, 212, 43, 1 }
 };
 
-SR_PRIV void hung_chang_dso_2100_reset_port(struct parport *port)
+OTC_PRIV void hung_chang_dso_2100_reset_port(struct parport *port)
 {
 	ieee1284_write_control(port,
 			C1284_NSTROBE | C1284_NAUTOFD | C1284_NSELECTIN);
 	ieee1284_data_dir(port, 0);
 }
 
-SR_PRIV gboolean hung_chang_dso_2100_check_id(struct parport *port)
+OTC_PRIV gboolean hung_chang_dso_2100_check_id(struct parport *port)
 {
 	gboolean ret = FALSE;
 
@@ -203,9 +203,9 @@ fail:
 	return ret;
 }
 
-SR_PRIV void hung_chang_dso_2100_write_mbox(struct parport *port, uint8_t val)
+OTC_PRIV void hung_chang_dso_2100_write_mbox(struct parport *port, uint8_t val)
 {
-	sr_dbg("mbox <= %X", val);
+	otc_dbg("mbox <= %X", val);
 	ieee1284_write_control(port,
 			C1284_NSTROBE | C1284_NINIT | C1284_NSELECTIN);
 	ieee1284_data_dir(port, 0);
@@ -218,7 +218,7 @@ SR_PRIV void hung_chang_dso_2100_write_mbox(struct parport *port, uint8_t val)
 		C1284_NSTROBE | C1284_NAUTOFD | C1284_NINIT | C1284_NSELECTIN);
 }
 
-SR_PRIV uint8_t hung_chang_dso_2100_read_mbox(struct parport *port, float timeout)
+OTC_PRIV uint8_t hung_chang_dso_2100_read_mbox(struct parport *port, float timeout)
 {
 	GTimer *timer = NULL;
 	uint8_t val;
@@ -247,11 +247,11 @@ SR_PRIV uint8_t hung_chang_dso_2100_read_mbox(struct parport *port, float timeou
 
 	if (timer)
 		g_timer_destroy(timer);
-	sr_dbg("mbox == %X", val);
+	otc_dbg("mbox == %X", val);
 	return val;
 }
 
-SR_PRIV int hung_chang_dso_2100_move_to(const struct sr_dev_inst *sdi, uint8_t target)
+OTC_PRIV int hung_chang_dso_2100_move_to(const struct otc_dev_inst *sdi, uint8_t target)
 {
 	struct dev_context *devc = sdi->priv;
 	int timeout = 40;
@@ -260,7 +260,7 @@ SR_PRIV int hung_chang_dso_2100_move_to(const struct sr_dev_inst *sdi, uint8_t t
 	while (timeout--) {
 		c = hung_chang_dso_2100_read_mbox(sdi->conn, 0.1);
 		if (c == target)
-			return SR_OK;
+			return OTC_OK;
 
 		switch (c) {
 		case 0x00:
@@ -303,11 +303,11 @@ SR_PRIV int hung_chang_dso_2100_move_to(const struct sr_dev_inst *sdi, uint8_t t
 		case 0x14:
 		case 0x21: c = 0xFF; break;
 		default:
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		hung_chang_dso_2100_write_mbox(sdi->conn, c);
 	}
-	return SR_ERR_TIMEOUT;
+	return OTC_ERR_TIMEOUT;
 }
 
 static void skip_samples(struct parport *port, uint8_t ctrl, size_t num)
@@ -328,16 +328,16 @@ static void read_samples(struct parport *port, uint8_t ctrl, uint8_t *buf, size_
 	}
 }
 
-static void push_samples(const struct sr_dev_inst *sdi, uint8_t *buf, size_t num)
+static void push_samples(const struct otc_dev_inst *sdi, uint8_t *buf, size_t num)
 {
 	struct dev_context *devc = sdi->priv;
 	float *data = devc->samples;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
-	struct sr_datafeed_packet packet = {
-		.type = SR_DF_ANALOG,
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
+	struct otc_datafeed_packet packet = {
+		.type = OTC_DF_ANALOG,
 		.payload = &analog,
 	};
 	float factor = devc->factor;
@@ -348,18 +348,18 @@ static void push_samples(const struct sr_dev_inst *sdi, uint8_t *buf, size_t num
 	float vdivlog = log10f(factor);
 	int digits = -(int)vdivlog + (vdivlog < 0.0);
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, digits);
 	analog.meaning->channels = devc->enabled_channel;
-	analog.meaning->mq = SR_MQ_VOLTAGE;
-	analog.meaning->unit = SR_UNIT_VOLT;
+	analog.meaning->mq = OTC_MQ_VOLTAGE;
+	analog.meaning->unit = OTC_UNIT_VOLT;
 	analog.meaning->mqflags = 0;
 	analog.num_samples = num;
 	analog.data = data;
 
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 }
 
-static int read_subframe(const struct sr_dev_inst *sdi, uint8_t *buf)
+static int read_subframe(const struct otc_dev_inst *sdi, uint8_t *buf)
 {
 	struct dev_context *devc = sdi->priv;
 	uint8_t sig[3], ctrl;
@@ -380,11 +380,11 @@ static int read_subframe(const struct sr_dev_inst *sdi, uint8_t *buf)
 	read_samples(sdi->conn, ctrl, sig, 3, 1);
 	if (sig[0] != 0x01 || sig[1] != 0xfe || sig[2] != 0x80) {
 		if (--devc->retries) {
-			sr_dbg("Missing signature at end of buffer, %i tries remaining",
+			otc_dbg("Missing signature at end of buffer, %i tries remaining",
 			       devc->retries);
 			return TRUE;
 		} else {
-			sr_err("Failed to read frame without transfer errors");
+			otc_err("Failed to read frame without transfer errors");
 			devc->step = 0;
 		}
 	} else {
@@ -413,9 +413,9 @@ static int read_subframe(const struct sr_dev_inst *sdi, uint8_t *buf)
 	return devc->step > 0;
 }
 
-SR_PRIV int hung_chang_dso_2100_poll(int fd, int revents, void *cb_data)
+OTC_PRIV int hung_chang_dso_2100_poll(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	uint8_t state, buf[1000];
 
@@ -438,7 +438,7 @@ SR_PRIV int hung_chang_dso_2100_poll(int fd, int revents, void *cb_data)
 		return TRUE;
 
 	if (state != 0x03) {
-		sr_err("Unexpected state 0x%X while checking for trigger", state);
+		otc_err("Unexpected state 0x%X while checking for trigger", state);
 		return FALSE;
 	}
 
@@ -446,7 +446,7 @@ SR_PRIV int hung_chang_dso_2100_poll(int fd, int revents, void *cb_data)
 
 	if (devc->channel) {
 		while (read_subframe(sdi, buf)) {
-			if (hung_chang_dso_2100_move_to(sdi, 1) != SR_OK)
+			if (hung_chang_dso_2100_move_to(sdi, 1) != OTC_OK)
 				break;
 			hung_chang_dso_2100_write_mbox(sdi->conn, 3);
 			g_usleep(1700);
@@ -458,7 +458,7 @@ SR_PRIV int hung_chang_dso_2100_poll(int fd, int revents, void *cb_data)
 	std_session_send_df_frame_end(sdi);
 
 	if (++devc->frame >= devc->frame_limit)
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 	else
 		hung_chang_dso_2100_move_to(sdi, 0x21);
 

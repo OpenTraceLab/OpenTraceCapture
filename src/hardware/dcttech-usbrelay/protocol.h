@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -22,10 +22,10 @@
 
 #include <glib.h>
 #include <hidapi.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <stdint.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "dcttech-usbrelay"
 
@@ -54,10 +54,10 @@ struct channel_group_context {
 	size_t number;
 };
 
-SR_PRIV int dcttech_usbrelay_update_state(const struct sr_dev_inst *sdi);
-SR_PRIV int dcttech_usbrelay_switch_cg(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, gboolean on);
-SR_PRIV int dcttech_usbrelay_query_cg(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, gboolean *on);
+OTC_PRIV int dcttech_usbrelay_update_state(const struct otc_dev_inst *sdi);
+OTC_PRIV int dcttech_usbrelay_switch_cg(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, gboolean on);
+OTC_PRIV int dcttech_usbrelay_query_cg(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, gboolean *on);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 poljar (Damir Jelić) <poljarinho@gmail.com>
  *
@@ -23,8 +23,8 @@
 #include <glib.h>
 #include <stdint.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "lecroy-xstream"
 
@@ -81,7 +81,7 @@ struct dev_context {
 	const void *model_config;
 	void *model_state;
 
-	struct sr_channel_group **analog_groups;
+	struct otc_channel_group **analog_groups;
 
 	GSList *enabled_channels;
 	GSList *current_channel;
@@ -90,15 +90,15 @@ struct dev_context {
 	uint64_t frame_limit;
 };
 
-SR_PRIV int lecroy_xstream_init_device(struct sr_dev_inst *sdi);
-SR_PRIV int lecroy_xstream_request_data(const struct sr_dev_inst *sdi);
-SR_PRIV int lecroy_xstream_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int lecroy_xstream_init_device(struct otc_dev_inst *sdi);
+OTC_PRIV int lecroy_xstream_request_data(const struct otc_dev_inst *sdi);
+OTC_PRIV int lecroy_xstream_receive_data(int fd, int revents, void *cb_data);
 
-SR_PRIV void lecroy_xstream_state_free(struct scope_state *state);
-SR_PRIV int lecroy_xstream_state_get(struct sr_dev_inst *sdi);
-SR_PRIV int lecroy_xstream_channel_state_set(const struct sr_dev_inst *sdi,
+OTC_PRIV void lecroy_xstream_state_free(struct scope_state *state);
+OTC_PRIV int lecroy_xstream_state_get(struct otc_dev_inst *sdi);
+OTC_PRIV int lecroy_xstream_channel_state_set(const struct otc_dev_inst *sdi,
 		const int ch_index, gboolean ch_state);
-SR_PRIV int lecroy_xstream_update_sample_rate(const struct sr_dev_inst *sdi,
+OTC_PRIV int lecroy_xstream_update_sample_rate(const struct otc_dev_inst *sdi,
 		int num_of_samples);
 
 #endif

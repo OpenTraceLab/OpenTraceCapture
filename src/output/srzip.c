@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  *
@@ -24,8 +24,8 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <zip.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "output/srzip"
 #define CHUNK_SIZE (4 * 1024 * 1024)
@@ -50,30 +50,30 @@ struct out_context {
 	} *analog_buff;
 };
 
-static int init(struct sr_output *o, GHashTable *options)
+static int init(struct otc_output *o, GHashTable *options)
 {
 	struct out_context *outc;
 
 	(void)options;
 
 	if (!o->filename || o->filename[0] == '\0') {
-		sr_info("srzip output module requires a file name, cannot save.");
-		return SR_ERR_ARG;
+		otc_info("srzip output module requires a file name, cannot save.");
+		return OTC_ERR_ARG;
 	}
 
 	outc = g_malloc0(sizeof(*outc));
 	outc->filename = g_strdup(o->filename);
 	o->priv = outc;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int zip_create(const struct sr_output *o)
+static int zip_create(const struct otc_output *o)
 {
 	struct out_context *outc;
 	struct zip *zipfile;
 	struct zip_source *versrc, *metasrc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	size_t ch_nr;
 	size_t alloc_size;
 	GVariant *gvar;
@@ -88,8 +88,8 @@ static int zip_create(const struct sr_output *o)
 
 	outc = o->priv;
 
-	if (outc->samplerate == 0 && sr_config_get(o->sdi->driver, o->sdi, NULL,
-					SR_CONF_SAMPLERATE, &gvar) == SR_OK) {
+	if (outc->samplerate == 0 && otc_config_get(o->sdi->driver, o->sdi, NULL,
+					OTC_CONF_SAMPLERATE, &gvar) == OTC_OK) {
 		outc->samplerate = g_variant_get_uint64(gvar);
 		g_variant_unref(gvar);
 	}
@@ -98,23 +98,23 @@ static int zip_create(const struct sr_output *o)
 	g_unlink(outc->filename);
 	zipfile = zip_open(outc->filename, ZIP_CREATE, NULL);
 	if (!zipfile)
-		return SR_ERR;
+		return OTC_ERR;
 
 	/* "version" */
 	versrc = zip_source_buffer(zipfile, "2", 1, FALSE);
 	if (zip_add(zipfile, "version", versrc) < 0) {
-		sr_err("Error saving version into zipfile: %s",
+		otc_err("Error saving version into zipfile: %s",
 			zip_strerror(zipfile));
 		zip_source_free(versrc);
 		zip_discard(zipfile);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* init "metadata" */
 	meta = g_key_file_new();
 
-	g_key_file_set_string(meta, "global", "sigrok version",
-			sr_package_version_string_get());
+	g_key_file_set_string(meta, "global", "opentracelab version",
+			otc_package_version_string_get());
 
 	devgroup = "device 1";
 
@@ -125,12 +125,12 @@ static int zip_create(const struct sr_output *o)
 		ch = l->data;
 
 		switch (ch->type) {
-		case SR_CHANNEL_LOGIC:
+		case OTC_CHANNEL_LOGIC:
 			if (ch->enabled)
 				enabled_logic_channels++;
 			logic_channels++;
 			break;
-		case SR_CHANNEL_ANALOG:
+		case OTC_CHANNEL_ANALOG:
 			if (ch->enabled)
 				enabled_analog_channels++;
 			break;
@@ -151,7 +151,7 @@ static int zip_create(const struct sr_output *o)
 		g_key_file_set_integer(meta, devgroup, "total probes", logic_channels);
 	}
 
-	s = sr_samplerate_string(outc->samplerate);
+	s = otc_samplerate_string(outc->samplerate);
 	g_key_file_set_string(meta, devgroup, "samplerate", s);
 	g_free(s);
 
@@ -169,11 +169,11 @@ static int zip_create(const struct sr_output *o)
 
 		s = NULL;
 		switch (ch->type) {
-		case SR_CHANNEL_LOGIC:
+		case OTC_CHANNEL_LOGIC:
 			ch_nr = ch->index + 1;
 			s = g_strdup_printf("probe%zu", ch_nr);
 			break;
-		case SR_CHANNEL_ANALOG:
+		case OTC_CHANNEL_ANALOG:
 			ch_nr = outc->first_analog_index + index;
 			outc->analog_index_map[index] = ch->index;
 			s = g_strdup_printf("analog%zu", ch_nr);
@@ -209,7 +209,7 @@ static int zip_create(const struct sr_output *o)
 	outc->logic_buff.zip_unit_size /= 8;
 	outc->logic_buff.samples = g_try_malloc0(alloc_size);
 	if (!outc->logic_buff.samples)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	if (outc->logic_buff.zip_unit_size)
 		alloc_size /= outc->logic_buff.zip_unit_size;
 	outc->logic_buff.alloc_size = alloc_size;
@@ -221,7 +221,7 @@ static int zip_create(const struct sr_output *o)
 		alloc_size = CHUNK_SIZE;
 		outc->analog_buff[index].samples = g_try_malloc0(alloc_size);
 		if (!outc->analog_buff[index].samples)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		alloc_size /= sizeof(outc->analog_buff[0].samples[0]);
 		outc->analog_buff[index].alloc_size = alloc_size;
 		outc->analog_buff[index].fill_size = 0;
@@ -232,23 +232,23 @@ static int zip_create(const struct sr_output *o)
 
 	metasrc = zip_source_buffer(zipfile, metabuf, metalen, FALSE);
 	if (zip_add(zipfile, "metadata", metasrc) < 0) {
-		sr_err("Error saving metadata into zipfile: %s",
+		otc_err("Error saving metadata into zipfile: %s",
 			zip_strerror(zipfile));
 		zip_source_free(metasrc);
 		zip_discard(zipfile);
 		g_free(metabuf);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if (zip_close(zipfile) < 0) {
-		sr_err("Error saving zipfile: %s", zip_strerror(zipfile));
+		otc_err("Error saving zipfile: %s", zip_strerror(zipfile));
 		zip_discard(zipfile);
 		g_free(metabuf);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	g_free(metabuf);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -259,9 +259,9 @@ static int zip_create(const struct sr_output *o)
  * @param[in] unitsize Logic data unit size (bytes per sample).
  * @param[in] length Byte sequence length (in bytes, not samples).
  *
- * @returns SR_OK et al error codes.
+ * @returns OTC_OK et al error codes.
  */
-static int zip_append(const struct sr_output *o,
+static int zip_append(const struct otc_output *o,
 	uint8_t *buf, size_t unitsize, size_t length)
 {
 	struct out_context *outc;
@@ -280,21 +280,21 @@ static int zip_append(const struct sr_output *o,
 	unsigned int next_chunk_num;
 
 	if (!length)
-		return SR_OK;
+		return OTC_OK;
 
 	outc = o->priv;
 	if (!(archive = zip_open(outc->filename, 0, NULL)))
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (zip_stat(archive, "metadata", 0, &zs) < 0) {
-		sr_err("Failed to open metadata: %s", zip_strerror(archive));
+		otc_err("Failed to open metadata: %s", zip_strerror(archive));
 		zip_discard(archive);
-		return SR_ERR;
+		return OTC_ERR;
 	}
-	kf = sr_sessionfile_read_metadata(archive, &zs);
+	kf = otc_sessionfile_read_metadata(archive, &zs);
 	if (!kf) {
 		zip_discard(archive);
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 	/*
 	 * If the file was only initialized but doesn't yet have any
@@ -304,11 +304,11 @@ static int zip_append(const struct sr_output *o,
 	metabuf = NULL;
 	if (!g_key_file_has_key(kf, "device 1", "unitsize", &error)) {
 		if (error && error->code != G_KEY_FILE_ERROR_KEY_NOT_FOUND) {
-			sr_err("Failed to check unitsize key: %s", error->message);
+			otc_err("Failed to check unitsize key: %s", error->message);
 			g_error_free(error);
 			g_key_file_free(kf);
 			zip_discard(archive);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		g_clear_error(&error);
 
@@ -318,13 +318,13 @@ static int zip_append(const struct sr_output *o,
 		metasrc = zip_source_buffer(archive, metabuf, metalen, FALSE);
 
 		if (zip_replace(archive, zs.index, metasrc) < 0) {
-			sr_err("Failed to replace metadata: %s",
+			otc_err("Failed to replace metadata: %s",
 				zip_strerror(archive));
 			g_key_file_free(kf);
 			zip_source_free(metasrc);
 			zip_discard(archive);
 			g_free(metabuf);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	}
 	g_key_file_free(kf);
@@ -342,11 +342,11 @@ static int zip_append(const struct sr_output *o,
 			 * with chunk 2.
 			 */
 			if (zip_rename(archive, i, "logic-1-1") < 0) {
-				sr_err("Failed to rename 'logic-1' to 'logic-1-1': %s",
+				otc_err("Failed to rename 'logic-1' to 'logic-1-1': %s",
 					zip_strerror(archive));
 				zip_discard(archive);
 				g_free(metabuf);
-				return SR_ERR;
+				return OTC_ERR;
 			}
 			next_chunk_num = 2;
 			break;
@@ -358,7 +358,7 @@ static int zip_append(const struct sr_output *o,
 	}
 
 	if (length % unitsize != 0) {
-		sr_warn("Chunk size %zu not a multiple of the"
+		otc_warn("Chunk size %zu not a multiple of the"
 			" unit size %zu.", length, unitsize);
 	}
 	logicsrc = zip_source_buffer(archive, buf, length, FALSE);
@@ -366,22 +366,22 @@ static int zip_append(const struct sr_output *o,
 	i = zip_add(archive, chunkname, logicsrc);
 	g_free(chunkname);
 	if (i < 0) {
-		sr_err("Failed to add chunk 'logic-1-%u': %s",
+		otc_err("Failed to add chunk 'logic-1-%u': %s",
 			next_chunk_num, zip_strerror(archive));
 		zip_source_free(logicsrc);
 		zip_discard(archive);
 		g_free(metabuf);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	if (zip_close(archive) < 0) {
-		sr_err("Error saving session file: %s", zip_strerror(archive));
+		otc_err("Error saving session file: %s", zip_strerror(archive));
 		zip_discard(archive);
 		g_free(metabuf);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	g_free(metabuf);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -393,9 +393,9 @@ static int zip_append(const struct sr_output *o,
  * @param[in] length Number of bytes of sample data.
  * @param[in] flush Force ZIP archive update (queue by default).
  *
- * @returns SR_OK et al error codes.
+ * @returns OTC_OK et al error codes.
  */
-static int zip_append_queue(const struct sr_output *o,
+static int zip_append_queue(const struct otc_output *o,
 	const uint8_t *buf, size_t feed_unitsize, size_t length,
 	gboolean flush)
 {
@@ -420,35 +420,35 @@ static int zip_append_queue(const struct sr_output *o,
 	buff = &outc->logic_buff;
 	if (length) {
 		if (!sizes_seen) {
-			sr_info("output unit size %zu, feed unit size %zu.",
+			otc_info("output unit size %zu, feed unit size %zu.",
 				buff->zip_unit_size, feed_unitsize);
 		}
 		if (feed_unitsize > buff->zip_unit_size) {
 			if (!sizes_seen)
-				sr_info("Large unit size, discarding excess logic data.");
+				otc_info("Large unit size, discarding excess logic data.");
 			sample_copy_size = buff->zip_unit_size;
 			sample_skip_size = feed_unitsize - buff->zip_unit_size;
 			sample_pad_size = 0;
 		} else if (feed_unitsize < buff->zip_unit_size) {
 			if (!sizes_seen)
-				sr_info("Small unit size, padding logic data.");
+				otc_info("Small unit size, padding logic data.");
 			sample_copy_size = feed_unitsize;
 			sample_skip_size = 0;
 			sample_pad_size = buff->zip_unit_size - feed_unitsize;
 		} else {
 			if (!sizes_seen)
-				sr_dbg("Matching unit size, passing logic data as is.");
+				otc_dbg("Matching unit size, passing logic data as is.");
 			sample_copy_size = buff->zip_unit_size;
 			sample_skip_size = 0;
 			sample_pad_size = 0;
 		}
 		if (sample_copy_size + sample_skip_size != feed_unitsize) {
-			sr_err("Inconsistent input unit size. Implementation flaw?");
-			return SR_ERR_BUG;
+			otc_err("Inconsistent input unit size. Implementation flaw?");
+			return OTC_ERR_BUG;
 		}
 		if (sample_copy_size + sample_pad_size != buff->zip_unit_size) {
-			sr_err("Inconsistent output unit size. Implementation flaw?");
-			return SR_ERR_BUG;
+			otc_err("Inconsistent output unit size. Implementation flaw?");
+			return OTC_ERR_BUG;
 		}
 		sizes_seen = TRUE;
 	}
@@ -481,7 +481,7 @@ static int zip_append_queue(const struct sr_output *o,
 		if (send_count && !remain) {
 			ret = zip_append(o, buff->samples, buff->zip_unit_size,
 				buff->fill_size * buff->zip_unit_size);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			buff->fill_size = 0;
 		}
@@ -491,12 +491,12 @@ static int zip_append_queue(const struct sr_output *o,
 	if (flush && buff->fill_size) {
 		ret = zip_append(o, buff->samples, buff->zip_unit_size,
 			buff->fill_size * buff->zip_unit_size);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		buff->fill_size = 0;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -507,9 +507,9 @@ static int zip_append_queue(const struct sr_output *o,
  * @param[in] count Number of samples (float items, not bytes).
  * @param[in] ch_nr 1-based channel number.
  *
- * @returns SR_OK et al error codes.
+ * @returns OTC_OK et al error codes.
  */
-static int zip_append_analog(const struct sr_output *o,
+static int zip_append_analog(const struct otc_output *o,
 	const float *values, size_t count, size_t ch_nr)
 {
 	struct out_context *outc;
@@ -528,12 +528,12 @@ static int zip_append_analog(const struct sr_output *o,
 	outc = o->priv;
 
 	if (!(archive = zip_open(outc->filename, 0, NULL)))
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (zip_stat(archive, "metadata", 0, &zs) < 0) {
-		sr_err("Failed to open metadata: %s", zip_strerror(archive));
+		otc_err("Failed to open metadata: %s", zip_strerror(archive));
 		zip_discard(archive);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	basename = g_strdup_printf("analog-1-%zu", ch_nr);
@@ -556,24 +556,24 @@ static int zip_append_analog(const struct sr_output *o,
 	chunkname = g_strdup_printf("%s-%u", basename, next_chunk_num);
 	i = zip_add(archive, chunkname, analogsrc);
 	if (i < 0) {
-		sr_err("Failed to add chunk '%s': %s", chunkname, zip_strerror(archive));
+		otc_err("Failed to add chunk '%s': %s", chunkname, zip_strerror(archive));
 		g_free(chunkname);
 		g_free(basename);
 		zip_source_free(analogsrc);
 		zip_discard(archive);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	g_free(chunkname);
 	if (zip_close(archive) < 0) {
-		sr_err("Error saving session file: %s", zip_strerror(archive));
+		otc_err("Error saving session file: %s", zip_strerror(archive));
 		g_free(basename);
 		zip_discard(archive);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	g_free(basename);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -583,13 +583,13 @@ static int zip_append_analog(const struct sr_output *o,
  * @param[in] analog Sample data (session feed packet format).
  * @param[in] flush Force ZIP archive update (queue by default).
  *
- * @returns SR_OK et al error codes.
+ * @returns OTC_OK et al error codes.
  */
-static int zip_append_analog_queue(const struct sr_output *o,
-	const struct sr_datafeed_analog *analog, gboolean flush)
+static int zip_append_analog_queue(const struct otc_output *o,
+	const struct otc_datafeed_analog *analog, gboolean flush)
 {
 	struct out_context *outc;
-	const struct sr_channel *ch;
+	const struct otc_channel *ch;
 	size_t idx, nr;
 	struct analog_buff *buff;
 	float *values, *wrptr, *rdptr;
@@ -607,18 +607,18 @@ static int zip_append_analog_queue(const struct sr_output *o,
 				continue;
 			ret = zip_append_analog(o,
 				buff->samples, buff->fill_size, nr);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			buff->fill_size = 0;
 		}
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* Lookup index and number of the analog channel. */
 	/* TODO: support packets covering multiple channels */
 	if (g_slist_length(analog->meaning->channels) != 1) {
-		sr_err("Analog packets covering multiple channels not supported yet");
-		return SR_ERR;
+		otc_err("Analog packets covering multiple channels not supported yet");
+		return OTC_ERR;
 	}
 	ch = g_slist_nth_data(analog->meaning->channels, 0);
 	for (idx = 0; idx < outc->analog_ch_count; idx++) {
@@ -626,16 +626,16 @@ static int zip_append_analog_queue(const struct sr_output *o,
 			break;
 	}
 	if (idx == outc->analog_ch_count)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	nr = outc->first_analog_index + idx;
 	buff = &outc->analog_buff[idx];
 
 	/* Convert the analog data to an array of float values. */
 	values = g_try_malloc0(analog->num_samples * sizeof(values[0]));
 	if (!values)
-		return SR_ERR_MALLOC;
-	ret = sr_analog_to_float(analog, values);
-	if (ret != SR_OK) {
+		return OTC_ERR_MALLOC;
+	ret = otc_analog_to_float(analog, values);
+	if (ret != OTC_OK) {
 		g_free(values);
 		return ret;
 	}
@@ -660,7 +660,7 @@ static int zip_append_analog_queue(const struct sr_output *o,
 		if (send_size && !remain) {
 			ret = zip_append_analog(o,
 				buff->samples, buff->fill_size, nr);
-			if (ret != SR_OK) {
+			if (ret != OTC_OK) {
 				g_free(values);
 				return ret;
 			}
@@ -673,42 +673,42 @@ static int zip_append_analog_queue(const struct sr_output *o,
 	/* Flush to the ZIP archive if the caller wants us to. */
 	if (flush && buff->fill_size) {
 		ret = zip_append_analog(o, buff->samples, buff->fill_size, nr);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		buff->fill_size = 0;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int receive(const struct sr_output *o, const struct sr_datafeed_packet *packet,
+static int receive(const struct otc_output *o, const struct otc_datafeed_packet *packet,
 		GString **out)
 {
 	struct out_context *outc;
-	const struct sr_datafeed_meta *meta;
-	const struct sr_datafeed_logic *logic;
-	const struct sr_datafeed_analog *analog;
-	const struct sr_config *src;
+	const struct otc_datafeed_meta *meta;
+	const struct otc_datafeed_logic *logic;
+	const struct otc_datafeed_analog *analog;
+	const struct otc_config *src;
 	GSList *l;
 	int ret;
 
 	*out = NULL;
 	if (!o || !o->sdi || !(outc = o->priv))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	switch (packet->type) {
-	case SR_DF_META:
+	case OTC_DF_META:
 		meta = packet->payload;
 		for (l = meta->config; l; l = l->next) {
 			src = l->data;
-			if (src->key != SR_CONF_SAMPLERATE)
+			if (src->key != OTC_CONF_SAMPLERATE)
 				continue;
 			outc->samplerate = g_variant_get_uint64(src->data);
 		}
 		break;
-	case SR_DF_LOGIC:
+	case OTC_DF_LOGIC:
 		if (!outc->zip_created) {
-			if ((ret = zip_create(o)) != SR_OK)
+			if ((ret = zip_create(o)) != OTC_OK)
 				return ret;
 			outc->zip_created = TRUE;
 		}
@@ -716,45 +716,45 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 		ret = zip_append_queue(o,
 			logic->data, logic->unitsize, logic->length,
 			FALSE);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		break;
-	case SR_DF_ANALOG:
+	case OTC_DF_ANALOG:
 		if (!outc->zip_created) {
-			if ((ret = zip_create(o)) != SR_OK)
+			if ((ret = zip_create(o)) != OTC_OK)
 				return ret;
 			outc->zip_created = TRUE;
 		}
 		analog = packet->payload;
 		ret = zip_append_analog_queue(o, analog, FALSE);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		break;
-	case SR_DF_END:
+	case OTC_DF_END:
 		if (outc->zip_created) {
 			ret = zip_append_queue(o, NULL, 0, 0, TRUE);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 			ret = zip_append_analog_queue(o, NULL, TRUE);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 		}
 		break;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	ALL_ZERO
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	return options;
 }
 
-static int cleanup(struct sr_output *o)
+static int cleanup(struct otc_output *o)
 {
 	struct out_context *outc;
 	size_t idx;
@@ -771,15 +771,15 @@ static int cleanup(struct sr_output *o)
 	g_free(outc);
 	o->priv = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_output_module output_srzip = {
+OTC_PRIV struct otc_output_module output_srzip = {
 	.id = "srzip",
 	.name = "srzip",
 	.desc = "srzip session file format data",
 	.exts = (const char*[]){"sr", NULL},
-	.flags = SR_OUTPUT_INTERNAL_IO_HANDLING,
+	.flags = OTC_OUTPUT_INTERNAL_IO_HANDLING,
 	.options = get_options,
 	.init = init,
 	.receive = receive,

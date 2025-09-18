@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021-2023 Frank Stettner <frank-stettner@gmx.net>
  *
@@ -26,41 +26,41 @@
 #define ICSTATION_USBRELAY_CMD_ID	0x50
 #define ICSTATION_USBRELAY_CMD_START	0x51
 
-static int icstation_usbrelay_send_byte(struct sr_serial_dev_inst *serial,
+static int icstation_usbrelay_send_byte(struct otc_serial_dev_inst *serial,
 	uint8_t b)
 {
 	int ret;
 
 	ret = serial_write_blocking(serial, &b, sizeof(b), SERIAL_TIMEOUT_MS);
-	if (ret < SR_OK)
-		return SR_ERR_IO;
+	if (ret < OTC_OK)
+		return OTC_ERR_IO;
 	if ((size_t)ret != sizeof(b))
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int icstation_usbrelay_recv_byte(struct sr_serial_dev_inst *serial,
+static int icstation_usbrelay_recv_byte(struct otc_serial_dev_inst *serial,
 	uint8_t *b)
 {
 	int ret;
 
 	ret = serial_read_blocking(serial, b, sizeof(*b), SERIAL_TIMEOUT_MS);
-	if (ret < SR_OK)
-		return SR_ERR_IO;
+	if (ret < OTC_OK)
+		return OTC_ERR_IO;
 	if ((size_t)ret != sizeof(*b))
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int icstation_usbrelay_identify(struct sr_serial_dev_inst *serial,
+OTC_PRIV int icstation_usbrelay_identify(struct otc_serial_dev_inst *serial,
 	uint8_t *id)
 {
 	int ret;
 
 	if (!id)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/*
 	 * Send the identification request. Receive the device firmware's
@@ -75,36 +75,36 @@ SR_PRIV int icstation_usbrelay_identify(struct sr_serial_dev_inst *serial,
 	 * The device must be power cycled before it identifies again.
 	 */
 	ret = icstation_usbrelay_send_byte(serial, ICSTATION_USBRELAY_CMD_ID);
-	if (ret != SR_OK) {
-		sr_dbg("Could not send identification request.");
-		return SR_ERR_IO;
+	if (ret != OTC_OK) {
+		otc_dbg("Could not send identification request.");
+		return OTC_ERR_IO;
 	}
 	ret = icstation_usbrelay_recv_byte(serial, id);
-	if (ret != SR_OK) {
-		sr_dbg("Could not receive identification response.");
-		return SR_ERR_IO;
+	if (ret != OTC_OK) {
+		otc_dbg("Could not receive identification response.");
+		return OTC_ERR_IO;
 	}
-	sr_dbg("Identification response 0x%02hhx.", *id);
+	otc_dbg("Identification response 0x%02hhx.", *id);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int icstation_usbrelay_start(const struct sr_dev_inst *sdi)
+OTC_PRIV int icstation_usbrelay_start(const struct otc_dev_inst *sdi)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	serial = sdi->conn;
 	if (!serial)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	return icstation_usbrelay_send_byte(serial,
 		ICSTATION_USBRELAY_CMD_START);
 }
 
-SR_PRIV int icstation_usbrelay_switch_cg(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, gboolean on)
+OTC_PRIV int icstation_usbrelay_switch_cg(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, gboolean on)
 {
 	struct dev_context *devc;
 	struct channel_group_context *cgc;
@@ -141,13 +141,13 @@ SR_PRIV int icstation_usbrelay_switch_cg(const struct sr_dev_inst *sdi,
 	}
 
 	tx_state = ~state & devc->relay_mask;
-	sr_spew("Sending status byte: %x", tx_state);
-	if (icstation_usbrelay_send_byte(sdi->conn, tx_state) != SR_OK) {
-		sr_err("Unable to send status byte.");
-		return SR_ERR_IO;
+	otc_spew("Sending status byte: %x", tx_state);
+	if (icstation_usbrelay_send_byte(sdi->conn, tx_state) != OTC_OK) {
+		otc_err("Unable to send status byte.");
+		return OTC_ERR_IO;
 	}
 
 	devc->relay_state = state;
 
-	return SR_OK;
+	return OTC_OK;
 }

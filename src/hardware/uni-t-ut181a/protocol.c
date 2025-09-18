@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019-2020 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -133,13 +133,13 @@
  *   items in the "list" query could reduce usability.
  * - Add support for "COMP mode" (comparison, PASS/FAIL result).
  *   - How to express PASS/FAIL in the data feed submission? There is
- *     SR_UNIT_BOOLEAN but not a good MQ for envelope test results.
+ *     OTC_UNIT_BOOLEAN but not a good MQ for envelope test results.
  *   - How to communicate limits to the session feed? COMP replies are
  *     normal measurements without aux1 and aux2. Is it appropriate to
  *     re-use DMM channels, or shall we add more of them?
  * - Communicate timestamps for saved measurements and recordings to the
  *   session feed.
- *   - There is SR_MQ_TIME and SR_MQFLAG_RELATIVE, and SR_UNIT_SECOND.
+ *   - There is OTC_MQ_TIME and OTC_MQFLAG_RELATIVE, and OTC_UNIT_SECOND.
  *     Absolute time seems appropriate for save, relative (to the start
  *     of the recording) for recordings.
  *   - Unfortunately double data types are not fully operational, so we
@@ -154,11 +154,11 @@
  *   it's assumed that a few hundreds or thousands are supported (10K
  *   samples in total? that's a guess though).
  * - The PC side could initiate to save a live measurement. The command
- *   is there, it's just uncertain which SR_CONF_ key to use, DATALOG
+ *   is there, it's just uncertain which OTC_CONF_ key to use, DATALOG
  *   appears to enter/leave a period of recording, not a single shot.
  * - The PC side could start and stop recordings. But the start command
- *   requires a name, sample interval, and duration, but SR_CONF_DATALOG
- *   is just a boolean. Combining SR_CONF_LIMIT_SAMPLES, _DATALOG, et al
+ *   requires a name, sample interval, and duration, but OTC_CONF_DATALOG
+ *   is just a boolean. Combining OTC_CONF_LIMIT_SAMPLES, _DATALOG, et al
  *   raises the question which order applications will send configure
  *   requests for them.
  * - How to communicate the LOWPASS condition? PASS/FAIL results for
@@ -172,12 +172,12 @@
  * paths which currently are most interesting during maintenance. :)
  */
 #if UT181A_WITH_SER_ECHO
-#  define FRAME_DUMP_LEVEL SR_LOG_WARN
-#  define FRAME_DUMP_CALL sr_warn
+#  define FRAME_DUMP_LEVEL OTC_LOG_WARN
+#  define FRAME_DUMP_CALL otc_warn
 #else
-#  define FRAME_DUMP_LEVEL (SR_LOG_SPEW + 1)
-#  define sr_nop(...) do { /* EMPTY */ } while (0)
-#  define FRAME_DUMP_CALL sr_nop
+#  define FRAME_DUMP_LEVEL (OTC_LOG_SPEW + 1)
+#  define otc_nop(...) do { /* EMPTY */ } while (0)
+#  define FRAME_DUMP_CALL otc_nop
 #endif
 
 #define FRAME_DUMP_RXDATA 0	/* UART level receive data. */
@@ -202,7 +202,7 @@
  */
 static const struct mqopt_item ut181a_mqopts[] = {
 	{
-		SR_MQ_VOLTAGE, SR_MQFLAG_AC, {
+		OTC_MQ_VOLTAGE, OTC_MQFLAG_AC, {
 			MODE_V_AC, MODE_V_AC_REL,
 			MODE_mV_AC, MODE_mV_AC_REL,
 			MODE_V_AC_PEAK, MODE_mV_AC_PEAK,
@@ -211,7 +211,7 @@ static const struct mqopt_item ut181a_mqopts[] = {
 		},
 	},
 	{
-		SR_MQ_VOLTAGE, SR_MQFLAG_DC, {
+		OTC_MQ_VOLTAGE, OTC_MQFLAG_DC, {
 			MODE_V_DC, MODE_V_DC_REL,
 			MODE_mV_DC, MODE_mV_DC_REL,
 			MODE_V_DC_PEAK, MODE_mV_DC_PEAK,
@@ -219,21 +219,21 @@ static const struct mqopt_item ut181a_mqopts[] = {
 		},
 	},
 	{
-		SR_MQ_VOLTAGE, SR_MQFLAG_DC | SR_MQFLAG_AC, {
+		OTC_MQ_VOLTAGE, OTC_MQFLAG_DC | OTC_MQFLAG_AC, {
 			MODE_V_DC_ACDC, MODE_V_DC_ACDC_REL,
 			MODE_mV_AC_ACDC, MODE_mV_AC_ACDC_REL,
 			0,
 		},
 	},
 	{
-		SR_MQ_GAIN, 0, {
+		OTC_MQ_GAIN, 0, {
 			MODE_V_AC_dBV, MODE_V_AC_dBV_REL,
 			MODE_V_AC_dBm, MODE_V_AC_dBm_REL,
 			0,
 		},
 	},
 	{
-		SR_MQ_CURRENT, SR_MQFLAG_AC, {
+		OTC_MQ_CURRENT, OTC_MQFLAG_AC, {
 			MODE_A_AC, MODE_A_AC_REL,
 			MODE_A_AC_PEAK,
 			MODE_mA_AC, MODE_mA_AC_REL,
@@ -244,7 +244,7 @@ static const struct mqopt_item ut181a_mqopts[] = {
 		},
 	},
 	{
-		SR_MQ_CURRENT, SR_MQFLAG_DC, {
+		OTC_MQ_CURRENT, OTC_MQFLAG_DC, {
 			MODE_A_DC, MODE_A_DC_REL,
 			MODE_A_DC_PEAK,
 			MODE_mA_DC, MODE_mA_DC_REL,
@@ -254,7 +254,7 @@ static const struct mqopt_item ut181a_mqopts[] = {
 		},
 	},
 	{
-		SR_MQ_CURRENT, SR_MQFLAG_DC | SR_MQFLAG_AC, {
+		OTC_MQ_CURRENT, OTC_MQFLAG_DC | OTC_MQFLAG_AC, {
 			MODE_A_DC_ACDC, MODE_A_DC_ACDC_REL,
 			MODE_mA_DC_ACDC, MODE_mA_DC_ACDC_REL,
 			MODE_uA_DC_ACDC, MODE_uA_DC_ACDC_REL,
@@ -263,32 +263,32 @@ static const struct mqopt_item ut181a_mqopts[] = {
 		},
 	},
 	{
-		SR_MQ_RESISTANCE, 0, {
+		OTC_MQ_RESISTANCE, 0, {
 			MODE_RES, MODE_RES_REL, 0,
 		},
 	},
 	{
-		SR_MQ_CONDUCTANCE, 0, {
+		OTC_MQ_CONDUCTANCE, 0, {
 			MODE_COND, MODE_COND_REL, 0,
 		},
 	},
 	{
-		SR_MQ_CONTINUITY, 0, {
+		OTC_MQ_CONTINUITY, 0, {
 			MODE_CONT_SHORT, MODE_CONT_OPEN, 0,
 		},
 	},
 	{
-		SR_MQ_VOLTAGE, SR_MQFLAG_DIODE | SR_MQFLAG_DC, {
+		OTC_MQ_VOLTAGE, OTC_MQFLAG_DIODE | OTC_MQFLAG_DC, {
 			MODE_DIODE, MODE_DIODE_ALARM, 0,
 		},
 	},
 	{
-		SR_MQ_CAPACITANCE, 0, {
+		OTC_MQ_CAPACITANCE, 0, {
 			MODE_CAP, MODE_CAP_REL, 0,
 		},
 	},
 	{
-		SR_MQ_FREQUENCY, 0, {
+		OTC_MQ_FREQUENCY, 0, {
 			MODE_FREQ, MODE_FREQ_REL,
 			MODE_V_AC_Hz, MODE_mV_AC_Hz,
 			MODE_A_AC_Hz, MODE_mA_AC_Hz, MODE_uA_AC_Hz,
@@ -296,17 +296,17 @@ static const struct mqopt_item ut181a_mqopts[] = {
 		},
 	},
 	{
-		SR_MQ_DUTY_CYCLE, 0, {
+		OTC_MQ_DUTY_CYCLE, 0, {
 			MODE_DUTY, MODE_DUTY_REL, 0,
 		},
 	},
 	{
-		SR_MQ_PULSE_WIDTH, 0, {
+		OTC_MQ_PULSE_WIDTH, 0, {
 			MODE_PULSEWIDTH, MODE_PULSEWIDTH_REL, 0,
 		},
 	},
 	{
-		SR_MQ_TEMPERATURE, 0, {
+		OTC_MQ_TEMPERATURE, 0, {
 			MODE_TEMP_C_T1_and_T2, MODE_TEMP_C_T1_and_T2_REL,
 			MODE_TEMP_C_T1_minus_T2, MODE_TEMP_F_T1_and_T2,
 			MODE_TEMP_C_T2_and_T1, MODE_TEMP_C_T2_and_T1_REL,
@@ -319,7 +319,7 @@ static const struct mqopt_item ut181a_mqopts[] = {
 	},
 };
 
-SR_PRIV const struct mqopt_item *ut181a_get_mqitem_from_mode(uint16_t mode)
+OTC_PRIV const struct mqopt_item *ut181a_get_mqitem_from_mode(uint16_t mode)
 {
 	size_t mq_idx, mode_idx;
 	const struct mqopt_item *item;
@@ -338,7 +338,7 @@ SR_PRIV const struct mqopt_item *ut181a_get_mqitem_from_mode(uint16_t mode)
 	return NULL;
 }
 
-SR_PRIV uint16_t ut181a_get_mode_from_mq_flags(enum sr_mq mq, enum sr_mqflag mqflags)
+OTC_PRIV uint16_t ut181a_get_mode_from_mq_flags(enum otc_mq mq, enum otc_mqflag mqflags)
 {
 	size_t mq_idx;
 	const struct mqopt_item *item;
@@ -355,7 +355,7 @@ SR_PRIV uint16_t ut181a_get_mode_from_mq_flags(enum sr_mq mq, enum sr_mqflag mqf
 	return 0;
 }
 
-SR_PRIV GVariant *ut181a_get_mq_flags_list_item(enum sr_mq mq, enum sr_mqflag mqflag)
+OTC_PRIV GVariant *ut181a_get_mq_flags_list_item(enum otc_mq mq, enum otc_mqflag mqflag)
 {
 	GVariant *arr[2], *tuple;
 
@@ -366,7 +366,7 @@ SR_PRIV GVariant *ut181a_get_mq_flags_list_item(enum sr_mq mq, enum sr_mqflag mq
 	return tuple;
 }
 
-SR_PRIV GVariant *ut181a_get_mq_flags_list(void)
+OTC_PRIV GVariant *ut181a_get_mq_flags_list(void)
 {
 	GVariantBuilder gvb;
 	GVariant *tuple, *list;
@@ -469,7 +469,7 @@ static void ut181a_add_ranges_list(GVariantBuilder *b, const char **l)
 	}
 }
 
-SR_PRIV GVariant *ut181a_get_ranges_list(void)
+OTC_PRIV GVariant *ut181a_get_ranges_list(void)
 {
 	GVariantBuilder gvb;
 	GVariant *list;
@@ -507,7 +507,7 @@ SR_PRIV GVariant *ut181a_get_ranges_list(void)
 	return list;
 }
 
-SR_PRIV const char *ut181a_get_range_from_packet_bytes(struct dev_context *devc)
+OTC_PRIV const char *ut181a_get_range_from_packet_bytes(struct dev_context *devc)
 {
 	uint16_t mode;
 	uint8_t range;
@@ -659,7 +659,7 @@ SR_PRIV const char *ut181a_get_range_from_packet_bytes(struct dev_context *devc)
 	return *ranges;
 }
 
-SR_PRIV int ut181a_set_range_from_text(const struct sr_dev_inst *sdi, const char *text)
+OTC_PRIV int ut181a_set_range_from_text(const struct otc_dev_inst *sdi, const char *text)
 {
 	struct dev_context *devc;
 	uint16_t mode;
@@ -668,15 +668,15 @@ SR_PRIV int ut181a_set_range_from_text(const struct sr_dev_inst *sdi, const char
 
 	/* We must have determined the meter's current mode first. */
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!text || !*text)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	mode = devc->info.meas_head.mode;
 	if (!mode)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Handle the simple case of "auto" caller spec. */
 	if (strcmp(text, range_auto) == 0) {
@@ -764,12 +764,12 @@ SR_PRIV int ut181a_set_range_from_text(const struct sr_dev_inst *sdi, const char
 	 */
 	case MODE_CONT_SHORT:
 	case MODE_CONT_OPEN:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 		ranges = ranges_ohm_600;
 		break;
 	case MODE_COND:
 	case MODE_COND_REL:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 		ranges = ranges_cond;
 		break;
 	case MODE_TEMP_C_T1_and_T2:
@@ -778,7 +778,7 @@ SR_PRIV int ut181a_set_range_from_text(const struct sr_dev_inst *sdi, const char
 	case MODE_TEMP_C_T2_and_T1_REL:
 	case MODE_TEMP_C_T1_minus_T2:
 	case MODE_TEMP_C_T2_minus_T1:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 		ranges = ranges_temp_c;
 		break;
 	case MODE_TEMP_F_T1_and_T2:
@@ -787,13 +787,13 @@ SR_PRIV int ut181a_set_range_from_text(const struct sr_dev_inst *sdi, const char
 	case MODE_TEMP_F_T2_and_T1_REL:
 	case MODE_TEMP_F_T1_minus_T2:
 	case MODE_TEMP_F_T2_minus_T1:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 		ranges = ranges_temp_f;
 		break;
 	/* Diode, always 3V. */
 	case MODE_DIODE:
 	case MODE_DIODE_ALARM:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 		ranges = ranges_volt_diode;
 		break;
 	/* High current (A range). Always 20A. */
@@ -806,13 +806,13 @@ SR_PRIV int ut181a_set_range_from_text(const struct sr_dev_inst *sdi, const char
 	case MODE_A_AC_REL:
 	case MODE_A_AC_Hz:
 	case MODE_A_AC_PEAK:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 		ranges = ranges_amp_a;
 		break;
 
 	/* Unknown mode? Programming error? */
 	default:
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 	}
 
 	/* Lookup the range in the list of the mode's ranges. */
@@ -825,7 +825,7 @@ SR_PRIV int ut181a_set_range_from_text(const struct sr_dev_inst *sdi, const char
 		}
 		return ut181a_send_cmd_setrange(sdi->conn, range);
 	}
-	return SR_ERR_ARG;
+	return OTC_ERR_ARG;
 }
 
 /**
@@ -834,7 +834,7 @@ SR_PRIV int ut181a_set_range_from_text(const struct sr_dev_inst *sdi, const char
  * @param[out] mqs The scale/MQ/unit details to fill in.
  * @param[in] text The DMM's "unit text" (string label).
  *
- * @returns SR_OK upon success, SR_ERR_* upon error.
+ * @returns OTC_OK upon success, OTC_ERR_* upon error.
  *
  * UT181A unit text strings encode several details: They start with an
  * optional prefix (which communicates a scale factor), specify the unit
@@ -871,12 +871,12 @@ static int ut181a_get_mq_details_from_text(struct mq_scale_params *mqs, const ch
 {
 	char scale_char;
 	int scale;
-	enum sr_mq mq;
-	enum sr_mqflag mqflags;
-	enum sr_unit unit;
+	enum otc_mq mq;
+	enum otc_mqflag mqflags;
+	enum otc_unit unit;
 
 	if (!mqs)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	memset(mqs, 0, sizeof(*mqs));
 
 	/* Start from unknown state, no modifiers. */
@@ -907,64 +907,64 @@ static int ut181a_get_mq_details_from_text(struct mq_scale_params *mqs, const ch
 	/* Guess the MQ (and flags) from the unit text. */
 	if (g_str_has_prefix(text, "F")) {
 		text += strlen("F");
-		unit = SR_UNIT_FARAD;
+		unit = OTC_UNIT_FARAD;
 		if (!mq)
-			mq = SR_MQ_CAPACITANCE;
+			mq = OTC_MQ_CAPACITANCE;
 	} else if (g_str_has_prefix(text, "dBV")) {
 		text += strlen("dBV");
-		unit = SR_UNIT_DECIBEL_VOLT;
+		unit = OTC_UNIT_DECIBEL_VOLT;
 		if (!mq)
-			mq = SR_MQ_GAIN;
+			mq = OTC_MQ_GAIN;
 	} else if (g_str_has_prefix(text, "dBm")) {
 		text += strlen("dBm");
-		unit = SR_UNIT_DECIBEL_MW;
+		unit = OTC_UNIT_DECIBEL_MW;
 		if (!mq)
-			mq = SR_MQ_GAIN;
+			mq = OTC_MQ_GAIN;
 	} else if (g_str_has_prefix(text, "~")) {
 		text += strlen("~");
-		unit = SR_UNIT_OHM;
+		unit = OTC_UNIT_OHM;
 		if (!mq)
-			mq = SR_MQ_RESISTANCE;
+			mq = OTC_MQ_RESISTANCE;
 	} else if (g_str_has_prefix(text, "S")) {
 		text += strlen("S");
-		unit = SR_UNIT_SIEMENS;
+		unit = OTC_UNIT_SIEMENS;
 		if (!mq)
-			mq = SR_MQ_CONDUCTANCE;
+			mq = OTC_MQ_CONDUCTANCE;
 	} else if (g_str_has_prefix(text, "%")) {
 		text += strlen("%");
-		unit = SR_UNIT_PERCENTAGE;
+		unit = OTC_UNIT_PERCENTAGE;
 		if (!mq)
-			mq = SR_MQ_DUTY_CYCLE;
+			mq = OTC_MQ_DUTY_CYCLE;
 	} else if (g_str_has_prefix(text, "s")) {
 		text += strlen("s");
-		unit = SR_UNIT_SECOND;
+		unit = OTC_UNIT_SECOND;
 		if (!mq)
-			mq = SR_MQ_PULSE_WIDTH;
+			mq = OTC_MQ_PULSE_WIDTH;
 	} else if (g_str_has_prefix(text, "Hz")) {
 		text += strlen("Hz");
-		unit = SR_UNIT_HERTZ;
+		unit = OTC_UNIT_HERTZ;
 		if (!mq)
-			mq = SR_MQ_FREQUENCY;
+			mq = OTC_MQ_FREQUENCY;
 	} else if (g_str_has_prefix(text, "\xb0" "C")) {
 		text += strlen("\xb0" "C");
-		unit = SR_UNIT_CELSIUS;
+		unit = OTC_UNIT_CELSIUS;
 		if (!mq)
-			mq = SR_MQ_TEMPERATURE;
+			mq = OTC_MQ_TEMPERATURE;
 	} else if (g_str_has_prefix(text, "\xb0" "F")) {
 		text += strlen("\xb0" "F");
-		unit = SR_UNIT_FAHRENHEIT;
+		unit = OTC_UNIT_FAHRENHEIT;
 		if (!mq)
-			mq = SR_MQ_TEMPERATURE;
+			mq = OTC_MQ_TEMPERATURE;
 	} else if (g_str_has_prefix(text, "A")) {
 		text += strlen("A");
-		unit = SR_UNIT_AMPERE;
+		unit = OTC_UNIT_AMPERE;
 		if (!mq)
-			mq = SR_MQ_CURRENT;
+			mq = OTC_MQ_CURRENT;
 	} else if (g_str_has_prefix(text, "V")) {
 		text += strlen("V");
-		unit = SR_UNIT_VOLT;
+		unit = OTC_UNIT_VOLT;
 		if (!mq)
-			mq = SR_MQ_VOLTAGE;
+			mq = OTC_MQ_VOLTAGE;
 	} else if (g_str_has_prefix(text, "timestamp")) {
 		/*
 		 * The meter never provides this "timestamp" label,
@@ -972,21 +972,21 @@ static int ut181a_get_mq_details_from_text(struct mq_scale_params *mqs, const ch
 		 * the MQ details filled in for save/record stamps.
 		 */
 		text += strlen("timestamp");
-		unit = SR_UNIT_SECOND;
+		unit = OTC_UNIT_SECOND;
 		if (!mq)
-			mq = SR_MQ_TIME;
+			mq = OTC_MQ_TIME;
 	}
 
 	/* Amend MQ flags from an optional suffix. */
 	if (g_str_has_prefix(text, "ac+dc")) {
 		text += strlen("ac+dc");
-		mqflags |= SR_MQFLAG_AC | SR_MQFLAG_DC;
+		mqflags |= OTC_MQFLAG_AC | OTC_MQFLAG_DC;
 	} else if (g_str_has_prefix(text, "AC")) {
 		text += strlen("AC");
-		mqflags |= SR_MQFLAG_AC;
+		mqflags |= OTC_MQFLAG_AC;
 	} else if (g_str_has_prefix(text, "DC")) {
 		text += strlen("DC");
-		mqflags |= SR_MQFLAG_DC;
+		mqflags |= OTC_MQFLAG_DC;
 	}
 
 	/* Put all previously determined details into the container. */
@@ -995,7 +995,7 @@ static int ut181a_get_mq_details_from_text(struct mq_scale_params *mqs, const ch
 	mqs->mqflags = mqflags;
 	mqs->unit = unit;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1061,9 +1061,9 @@ static uint16_t ut181a_checksum(const uint8_t *data, size_t dlen)
  * @param[in] data Payload bytes.
  * @param[in] dlen Payload length.
  *
- * @returns >= 0 upon success, negative upon failure (SR_ERR codes)
+ * @returns >= 0 upon success, negative upon failure (OTC_ERR codes)
  */
-static int ut181a_send_frame(struct sr_serial_dev_inst *serial,
+static int ut181a_send_frame(struct otc_serial_dev_inst *serial,
 	const uint8_t *data, size_t dlen)
 {
 	uint8_t frame_buff[SEND_BUFF_SIZE];
@@ -1073,11 +1073,11 @@ static int ut181a_send_frame(struct sr_serial_dev_inst *serial,
 	uint16_t cs_value;
 	int ret;
 
-	if (FRAME_DUMP_BYTES && sr_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
+	if (FRAME_DUMP_BYTES && otc_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
 		GString *spew;
-		spew = sr_hexdump_new(data, dlen);
+		spew = otc_hexdump_new(data, dlen);
 		FRAME_DUMP_CALL("TX payload, %zu bytes: %s", dlen, spew->str);
-		sr_hexdump_free(spew);
+		otc_hexdump_free(spew);
 	}
 
 	/*
@@ -1085,7 +1085,7 @@ static int ut181a_send_frame(struct sr_serial_dev_inst *serial,
 	 * bytes and checksum. Check for the available space.
 	 */
 	if (dlen > sizeof(frame_buff) - 3 * sizeof(uint16_t)) {
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
 	/*
@@ -1107,22 +1107,22 @@ static int ut181a_send_frame(struct sr_serial_dev_inst *serial,
 	WL16(&frame_buff[frame_off], cs_value);
 	frame_off += sizeof(uint16_t);
 
-	if (FRAME_DUMP_FRAME && sr_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
+	if (FRAME_DUMP_FRAME && otc_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
 		GString *spew;
-		spew = sr_hexdump_new(frame_buff, frame_off);
+		spew = otc_hexdump_new(frame_buff, frame_off);
 		FRAME_DUMP_CALL("TX frame, %zu bytes: %s", frame_off, spew->str);
-		sr_hexdump_free(spew);
+		otc_hexdump_free(spew);
 	}
 
 	ret = serial_write_blocking(serial, frame_buff, frame_off, SEND_TO_MS);
 	if (ret < 0)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Construct and transmit "set mode" command. */
-SR_PRIV int ut181a_send_cmd_setmode(struct sr_serial_dev_inst *serial, uint16_t mode)
+OTC_PRIV int ut181a_send_cmd_setmode(struct otc_serial_dev_inst *serial, uint16_t mode)
 {
 	uint8_t cmd[sizeof(uint8_t) + sizeof(uint16_t)];
 	size_t cmd_off;
@@ -1136,7 +1136,7 @@ SR_PRIV int ut181a_send_cmd_setmode(struct sr_serial_dev_inst *serial, uint16_t 
 }
 
 /* Construct and transmit "set range" command. */
-SR_PRIV int ut181a_send_cmd_setrange(struct sr_serial_dev_inst *serial, uint8_t range)
+OTC_PRIV int ut181a_send_cmd_setrange(struct otc_serial_dev_inst *serial, uint8_t range)
 {
 	uint8_t cmd[sizeof(uint8_t) + sizeof(uint8_t)];
 	size_t cmd_off;
@@ -1149,7 +1149,7 @@ SR_PRIV int ut181a_send_cmd_setrange(struct sr_serial_dev_inst *serial, uint8_t 
 }
 
 /* Construct and transmit "monitor on/off" command. */
-SR_PRIV int ut181a_send_cmd_monitor(struct sr_serial_dev_inst *serial, gboolean on)
+OTC_PRIV int ut181a_send_cmd_monitor(struct otc_serial_dev_inst *serial, gboolean on)
 {
 	uint8_t cmd[sizeof(uint8_t) + sizeof(uint8_t)];
 	size_t cmd_off;
@@ -1162,7 +1162,7 @@ SR_PRIV int ut181a_send_cmd_monitor(struct sr_serial_dev_inst *serial, gboolean 
 }
 
 /* Construct and transmit "get saved measurements count" command. */
-SR_PRIV int ut181a_send_cmd_get_save_count(struct sr_serial_dev_inst *serial)
+OTC_PRIV int ut181a_send_cmd_get_save_count(struct otc_serial_dev_inst *serial)
 {
 	uint8_t cmd;
 
@@ -1174,7 +1174,7 @@ SR_PRIV int ut181a_send_cmd_get_save_count(struct sr_serial_dev_inst *serial)
  * Construct and transmit "get saved measurement value" command.
  * Important: Callers use 0-based index, protocol needs 1-based index.
  */
-SR_PRIV int ut181a_send_cmd_get_saved_value(struct sr_serial_dev_inst *serial, size_t idx)
+OTC_PRIV int ut181a_send_cmd_get_saved_value(struct otc_serial_dev_inst *serial, size_t idx)
 {
 	uint8_t cmd[sizeof(uint8_t) + sizeof(uint16_t)];
 	size_t cmd_off;
@@ -1188,7 +1188,7 @@ SR_PRIV int ut181a_send_cmd_get_saved_value(struct sr_serial_dev_inst *serial, s
 }
 
 /* Construct and transmit "get recordings count" command. */
-SR_PRIV int ut181a_send_cmd_get_recs_count(struct sr_serial_dev_inst *serial)
+OTC_PRIV int ut181a_send_cmd_get_recs_count(struct otc_serial_dev_inst *serial)
 {
 	uint8_t cmd;
 
@@ -1200,7 +1200,7 @@ SR_PRIV int ut181a_send_cmd_get_recs_count(struct sr_serial_dev_inst *serial)
  * Construct and transmit "get recording information" command.
  * Important: Callers use 0-based index, protocol needs 1-based index.
  */
-SR_PRIV int ut181a_send_cmd_get_rec_info(struct sr_serial_dev_inst *serial, size_t idx)
+OTC_PRIV int ut181a_send_cmd_get_rec_info(struct otc_serial_dev_inst *serial, size_t idx)
 {
 	uint8_t cmd[sizeof(uint8_t) + sizeof(uint16_t)];
 	size_t cmd_off;
@@ -1217,7 +1217,7 @@ SR_PRIV int ut181a_send_cmd_get_rec_info(struct sr_serial_dev_inst *serial, size
  * Construct and transmit "get recording samples" command.
  * Important: Callers use 0-based index, protocol needs 1-based index.
  */
-SR_PRIV int ut181a_send_cmd_get_rec_samples(struct sr_serial_dev_inst *serial, size_t idx, size_t off)
+OTC_PRIV int ut181a_send_cmd_get_rec_samples(struct otc_serial_dev_inst *serial, size_t idx, size_t off)
 {
 	uint8_t cmd[sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint32_t)];
 	size_t cmd_off;
@@ -1250,7 +1250,7 @@ SR_PRIV int ut181a_send_cmd_get_rec_samples(struct sr_serial_dev_inst *serial, s
  * @param[in] want_save_count Saved count wanted, boolean.
  * @param[in] want_sample_count Samples count wanted, boolean.
  */
-SR_PRIV int ut181a_configure_waitfor(struct dev_context *devc,
+OTC_PRIV int ut181a_configure_waitfor(struct dev_context *devc,
 	gboolean want_code, enum ut181_cmd_code want_data,
 	enum ut181_rsp_type want_rsp_type,
 	gboolean want_measure, gboolean want_rec_count,
@@ -1271,7 +1271,7 @@ SR_PRIV int ut181a_configure_waitfor(struct dev_context *devc,
 	devc->wait_state.want_measure = want_measure;
 	memset(&devc->last_data, 0, sizeof(devc->last_data));
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -1280,14 +1280,14 @@ SR_PRIV int ut181a_configure_waitfor(struct dev_context *devc,
  * @param[in] sdi The device instance.
  * @param[in] timeout_ms The timeout in milliseconds.
  *
- * @returns SR_OK upon success, SR_ERR_* upon error.
+ * @returns OTC_OK upon success, OTC_ERR_* upon error.
  *
  * This routine waits for the complete reception of a response (any kind)
  * after a command was previously sent by the caller, or terminates when
  * the timeout has expired without reception of a response. Callers need
  * to check the kind of response (data values, or status, or error codes).
  */
-SR_PRIV int ut181a_waitfor_response(const struct sr_dev_inst *sdi, int timeout_ms)
+OTC_PRIV int ut181a_waitfor_response(const struct otc_dev_inst *sdi, int timeout_ms)
 {
 	struct dev_context *devc;
 	gint64 deadline, delay;
@@ -1303,7 +1303,7 @@ SR_PRIV int ut181a_waitfor_response(const struct sr_dev_inst *sdi, int timeout_m
 	while (1) {
 		gboolean got_wanted;
 		if (g_get_monotonic_time() >= deadline)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		if (delay)
 			g_usleep(delay);
 		delay = 100;
@@ -1324,7 +1324,7 @@ SR_PRIV int ut181a_waitfor_response(const struct sr_dev_inst *sdi, int timeout_m
 		if (state->want_data == CMD_CODE_GET_REC_INFO && state->got_sample_count)
 			got_wanted = TRUE;
 		if (got_wanted)
-			return SR_OK;
+			return OTC_OK;
 	}
 }
 
@@ -1335,7 +1335,7 @@ static int ut181a_get_value_params(struct value_params *params, float value, uin
 {
 
 	if (!params)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	memset(params, 0, sizeof(*params));
 	params->value = value;
@@ -1343,10 +1343,10 @@ static int ut181a_get_value_params(struct value_params *params, float value, uin
 	params->ol_neg = (prec & (1 << 1)) ? 1 : 0;
 	params->ol_pos = (prec & (1 << 0)) ? 1 : 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void ut181a_cond_stop_acquisition(struct sr_dev_inst *sdi)
+static void ut181a_cond_stop_acquisition(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -1356,8 +1356,8 @@ static void ut181a_cond_stop_acquisition(struct sr_dev_inst *sdi)
 	if (!devc)
 		return;
 
-	if (sdi->status == SR_ST_ACTIVE)
-		sr_dev_acquisition_stop(sdi);
+	if (sdi->status == OTC_ST_ACTIVE)
+		otc_dev_acquisition_stop(sdi);
 }
 
 /**
@@ -1366,18 +1366,18 @@ static void ut181a_cond_stop_acquisition(struct sr_dev_inst *sdi)
  * @param[in] sdi The device instance.
  * @param[in] interval The sample interval in seconds.
  *
- * @returns SR_OK upon success, SR_ERR_* upon error.
+ * @returns OTC_OK upon success, OTC_ERR_* upon error.
  *
  * The DMM records data at intervals which are multiples of seconds.
- * The @ref SR_CONF_SAMPLERATE key cannot express the rate values which
- * are below 1Hz. Instead the @ref SR_CONF_SAMPLE_INTERVAL key is sent,
+ * The @ref OTC_CONF_SAMPLERATE key cannot express the rate values which
+ * are below 1Hz. Instead the @ref OTC_CONF_SAMPLE_INTERVAL key is sent,
  * which applications may or may not support.
  */
-static int ut181a_feed_send_rate(struct sr_dev_inst *sdi, int interval)
+static int ut181a_feed_send_rate(struct otc_dev_inst *sdi, int interval)
 {
 #if 1
-	return sr_session_send_meta(sdi,
-		SR_CONF_SAMPLE_INTERVAL, g_variant_new_uint64(interval));
+	return otc_session_send_meta(sdi,
+		OTC_CONF_SAMPLE_INTERVAL, g_variant_new_uint64(interval));
 #else
 	uint64_t rate;
 
@@ -1391,8 +1391,8 @@ static int ut181a_feed_send_rate(struct sr_dev_inst *sdi, int interval)
 	(void)interval;
 	rate = 0;
 
-	return sr_session_send_meta(sdi,
-		SR_CONF_SAMPLERATE, g_variant_new_uint64(rate));
+	return otc_session_send_meta(sdi,
+		OTC_CONF_SAMPLERATE, g_variant_new_uint64(rate));
 #endif
 }
 
@@ -1409,7 +1409,7 @@ static int ut181a_feedbuff_initialize(struct feed_buffer *buff)
 	 * As do the MQ and unit fields and the channel list.
 	 */
 	memset(&buff->packet, 0, sizeof(buff->packet));
-	sr_analog_init(&buff->analog, &buff->encoding, &buff->meaning, &buff->spec, 0);
+	otc_analog_init(&buff->analog, &buff->encoding, &buff->meaning, &buff->spec, 0);
 	buff->analog.meaning->mq = 0;
 	buff->analog.meaning->mqflags = 0;
 	buff->analog.meaning->unit = 0;
@@ -1419,10 +1419,10 @@ static int ut181a_feedbuff_initialize(struct feed_buffer *buff)
 	buff->analog.spec->spec_digits = 0;
 	buff->analog.num_samples = 1;
 	buff->analog.data = &buff->main_value;
-	buff->packet.type = SR_DF_ANALOG;
+	buff->packet.type = OTC_DF_ANALOG;
 	buff->packet.payload = &buff->analog;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -1442,7 +1442,7 @@ static int ut181a_feedbuff_setup_unit(struct feed_buffer *buff, const char *text
 	buff->analog.meaning->mqflags = scale.mqflags;
 	buff->analog.meaning->unit = scale.unit;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -1453,7 +1453,7 @@ static int ut181a_feedbuff_setup_value(struct feed_buffer *buff,
 {
 
 	if (!buff || !value)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (buff->scale) {
 		value->value *= pow(10, buff->scale);
@@ -1468,50 +1468,50 @@ static int ut181a_feedbuff_setup_value(struct feed_buffer *buff,
 	buff->analog.encoding->digits = value->digits;
 	buff->analog.spec->spec_digits = value->digits;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
  * Setup feed buffer's channel before submission of values.
  */
 static int ut181a_feedbuff_setup_channel(struct feed_buffer *buff,
-	enum ut181a_channel_idx ch, struct sr_dev_inst *sdi)
+	enum ut181a_channel_idx ch, struct otc_dev_inst *sdi)
 {
 
 	if (!buff || !sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!buff->analog.meaning)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	g_slist_free(buff->analog.meaning->channels);
 	buff->analog.meaning->channels = g_slist_append(NULL,
 		g_slist_nth_data(sdi->channels, ch));
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
  * Send previously configured feed buffer's content to the session.
  */
 static int ut181a_feedbuff_send_feed(struct feed_buffer *buff,
-	struct sr_dev_inst *sdi, size_t count)
+	struct otc_dev_inst *sdi, size_t count)
 {
 	int ret;
 	struct dev_context *devc;
 
 	if (!buff || !sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	if (sdi->status != SR_ST_ACTIVE)
-		return SR_OK;
+	if (sdi->status != OTC_ST_ACTIVE)
+		return OTC_OK;
 	devc = sdi->priv;
 	if (!devc || devc->disable_feed)
-		return SR_OK;
+		return OTC_OK;
 
-	ret = sr_session_send(sdi, &buff->packet);
-	if (ret == SR_OK && count && sdi->priv) {
-		sr_sw_limits_update_samples_read(&devc->limits, count);
-		if (sr_sw_limits_check(&devc->limits))
+	ret = otc_session_send(sdi, &buff->packet);
+	if (ret == OTC_OK && count && sdi->priv) {
+		otc_sw_limits_update_samples_read(&devc->limits, count);
+		if (otc_sw_limits_check(&devc->limits))
 			ut181a_cond_stop_acquisition(sdi);
 	}
 
@@ -1524,53 +1524,53 @@ static int ut181a_feedbuff_send_feed(struct feed_buffer *buff,
 static int ut181a_feedbuff_cleanup(struct feed_buffer *buff)
 {
 	if (!buff)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (buff->analog.meaning)
 		g_slist_free(buff->analog.meaning->channels);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int ut181a_feedbuff_start_frame(struct sr_dev_inst *sdi)
+static int ut181a_feedbuff_start_frame(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
 
 	devc = sdi->priv;
 	if (devc->disable_feed)
-		return SR_OK;
+		return OTC_OK;
 	if (devc->frame_started)
-		return SR_OK;
+		return OTC_OK;
 
 	ret = std_session_send_df_frame_begin(sdi);
-	if (ret == SR_OK)
+	if (ret == OTC_OK)
 		devc->frame_started = TRUE;
 
 	return ret;
 }
 
-static int ut181a_feedbuff_count_frame(struct sr_dev_inst *sdi)
+static int ut181a_feedbuff_count_frame(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
 
 	devc = sdi->priv;
 	if (devc->disable_feed)
-		return SR_OK;
+		return OTC_OK;
 	if (!devc->frame_started)
-		return SR_OK;
+		return OTC_OK;
 
 	ret = std_session_send_df_frame_end(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	devc->frame_started = FALSE;
 
-	sr_sw_limits_update_frames_read(&devc->limits, 1);
-	if (sr_sw_limits_check(&devc->limits))
+	otc_sw_limits_update_frames_read(&devc->limits, 1);
+	if (otc_sw_limits_check(&devc->limits))
 		ut181a_cond_stop_acquisition(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Deserializing helpers which also advance the read pointer. */
@@ -1579,11 +1579,11 @@ static int check_len(size_t *got, size_t want)
 {
 
 	if (!got)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (want > *got)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void advance_len(const uint8_t **p, size_t *l, size_t sz)
@@ -1605,14 +1605,14 @@ static int consume_u8(uint8_t *v, const uint8_t **p, size_t *l)
 
 	sz = sizeof(uint8_t);
 	ret = check_len(l, sz);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (v)
 		*v = R8(*p);
 	advance_len(p, l, sz);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int consume_u16(uint16_t *v, const uint8_t **p, size_t *l)
@@ -1625,14 +1625,14 @@ static int consume_u16(uint16_t *v, const uint8_t **p, size_t *l)
 
 	sz = sizeof(uint16_t);
 	ret = check_len(l, sz);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (v)
 		*v = RL16(*p);
 	advance_len(p, l, sz);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int consume_u32(uint32_t *v, const uint8_t **p, size_t *l)
@@ -1645,14 +1645,14 @@ static int consume_u32(uint32_t *v, const uint8_t **p, size_t *l)
 
 	sz = sizeof(uint32_t);
 	ret = check_len(l, sz);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (v)
 		*v = RL32(*p);
 	advance_len(p, l, sz);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int consume_flt(float *v, const uint8_t **p, size_t *l)
@@ -1665,14 +1665,14 @@ static int consume_flt(float *v, const uint8_t **p, size_t *l)
 
 	sz = sizeof(float);
 	ret = check_len(l, sz);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (v)
 		*v = RLFL(*p);
 	advance_len(p, l, sz);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1688,7 +1688,7 @@ static int consume_str(char *buff, size_t sz, const uint8_t **p, size_t *l)
 		*buff = '\0';
 
 	ret = check_len(l, sz);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -1698,7 +1698,7 @@ static int consume_str(char *buff, size_t sz, const uint8_t **p, size_t *l)
 	v = (const char *)*p;
 	advance_len(p, l, sz);
 	if (!buff)
-		return SR_OK;
+		return OTC_OK;
 
 	/*
 	 * Trim leading space off the input text. Then copy the remaining
@@ -1723,11 +1723,11 @@ static int consume_str(char *buff, size_t sz, const uint8_t **p, size_t *l)
 		buff[--sz] = '\0';
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Process a DMM packet (a frame in the serial protocol). */
-static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
+static int process_packet(struct otc_dev_inst *sdi, uint8_t *pkt, size_t len)
 {
 	struct dev_context *devc;
 	struct wait_state *state;
@@ -1736,7 +1736,7 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 	const uint8_t *cs_data, *payload;
 	size_t cs_dlen, pl_dlen;
 	uint8_t rsp_type;
-	enum sr_mqflag add_mqflags;
+	enum otc_mqflag add_mqflags;
 	char unit_buff[8], rec_name_buff[11];
 	const char *unit_text, *rec_name;
 	struct feed_buffer feedbuff;
@@ -1753,11 +1753,11 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 	devc = sdi ? sdi->priv : NULL;
 	state = devc ? &devc->wait_state : NULL;
 	info = devc ? &devc->info : NULL;
-	if (FRAME_DUMP_FRAME && sr_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
+	if (FRAME_DUMP_FRAME && otc_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
 		GString *spew;
-		spew = sr_hexdump_new(pkt, len);
+		spew = otc_hexdump_new(pkt, len);
 		FRAME_DUMP_CALL("RX frame, %zu bytes: %s", len, spew->str);
-		sr_hexdump_free(spew);
+		otc_hexdump_free(spew);
 	}
 
 	/*
@@ -1775,7 +1775,7 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			FRAME_DUMP_CALL("Insufficient frame data, need %zu, got %zu.",
 				3 * sizeof(uint16_t), len);
 		}
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
 	got_magic = RL16(&pkt[0]);
@@ -1784,7 +1784,7 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			FRAME_DUMP_CALL("Frame magic mismatch, want 0x%04x, got 0x%04x.",
 				(unsigned int)FRAME_MAGIC, (unsigned int)got_magic);
 		}
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
 	got_length = RL16(&pkt[sizeof(uint16_t)]);
@@ -1793,7 +1793,7 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			FRAME_DUMP_CALL("Frame length mismatch, want %zu, got %u.",
 				len - 2 * sizeof(uint16_t), got_length);
 		}
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
 	payload = &pkt[2 * sizeof(uint16_t)];
@@ -1808,15 +1808,15 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			FRAME_DUMP_CALL("Frame checksum mismatch, want 0x%04x, got 0x%04x.",
 				(unsigned int)want_cs, (unsigned int)got_cs);
 		}
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 	if (state)
 		state->response_count++;
-	if (FRAME_DUMP_BYTES && sr_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
+	if (FRAME_DUMP_BYTES && otc_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
 		GString *spew;
-		spew = sr_hexdump_new(payload, pl_dlen);
+		spew = otc_hexdump_new(payload, pl_dlen);
 		FRAME_DUMP_CALL("RX payload, %zu bytes: %s", pl_dlen, spew->str);
-		sr_hexdump_free(spew);
+		otc_hexdump_free(spew);
 	}
 
 	/*
@@ -1824,8 +1824,8 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 	 * a packet type which specifies how to interpret the remainder.
 	 */
 	ret = consume_u8(&v8, &payload, &pl_dlen);
-	if (ret != SR_OK) {
-		sr_err("Insufficient payload data, need packet type.");
+	if (ret != OTC_OK) {
+		otc_err("Insufficient payload data, need packet type.");
 		return ret;
 	}
 	rsp_type = v8;
@@ -1840,8 +1840,8 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		 * "string literals" to communicate boolean state.
 		 */
 		ret = consume_u16(&v16, &payload, &pl_dlen);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 		if (info) {
 			info->reply_code.code = v16;
 			info->reply_code.ok = v16 == REPLY_CODE_OK;
@@ -1857,8 +1857,8 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		 * measurement (FALLTHROUGH).
 		 */
 		ret = consume_u32(&v32, &payload, &pl_dlen);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 		if (info)
 			info->save_time.stamp = v32;
 		v32 = ut181a_get_epoch_for_timestamp(v32);
@@ -1868,9 +1868,9 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 #if UT181A_WITH_TIMESTAMP
 		if (devc) {
 			ret = ut181a_feedbuff_start_frame(sdi);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
-			ret = SR_OK;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_initialize(&feedbuff);
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_TIME, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, "timestamp");
@@ -1878,8 +1878,8 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 0);
 			ret |= ut181a_feedbuff_cleanup(&feedbuff);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 #endif
 		if (info)
@@ -1896,15 +1896,15 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		 * are available.
 		 */
 		if (!info)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 
 		/*
 		 * Get the header fields (misc1, misc2, mode, and range),
 		 * derive local packet type details and flags from them.
 		 */
 		ret = consume_u8(&v8, &payload, &pl_dlen);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 		info->meas_head.misc1 = v8;
 		info->meas_head.has_hold = (v8 & 0x80) ? 1 : 0;
 		info->meas_head.is_type = (v8 & 0x70) >> 4;
@@ -1917,8 +1917,8 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		info->meas_head.has_aux1 = (v8 & 0x2) ? 1 : 0;
 
 		ret = consume_u8(&v8, &payload, &pl_dlen);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 		info->meas_head.misc2 = v8;
 		info->meas_head.is_rec = (v8 & 0x20) ? 1 : 0;
 		if (devc)
@@ -1929,31 +1929,31 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		info->meas_head.is_auto_range = (v8 & 0x1) ? 1 : 0;
 
 		ret = consume_u16(&v16, &payload, &pl_dlen);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 		info->meas_head.mode = v16;
 		mqitem = ut181a_get_mqitem_from_mode(v16);
 		if (!mqitem || !mqitem->mq)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		add_mqflags |= mqitem->mqflags;
 		if (info->meas_head.has_hold)
-			add_mqflags |= SR_MQFLAG_HOLD;
+			add_mqflags |= OTC_MQFLAG_HOLD;
 		if (info->meas_head.is_auto_range)
-			add_mqflags |= SR_MQFLAG_AUTORANGE;
-		if (add_mqflags & SR_MQFLAG_DIODE)
-			add_mqflags |= SR_MQFLAG_DC;
+			add_mqflags |= OTC_MQFLAG_AUTORANGE;
+		if (add_mqflags & OTC_MQFLAG_DIODE)
+			add_mqflags |= OTC_MQFLAG_DC;
 
 		ret = consume_u8(&v8, &payload, &pl_dlen);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 		info->meas_head.range = v8;
 
 		if (state && state->want_measure)
 			state->got_measure = TRUE;
 
 		ret = ut181a_feedbuff_start_frame(sdi);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 
 		/*
 		 * The remaining measurement's layout depends on type.
@@ -1995,101 +1995,101 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		if (info->meas_head.is_norm) {
 			/* Main value, unconditional. Get details. */
 			ret = consume_flt(&vf, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.norm.main_value = vf;
 			ret = consume_u8(&v8, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.norm.main_prec = v8;
 			ret = consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 			unit_text = &unit_buff[0];
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			snprintf(info->meas_data.norm.main_unit,
 				sizeof(info->meas_data.norm.main_unit),
 				"%s", unit_text);
 			unit_text = info->meas_data.norm.main_unit;
 
 			/* Submit main value to session feed. */
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_MAIN, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
 			feedbuff.analog.meaning->mqflags |= add_mqflags;
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 1);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 		if (info->meas_head.is_norm && info->meas_head.has_aux1) {
 			/* Aux1 value, optional. Get details. */
 			ret = consume_flt(&vf, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.norm.aux1_value = vf;
 			ret = consume_u8(&v8, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.norm.aux1_prec = v8;
 			ret = consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 			unit_text = &unit_buff[0];
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			snprintf(info->meas_data.norm.aux1_unit,
 				sizeof(info->meas_data.norm.aux1_unit),
 				"%s", unit_text);
 			unit_text = info->meas_data.norm.aux1_unit;
 
 			/* Submit aux1 value to session feed. */
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_AUX1, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 0);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 		if (info->meas_head.is_norm && info->meas_head.has_aux2) {
 			/* Aux2 value, optional. Get details. */
 			ret = consume_flt(&vf, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.norm.aux2_value = vf;
 			ret = consume_u8(&v8, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.norm.aux2_prec = v8;
 			ret = consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 			unit_text = &unit_buff[0];
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			snprintf(info->meas_data.norm.aux2_unit,
 				sizeof(info->meas_data.norm.aux2_unit),
 				"%s", unit_text);
 			unit_text = info->meas_data.norm.aux2_unit;
 
 			/* Submit aux2 value to session feed. */
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_AUX2, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 0);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 		if (info->meas_head.is_norm && info->meas_head.has_bar) {
 			/* Bargraph value, optional. */
 			ret = consume_flt(&vf, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.norm.bar_value = vf;
 			ret = consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 			unit_text = &unit_buff[0];
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			snprintf(info->meas_data.norm.bar_unit,
 				sizeof(info->meas_data.norm.bar_unit),
 				"%s", unit_text);
@@ -2102,33 +2102,33 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			ret |= ut181a_get_value_params(&value, vf, 0x00);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 0);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 		if (info->meas_head.is_norm && info->meas_head.is_comp) {
 			/* COMP result, optional. Get details. */
 			ret = consume_u8(&v8, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			if (v8 > COMP_MODE_ABOVE)
-				return SR_ERR_DATA;
+				return OTC_ERR_DATA;
 			info->meas_data.comp.mode = v8;
 			ret = consume_u8(&v8, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.comp.fail = v8 ? TRUE : FALSE;
 			ret = consume_u8(&v8, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.comp.digits = v8 & 0x0f;
 			ret = consume_flt(&vf, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.comp.limit_high = vf;
 			if (info->meas_data.comp.mode <= COMP_MODE_OUTER) {
 				ret = consume_flt(&vf, &payload, &pl_dlen);
-				if (ret != SR_OK)
-					return SR_ERR_DATA;
+				if (ret != OTC_OK)
+					return OTC_ERR_DATA;
 				info->meas_data.comp.limit_low = vf;
 			}
 
@@ -2146,7 +2146,7 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			};
 
 			if (info->meas_data.comp.mode <= COMP_MODE_OUTER) {
-				sr_dbg("Unprocessed COMP result:"
+				otc_dbg("Unprocessed COMP result:"
 					" mode %s, %s, digits %d, low %f, high %f",
 					mode_text[info->meas_data.comp.mode],
 					info->meas_data.comp.fail ? "FAIL" : "PASS",
@@ -2154,7 +2154,7 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 					info->meas_data.comp.limit_low,
 					info->meas_data.comp.limit_high);
 			} else {
-				sr_dbg("Unprocessed COMP result:"
+				otc_dbg("Unprocessed COMP result:"
 					" mode %s, %s, digits %d, limit %f",
 					mode_text[info->meas_data.comp.mode],
 					info->meas_data.comp.fail ? "FAIL" : "PASS",
@@ -2166,132 +2166,132 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			/* Normal measurement code path done. */
 			ret = ut181a_feedbuff_cleanup(&feedbuff);
 			ret = ut181a_feedbuff_count_frame(sdi);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			break;
 		}
 
 		if (info->meas_head.is_rel) {
 			/* Relative value, unconditional. Get details. */
 			ret = consume_flt(&vf, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.rel.rel_value = vf;
 			ret = consume_u8(&v8, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.rel.rel_prec = v8;
 			ret = consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 			unit_text = &unit_buff[0];
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			snprintf(info->meas_data.rel.rel_unit,
 				sizeof(info->meas_data.rel.rel_unit),
 				"%s", unit_text);
 			unit_text = info->meas_data.rel.rel_unit;
 
 			/* Submit relative value to session feed. */
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_MAIN, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
 			feedbuff.analog.meaning->mqflags |= add_mqflags;
-			feedbuff.analog.meaning->mqflags |= SR_MQFLAG_RELATIVE;
+			feedbuff.analog.meaning->mqflags |= OTC_MQFLAG_RELATIVE;
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 1);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 		if (info->meas_head.is_rel && info->meas_head.has_aux1) {
 			/* Reference value, "conditional" in theory. */
 			ret = consume_flt(&vf, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.rel.ref_value = vf;
 			ret = consume_u8(&v8, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.rel.ref_prec = v8;
 			ret = consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 			unit_text = &unit_buff[0];
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			snprintf(info->meas_data.rel.ref_unit,
 				sizeof(info->meas_data.rel.ref_unit),
 				"%s", unit_text);
 			unit_text = info->meas_data.rel.ref_unit;
 
 			/* Submit reference value to session feed. */
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_AUX1, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
-			feedbuff.analog.meaning->mqflags |= SR_MQFLAG_REFERENCE;
+			feedbuff.analog.meaning->mqflags |= OTC_MQFLAG_REFERENCE;
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 0);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 		if (info->meas_head.is_rel && info->meas_head.has_aux2) {
 			/* Absolute value, "conditional" in theory. */
 			ret = consume_flt(&vf, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.rel.abs_value = vf;
 			ret = consume_u8(&v8, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.rel.abs_prec = v8;
 			ret = consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 			unit_text = &unit_buff[0];
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			snprintf(info->meas_data.rel.abs_unit,
 				sizeof(info->meas_data.rel.abs_unit),
 				"%s", unit_text);
 			unit_text = info->meas_data.rel.abs_unit;
 
 			/* Submit absolute value to session feed. */
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_AUX2, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 0);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 		if (info->meas_head.is_rel && info->meas_head.has_bar) {
 			/* Bargraph value, conditional. */
 			ret = consume_flt(&vf, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.rel.bar_value = vf;
 			ret = consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 			unit_text = &unit_buff[0];
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			snprintf(info->meas_data.rel.bar_unit,
 				sizeof(info->meas_data.rel.bar_unit),
 				"%s", unit_text);
 			unit_text = info->meas_data.rel.bar_unit;
 
 			/* Submit bargraph value to session feed. */
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_BAR, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
 			ret |= ut181a_get_value_params(&value, vf, 0x00);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 0);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 		if (info->meas_head.is_rel) {
 			/* Relative measurement code path done. */
 			ret = ut181a_feedbuff_cleanup(&feedbuff);
 			ret = ut181a_feedbuff_count_frame(sdi);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			break;
 		}
 
@@ -2303,7 +2303,7 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			 * and min values share the same unit text which
 			 * is only at the end of the data fields.
 			 */
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= consume_flt(&info->meas_data.minmax.curr_value, &payload, &pl_dlen);
 			ret |= consume_u8(&info->meas_data.minmax.curr_prec, &payload, &pl_dlen);
 			ret |= consume_flt(&info->meas_data.minmax.max_value, &payload, &pl_dlen);
@@ -2317,8 +2317,8 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			ret |= consume_u32(&info->meas_data.minmax.min_stamp, &payload, &pl_dlen);
 			ret |= consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 			unit_text = &unit_buff[0];
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			snprintf(info->meas_data.minmax.all_unit,
 				sizeof(info->meas_data.minmax.all_unit),
 				"%s", unit_text);
@@ -2327,136 +2327,136 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			/* Submit the current value. */
 			vf = info->meas_data.minmax.curr_value;
 			v8 = info->meas_data.minmax.curr_prec;
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_MAIN, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
 			feedbuff.analog.meaning->mqflags |= add_mqflags;
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 1);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 
 			/* Submit the maximum value. */
 			vf = info->meas_data.minmax.max_value;
 			v8 = info->meas_data.minmax.max_prec;
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_AUX1, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
-			feedbuff.analog.meaning->mqflags |= SR_MQFLAG_MAX;
+			feedbuff.analog.meaning->mqflags |= OTC_MQFLAG_MAX;
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 0);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 
 			/* Submit the average value. */
 			vf = info->meas_data.minmax.avg_value;
 			v8 = info->meas_data.minmax.avg_prec;
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_AUX2, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
-			feedbuff.analog.meaning->mqflags |= SR_MQFLAG_AVG;
+			feedbuff.analog.meaning->mqflags |= OTC_MQFLAG_AVG;
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 0);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 
 			/* Submit the minimum value. */
 			vf = info->meas_data.minmax.min_value;
 			v8 = info->meas_data.minmax.min_prec;
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_AUX3, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
-			feedbuff.analog.meaning->mqflags |= SR_MQFLAG_MIN;
+			feedbuff.analog.meaning->mqflags |= OTC_MQFLAG_MIN;
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 0);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 		if (info->meas_head.is_minmax) {
 			/* Min/max measurement code path done. */
 			ret = ut181a_feedbuff_cleanup(&feedbuff);
 			ret = ut181a_feedbuff_count_frame(sdi);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			break;
 		}
 
 		if (info->meas_head.is_peak) {
 			/* Maximum value, unconditional. Get details. */
 			ret = consume_flt(&vf, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.peak.max_value = vf;
 			ret = consume_u8(&v8, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.peak.max_prec = v8;
 			ret = consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 			unit_text = &unit_buff[0];
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			snprintf(info->meas_data.peak.max_unit,
 				sizeof(info->meas_data.peak.max_unit),
 				"%s", unit_text);
 			unit_text = info->meas_data.peak.max_unit;
 
 			/* Submit max value to session feed. */
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_AUX1, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
 			feedbuff.analog.meaning->mqflags |= add_mqflags; /* ??? */
-			feedbuff.analog.meaning->mqflags |= SR_MQFLAG_MAX;
+			feedbuff.analog.meaning->mqflags |= OTC_MQFLAG_MAX;
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 1);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 
 			/* Minimum value, unconditional. Get details. */
 			ret = consume_flt(&vf, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.peak.min_value = vf;
 			ret = consume_u8(&v8, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			info->meas_data.peak.min_prec = v8;
 			ret = consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 			unit_text = &unit_buff[0];
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			snprintf(info->meas_data.peak.min_unit,
 				sizeof(info->meas_data.peak.min_unit),
 				"%s", unit_text);
 			unit_text = info->meas_data.peak.min_unit;
 
 			/* Submit min value to session feed. */
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_feedbuff_setup_channel(&feedbuff, UT181A_CH_AUX3, sdi);
 			ret |= ut181a_feedbuff_setup_unit(&feedbuff, unit_text);
-			feedbuff.analog.meaning->mqflags |= SR_MQFLAG_MIN;
+			feedbuff.analog.meaning->mqflags |= OTC_MQFLAG_MIN;
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 0);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 		if (info->meas_head.is_peak) {
 			/* Relative measurement code path done. */
 			ret = ut181a_feedbuff_cleanup(&feedbuff);
 			ret = ut181a_feedbuff_count_frame(sdi);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 			break;
 		}
 
 		/* ShouldNeverHappen(TM) */
-		sr_dbg("Unhandled measurement type.");
-		return SR_ERR_DATA;
+		otc_dbg("Unhandled measurement type.");
+		return OTC_ERR_DATA;
 
 	case RSP_TYPE_REC_INFO:
 		/*
@@ -2465,7 +2465,7 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		 * protocol won't in the response).
 		 */
 		if (!devc || !info)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 
 		/*
 		 * Record information:
@@ -2483,10 +2483,10 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		 */
 		ret = consume_str(&rec_name_buff[0], 11, &payload, &pl_dlen);
 		rec_name = &rec_name_buff[0];
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 		if (!*rec_name)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		snprintf(devc->record_names[info->rec_info.rec_idx],
 			sizeof(devc->record_names[info->rec_info.rec_idx]),
 			"%s", rec_name);
@@ -2494,13 +2494,13 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			"%s", rec_name);
 		ret = consume_str(&unit_buff[0], 8, &payload, &pl_dlen);
 		unit_text = &unit_buff[0];
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 		snprintf(info->rec_info.unit,
 			sizeof(info->rec_info.unit),
 			"%s", unit_text);
 		unit_text = info->rec_info.unit;
-		ret = SR_OK;
+		ret = OTC_OK;
 		ret |= consume_u16(&info->rec_info.interval, &payload, &pl_dlen);
 		ret |= consume_u32(&info->rec_info.duration, &payload, &pl_dlen);
 		ret |= consume_u32(&info->rec_info.samples, &payload, &pl_dlen);
@@ -2511,8 +2511,8 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		ret |= consume_flt(&info->rec_info.min_value, &payload, &pl_dlen);
 		ret |= consume_u8(&info->rec_info.min_prec, &payload, &pl_dlen);
 		ret |= consume_u32(&v32, &payload, &pl_dlen);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 		info->rec_info.start_stamp = ut181a_get_epoch_for_timestamp(v32);
 
 		/*
@@ -2545,7 +2545,7 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		 * that data source, and depend on being able to feed
 		 * data to the session.
 		 */
-		if (sdi->status != SR_ST_ACTIVE)
+		if (sdi->status != OTC_ST_ACTIVE)
 			break;
 		if (!devc || devc->disable_feed || !info)
 			break;
@@ -2562,8 +2562,8 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		 *   - u32 timestamp
 		 */
 		ret = consume_u8(&info->rec_data.samples_chunk, &payload, &pl_dlen);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 		info->rec_data.samples_curr += info->rec_data.samples_chunk;
 		while (info->rec_data.samples_chunk--) {
 			/*
@@ -2571,30 +2571,30 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 			 * data, yet skip processing when a limit was
 			 * reached and previously terminated acquisition.
 			 */
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= consume_flt(&vf, &payload, &pl_dlen);
 			ret |= consume_u8(&v8, &payload, &pl_dlen);
 			ret |= consume_u32(&v32, &payload, &pl_dlen);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 
-			if (sdi->status != SR_ST_ACTIVE)
+			if (sdi->status != OTC_ST_ACTIVE)
 				continue;
 
 			ret = ut181a_feedbuff_start_frame(sdi);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 
-			ret = SR_OK;
+			ret = OTC_OK;
 			ret |= ut181a_get_value_params(&value, vf, v8);
 			ret |= ut181a_feedbuff_setup_value(&feedbuff, &value);
 			ret |= ut181a_feedbuff_send_feed(&feedbuff, sdi, 1);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 
 			ret = ut181a_feedbuff_count_frame(sdi);
-			if (ret != SR_OK)
-				return SR_ERR_DATA;
+			if (ret != OTC_OK)
+				return OTC_ERR_DATA;
 		}
 		ret = ut181a_feedbuff_cleanup(&feedbuff);
 		break;
@@ -2604,11 +2604,11 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		 * Reply data. Generic 16bit value preceeded by 8bit
 		 * request code.
 		 */
-		ret = SR_OK;
+		ret = OTC_OK;
 		ret |= consume_u8(&v8, &payload, &pl_dlen);
 		ret |= consume_u16(&v16, &payload, &pl_dlen);
-		if (ret != SR_OK)
-			return SR_ERR_DATA;
+		if (ret != OTC_OK)
+			return OTC_ERR_DATA;
 		if (info) {
 			info->reply_data.code = v8;
 			info->reply_data.data = v16;
@@ -2628,21 +2628,21 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 	default:
 		if (FRAME_DUMP_PARSE)
 			FRAME_DUMP_CALL("Unhandled response type 0x%02x", rsp_type);
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 	if (state && state->want_rsp_type == rsp_type)
 		state->got_rsp_type = TRUE;
 	if (FRAME_DUMP_REMAIN && pl_dlen) {
 		GString *txt;
-		txt = sr_hexdump_new(payload, pl_dlen);
+		txt = otc_hexdump_new(payload, pl_dlen);
 		FRAME_DUMP_CALL("Unprocessed response data: %s", txt->str);
-		sr_hexdump_free(txt);
+		otc_hexdump_free(txt);
 	}
 
 	/* Unconditionally check, we may have hit a time limit. */
-	if (sr_sw_limits_check(&devc->limits)) {
+	if (otc_sw_limits_check(&devc->limits)) {
 		ut181a_cond_stop_acquisition(sdi);
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/*
@@ -2650,7 +2650,7 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 	 * reception and consumption of the currently received item(s).
 	 */
 	if (devc) {
-		struct sr_serial_dev_inst *serial;
+		struct otc_serial_dev_inst *serial;
 		serial = sdi->conn;
 
 		switch (rsp_type) {
@@ -2689,11 +2689,11 @@ static int process_packet(struct sr_dev_inst *sdi, uint8_t *pkt, size_t len)
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Process a previously received RX buffer. May find none or several packets. */
-static int process_buffer(struct sr_dev_inst *sdi)
+static int process_buffer(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint8_t *pkt;
@@ -2728,7 +2728,7 @@ static int process_buffer(struct sr_dev_inst *sdi)
 		/* Search for (the start of) a valid packet. */
 		if (devc->recv_count < 2 * sizeof(uint16_t)) {
 			/* Need more RX data for magic and length. */
-			return SR_OK;
+			return OTC_OK;
 		}
 		v16 = RL16(&pkt[0]);
 		if (v16 != FRAME_MAGIC) {
@@ -2757,18 +2757,18 @@ static int process_buffer(struct sr_dev_inst *sdi)
 		}
 		if (pkt_len > devc->recv_count) {
 			/* Need more RX data to complete the frame. */
-			return SR_OK;
+			return OTC_OK;
 		}
 
 		/* Process the packet which completed reception. */
-		if (FRAME_DUMP_CSUM && sr_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
+		if (FRAME_DUMP_CSUM && otc_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
 			GString *spew;
-			spew = sr_hexdump_new(pkt, pkt_len);
+			spew = otc_hexdump_new(pkt, pkt_len);
 			FRAME_DUMP_CALL("Found RX frame, %zu bytes: %s", pkt_len, spew->str);
-			sr_hexdump_free(spew);
+			otc_hexdump_free(spew);
 		}
 		ret = process_packet(sdi, pkt, pkt_len);
-		if (ret == SR_ERR_DATA) {
+		if (ret == OTC_ERR_DATA) {
 			/* Verification failed, might be invalid RX data. */
 			if (FRAME_DUMP_CSUM) {
 				FRAME_DUMP_CALL("RX frame processing failed -> re-sync");
@@ -2782,7 +2782,7 @@ static int process_buffer(struct sr_dev_inst *sdi)
 	} while (1);
 	if (devc->recv_count < 2 * sizeof(uint16_t)) {
 		/* Assume incomplete reception. Re-check later. */
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/*
@@ -2802,7 +2802,7 @@ static int process_buffer(struct sr_dev_inst *sdi)
 			if (FRAME_DUMP_CSUM) {
 				FRAME_DUMP_CALL("Dropping %zu bytes, still not in sync", idx);
 			}
-			return SR_OK;
+			return OTC_OK;
 		}
 		v16 = RL16(&pkt[idx]);
 		if (v16 != FRAME_MAGIC)
@@ -2823,14 +2823,14 @@ static int process_buffer(struct sr_dev_inst *sdi)
 		break;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Gets invoked when RX data is available. */
-static int ut181a_receive_data(struct sr_dev_inst *sdi)
+static int ut181a_receive_data(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	size_t len;
 	uint8_t *data;
 	ssize_t slen;
@@ -2865,10 +2865,10 @@ static int ut181a_receive_data(struct sr_dev_inst *sdi)
 		return 0;
 	}
 	len = slen;
-	if (FRAME_DUMP_RXDATA && sr_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
-		spew = sr_hexdump_new(data, len);
+	if (FRAME_DUMP_RXDATA && otc_log_loglevel_get() >= FRAME_DUMP_LEVEL) {
+		spew = otc_hexdump_new(data, len);
 		FRAME_DUMP_CALL("UART RX, %zu bytes: %s", len, spew->str);
-		sr_hexdump_free(spew);
+		otc_hexdump_free(spew);
 	}
 	devc->recv_count += len;
 	process_buffer(sdi);
@@ -2876,10 +2876,10 @@ static int ut181a_receive_data(struct sr_dev_inst *sdi)
 	return 0;
 }
 
-SR_PRIV int ut181a_handle_events(int fd, int revents, void *cb_data)
+OTC_PRIV int ut181a_handle_events(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
-	struct sr_serial_dev_inst *serial;
+	struct otc_dev_inst *sdi;
+	struct otc_serial_dev_inst *serial;
 	struct dev_context *devc;
 
 	(void)fd;
@@ -2895,9 +2895,9 @@ SR_PRIV int ut181a_handle_events(int fd, int revents, void *cb_data)
 	if (revents & G_IO_IN)
 		(void)ut181a_receive_data(sdi);
 
-	if (sdi->status == SR_ST_STOPPING) {
+	if (sdi->status == OTC_ST_STOPPING) {
 		if (devc->data_source == DATA_SOURCE_LIVE) {
-			sdi->status = SR_ST_INACTIVE;
+			sdi->status = OTC_ST_INACTIVE;
 			(void)ut181a_send_cmd_monitor(serial, FALSE);
 			(void)ut181a_waitfor_response(sdi, 100);
 		}

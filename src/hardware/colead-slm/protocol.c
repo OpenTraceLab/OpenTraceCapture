@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  *
@@ -21,39 +21,39 @@
 #include <stdlib.h>
 #include <glib.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
-static void process_packet(const struct sr_dev_inst *sdi)
+static void process_packet(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	GString *dbg;
 	float fvalue;
 	int checksum, mode, i;
 
 	devc = sdi->priv;
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
 		dbg = g_string_sized_new(128);
 		g_string_printf(dbg, "received packet:");
 		for (i = 0; i < 10; i++)
 			g_string_append_printf(dbg, " %.2x", (devc->buf)[i]);
-		sr_spew("%s", dbg->str);
+		otc_spew("%s", dbg->str);
 		g_string_free(dbg, TRUE);
 	}
 
 	if (devc->buf[0] != 0x08 || devc->buf[1] != 0x04) {
-		sr_dbg("invalid packet header.");
+		otc_dbg("invalid packet header.");
 		return;
 	}
 
 	if (devc->buf[8] != 0x01) {
-		sr_dbg("invalid measurement.");
+		otc_dbg("invalid measurement.");
 		return;
 	}
 
@@ -61,7 +61,7 @@ static void process_packet(const struct sr_dev_inst *sdi)
 	for (i = 0; i < 9; i++)
 		checksum += devc->buf[i];
 	if ((checksum & 0xff) != devc->buf[9]) {
-		sr_dbg("invalid packet checksum.");
+		otc_dbg("invalid packet checksum.");
 		return;
 	}
 
@@ -74,9 +74,9 @@ static void process_packet(const struct sr_dev_inst *sdi)
 	}
 	fvalue /= 10;
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 1);
-	analog.meaning->mq = SR_MQ_SOUND_PRESSURE_LEVEL;
-	analog.meaning->unit = SR_UNIT_DECIBEL_SPL;
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 1);
+	analog.meaning->mq = OTC_MQ_SOUND_PRESSURE_LEVEL;
+	analog.meaning->unit = OTC_UNIT_DECIBEL_SPL;
 	analog.meaning->channels = sdi->channels;
 	analog.num_samples = 1;
 	analog.data = &fvalue;
@@ -84,9 +84,9 @@ static void process_packet(const struct sr_dev_inst *sdi)
 	/* High nibble should only have 0x01 or 0x02. */
 	mode = (devc->buf[2] >> 4) & 0x0f;
 	if (mode == 0x02)
-		analog.meaning->mqflags |= SR_MQFLAG_HOLD;
+		analog.meaning->mqflags |= OTC_MQFLAG_HOLD;
 	else if (mode != 0x01) {
-		sr_dbg("unknown measurement mode 0x%.2x", mode);
+		otc_dbg("unknown measurement mode 0x%.2x", mode);
 		return;
 	}
 
@@ -96,95 +96,95 @@ static void process_packet(const struct sr_dev_inst *sdi)
 	mode = devc->buf[2] & 0x0f;
 	switch (mode) {
 	case 0x0:
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_A \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_F;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_A \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_F;
 		break;
 	case 0x1:
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_A \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_S;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_A \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_S;
 		break;
 	case 0x2:
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_C \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_F;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_C \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_F;
 		break;
 	case 0x3:
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_C \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_S;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_C \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_S;
 		break;
 	case 0x4:
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_FLAT \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_F;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_FLAT \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_F;
 		break;
 	case 0x5:
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_FLAT \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_S;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_FLAT \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_S;
 		break;
 	case 0x6:
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_PCT_OVER_ALARM \
-				| SR_MQFLAG_SPL_FREQ_WEIGHT_A \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_F;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_PCT_OVER_ALARM \
+				| OTC_MQFLAG_SPL_FREQ_WEIGHT_A \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_F;
 		break;
 	case 0x7:
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_PCT_OVER_ALARM \
-				| SR_MQFLAG_SPL_FREQ_WEIGHT_A \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_S;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_PCT_OVER_ALARM \
+				| OTC_MQFLAG_SPL_FREQ_WEIGHT_A \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_S;
 		break;
 	case 0x8:
 		/* 10-second mean, but we don't have MQ flags to express it. */
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_LAT \
-				| SR_MQFLAG_SPL_FREQ_WEIGHT_A \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_F;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_LAT \
+				| OTC_MQFLAG_SPL_FREQ_WEIGHT_A \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_F;
 		break;
 	case 0x9:
 		/* Mean over a time period between 11 seconds and 24 hours.
 		 * Which is so silly that there's no point in expressing
 		 * either this or the previous case. */
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_LAT \
-				| SR_MQFLAG_SPL_FREQ_WEIGHT_A \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_F;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_LAT \
+				| OTC_MQFLAG_SPL_FREQ_WEIGHT_A \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_F;
 		break;
 	case 0xa:
 		/* 10-second mean. */
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_LAT \
-				| SR_MQFLAG_SPL_FREQ_WEIGHT_A \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_S;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_LAT \
+				| OTC_MQFLAG_SPL_FREQ_WEIGHT_A \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_S;
 		break;
 	case 0xb:
 		/* Mean over a time period between 11 seconds and 24 hours. */
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_LAT \
-				| SR_MQFLAG_SPL_FREQ_WEIGHT_A \
-				| SR_MQFLAG_SPL_TIME_WEIGHT_S;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_LAT \
+				| OTC_MQFLAG_SPL_FREQ_WEIGHT_A \
+				| OTC_MQFLAG_SPL_TIME_WEIGHT_S;
 		break;
 	case 0xc:
 		/* Internal calibration on 1kHz sine at 94dB, not useful
 		 * to anything but the device. */
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_FLAT;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_FLAT;
 		break;
 	case 0xd:
 		/* Internal calibration on 1kHz sine at 94dB, not useful
 		 * to anything but the device. */
-		analog.meaning->mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_FLAT;
+		analog.meaning->mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_FLAT;
 		break;
 	default:
-		sr_dbg("unknown configuration 0x%.2x", mode);
+		otc_dbg("unknown configuration 0x%.2x", mode);
 		return;
 	}
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop((struct sr_dev_inst *)sdi);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop((struct otc_dev_inst *)sdi);
 }
 
-SR_PRIV int colead_slm_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int colead_slm_receive_data(int fd, int revents, void *cb_data)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int delay_ms, len;
 	char buf[128];
 
@@ -210,7 +210,7 @@ SR_PRIV int colead_slm_receive_data(int fd, int revents, void *cb_data)
 		/* Got 0x10, "measurement ready". */
 		delay_ms = serial_timeout(serial, 1);
 		if (serial_write_blocking(serial, "\x20", 1, delay_ms) < 1)
-			sr_err("unable to send command");
+			otc_err("unable to send command");
 		else {
 			devc->state = COMMAND_SENT;
 			devc->buflen = 0;
@@ -222,7 +222,7 @@ SR_PRIV int colead_slm_receive_data(int fd, int revents, void *cb_data)
 			return TRUE;
 		devc->buflen += len;
 		if (devc->buflen > 10) {
-			sr_dbg("buffer overrun");
+			otc_dbg("buffer overrun");
 			devc->state = IDLE;
 			return TRUE;
 		}

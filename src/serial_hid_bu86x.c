@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -35,8 +35,8 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 #include "serial_hid.h"
 #include <string.h>
 
@@ -58,7 +58,7 @@ static const struct vid_pid_item vid_pid_items_bu86x[] = {
 	ALL_ZERO
 };
 
-static int bu86x_read_bytes(struct sr_serial_dev_inst *serial,
+static int bu86x_read_bytes(struct otc_serial_dev_inst *serial,
 	uint8_t *data, int space, unsigned int timeout)
 {
 	int rc;
@@ -66,7 +66,7 @@ static int bu86x_read_bytes(struct sr_serial_dev_inst *serial,
 	if (space > BU86X_MAX_BYTES_PER_REQUEST)
 		space = BU86X_MAX_BYTES_PER_REQUEST;
 	rc = ser_hid_hidapi_get_data(serial, 0, data, space, timeout);
-	if (rc == SR_ERR_TIMEOUT)
+	if (rc == OTC_ERR_TIMEOUT)
 		return 0;
 	if (rc < 0)
 		return rc;
@@ -75,7 +75,7 @@ static int bu86x_read_bytes(struct sr_serial_dev_inst *serial,
 	return rc;
 }
 
-static int bu86x_write_bytes(struct sr_serial_dev_inst *serial,
+static int bu86x_write_bytes(struct otc_serial_dev_inst *serial,
 	const uint8_t *data, int size)
 {
 	return ser_hid_hidapi_set_data(serial, 0, data, size, 0);
@@ -94,11 +94,11 @@ static struct ser_hid_chip_functions chip_bu86x = {
 	.read_bytes = bu86x_read_bytes,
 	.write_bytes = bu86x_write_bytes,
 };
-SR_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_bu86x = &chip_bu86x;
+OTC_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_bu86x = &chip_bu86x;
 
 #else
 
-SR_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_bu86x = NULL;
+OTC_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_bu86x = NULL;
 
 #endif
 #endif

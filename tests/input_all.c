@@ -20,15 +20,15 @@
 #include <config.h>
 #include <stdlib.h>
 #include <check.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libsigrok.h>
 #include "lib.h"
 
 /* Check whether at least one input module is available. */
 START_TEST(test_input_available)
 {
-	const struct sr_input_module **inputs;
+	const struct otc_input_module **inputs;
 
-	inputs = sr_input_list();
+	inputs = otc_input_list();
 	fail_unless(inputs != NULL, "No input modules found.");
 }
 END_TEST

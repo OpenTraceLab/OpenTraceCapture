@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019-2020 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -21,26 +21,26 @@
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_MULTIMETER,
-	SR_CONF_THERMOMETER, /* Supports two temperature probes and diffs. */
+	OTC_CONF_MULTIMETER,
+	OTC_CONF_THERMOMETER, /* Supports two temperature probes and diffs. */
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_FRAMES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_DATA_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_DATALOG | SR_CONF_GET | SR_CONF_SET,
-	/* TODO SR_CONF_DATALOG is bool only, how to setup interval/duration? */
-	SR_CONF_MEASURED_QUANTITY | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_RANGE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_FRAMES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_DATA_SOURCE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_DATALOG | OTC_CONF_GET | OTC_CONF_SET,
+	/* TODO OTC_CONF_DATALOG is bool only, how to setup interval/duration? */
+	OTC_CONF_MEASURED_QUANTITY | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_RANGE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const char *channel_names[] = {
@@ -63,15 +63,15 @@ static const char *channel_names[] = {
  * assumes a known maximum number of recordings, the manual is vague on
  * these limits.
  */
-static int ut181a_update_recordings(const struct sr_dev_inst *sdi)
+static int ut181a_update_recordings(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	size_t rec_count, rec_idx;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	serial = sdi->conn;
 
@@ -106,7 +106,7 @@ static int ut181a_update_recordings(const struct sr_dev_inst *sdi)
 	devc->record_count = rec_count;
 	devc->data_source_count = DATA_SOURCE_REC_FIRST + devc->record_count;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -114,15 +114,15 @@ static int ut181a_update_recordings(const struct sr_dev_inst *sdi)
  * until the 'mode' (meter's current function) became available. There
  * is no other way of querying the meter's current state.
  */
-static int ut181a_query_initial_state(struct sr_dev_inst *sdi, int timeout_ms)
+static int ut181a_query_initial_state(struct otc_dev_inst *sdi, int timeout_ms)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	gint64 deadline;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	serial = sdi->conn;
 
@@ -143,7 +143,7 @@ static int ut181a_query_initial_state(struct sr_dev_inst *sdi, int timeout_ms)
 		if (devc->info.meas_head.mode)
 			break;
 		if (g_get_monotonic_time() >= deadline)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 	}
 	(void)ut181a_send_cmd_monitor(serial, FALSE);
 	ret = ut181a_configure_waitfor(devc, TRUE, 0, 0,
@@ -152,18 +152,18 @@ static int ut181a_query_initial_state(struct sr_dev_inst *sdi, int timeout_ms)
 		return ret;
 	(void)ut181a_waitfor_response(sdi, 100);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	const char *conn, *serialcomm;
-	struct sr_config *src;
+	struct otc_config *src;
 	GSList *l, *devices;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int ret;
 	char conn_id[64];
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	size_t idx, ds_idx;
 
@@ -188,10 +188,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -200,7 +200,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		return NULL;
 
 	devices = NULL;
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
 	ret = serial_open(serial, SERIAL_RDWR);
 	snprintf(conn_id, sizeof(conn_id), "%s", serial->port);
 	/*
@@ -209,24 +209,24 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	 * will communicate to the device later, after the driver
 	 * instance got created. See below for details.
 	 */
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		serial_close(serial);
-		sr_serial_dev_inst_free(serial);
+		otc_serial_dev_inst_free(serial);
 		return devices;
 	}
 
 	sdi = g_malloc0(sizeof(*sdi));
-	sdi->status = SR_ST_INACTIVE;
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("UNI-T");
 	sdi->model = g_strdup("UT181A");
-	sdi->inst_type = SR_INST_SERIAL;
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->conn = serial;
 	sdi->connection_id = g_strdup(conn_id);
 	devc = g_malloc0(sizeof(*devc));
 	sdi->priv = devc;
-	sr_sw_limits_init(&devc->limits);
+	otc_sw_limits_init(&devc->limits);
 	for (idx = 0; idx < ARRAY_SIZE(channel_names); idx++) {
-		sr_channel_new(sdi, idx, SR_CHANNEL_ANALOG, TRUE,
+		otc_channel_new(sdi, idx, OTC_CHANNEL_ANALOG, TRUE,
 			channel_names[idx]);
 	}
 
@@ -241,7 +241,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	ret = ut181a_query_initial_state(sdi, 2000);
 	if (ret < 0) {
 		serial_close(serial);
-		sr_serial_dev_inst_free(serial);
+		otc_serial_dev_inst_free(serial);
 		return devices;
 	}
 
@@ -262,7 +262,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	devc->data_source_count = DATA_SOURCE_REC_FIRST + devc->record_count;
 	if (ret < 0) {
 		serial_close(serial);
-		sr_serial_dev_inst_free(serial);
+		otc_serial_dev_inst_free(serial);
 		return devices;
 	}
 
@@ -275,7 +275,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	const struct mqopt_item *mqitem;
@@ -286,59 +286,59 @@ static int config_get(uint32_t key, GVariant **data,
 
 	devc = sdi->priv;
 	switch (key) {
-	case SR_CONF_CONN:
+	case OTC_CONF_CONN:
 		*data = g_variant_new_string(sdi->connection_id);
 		break;
-	case SR_CONF_LIMIT_FRAMES:
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
 		if (!devc)
-			return SR_ERR_ARG;
-		return sr_sw_limits_config_get(&devc->limits, key, data);
-	case SR_CONF_DATA_SOURCE:
+			return OTC_ERR_ARG;
+		return otc_sw_limits_config_get(&devc->limits, key, data);
+	case OTC_CONF_DATA_SOURCE:
 		if (!devc)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_string(devc->data_source_names[devc->data_source]);
 		break;
-	case SR_CONF_DATALOG:
+	case OTC_CONF_DATALOG:
 		if (!devc)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_boolean(devc->is_recording ? TRUE : FALSE);
 		break;
-	case SR_CONF_MEASURED_QUANTITY:
+	case OTC_CONF_MEASURED_QUANTITY:
 		if (!devc)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		mqitem = ut181a_get_mqitem_from_mode(devc->info.meas_head.mode);
 		if (!mqitem)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		arr[0] = g_variant_new_uint32(mqitem->mq);
 		arr[1] = g_variant_new_uint64(mqitem->mqflags);
 		*data = g_variant_new_tuple(arr, ARRAY_SIZE(arr));
 		break;
-	case SR_CONF_RANGE:
+	case OTC_CONF_RANGE:
 		if (!devc)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		range = ut181a_get_range_from_packet_bytes(devc);
 		if (!range || !*range)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		*data = g_variant_new_string(range);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	ssize_t idx;
 	gboolean on;
 	GVariant *tuple_child;
-	enum sr_mq mq;
-	enum sr_mqflag mqflags;
+	enum otc_mq mq;
+	enum otc_mqflag mqflags;
 	uint16_t mode;
 	int ret;
 	size_t rec_no;
@@ -348,15 +348,15 @@ static int config_set(uint32_t key, GVariant *data,
 
 	devc = sdi->priv;
 	switch (key) {
-	case SR_CONF_LIMIT_FRAMES:
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
 		if (!devc)
-			return SR_ERR_ARG;
-		return sr_sw_limits_config_set(&devc->limits, key, data);
-	case SR_CONF_DATA_SOURCE:
+			return OTC_ERR_ARG;
+		return otc_sw_limits_config_set(&devc->limits, key, data);
+	case OTC_CONF_DATA_SOURCE:
 		if (!devc)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		/* Prefer data source names for the lookup. */
 		idx = std_str_idx(data, devc->data_source_names, devc->data_source_count);
 		if (idx >= 0) {
@@ -369,21 +369,21 @@ static int config_set(uint32_t key, GVariant *data,
 		 * previously stored name for each new recording, neither
 		 * automatically increments nor suggests timestamps).
 		 */
-		if (sr_atoi(g_variant_get_string(data, NULL), &ret) != SR_OK)
-			return SR_ERR_ARG;
+		if (otc_atoi(g_variant_get_string(data, NULL), &ret) != OTC_OK)
+			return OTC_ERR_ARG;
 		if (ret <= 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		rec_no = ret;
 		if (rec_no > devc->record_count)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->data_source = DATA_SOURCE_REC_FIRST + rec_no - 1;
 		break;
-	case SR_CONF_DATALOG:
+	case OTC_CONF_DATALOG:
 		if (!devc)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		on = g_variant_get_boolean(data);
-		sr_err("DIAG: record start/stop %d, currently ENOIMPL", on);
-		return SR_ERR_NA;
+		otc_err("DIAG: record start/stop %d, currently ENOIMPL", on);
+		return OTC_ERR_NA;
 		/*
 		 * TODO Send command 0x0a (start) or 0x0b (stop). Though
 		 * start needs a name (ymd timestamp?) and interval and
@@ -394,9 +394,9 @@ static int config_set(uint32_t key, GVariant *data,
 		 * a recording's parameters?
 		 */
 		break;
-	case SR_CONF_MEASURED_QUANTITY:
+	case OTC_CONF_MEASURED_QUANTITY:
 		if (!devc)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		tuple_child = g_variant_get_child_value(data, 0);
 		mq = g_variant_get_uint32(tuple_child);
 		g_variant_unref(tuple_child);
@@ -405,7 +405,7 @@ static int config_set(uint32_t key, GVariant *data,
 		g_variant_unref(tuple_child);
 		mode = ut181a_get_mode_from_mq_flags(mq, mqflags);
 		if (!mode)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		ret = ut181a_send_cmd_setmode(sdi->conn, mode);
 		if (ret < 0)
 			return ret;
@@ -413,56 +413,56 @@ static int config_set(uint32_t key, GVariant *data,
 		if (ret < 0)
 			return ret;
 		if (devc->info.rsp_head.rsp_type != RSP_TYPE_REPLY_CODE)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		if (!devc->info.reply_code.ok)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		break;
-	case SR_CONF_RANGE:
+	case OTC_CONF_RANGE:
 		range = g_variant_get_string(data, NULL);
 		return ut181a_set_range_from_text(sdi, range);
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	int ret;
 
 	devc = sdi ? sdi->priv : NULL;
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_DATA_SOURCE:
 		if (!devc)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		ret = ut181a_update_recordings(sdi);
 		if (ret < 0)
 			return ret;
 		*data = g_variant_new_strv(devc->data_source_names, devc->data_source_count);
 		break;
-	case SR_CONF_MEASURED_QUANTITY:
+	case OTC_CONF_MEASURED_QUANTITY:
 		*data = ut181a_get_mq_flags_list();
 		break;
-	case SR_CONF_RANGE:
+	case OTC_CONF_RANGE:
 		*data = ut181a_get_ranges_list();
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int ret;
 	size_t rec_idx;
 
@@ -512,7 +512,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		 */
 		rec_idx = devc->data_source - DATA_SOURCE_REC_FIRST;
 		if (rec_idx >= devc->record_count)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		devc->info.rec_info.rec_count = devc->record_count;
 		devc->info.rec_info.rec_idx = rec_idx;
 		devc->info.rec_info.auto_next = 0;
@@ -532,33 +532,33 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		devc->info.rec_data.samples_curr = 0;
 		ret = ut181a_send_cmd_get_rec_samples(serial, rec_idx, 0);
 	} else {
-		sr_err("Unhandled data source %d, programming error?",
+		otc_err("Unhandled data source %d, programming error?",
 			(int)devc->data_source);
-		ret = SR_ERR_BUG;
+		ret = OTC_ERR_BUG;
 	}
 	if (ret < 0)
 		return ret;
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	devc->recv_count = 0;
 	std_session_send_df_header(sdi);
 
 	serial_source_add(sdi->session, serial, G_IO_IN, 10,
 		ut181a_handle_events, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 
-	sdi->status = SR_ST_STOPPING;
+	sdi->status = OTC_ST_STOPPING;
 	/* Initiate stop here. Activity happens in ut181a_handle_events(). */
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver uni_t_ut181a_driver_info = {
+static struct otc_dev_driver uni_t_ut181a_driver_info = {
 	.name = "uni-t-ut181a",
 	.longname = "UNI-T UT181A",
 	.api_version = 1,
@@ -576,4 +576,4 @@ static struct sr_dev_driver uni_t_ut181a_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(uni_t_ut181a_driver_info);
+OTC_REGISTER_DEV_DRIVER(uni_t_ut181a_driver_info);

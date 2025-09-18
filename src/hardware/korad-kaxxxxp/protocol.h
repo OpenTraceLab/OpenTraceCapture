@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Hannu Vuolasaho <vuokkosetae@gmail.com>
  * Copyright (C) 2018-2019 Frank Stettner <frank-stettner@gmx.net>
@@ -24,8 +24,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "korad-kaxxxxp"
 
@@ -70,7 +70,7 @@ enum {
 struct dev_context {
 	const struct korad_kaxxxxp_model *model; /**< Model information. */
 
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	int64_t next_req_time;
 	GMutex rw_mutex;
 
@@ -102,16 +102,16 @@ struct dev_context {
 	gboolean set_ovp_enabled;    /**< New OVP enabled to set. */
 };
 
-SR_PRIV int korad_kaxxxxp_send_cmd(struct sr_serial_dev_inst *serial,
+OTC_PRIV int korad_kaxxxxp_send_cmd(struct otc_serial_dev_inst *serial,
 		const char *cmd);
-SR_PRIV int korad_kaxxxxp_read_chars(struct sr_serial_dev_inst *serial,
+OTC_PRIV int korad_kaxxxxp_read_chars(struct otc_serial_dev_inst *serial,
 		size_t count, char *buf);
-SR_PRIV int korad_kaxxxxp_set_value(struct sr_serial_dev_inst *serial,
+OTC_PRIV int korad_kaxxxxp_set_value(struct otc_serial_dev_inst *serial,
 		int target, struct dev_context *devc);
-SR_PRIV int korad_kaxxxxp_get_value(struct sr_serial_dev_inst *serial,
+OTC_PRIV int korad_kaxxxxp_get_value(struct otc_serial_dev_inst *serial,
 		int target, struct dev_context *devc);
-SR_PRIV int korad_kaxxxxp_get_all_values(struct sr_serial_dev_inst *serial,
+OTC_PRIV int korad_kaxxxxp_get_all_values(struct otc_serial_dev_inst *serial,
 		struct dev_context *devc);
-SR_PRIV int korad_kaxxxxp_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int korad_kaxxxxp_receive_data(int fd, int revents, void *cb_data);
 
 #endif

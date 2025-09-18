@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -18,35 +18,35 @@
  */
 
 #include <config.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "input/null"
 
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	(void)in;
 	(void)options;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 	(void)in;
 	(void)buf;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	(void)in;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_input_module input_null = {
+OTC_PRIV struct otc_input_module input_null = {
 	.id = "null",
 	.name = "Null",
 	.desc = "Null input (discards all input)",

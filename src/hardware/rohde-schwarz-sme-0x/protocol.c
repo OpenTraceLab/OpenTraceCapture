@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Vlad Ivanov <vlad.ivanov@lab-systems.ru>
  *
@@ -19,7 +19,7 @@
 
 #include <config.h>
 #include <glib.h>
-#include <scpi.h>
+#include "../../scpi.h"
 
 #include "protocol.h"
 
@@ -39,28 +39,28 @@ static char *commands[] = {
 	[RS_CMD_GET_POWER] = "POW?",
 };
 
-SR_PRIV int rs_sme0x_mode_remote(struct sr_scpi_dev_inst *scpi)
+OTC_PRIV int rs_sme0x_mode_remote(struct otc_scpi_dev_inst *scpi)
 {
-	return sr_scpi_send(scpi, commands[RS_CMD_CONTROL_REMOTE]);
+	return otc_scpi_send(scpi, commands[RS_CMD_CONTROL_REMOTE]);
 }
 
-SR_PRIV int rs_sme0x_get_freq(const struct sr_dev_inst *sdi, double *freq)
+OTC_PRIV int rs_sme0x_get_freq(const struct otc_dev_inst *sdi, double *freq)
 {
-	if (sr_scpi_get_double(sdi->conn, commands[RS_CMD_GET_FREQ], freq) != SR_OK)
-		return SR_ERR;
+	if (otc_scpi_get_double(sdi->conn, commands[RS_CMD_GET_FREQ], freq) != OTC_OK)
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int rs_sme0x_get_power(const struct sr_dev_inst *sdi, double *power)
+OTC_PRIV int rs_sme0x_get_power(const struct otc_dev_inst *sdi, double *power)
 {
-	if (sr_scpi_get_double(sdi->conn, commands[RS_CMD_GET_POWER], power) != SR_OK)
-		return SR_ERR;
+	if (otc_scpi_get_double(sdi->conn, commands[RS_CMD_GET_POWER], power) != OTC_OK)
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int rs_sme0x_set_freq(const struct sr_dev_inst *sdi, double freq)
+OTC_PRIV int rs_sme0x_set_freq(const struct otc_dev_inst *sdi, double freq)
 {
 	struct dev_context *devc;
 	const struct rs_device_model *config;
@@ -69,12 +69,12 @@ SR_PRIV int rs_sme0x_set_freq(const struct sr_dev_inst *sdi, double freq)
 	config = devc->model_config;
 
 	if ((freq > config->freq_max) || (freq < config->freq_min))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	return sr_scpi_send(sdi->conn, commands[RS_CMD_SET_FREQ], freq);
+	return otc_scpi_send(sdi->conn, commands[RS_CMD_SET_FREQ], freq);
 }
 
-SR_PRIV int rs_sme0x_set_power(const struct sr_dev_inst *sdi, double power)
+OTC_PRIV int rs_sme0x_set_power(const struct otc_dev_inst *sdi, double power)
 {
 	struct dev_context *devc;
 	const struct rs_device_model *config;
@@ -83,7 +83,7 @@ SR_PRIV int rs_sme0x_set_power(const struct sr_dev_inst *sdi, double power)
 	config = devc->model_config;
 
 	if ((power > config->power_max) || (power < config->power_min))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	return sr_scpi_send(sdi->conn, commands[RS_CMD_SET_POWER], power);
+	return otc_scpi_send(sdi->conn, commands[RS_CMD_SET_POWER], power);
 }

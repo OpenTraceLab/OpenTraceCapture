@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010-2012 Håvard Espeland <gus@ping.uio.no>,
  * Copyright (C) 2010 Martin Stensgård <mastensg@ping.uio.no>
@@ -28,8 +28,8 @@
 #include <glib.h>
 #include <ftdi.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "asix-sigma"
 
@@ -86,7 +86,7 @@ enum asix_device_type {
  * The vendor documentation suggests that in addition to the first 16
  * register addresses which implement the logic analyzer's feature set,
  * there are 240 more registers in the 16 to 255 address range which
- * are available to applications and plugin features. Can libsigrok's
+ * are available to applications and plugin features. Can libopentracecapture's
  * asix-sigma driver store configuration data there, to avoid expensive
  * operations (think: firmware re-load).
  *
@@ -94,7 +94,7 @@ enum asix_device_type {
  * be incomplete. Experiments show that registers beyond 0x0f can get
  * accessed, USB communication passes, but data bytes are always 0xff.
  * Are several firmware versions around, and the documentation does not
- * match the one that ships with sigrok?
+ * match the one that ships with opentracelab?
  */
 
 enum sigma_write_register {
@@ -347,9 +347,9 @@ struct dev_context {
 		 * internal arrangement of acquisition, and submission
 		 * to the session feed.
 		 */
-		struct sr_sw_limits config;
-		struct sr_sw_limits acquire;
-		struct sr_sw_limits submit;
+		struct otc_sw_limits config;
+		struct otc_sw_limits acquire;
+		struct otc_sw_limits submit;
 	} limit;
 	enum sigma_firmware_idx firmware_idx;
 	struct sigma_sample_interp {
@@ -392,35 +392,35 @@ struct dev_context {
 };
 
 /* "Automatic" and forced USB connection open/close support. */
-SR_PRIV int sigma_check_open(const struct sr_dev_inst *sdi);
-SR_PRIV int sigma_check_close(struct dev_context *devc);
-SR_PRIV int sigma_force_open(const struct sr_dev_inst *sdi);
-SR_PRIV int sigma_force_close(struct dev_context *devc);
+OTC_PRIV int sigma_check_open(const struct otc_dev_inst *sdi);
+OTC_PRIV int sigma_check_close(struct dev_context *devc);
+OTC_PRIV int sigma_force_open(const struct otc_dev_inst *sdi);
+OTC_PRIV int sigma_force_close(struct dev_context *devc);
 
 /* Save configuration across sessions, to reduce cost of continuation. */
-SR_PRIV int sigma_store_hw_config(const struct sr_dev_inst *sdi);
-SR_PRIV int sigma_fetch_hw_config(const struct sr_dev_inst *sdi);
+OTC_PRIV int sigma_store_hw_config(const struct otc_dev_inst *sdi);
+OTC_PRIV int sigma_fetch_hw_config(const struct otc_dev_inst *sdi);
 
 /* Send register content (simple and complex) to the hardware. */
-SR_PRIV int sigma_write_register(struct dev_context *devc,
+OTC_PRIV int sigma_write_register(struct dev_context *devc,
 	uint8_t reg, uint8_t *data, size_t len);
-SR_PRIV int sigma_set_register(struct dev_context *devc,
+OTC_PRIV int sigma_set_register(struct dev_context *devc,
 	uint8_t reg, uint8_t value);
-SR_PRIV int sigma_write_trigger_lut(struct dev_context *devc,
+OTC_PRIV int sigma_write_trigger_lut(struct dev_context *devc,
 	struct triggerlut *lut);
 
 /* Samplerate constraints check, get/set/list helpers. */
-SR_PRIV int sigma_normalize_samplerate(uint64_t want_rate, uint64_t *have_rate);
-SR_PRIV GVariant *sigma_get_samplerates_list(void);
+OTC_PRIV int sigma_normalize_samplerate(uint64_t want_rate, uint64_t *have_rate);
+OTC_PRIV GVariant *sigma_get_samplerates_list(void);
 
 /* Preparation of data acquisition, spec conversion, hardware configuration. */
-SR_PRIV int sigma_set_samplerate(const struct sr_dev_inst *sdi);
-SR_PRIV int sigma_set_acquire_timeout(struct dev_context *devc);
-SR_PRIV int sigma_convert_trigger(const struct sr_dev_inst *sdi);
-SR_PRIV int sigma_build_basic_trigger(struct dev_context *devc,
+OTC_PRIV int sigma_set_samplerate(const struct otc_dev_inst *sdi);
+OTC_PRIV int sigma_set_acquire_timeout(struct dev_context *devc);
+OTC_PRIV int sigma_convert_trigger(const struct otc_dev_inst *sdi);
+OTC_PRIV int sigma_build_basic_trigger(struct dev_context *devc,
 	struct triggerlut *lut);
 
 /* Callback to periodically drive acuisition progress. */
-SR_PRIV int sigma_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int sigma_receive_data(int fd, int revents, void *cb_data);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012-2013 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -20,8 +20,8 @@
 #include <config.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 /*
@@ -51,15 +51,15 @@
  *  f1 d1 00 00 00 00 00 00 (1 data byte, 0xd1)
  */
 
-static void decode_packet(struct sr_dev_inst *sdi, const uint8_t *buf)
+static void decode_packet(struct otc_dev_inst *sdi, const uint8_t *buf)
 {
 	struct dev_context *devc;
 	struct dmm_info *dmm;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	float floatval;
 	void *info;
 	int ret;
@@ -67,13 +67,13 @@ static void decode_packet(struct sr_dev_inst *sdi, const uint8_t *buf)
 	devc = sdi->priv;
 	dmm = (struct dmm_info *)sdi->driver;
 	/* Note: digits/spec_digits will be overridden by the DMM parsers. */
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 	info = g_malloc(dmm->info_size);
 
 	/* Parse the protocol packet. */
 	ret = dmm->packet_parse(buf, &floatval, &analog, info);
-	if (ret != SR_OK) {
-		sr_dbg("Invalid DMM packet, ignoring.");
+	if (ret != OTC_OK) {
+		otc_dbg("Invalid DMM packet, ignoring.");
 		g_free(info);
 		return;
 	}
@@ -88,34 +88,34 @@ static void decode_packet(struct sr_dev_inst *sdi, const uint8_t *buf)
 	analog.meaning->channels = sdi->channels;
 	analog.num_samples = 1;
 	analog.data = &floatval;
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 }
 
-static int hid_chip_init(struct sr_dev_inst *sdi, uint16_t baudrate)
+static int hid_chip_init(struct otc_dev_inst *sdi, uint16_t baudrate)
 {
 	int ret;
 	uint8_t buf[5];
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 
 	usb = sdi->conn;
 
 	if (libusb_kernel_driver_active(usb->devhdl, 0) == 1) {
 		ret = libusb_detach_kernel_driver(usb->devhdl, 0);
 		if (ret < 0) {
-			sr_err("Failed to detach kernel driver: %s.",
+			otc_err("Failed to detach kernel driver: %s.",
 			       libusb_error_name(ret));
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	}
 
 	if ((ret = libusb_claim_interface(usb->devhdl, 0)) < 0) {
-		sr_err("Failed to claim interface 0: %s.",
+		otc_err("Failed to claim interface 0: %s.",
 		       libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* Set data for the HID feature report (e.g. baudrate). */
@@ -126,8 +126,8 @@ static int hid_chip_init(struct sr_dev_inst *sdi, uint16_t baudrate)
 	buf[4] = 0x03;                   /* Unknown, always 0x03. */
 
 	/* Send HID feature report to setup the baudrate/chip. */
-	sr_dbg("Sending initial HID feature report.");
-	sr_spew("HID init = 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x (%d baud)",
+	otc_dbg("Sending initial HID feature report.");
+	otc_spew("HID init = 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x (%d baud)",
 		buf[0], buf[1], buf[2], buf[3], buf[4], baudrate);
 	ret = libusb_control_transfer(
 		usb->devhdl, /* libusb device handle */
@@ -142,22 +142,22 @@ static int hid_chip_init(struct sr_dev_inst *sdi, uint16_t baudrate)
 		1000 /* timeout (ms) */);
 
 	if (ret < 0) {
-		sr_err("HID feature report error: %s.", libusb_error_name(ret));
-		return SR_ERR;
+		otc_err("HID feature report error: %s.", libusb_error_name(ret));
+		return OTC_ERR;
 	}
 
 	if (ret != 5) {
 		/* TODO: Handle better by also sending the remaining bytes. */
-		sr_err("Short packet: sent %d/5 bytes.", ret);
-		return SR_ERR;
+		otc_err("Short packet: sent %d/5 bytes.", ret);
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void log_8byte_chunk(const uint8_t *buf)
 {
-	sr_spew("8-byte chunk: %02x %02x %02x %02x %02x %02x %02x %02x "
+	otc_spew("8-byte chunk: %02x %02x %02x %02x %02x %02x %02x %02x "
 		"(%d data bytes)", buf[0], buf[1], buf[2], buf[3],
 		buf[4], buf[5], buf[6], buf[7], (buf[0] & 0x0f));
 }
@@ -166,18 +166,18 @@ static void log_dmm_packet(const uint8_t *buf)
 {
 	GString *text;
 
-	text = sr_hexdump_new(buf, 14);
-	sr_dbg("DMM packet:   %s", text->str);
-	sr_hexdump_free(text);
+	text = otc_hexdump_new(buf, 14);
+	otc_dbg("DMM packet:   %s", text->str);
+	otc_hexdump_free(text);
 }
 
-static int get_and_handle_data(struct sr_dev_inst *sdi)
+static int get_and_handle_data(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct dmm_info *dmm;
 	uint8_t buf[CHUNK_SIZE], *pbuf;
 	int i, ret, len, num_databytes_in_chunk;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 
 	devc = sdi->priv;
 	dmm = (struct dmm_info *)sdi->driver;
@@ -186,9 +186,9 @@ static int get_and_handle_data(struct sr_dev_inst *sdi)
 
 	/* On the first run, we need to init the HID chip. */
 	if (devc->first_run) {
-		if ((ret = hid_chip_init(sdi, dmm->baudrate)) != SR_OK) {
-			sr_err("HID chip init failed: %d.", ret);
-			return SR_ERR;
+		if ((ret = hid_chip_init(sdi, dmm->baudrate)) != OTC_OK) {
+			otc_err("HID chip init failed: %d.", ret);
+			return OTC_ERR;
 		}
 		memset(pbuf, 0x00, DMM_BUFSIZE);
 		devc->first_run = FALSE;
@@ -206,21 +206,21 @@ static int get_and_handle_data(struct sr_dev_inst *sdi)
 		1000 /* timeout (ms) */);
 
 	if (ret < 0) {
-		sr_err("USB receive error: %s.", libusb_error_name(ret));
-		return SR_ERR;
+		otc_err("USB receive error: %s.", libusb_error_name(ret));
+		return OTC_ERR;
 	}
 
 	if (len != CHUNK_SIZE) {
-		sr_err("Short packet: received %d/%d bytes.", len, CHUNK_SIZE);
+		otc_err("Short packet: received %d/%d bytes.", len, CHUNK_SIZE);
 		/* TODO: Print the bytes? */
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	log_8byte_chunk((const uint8_t *)&buf);
 
 	/* If there are no data bytes just return (without error). */
 	if (buf[0] == 0xf0)
-		return SR_OK;
+		return OTC_OK;
 
 	devc->bufoffset = 0;
 
@@ -238,10 +238,10 @@ static int get_and_handle_data(struct sr_dev_inst *sdi)
 	num_databytes_in_chunk = buf[0] & 0x0f;
 	for (i = 0; i < num_databytes_in_chunk; i++, devc->buflen++) {
 		pbuf[devc->buflen] = buf[1 + i];
-		if ((dmm->packet_parse == sr_es519xx_19200_14b_parse) ||
-		    (dmm->packet_parse == sr_es519xx_19200_11b_parse) ||
-		    (dmm->packet_parse == sr_es519xx_2400_11b_parse) ||
-		    (dmm->packet_parse == sr_ut71x_parse)) {
+		if ((dmm->packet_parse == otc_es519xx_19200_14b_parse) ||
+		    (dmm->packet_parse == otc_es519xx_19200_11b_parse) ||
+		    (dmm->packet_parse == otc_es519xx_2400_11b_parse) ||
+		    (dmm->packet_parse == otc_ut71x_parse)) {
 			/* Mask off the parity bit. */
 			pbuf[devc->buflen] &= ~(1 << 7);
 		}
@@ -263,13 +263,13 @@ static int get_and_handle_data(struct sr_dev_inst *sdi)
 		memmove(pbuf, pbuf + devc->bufoffset, devc->buflen - devc->bufoffset);
 	devc->buflen -= devc->bufoffset;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int uni_t_dmm_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int uni_t_dmm_receive_data(int fd, int revents, void *cb_data)
 {
 	int ret;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 
 	(void)fd;
@@ -278,12 +278,12 @@ SR_PRIV int uni_t_dmm_receive_data(int fd, int revents, void *cb_data)
 	sdi = cb_data;
 	devc = sdi->priv;
 
-	if ((ret = get_and_handle_data(sdi)) != SR_OK)
+	if ((ret = get_and_handle_data(sdi)) != OTC_OK)
 		return FALSE;
 
 	/* Abort acquisition if we acquired enough samples. */
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 
 	return TRUE;
 }

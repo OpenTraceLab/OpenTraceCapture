@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -19,34 +19,34 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_SCALE,
+	OTC_CONF_SCALE,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_SET,
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct scale_info *scale;
-	struct sr_config *src;
+	struct otc_config *src;
 	GSList *l, *devices;
 	const char *conn, *serialcomm;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int ret;
 	size_t len;
 	uint8_t buf[128];
@@ -57,10 +57,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -71,16 +71,16 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	if (!serialcomm)
 		serialcomm = scale->conn;
 
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
 
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
 		return NULL;
 
-	sr_info("Probing serial port %s.", conn);
+	otc_info("Probing serial port %s.", conn);
 
 	devices = NULL;
 
-	sr_spew("Set O1 mode (continuous values, stable and unstable ones).");
+	otc_spew("Set O1 mode (continuous values, stable and unstable ones).");
 	if (serial_write_blocking(serial, "O1\r\n", 4, 0) < 0)
 		goto scan_cleanup;
 	/* Device replies with "A00\r\n" (OK) or "E01\r\n" (Error). Ignore. */
@@ -89,21 +89,21 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	len = sizeof(buf);
 	ret = serial_stream_detect(serial, buf, &len, scale->packet_size,
 		scale->packet_valid, NULL, NULL, 3000);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		goto scan_cleanup;
 
-	sr_info("Found device on port %s.", conn);
+	otc_info("Found device on port %s.", conn);
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup(scale->vendor);
 	sdi->model = g_strdup(scale->device);
 	devc = g_malloc0(sizeof(struct dev_context));
-	sr_sw_limits_init(&devc->limits);
-	sdi->inst_type = SR_INST_SERIAL;
+	otc_sw_limits_init(&devc->limits);
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->conn = serial;
 	sdi->priv = devc;
-	sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "Mass");
+	otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, "Mass");
 	devices = g_slist_append(devices, sdi);
 
 scan_cleanup:
@@ -113,7 +113,7 @@ scan_cleanup:
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
@@ -121,35 +121,35 @@ static int config_set(uint32_t key, GVariant *data,
 
 	devc = sdi->priv;
 
-	return sr_sw_limits_config_set(&devc->limits, key, data);
+	return otc_sw_limits_config_set(&devc->limits, key, data);
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 	serial = sdi->conn;
 
-	sr_spew("Set O1 mode (continuous values, stable and unstable ones).");
+	otc_spew("Set O1 mode (continuous values, stable and unstable ones).");
 	if (serial_write_blocking(serial, "O1\r\n", 4, 0) < 0)
-		return SR_ERR;
+		return OTC_ERR;
 	/* Device replies with "A00\r\n" (OK) or "E01\r\n" (Error). Ignore. */
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	std_session_send_df_header(sdi);
 
 	serial_source_add(sdi->session, serial, G_IO_IN, 50,
 		      kern_scale_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 #define SCALE(ID, CHIPSET, VENDOR, MODEL, CONN, PACKETSIZE, \
@@ -187,10 +187,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
  * the user override them via "serialcomm".
  */
 
-SR_REGISTER_DEV_DRIVER_LIST(kern_scale_drivers,
+OTC_REGISTER_DEV_DRIVER_LIST(kern_scale_drivers,
 	SCALE(
 		"kern-ew-6200-2nm", kern,
 		"KERN", "EW 6200-2NM", "1200/8n2",
-		15 /* (or 14) */, sr_kern_packet_valid, sr_kern_parse
+		15 /* (or 14) */, otc_kern_packet_valid, otc_kern_parse
 	)
 );

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012-2013 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -23,21 +23,21 @@
 #include <stdint.h>
 #include <glib.h>
 #include <libusb.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "uni-t-dmm"
 
 struct dmm_info {
-	struct sr_dev_driver di;
+	struct otc_dev_driver di;
 	const char *vendor;
 	const char *device;
 	uint32_t baudrate;
 	int packet_size;
 	gboolean (*packet_valid)(const uint8_t *);
 	int (*packet_parse)(const uint8_t *, float *,
-			    struct sr_datafeed_analog *, void *);
-	void (*dmm_details)(struct sr_datafeed_analog *, void *);
+			    struct otc_datafeed_analog *, void *);
+	void (*dmm_details)(struct otc_datafeed_analog *, void *);
 	gsize info_size;
 };
 
@@ -46,7 +46,7 @@ struct dmm_info {
 #define DMM_BUFSIZE		256
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 
 	gboolean first_run;
 
@@ -55,6 +55,6 @@ struct dev_context {
 	uint8_t buflen;
 };
 
-SR_PRIV int uni_t_dmm_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int uni_t_dmm_receive_data(int fd, int revents, void *cb_data);
 
 #endif

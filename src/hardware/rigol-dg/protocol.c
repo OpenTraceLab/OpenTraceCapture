@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2020 Timo Kokkonen <tjko@iki.fi>
  *
@@ -19,10 +19,10 @@
 
 #include <config.h>
 #include <string.h>
-#include "scpi.h"
+#include "../../scpi.h"
 #include "protocol.h"
 
-SR_PRIV int rigol_dg_string_to_waveform(
+OTC_PRIV int rigol_dg_string_to_waveform(
 		const struct channel_spec *ch, const char *s, enum waveform_type *wf)
 {
 	unsigned int i;
@@ -31,15 +31,15 @@ SR_PRIV int rigol_dg_string_to_waveform(
 		if (g_ascii_strncasecmp(s, ch->waveforms[i].scpi_name, strlen(ch->waveforms[i].scpi_name)) == 0 ||
 				g_ascii_strncasecmp(s, ch->waveforms[i].user_name, strlen(ch->waveforms[i].user_name)) == 0) {
 			*wf = ch->waveforms[i].waveform;
-			return SR_OK;
+			return OTC_OK;
 		}
 	}
 
-	sr_warn("Unknown waveform: %s\n", s);
-	return SR_ERR;
+	otc_warn("Unknown waveform: %s\n", s);
+	return OTC_ERR;
 }
 
-SR_PRIV const struct waveform_spec *rigol_dg_get_waveform_spec(
+OTC_PRIV const struct waveform_spec *rigol_dg_get_waveform_spec(
 	const struct channel_spec *ch, enum waveform_type wf)
 {
 	const struct waveform_spec *spec;
@@ -56,11 +56,11 @@ SR_PRIV const struct waveform_spec *rigol_dg_get_waveform_spec(
 	return spec;
 }
 
-SR_PRIV int rigol_dg_get_double_param(const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg, int psg_cmd, double *value)
+OTC_PRIV int rigol_dg_get_double_param(const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg, int psg_cmd, double *value)
 {
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	const char *command;
 	GVariant *data;
 	gchar *response, **params;
@@ -72,19 +72,19 @@ SR_PRIV int rigol_dg_get_double_param(const struct sr_dev_inst *sdi,
 	data = NULL;
 	params = NULL;
 	response = NULL;
-	ret = SR_ERR_NA;
+	ret = OTC_ERR_NA;
 
-	command = sr_scpi_cmd_get(devc->cmdset, psg_cmd);
+	command = otc_scpi_cmd_get(devc->cmdset, psg_cmd);
 	if (command && *command) {
-		sr_scpi_get_opc(scpi);
-		ret = sr_scpi_cmd_resp(sdi, devc->cmdset,
+		otc_scpi_get_opc(scpi);
+		ret = otc_scpi_cmd_resp(sdi, devc->cmdset,
 			PSG_CMD_SELECT_CHANNEL, cg->name, &data,
 			G_VARIANT_TYPE_STRING, psg_cmd, cg->name);
-		if (ret == SR_OK) {
+		if (ret == OTC_OK) {
 			response = g_variant_dup_string(data, NULL);
 			g_strstrip(response);
-			s = sr_scpi_unquote_string(response);
-			sr_spew("Double value is: '%s'", s);
+			s = otc_scpi_unquote_string(response);
+			otc_spew("Double value is: '%s'", s);
 
 			*value = g_ascii_strtod(s, NULL);
 		}
@@ -96,12 +96,12 @@ SR_PRIV int rigol_dg_get_double_param(const struct sr_dev_inst *sdi,
 	return ret;
 }
 
-SR_PRIV int rigol_dg_get_channel_state(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg)
+OTC_PRIV int rigol_dg_get_channel_state(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
-	struct sr_channel *ch;
+	struct otc_scpi_dev_inst *scpi;
+	struct otc_channel *ch;
 	struct channel_status *ch_status;
 	const char *command;
 	GVariant *data;
@@ -116,29 +116,29 @@ SR_PRIV int rigol_dg_get_channel_state(const struct sr_dev_inst *sdi,
 	data = NULL;
 	params = NULL;
 	response = NULL;
-	ret = SR_ERR_NA;
+	ret = OTC_ERR_NA;
 
 	if (!sdi || !cg)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	ch = cg->channels->data;
 	ch_status = &devc->ch_status[ch->index];
 
-	command = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_GET_SOURCE_NO_PARAM);
+	command = otc_scpi_cmd_get(devc->cmdset, PSG_CMD_GET_SOURCE_NO_PARAM);
 	if (command && *command) {
-		sr_scpi_get_opc(scpi);
-		ret = sr_scpi_cmd_resp(sdi, devc->cmdset,
+		otc_scpi_get_opc(scpi);
+		ret = otc_scpi_cmd_resp(sdi, devc->cmdset,
 			PSG_CMD_SELECT_CHANNEL, cg->name, &data,
 			G_VARIANT_TYPE_STRING, PSG_CMD_GET_SOURCE_NO_PARAM, cg->name);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			goto done;
 		response = g_variant_dup_string(data, NULL);
 		g_strstrip(response);
-		s = sr_scpi_unquote_string(response);
-		sr_spew("Channel state: '%s'", s);
+		s = otc_scpi_unquote_string(response);
+		otc_spew("Channel state: '%s'", s);
 
 		if ((ret = rigol_dg_string_to_waveform(
-				&devc->device->channels[ch->index], s, &wf)) != SR_OK)
+				&devc->device->channels[ch->index], s, &wf)) != OTC_OK)
 			goto done;
 
 		ch_status->wf = wf;
@@ -152,18 +152,18 @@ SR_PRIV int rigol_dg_get_channel_state(const struct sr_dev_inst *sdi,
 		rigol_dg_get_double_param(sdi, cg, PSG_CMD_GET_PHASE, &ch_status->phase);
 	}
 
-	command = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_GET_SOURCE);
+	command = otc_scpi_cmd_get(devc->cmdset, PSG_CMD_GET_SOURCE);
 	if (command && *command) {
-		sr_scpi_get_opc(scpi);
-		ret = sr_scpi_cmd_resp(sdi, devc->cmdset,
+		otc_scpi_get_opc(scpi);
+		ret = otc_scpi_cmd_resp(sdi, devc->cmdset,
 			PSG_CMD_SELECT_CHANNEL, cg->name, &data,
 			G_VARIANT_TYPE_STRING, PSG_CMD_GET_SOURCE, cg->name);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			goto done;
 		response = g_variant_dup_string(data, NULL);
 		g_strstrip(response);
-		s = sr_scpi_unquote_string(response);
-		sr_spew("Channel state: '%s'", s);
+		s = otc_scpi_unquote_string(response);
+		otc_spew("Channel state: '%s'", s);
 		params = g_strsplit(s, ",", 0);
 		if (!params[0])
 			goto done;
@@ -172,7 +172,7 @@ SR_PRIV int rigol_dg_get_channel_state(const struct sr_dev_inst *sdi,
 		if (!(s = params[0]))
 			goto done;
 		if ((ret = rigol_dg_string_to_waveform(
-				&devc->device->channels[ch->index], s, &wf)) != SR_OK)
+				&devc->device->channels[ch->index], s, &wf)) != OTC_OK)
 			goto done;
 
 		ch_status->wf = wf;
@@ -203,7 +203,7 @@ SR_PRIV int rigol_dg_get_channel_state(const struct sr_dev_inst *sdi,
 		phase = g_ascii_strtod(s, NULL);
 		ch_status->phase = phase;
 
-		ret = SR_OK;
+		ret = OTC_OK;
 	}
 
 done:
@@ -213,19 +213,19 @@ done:
 	return ret;
 }
 
-static void rigol_dg_send_channel_value(const struct sr_dev_inst *sdi,
-		struct sr_channel *ch, double value, enum sr_mq mq,
-		enum sr_unit unit, int digits)
+static void rigol_dg_send_channel_value(const struct otc_dev_inst *sdi,
+		struct otc_channel *ch, double value, enum otc_mq mq,
+		enum otc_unit unit, int digits)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	double val;
 
 	val = value;
-	sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, digits);
 	analog.meaning->channels = g_slist_append(NULL, ch);
 	analog.num_samples = 1;
 	analog.data = &val;
@@ -235,16 +235,16 @@ static void rigol_dg_send_channel_value(const struct sr_dev_inst *sdi,
 	analog.meaning->mq = mq;
 	analog.meaning->unit = unit;
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 	g_slist_free(analog.meaning->channels);
 }
 
-SR_PRIV int rigol_dg_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int rigol_dg_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_dev_inst *sdi;
+	struct otc_scpi_dev_inst *scpi;
 	struct dev_context *devc;
 	const char *cmd, *s;
 	char *response, **params;
@@ -265,15 +265,15 @@ SR_PRIV int rigol_dg_receive_data(int fd, int revents, void *cb_data)
 	if (!scpi || !devc)
 		return TRUE;
 
-	cmd = sr_scpi_cmd_get(devc->cmdset, PSG_CMD_COUNTER_MEASURE);
+	cmd = otc_scpi_cmd_get(devc->cmdset, PSG_CMD_COUNTER_MEASURE);
 	if (!cmd || !*cmd)
 		return TRUE;
 
-	sr_scpi_get_opc(scpi);
-	ret = sr_scpi_get_string(scpi, cmd, &response);
-	if (ret != SR_OK) {
-		sr_info("Error getting measurement from counter: %d", ret);
-		sr_dev_acquisition_stop(sdi);
+	otc_scpi_get_opc(scpi);
+	ret = otc_scpi_get_string(scpi, cmd, &response);
+	if (ret != OTC_OK) {
+		otc_info("Error getting measurement from counter: %d", ret);
+		otc_dev_acquisition_stop(sdi);
 		return TRUE;
 	}
 	g_strstrip(response);
@@ -288,7 +288,7 @@ SR_PRIV int rigol_dg_receive_data(int fd, int revents, void *cb_data)
 			goto done;
 		meas[i] = g_ascii_strtod(s, NULL);
 	}
-	sr_spew("%s: freq=%.10E, period=%.10E, duty=%.10E, width+=%.10E,"
+	otc_spew("%s: freq=%.10E, period=%.10E, duty=%.10E, width+=%.10E,"
 		"width-=%.10E", __func__,
 		meas[0], meas[1], meas[2], meas[3], meas[4]);
 
@@ -297,29 +297,29 @@ SR_PRIV int rigol_dg_receive_data(int fd, int revents, void *cb_data)
 
 	/* Frequency */
 	l = g_slist_nth(sdi->channels, start_idx++);
-	rigol_dg_send_channel_value(sdi, l->data, meas[0], SR_MQ_FREQUENCY,
-		SR_UNIT_HERTZ, 10);
+	rigol_dg_send_channel_value(sdi, l->data, meas[0], OTC_MQ_FREQUENCY,
+		OTC_UNIT_HERTZ, 10);
 
 	/* Period */
 	l = g_slist_nth(sdi->channels, start_idx++);
-	rigol_dg_send_channel_value(sdi, l->data, meas[1], SR_MQ_TIME,
-		SR_UNIT_SECOND, 10);
+	rigol_dg_send_channel_value(sdi, l->data, meas[1], OTC_MQ_TIME,
+		OTC_UNIT_SECOND, 10);
 
 	/* Duty Cycle */
 	l = g_slist_nth(sdi->channels, start_idx++);
-	rigol_dg_send_channel_value(sdi, l->data, meas[2], SR_MQ_DUTY_CYCLE,
-		SR_UNIT_PERCENTAGE, 3);
+	rigol_dg_send_channel_value(sdi, l->data, meas[2], OTC_MQ_DUTY_CYCLE,
+		OTC_UNIT_PERCENTAGE, 3);
 
 	/* Pulse Width */
 	l = g_slist_nth(sdi->channels, start_idx++);
-	rigol_dg_send_channel_value(sdi, l->data, meas[3], SR_MQ_PULSE_WIDTH,
-		SR_UNIT_SECOND, 10);
+	rigol_dg_send_channel_value(sdi, l->data, meas[3], OTC_MQ_PULSE_WIDTH,
+		OTC_UNIT_SECOND, 10);
 
 	std_session_send_df_frame_end(sdi);
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 
 done:
 	g_free(response);

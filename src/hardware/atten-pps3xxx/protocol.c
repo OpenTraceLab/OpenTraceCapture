@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  *
@@ -29,18 +29,18 @@ static void dump_packet(const char *msg, uint8_t *packet)
 	str[0] = 0;
 	for (i = 0; i < PACKET_SIZE; i++)
 		sprintf(str + strlen(str), "%.2x ", packet[i]);
-	sr_dbg("%s: %s", msg, str);
+	otc_dbg("%s: %s", msg, str);
 
 }
 
-static void handle_packet(const struct sr_dev_inst *sdi)
+static void handle_packet(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	float value, data[MAX_CHANNELS];
 	int offset, i;
 
@@ -48,16 +48,16 @@ static void handle_packet(const struct sr_dev_inst *sdi)
 	dump_packet("received", devc->packet);
 
 	/* Note: digits/spec_digits will be overridden later. */
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
 	analog.meaning->channels = sdi->channels;
 	analog.num_samples = 1;
 
-	analog.meaning->mq = SR_MQ_VOLTAGE;
-	analog.meaning->unit = SR_UNIT_VOLT;
-	analog.meaning->mqflags = SR_MQFLAG_DC;
+	analog.meaning->mq = OTC_MQ_VOLTAGE;
+	analog.meaning->unit = OTC_UNIT_VOLT;
+	analog.meaning->mqflags = OTC_MQFLAG_DC;
 	analog.encoding->digits = 2;
 	analog.spec->spec_digits = 2;
 	analog.data = data;
@@ -67,10 +67,10 @@ static void handle_packet(const struct sr_dev_inst *sdi)
 		((float *)analog.data)[i] = value;
 		devc->config[i].output_voltage_last = value;
 	}
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
-	analog.meaning->mq = SR_MQ_CURRENT;
-	analog.meaning->unit = SR_UNIT_AMPERE;
+	analog.meaning->mq = OTC_MQ_CURRENT;
+	analog.meaning->unit = OTC_UNIT_AMPERE;
 	analog.meaning->mqflags = 0;
 	analog.encoding->digits = 3;
 	analog.spec->spec_digits = 3;
@@ -81,7 +81,7 @@ static void handle_packet(const struct sr_dev_inst *sdi)
 		((float *)analog.data)[i] = value;
 		devc->config[i].output_current_last = value;
 	}
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
 	for (i = 0; i < devc->model->num_channels; i++)
 		devc->config[i].output_enabled = (devc->packet[15] & (1 << i)) ? TRUE : FALSE;
@@ -92,19 +92,19 @@ static void handle_packet(const struct sr_dev_inst *sdi)
 
 }
 
-SR_PRIV void send_packet(const struct sr_dev_inst *sdi, uint8_t *packet)
+OTC_PRIV void send_packet(const struct otc_dev_inst *sdi, uint8_t *packet)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 	serial = sdi->conn;
 	if (serial_write_blocking(serial, packet, PACKET_SIZE, devc->delay_ms) < PACKET_SIZE)
-		sr_dbg("Failed to send packet.");
+		otc_dbg("Failed to send packet.");
 	dump_packet("sent", packet);
 }
 
-SR_PRIV void send_config(const struct sr_dev_inst *sdi)
+OTC_PRIV void send_config(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint8_t packet[PACKET_SIZE];
@@ -139,11 +139,11 @@ SR_PRIV void send_config(const struct sr_dev_inst *sdi)
 
 }
 
-SR_PRIV int atten_pps3xxx_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int atten_pps3xxx_receive_data(int fd, int revents, void *cb_data)
 {
 	struct dev_context *devc;
-	const struct sr_dev_inst *sdi;
-	struct sr_serial_dev_inst *serial;
+	const struct otc_dev_inst *sdi;
+	struct otc_serial_dev_inst *serial;
 	unsigned char c;
 
 	(void)fd;

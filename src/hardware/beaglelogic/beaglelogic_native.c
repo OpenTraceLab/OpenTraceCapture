@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014-2017 Kumar Abhishek <abhishek@theembeddedkitchen.net>
  *
@@ -24,7 +24,7 @@ static int beaglelogic_open_nonblock(struct dev_context *devc)
 {
 	devc->fd = open(BEAGLELOGIC_DEV_NODE, O_RDONLY | O_NONBLOCK);
 
-	return ((devc->fd == -1) ? SR_ERR : SR_OK);
+	return ((devc->fd == -1) ? OTC_ERR : OTC_OK);
 }
 
 static int beaglelogic_close(struct dev_context *devc)
@@ -86,17 +86,17 @@ static int beaglelogic_get_lasterror(struct dev_context *devc)
 	int ret;
 
 	if ((fd = open(BEAGLELOGIC_SYSFS_ATTR(lasterror), O_RDONLY)) == -1)
-		return SR_ERR;
+		return OTC_ERR;
 
 	ret = read(fd, buf, 16);
 	close(fd);
 
 	if (ret)
-		return SR_ERR;
+		return OTC_ERR;
 
 	devc->last_error = strtoul(buf, NULL, 10);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int beaglelogic_start(struct dev_context *devc)
@@ -126,7 +126,7 @@ static int beaglelogic_mmap(struct dev_context *devc)
 	devc->sample_buf = mmap(NULL, devc->buffersize,
 			PROT_READ, MAP_SHARED, devc->fd, 0);
 
-	return ((devc->sample_buf == MAP_FAILED) ? -1 : SR_OK);
+	return ((devc->sample_buf == MAP_FAILED) ? -1 : OTC_OK);
 }
 
 static int beaglelogic_munmap(struct dev_context *devc)
@@ -134,7 +134,7 @@ static int beaglelogic_munmap(struct dev_context *devc)
 	return munmap(devc->sample_buf, devc->buffersize);
 }
 
-SR_PRIV const struct beaglelogic_ops beaglelogic_native_ops = {
+OTC_PRIV const struct beaglelogic_ops beaglelogic_native_ops = {
 	.open = beaglelogic_open_nonblock,
 	.close = beaglelogic_close,
 	.get_buffersize = beaglelogic_get_buffersize,

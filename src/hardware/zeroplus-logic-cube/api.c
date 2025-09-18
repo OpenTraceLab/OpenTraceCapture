@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010-2012 Bert Vermeulen <bert@biot.com>
  *
@@ -59,17 +59,17 @@ static const struct zp_model zeroplus_models[] = {
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE_THRESHOLD | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_EXTERNAL_CLOCK | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_CLOCK_EDGE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
+	OTC_CONF_CAPTURE_RATIO | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_EXTERNAL_CLOCK | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_CLOCK_EDGE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const char *ext_clock_edges[] = {
@@ -78,11 +78,11 @@ static const char *ext_clock_edges[] = {
 };
 
 static const int32_t trigger_matches[] = {
-	SR_TRIGGER_ZERO,
-	SR_TRIGGER_ONE,
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
-	SR_TRIGGER_EDGE,
+	OTC_TRIGGER_ZERO,
+	OTC_TRIGGER_ONE,
+	OTC_TRIGGER_RISING,
+	OTC_TRIGGER_FALLING,
+	OTC_TRIGGER_EDGE,
 };
 
 /*
@@ -102,46 +102,46 @@ static const char *channel_names[] = {
  */
 
 static const uint64_t samplerates_100[] = {
-	SR_HZ(100),
-	SR_HZ(500),
-	SR_KHZ(1),
-	SR_KHZ(5),
-	SR_KHZ(25),
-	SR_KHZ(50),
-	SR_KHZ(100),
-	SR_KHZ(200),
-	SR_KHZ(400),
-	SR_KHZ(800),
-	SR_MHZ(1),
-	SR_MHZ(10),
-	SR_MHZ(25),
-	SR_MHZ(50),
-	SR_MHZ(80),
-	SR_MHZ(100),
+	OTC_HZ(100),
+	OTC_HZ(500),
+	OTC_KHZ(1),
+	OTC_KHZ(5),
+	OTC_KHZ(25),
+	OTC_KHZ(50),
+	OTC_KHZ(100),
+	OTC_KHZ(200),
+	OTC_KHZ(400),
+	OTC_KHZ(800),
+	OTC_MHZ(1),
+	OTC_MHZ(10),
+	OTC_MHZ(25),
+	OTC_MHZ(50),
+	OTC_MHZ(80),
+	OTC_MHZ(100),
 };
 
 const uint64_t samplerates_200[] = {
-	SR_HZ(100),
-	SR_HZ(500),
-	SR_KHZ(1),
-	SR_KHZ(5),
-	SR_KHZ(25),
-	SR_KHZ(50),
-	SR_KHZ(100),
-	SR_KHZ(200),
-	SR_KHZ(400),
-	SR_KHZ(800),
-	SR_MHZ(1),
-	SR_MHZ(10),
-	SR_MHZ(25),
-	SR_MHZ(50),
-	SR_MHZ(80),
-	SR_MHZ(100),
-	SR_MHZ(150),
-	SR_MHZ(200),
+	OTC_HZ(100),
+	OTC_HZ(500),
+	OTC_KHZ(1),
+	OTC_KHZ(5),
+	OTC_KHZ(25),
+	OTC_KHZ(50),
+	OTC_KHZ(100),
+	OTC_KHZ(200),
+	OTC_KHZ(400),
+	OTC_KHZ(800),
+	OTC_MHZ(1),
+	OTC_MHZ(10),
+	OTC_MHZ(25),
+	OTC_MHZ(50),
+	OTC_MHZ(80),
+	OTC_MHZ(100),
+	OTC_MHZ(150),
+	OTC_MHZ(200),
 };
 
-SR_PRIV int zp_set_samplerate(struct dev_context *devc, uint64_t samplerate)
+OTC_PRIV int zp_set_samplerate(struct dev_context *devc, uint64_t samplerate)
 {
 	int i;
 
@@ -150,27 +150,27 @@ SR_PRIV int zp_set_samplerate(struct dev_context *devc, uint64_t samplerate)
 			break;
 
 	if (i == ARRAY_SIZE(samplerates_200) || samplerate > devc->max_samplerate) {
-		sr_err("Unsupported samplerate: %" PRIu64 "Hz.", samplerate);
-		return SR_ERR_ARG;
+		otc_err("Unsupported samplerate: %" PRIu64 "Hz.", samplerate);
+		return OTC_ERR_ARG;
 	}
 
-	sr_info("Setting samplerate to %" PRIu64 "Hz.", samplerate);
+	otc_info("Setting samplerate to %" PRIu64 "Hz.", samplerate);
 
-	if (samplerate >= SR_MHZ(1))
-		analyzer_set_freq(samplerate / SR_MHZ(1), FREQ_SCALE_MHZ);
-	else if (samplerate >= SR_KHZ(1))
-		analyzer_set_freq(samplerate / SR_KHZ(1), FREQ_SCALE_KHZ);
+	if (samplerate >= OTC_MHZ(1))
+		analyzer_set_freq(samplerate / OTC_MHZ(1), FREQ_SCALE_MHZ);
+	else if (samplerate >= OTC_KHZ(1))
+		analyzer_set_freq(samplerate / OTC_KHZ(1), FREQ_SCALE_KHZ);
 	else
 		analyzer_set_freq(samplerate, FREQ_SCALE_HZ);
 
 	devc->cur_samplerate = samplerate;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct drv_context *drvc;
 	struct dev_context *devc;
 	const struct zp_model *prof;
@@ -191,7 +191,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	devices = NULL;
 
 	/* Find all ZEROPLUS analyzers and add them to device list. */
-	libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist); /* TODO: Errors. */
+	libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist); /* TODO: Errors. */
 	for (i = 0; devlist[i]; i++) {
 		libusb_get_device_descriptor(devlist[i], &des);
 
@@ -201,8 +201,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		 * unrelated devices which trouble the application even
 		 * if they are unrelated to measurement purposes.
 		 *
-		 * See https://sigrok.org/bugzilla/show_bug.cgi?id=1115
-		 * and https://github.com/sigrokproject/libsigrok/pull/165
+		 * See https://opentracelab.org/bugzilla/show_bug.cgi?id=1115
+		 * and https://github.com/opentracelabproject/libopentracecapture/pull/165
 		 * for a discussion.
 		 */
 		prof = NULL;
@@ -229,7 +229,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 				des.iSerialNumber,
 				(uint8_t *)serial_num, sizeof(serial_num));
 			if (ret < 0) {
-				sr_warn("Cannot get USB serial number: %s.",
+				otc_warn("Cannot get USB serial number: %s.",
 					libusb_error_name(ret));
 				continue;
 			}
@@ -240,10 +240,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		if (usb_get_port_path(devlist[i], connection_id, sizeof(connection_id)) < 0)
 			continue;
 
-		sr_info("Found ZEROPLUS %s.", prof->model_name);
+		otc_info("Found ZEROPLUS %s.", prof->model_name);
 
 		sdi = g_malloc0(sizeof(*sdi));
-		sdi->status = SR_ST_INACTIVE;
+		sdi->status = OTC_ST_INACTIVE;
 		sdi->vendor = g_strdup("ZEROPLUS");
 		sdi->model = g_strdup(prof->model_name);
 		sdi->serial_num = g_strdup(serial_num);
@@ -251,8 +251,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 		bus = libusb_get_bus_number(devlist[i]);
 		addr = libusb_get_device_address(devlist[i]);
-		sdi->inst_type = SR_INST_USB;
-		sdi->conn = sr_usb_dev_inst_new(bus, addr, NULL);
+		sdi->inst_type = OTC_INST_USB;
+		sdi->conn = otc_usb_dev_inst_new(bus, addr, NULL);
 
 		devc = g_malloc0(sizeof(*devc));
 		sdi->priv = devc;
@@ -265,11 +265,11 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		devc->max_sample_depth = prof->sample_depth * 1024;
 		devc->max_samplerate = prof->max_sampling_freq;
 #endif
-		devc->max_samplerate *= SR_MHZ(1);
+		devc->max_samplerate *= OTC_MHZ(1);
 		devc->memory_size = MEMORY_SIZE_8K;
 
 		for (j = 0; j < devc->num_channels; j++) {
-			sr_channel_new(sdi, j, SR_CHANNEL_LOGIC, TRUE,
+			otc_channel_new(sdi, j, OTC_CHANNEL_LOGIC, TRUE,
 					channel_names[j]);
 		}
 
@@ -280,34 +280,34 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	return std_scan_complete(di, devices);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	struct sr_dev_driver *di = sdi->driver;
+	struct otc_dev_driver *di = sdi->driver;
 	struct dev_context *devc;
 	struct drv_context *drvc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	int ret;
 
 	drvc = di->context;
 	usb = sdi->conn;
 	devc = sdi->priv;
 
-	ret = sr_usb_open(drvc->sr_ctx->libusb_ctx, usb);
-	if (ret != SR_OK)
+	ret = otc_usb_open(drvc->otc_ctx->libusb_ctx, usb);
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = libusb_set_configuration(usb->devhdl, USB_CONFIGURATION);
 	if (ret < 0) {
-		sr_err("Unable to set USB configuration %d: %s.",
+		otc_err("Unable to set USB configuration %d: %s.",
 		       USB_CONFIGURATION, libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	ret = libusb_claim_interface(usb->devhdl, USB_INTERFACE);
 	if (ret != 0) {
-		sr_err("Unable to claim interface: %s.",
+		otc_err("Unable to claim interface: %s.",
 		       libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* Set default configuration after power on. */
@@ -335,36 +335,36 @@ static int dev_open(struct sr_dev_inst *sdi)
 	if (devc->cur_samplerate == 0) {
 		/* Samplerate hasn't been set. Default to 1MHz. */
 		analyzer_set_freq(1, FREQ_SCALE_MHZ);
-		devc->cur_samplerate = SR_MHZ(1);
+		devc->cur_samplerate = OTC_MHZ(1);
 	}
 
 	if (devc->cur_threshold == 0)
 		set_voltage_threshold(devc, 1.5);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 
 	usb = sdi->conn;
 
 	if (!usb->devhdl)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
-	sr_info("Closing device on %d.%d (logical) / %s (physical) interface %d.",
+	otc_info("Closing device on %d.%d (logical) / %s (physical) interface %d.",
 		usb->bus, usb->address, sdi->connection_id, USB_INTERFACE);
 	libusb_release_interface(usb->devhdl, USB_INTERFACE);
 	libusb_reset_device(usb->devhdl);
 	libusb_close(usb->devhdl);
 	usb->devhdl = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	const char *ext_clock_text;
@@ -372,36 +372,36 @@ static int config_get(uint32_t key, GVariant **data,
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(devc->cur_samplerate);
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		*data = g_variant_new_uint64(devc->capture_ratio);
 		break;
-	case SR_CONF_VOLTAGE_THRESHOLD:
+	case OTC_CONF_VOLTAGE_THRESHOLD:
 		*data = std_gvar_tuple_double(devc->cur_threshold, devc->cur_threshold);
 		break;
-	case SR_CONF_EXTERNAL_CLOCK:
+	case OTC_CONF_EXTERNAL_CLOCK:
 		*data = g_variant_new_boolean(devc->use_ext_clock);
 		break;
-	case SR_CONF_CLOCK_EDGE:
+	case OTC_CONF_CLOCK_EDGE:
 		ext_clock_text = ext_clock_edges[devc->ext_clock_edge];
 		*data = g_variant_new_string(ext_clock_text);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	int idx;
@@ -412,83 +412,83 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		return zp_set_samplerate(devc, g_variant_get_uint64(data));
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		return set_limit_samples(devc, g_variant_get_uint64(data));
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		devc->capture_ratio = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_VOLTAGE_THRESHOLD:
+	case OTC_CONF_VOLTAGE_THRESHOLD:
 		g_variant_get(data, "(dd)", &low, &high);
 		return set_voltage_threshold(devc, (low + high) / 2.0);
-	case SR_CONF_EXTERNAL_CLOCK:
+	case OTC_CONF_EXTERNAL_CLOCK:
 		devc->use_ext_clock = g_variant_get_boolean(data);
 		analyzer_set_ext_clock(devc->use_ext_clock, (ext_clock_edge_t)devc->ext_clock_edge);
 		break;
-	case SR_CONF_CLOCK_EDGE:
+	case OTC_CONF_CLOCK_EDGE:
 		idx = std_str_idx(data, ARRAY_AND_SIZE(ext_clock_edges));
 		if (idx < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->ext_clock_edge = (ext_clock_edge_t)idx;
 		analyzer_set_ext_clock(devc->use_ext_clock, devc->ext_clock_edge);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	switch (key) {
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, NO_OPTS, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		devc = sdi->priv;
 		if (devc->prof->max_sampling_freq == 100)
 			*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates_100));
 		else if (devc->prof->max_sampling_freq == 200)
 			*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates_200));
 		else {
-			sr_err("Internal error: Unknown max. samplerate: %d.",
+			otc_err("Internal error: Unknown max. samplerate: %d.",
 			       devc->prof->max_sampling_freq);
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		}
 		break;
-	case SR_CONF_TRIGGER_MATCH:
+	case OTC_CONF_TRIGGER_MATCH:
 		*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
 		break;
-	case SR_CONF_VOLTAGE_THRESHOLD:
+	case OTC_CONF_VOLTAGE_THRESHOLD:
 		*data = std_gvar_min_max_step_thresholds(-6.0, 6.0, 0.1);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		if (!sdi)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc = sdi->priv;
 		*data = std_gvar_tuple_u64(0, devc->max_sample_depth);
 		break;
-	case SR_CONF_CLOCK_EDGE:
+	case OTC_CONF_CLOCK_EDGE:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(ext_clock_edges));
 		break;
 
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_usb_dev_inst *usb;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 	unsigned int samples_read;
 	int res;
 	unsigned int packet_num, n;
@@ -507,9 +507,9 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 
-	if (analyzer_add_triggers(sdi) != SR_OK) {
-		sr_err("Failed to configure triggers.");
-		return SR_ERR;
+	if (analyzer_add_triggers(sdi) != OTC_OK) {
+		otc_err("Failed to configure triggers.");
+		return OTC_ERR;
 	}
 
 	usb = sdi->conn;
@@ -520,7 +520,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	analyzer_configure(usb->devhdl);
 
 	analyzer_start(usb->devhdl);
-	sr_info("Waiting for data.");
+	otc_info("Waiting for data.");
 	analyzer_wait_data(usb->devhdl);
 
 	status = analyzer_read_status(usb->devhdl);
@@ -534,20 +534,20 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	n = get_memory_size(devc->memory_size);
 	memory_size = n / 4;
 
-	sr_info("Status = 0x%x.", status);
-	sr_info("Stop address       = 0x%x.", stop_address);
-	sr_info("Now address        = 0x%x.", now_address);
-	sr_info("Trigger address    = 0x%x.", trigger_address);
-	sr_info("Triggerbar address = 0x%x.", triggerbar);
-	sr_info("Ramsize trigger    = 0x%x.", ramsize_trigger);
-	sr_info("Memory size        = 0x%x.", memory_size);
+	otc_info("Status = 0x%x.", status);
+	otc_info("Stop address       = 0x%x.", stop_address);
+	otc_info("Now address        = 0x%x.", now_address);
+	otc_info("Trigger address    = 0x%x.", trigger_address);
+	otc_info("Triggerbar address = 0x%x.", triggerbar);
+	otc_info("Ramsize trigger    = 0x%x.", ramsize_trigger);
+	otc_info("Memory size        = 0x%x.", memory_size);
 
 	std_session_send_df_header(sdi);
 
 	/* Check for empty capture */
 	if ((status & STATUS_READY) && !stop_address) {
 		std_session_send_df_end(sdi);
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	buf = g_malloc(PACKET_SIZE);
@@ -585,7 +585,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		now_address += valid_samples - (ramsize_trigger + triggerbar);
 	}
 
-	sr_info("Need to discard %d samples.", discard);
+	otc_info("Need to discard %d samples.", discard);
 
 	/* Calculate how far in the trigger is */
 	if (trigger_now)
@@ -604,7 +604,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 		res = analyzer_read_data(usb->devhdl, buf, PACKET_SIZE);
 		if (res != PACKET_SIZE)
-			sr_warn("Tried to read %d bytes, actually read %d.",
+			otc_warn("Tried to read %d bytes, actually read %d.",
 				PACKET_SIZE, res);
 
 		if (discard >= PACKET_SIZE / 4) {
@@ -625,12 +625,12 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		if (samples_read < trigger_offset &&
 		    samples_read + len / 4 > trigger_offset) {
 			/* Send out samples remaining before trigger */
-			packet.type = SR_DF_LOGIC;
+			packet.type = OTC_DF_LOGIC;
 			packet.payload = &logic;
 			logic.length = (trigger_offset - samples_read) * 4;
 			logic.unitsize = 4;
 			logic.data = buf + buf_offset;
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 			len -= logic.length;
 			samples_read += logic.length / 4;
 			buf_offset += logic.length;
@@ -640,12 +640,12 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			std_session_send_df_trigger(sdi);
 
 		/* Send out data (or data after trigger) */
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		logic.length = len;
 		logic.unitsize = 4;
 		logic.data = buf + buf_offset;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 		samples_read += len / 4;
 	}
 	analyzer_read_stop(usb->devhdl);
@@ -653,12 +653,12 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 	std_session_send_df_end(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 
 	std_session_send_df_end(sdi);
 
@@ -666,10 +666,10 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	analyzer_reset(usb->devhdl);
 	/* TODO: Need to cancel and free any queued up transfers. */
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver zeroplus_logic_cube_driver_info = {
+static struct otc_dev_driver zeroplus_logic_cube_driver_info = {
 	.name = "zeroplus-logic-cube",
 	.longname = "ZEROPLUS Logic Cube LAP-C series",
 	.api_version = 1,
@@ -687,4 +687,4 @@ static struct sr_dev_driver zeroplus_logic_cube_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(zeroplus_logic_cube_driver_info);
+OTC_REGISTER_DEV_DRIVER(zeroplus_logic_cube_driver_info);

@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2014 Martin Ling <martin-sigrok@earth.li>
+ * Copyright (C) 2014 Martin Ling <martin-opentracelab@earth.li>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,9 +20,9 @@
 #include <config.h>
 #include <gpib/ib.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
-#include "scpi.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
+#include "../scpi.h"
 
 #define LOG_PREFIX "scpi_gpib"
 
@@ -42,47 +42,47 @@ static int scpi_gpib_dev_inst_new(void *priv, struct drv_context *drvc,
 	(void)serialcomm;
 
 	if (!params || !params[1])
-			return SR_ERR;
+			return OTC_ERR;
 
 	gscpi->name = g_strdup(params[1]);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_gpib_open(struct sr_scpi_dev_inst *scpi)
+static int scpi_gpib_open(struct otc_scpi_dev_inst *scpi)
 {
 	struct scpi_gpib *gscpi = scpi->priv;
 
 	if ((gscpi->descriptor = ibfind(gscpi->name)) < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_gpib_connection_id(struct sr_scpi_dev_inst *scpi,
+static int scpi_gpib_connection_id(struct otc_scpi_dev_inst *scpi,
 		char **connection_id)
 {
 	struct scpi_gpib *gscpi = scpi->priv;
 
 	*connection_id = g_strdup_printf("%s/%s", scpi->prefix, gscpi->name);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_gpib_source_add(struct sr_session *session, void *priv,
-		int events, int timeout, sr_receive_data_callback cb, void *cb_data)
+static int scpi_gpib_source_add(struct otc_session *session, void *priv,
+		int events, int timeout, otc_receive_data_callback cb, void *cb_data)
 {
 	(void) priv;
 
 	/* Hook up a dummy handler to receive data from the device. */
-	return sr_session_source_add(session, -1, events, timeout, cb, cb_data);
+	return otc_session_source_add(session, -1, events, timeout, cb, cb_data);
 }
 
-static int scpi_gpib_source_remove(struct sr_session *session, void *priv)
+static int scpi_gpib_source_remove(struct otc_session *session, void *priv)
 {
 	(void) priv;
 
-	return sr_session_source_remove(session, -1);
+	return otc_session_source_remove(session, -1);
 }
 
 static int scpi_gpib_send(void *priv, const char *command)
@@ -94,21 +94,21 @@ static int scpi_gpib_send(void *priv, const char *command)
 
 	if (ibsta & ERR)
 	{
-		sr_err("Error while sending SCPI command: '%s': iberr = %s.",
+		otc_err("Error while sending SCPI command: '%s': iberr = %s.",
 			command, gpib_error_string(iberr));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if (ibcnt < len)
 	{
-		sr_err("Failed to send all of SCPI command: '%s': "
+		otc_err("Failed to send all of SCPI command: '%s': "
 				"len = %d, ibcnt = %d.", command, len, ibcnt);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	sr_spew("Successfully sent SCPI command: '%s'.", command);
+	otc_spew("Successfully sent SCPI command: '%s'.", command);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int scpi_gpib_read_begin(void *priv)
@@ -117,7 +117,7 @@ static int scpi_gpib_read_begin(void *priv)
 
 	gscpi->read_started = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int scpi_gpib_read_data(void *priv, char *buf, int maxlen)
@@ -128,10 +128,10 @@ static int scpi_gpib_read_data(void *priv, char *buf, int maxlen)
 
 	if (ibsta & ERR)
 	{
-		sr_err("Error while reading SCPI response: "
+		otc_err("Error while reading SCPI response: "
 			"iberr = %s, ibsta = %d.",
 			gpib_error_string(iberr), ibsta);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	gscpi->read_started = 1;
@@ -146,7 +146,7 @@ static int scpi_gpib_read_complete(void *priv)
 	return gscpi->read_started && (ibsta & END);
 }
 
-static int scpi_gpib_close(struct sr_scpi_dev_inst *scpi)
+static int scpi_gpib_close(struct otc_scpi_dev_inst *scpi)
 {
 	struct scpi_gpib *gscpi = scpi->priv;
 
@@ -155,7 +155,7 @@ static int scpi_gpib_close(struct sr_scpi_dev_inst *scpi)
 	/* Now it's safe to close the handle. */
 	ibonl(gscpi->descriptor, 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void scpi_gpib_free(void *priv)
@@ -165,7 +165,7 @@ static void scpi_gpib_free(void *priv)
 	g_free(gscpi->name);
 }
 
-SR_PRIV int sr_scpi_gpib_spoll(struct sr_scpi_dev_inst *scpi, char *buf)
+OTC_PRIV int otc_scpi_gpib_spoll(struct otc_scpi_dev_inst *scpi, char *buf)
 {
 	struct scpi_gpib *gscpi = scpi->priv;
 
@@ -173,18 +173,18 @@ SR_PRIV int sr_scpi_gpib_spoll(struct sr_scpi_dev_inst *scpi, char *buf)
 	ibrsp(gscpi->descriptor, buf);
 
 	if (ibsta & ERR) {
-		sr_err("Error while serial polling: iberr = %s.",
+		otc_err("Error while serial polling: iberr = %s.",
 			gpib_error_string(iberr));
 		g_mutex_unlock(&scpi->scpi_mutex);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	g_mutex_unlock(&scpi->scpi_mutex);
-	sr_spew("Successful serial poll: 0x%x", (uint8_t)buf[0]);
+	otc_spew("Successful serial poll: 0x%x", (uint8_t)buf[0]);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV const struct sr_scpi_dev_inst scpi_libgpib_dev = {
+OTC_PRIV const struct otc_scpi_dev_inst scpi_libgpib_dev = {
 	.name          = "GPIB",
 	.prefix        = "libgpib",
 	.transport     = SCPI_TRANSPORT_LIBGPIB,

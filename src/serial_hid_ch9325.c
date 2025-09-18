@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017-2019 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -19,8 +19,8 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 #include "serial_hid.h"
 #include <string.h>
 
@@ -48,7 +48,7 @@ static const struct vid_pid_item vid_pid_items_ch9325[] = {
 	ALL_ZERO
 };
 
-static int ch9325_set_params(struct sr_serial_dev_inst *serial,
+static int ch9325_set_params(struct otc_serial_dev_inst *serial,
 	int baudrate, int bits, int parity, int stopbits,
 	int flowcontrol, int rts, int dtr)
 {
@@ -79,18 +79,18 @@ static int ch9325_set_params(struct sr_serial_dev_inst *serial,
 	report[replen++] = 0x00;
 	report[replen++] = bits - 5;
 	rc = ser_hid_hidapi_set_report(serial, report, replen);
-	text = sr_hexdump_new(report, replen);
-	sr_dbg("DBG: %s() report %s => rc %d", __func__, text->str, rc);
-	sr_hexdump_free(text);
+	text = otc_hexdump_new(report, replen);
+	otc_dbg("DBG: %s() report %s => rc %d", __func__, text->str, rc);
+	otc_hexdump_free(text);
 	if (rc < 0)
-		return SR_ERR;
+		return OTC_ERR;
 	if (rc != replen)
-		return SR_ERR;
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int ch9325_read_bytes(struct sr_serial_dev_inst *serial,
+static int ch9325_read_bytes(struct otc_serial_dev_inst *serial,
 	uint8_t *data, int space, unsigned int timeout)
 {
 	uint8_t buffer[1 + CH9325_MAX_BYTES_PER_REQUEST];
@@ -105,38 +105,38 @@ static int ch9325_read_bytes(struct sr_serial_dev_inst *serial,
 	 */
 	rc = ser_hid_hidapi_get_data(serial, 2, buffer, sizeof(buffer), timeout);
 	if (rc < 0)
-		return SR_ERR;
+		return OTC_ERR;
 	if (rc == 0)
 		return 0;
-	sr_dbg("DBG: %s() got report len %d, 0x%02x.", __func__, rc, buffer[0]);
+	otc_dbg("DBG: %s() got report len %d, 0x%02x.", __func__, rc, buffer[0]);
 
 	/* Check the length spec, get the byte count. */
 	count = buffer[0];
 	if ((count & 0xf0) != 0xf0)
-		return SR_ERR;
+		return OTC_ERR;
 	count &= 0x0f;
-	sr_dbg("DBG: %s(), got %d UART RX bytes.", __func__, count);
+	otc_dbg("DBG: %s(), got %d UART RX bytes.", __func__, count);
 	if (count > space)
-		return SR_ERR;
+		return OTC_ERR;
 
 	/* Pass received data bytes and their count to the caller. */
 	memcpy(data, &buffer[1], count);
 	return count;
 }
 
-static int ch9325_write_bytes(struct sr_serial_dev_inst *serial,
+static int ch9325_write_bytes(struct otc_serial_dev_inst *serial,
 	const uint8_t *data, int size)
 {
 	uint8_t buffer[1 + CH9325_MAX_BYTES_PER_REQUEST];
 	int rc;
 
-	sr_dbg("DBG: %s() shall send UART TX data, len %d.", __func__, size);
+	otc_dbg("DBG: %s() shall send UART TX data, len %d.", __func__, size);
 
 	if (size < 1)
 		return 0;
 	if (size > CH9325_MAX_BYTES_PER_REQUEST) {
 		size = CH9325_MAX_BYTES_PER_REQUEST;
-		sr_dbg("DBG: %s() capping size to %d.", __func__, size);
+		otc_dbg("DBG: %s() capping size to %d.", __func__, size);
 	}
 
 	/*
@@ -164,11 +164,11 @@ static struct ser_hid_chip_functions chip_ch9325 = {
 	.read_bytes = ch9325_read_bytes,
 	.write_bytes = ch9325_write_bytes,
 };
-SR_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_ch9325 = &chip_ch9325;
+OTC_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_ch9325 = &chip_ch9325;
 
 #else
 
-SR_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_ch9325 = NULL;
+OTC_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_ch9325 = NULL;
 
 #endif
 #endif

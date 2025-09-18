@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2013, 2014 Matthias Heidbrink <m-sigrok@heidbrink.biz>
+ * Copyright (C) 2013, 2014 Matthias Heidbrink <m-opentracelab@heidbrink.biz>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "gmc-mh-1x-2x"
 
@@ -79,14 +79,14 @@ enum model {
 struct dev_context {
 	enum model model;	/**< Model code. */
 
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 
 	gboolean settings_ok;	/**< Settings msg received yet. */
 	int msg_type;       /**< Message type (MSGID_INF, ...). */
 	int msg_len;        /**< Message length (valid when msg, curr. type known).*/
-	enum sr_mq mq;      /**< Measured quantity */
-	enum sr_unit unit;  /**< Measured unit */
-	enum sr_mqflag mqflags;	/**< Measured quantity flags */
+	enum otc_mq mq;      /**< Measured quantity */
+	enum otc_unit unit;  /**< Measured unit */
+	enum otc_mqflag mqflags;	/**< Measured quantity flags */
 	float value;		/**< Measured value */
 	int8_t scale;       /**< Scale for value. */
 	int8_t scale1000;   /**< Additional scale factor 1000x. */
@@ -104,15 +104,15 @@ struct dev_context {
 	int buflen;			/**< Data len in buf */
 };
 
-SR_PRIV int config_set(uint32_t key, GVariant *data, const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg);
-SR_PRIV int gmc_decode_model_bd(uint8_t mcode);
-SR_PRIV int gmc_decode_model_sm(uint8_t mcode);
-SR_PRIV int gmc_mh_1x_2x_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV int gmc_mh_2x_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV const char *gmc_model_str(enum model mcode);
-SR_PRIV int process_msg14(struct sr_dev_inst *sdi);
-SR_PRIV int req_meas14(const struct sr_dev_inst *sdi);
-SR_PRIV int req_stat14(const struct sr_dev_inst *sdi, gboolean power_on);
+OTC_PRIV int config_set(uint32_t key, GVariant *data, const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg);
+OTC_PRIV int gmc_decode_model_bd(uint8_t mcode);
+OTC_PRIV int gmc_decode_model_sm(uint8_t mcode);
+OTC_PRIV int gmc_mh_1x_2x_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int gmc_mh_2x_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV const char *gmc_model_str(enum model mcode);
+OTC_PRIV int process_msg14(struct otc_dev_inst *sdi);
+OTC_PRIV int req_meas14(const struct otc_dev_inst *sdi);
+OTC_PRIV int req_stat14(const struct otc_dev_inst *sdi, gboolean power_on);
 
 #endif

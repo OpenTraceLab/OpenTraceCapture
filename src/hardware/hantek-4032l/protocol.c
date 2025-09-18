@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Andreas Zschunke <andreas.zschunke@gmx.net>
  * Copyright (C) 2017 Andrej Valek <andy@skyrain.eu>
@@ -53,13 +53,13 @@ static void abort_acquisition(struct dev_context *devc)
 	devc->status = H4032L_STATUS_IDLE;
 }
 
-static void finish_acquisition(struct sr_dev_inst *sdi)
+static void finish_acquisition(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	struct drv_context *drvc = sdi->driver->context;
 
 	std_session_send_df_end(sdi);
-	usb_source_remove(sdi->session, drvc->sr_ctx);
+	usb_source_remove(sdi->session, drvc->otc_ctx);
 
 	devc->num_transfers = 0;
 	g_free(devc->transfers);
@@ -67,7 +67,7 @@ static void finish_acquisition(struct sr_dev_inst *sdi)
 
 static void free_transfer(struct libusb_transfer *transfer)
 {
-	struct sr_dev_inst *sdi = transfer->user_data;
+	struct otc_dev_inst *sdi = transfer->user_data;
 	struct dev_context *devc = sdi->priv;
 	unsigned int i;
 
@@ -97,21 +97,21 @@ static void resubmit_transfer(struct libusb_transfer *transfer)
 	if ((ret = libusb_submit_transfer(transfer)) == LIBUSB_SUCCESS)
 		return;
 
-	sr_err("%s: %s", __func__, libusb_error_name(ret));
+	otc_err("%s: %s", __func__, libusb_error_name(ret));
 	free_transfer(transfer);
 }
 
-static void send_data(struct sr_dev_inst *sdi,
+static void send_data(struct otc_dev_inst *sdi,
 	uint32_t *data, size_t sample_count)
 {
 	struct dev_context *devc = sdi->priv;
-	struct sr_datafeed_logic logic = {
+	struct otc_datafeed_logic logic = {
 		.length = sample_count * sizeof(uint32_t),
 		.unitsize = sizeof(uint32_t),
 		.data = data
 	};
-	const struct sr_datafeed_packet packet = {
-		.type = SR_DF_LOGIC,
+	const struct otc_datafeed_packet packet = {
+		.type = OTC_DF_LOGIC,
 		.payload = &logic
 	};
 	size_t trigger_offset;
@@ -122,7 +122,7 @@ static void send_data(struct sr_dev_inst *sdi,
 		trigger_offset = devc->trigger_pos - devc->sent_samples;
 		logic.length = trigger_offset * sizeof(uint32_t);
 		if (logic.length)
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 
 		/* Send trigger position. */
 		std_session_send_df_trigger(sdi);
@@ -131,15 +131,15 @@ static void send_data(struct sr_dev_inst *sdi,
 		logic.length = (sample_count - trigger_offset) * sizeof(uint32_t);
 		logic.data = data + trigger_offset;
 		if (logic.length)
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 	} else {
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 	}
 
 	devc->sent_samples += sample_count;
 }
 
-SR_PRIV int h4032l_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int h4032l_receive_data(int fd, int revents, void *cb_data)
 {
 	struct timeval tv;
 	struct drv_context *drvc;
@@ -150,14 +150,14 @@ SR_PRIV int h4032l_receive_data(int fd, int revents, void *cb_data)
 	drvc = (struct drv_context *)cb_data;
 
 	tv.tv_sec = tv.tv_usec = 0;
-	libusb_handle_events_timeout(drvc->sr_ctx->libusb_ctx, &tv);
+	libusb_handle_events_timeout(drvc->otc_ctx->libusb_ctx, &tv);
 
 	return TRUE;
 }
 
 void LIBUSB_CALL h4032l_data_transfer_callback(struct libusb_transfer *transfer)
 {
-	struct sr_dev_inst *const sdi = transfer->user_data;
+	struct otc_dev_inst *const sdi = transfer->user_data;
 	struct dev_context *const devc = sdi->priv;
 	uint32_t max_samples = transfer->actual_length / sizeof(uint32_t);
 	uint32_t *buf;
@@ -173,7 +173,7 @@ void LIBUSB_CALL h4032l_data_transfer_callback(struct libusb_transfer *transfer)
 	}
 
 	if (transfer->status != LIBUSB_TRANSFER_COMPLETED)
-		sr_dbg("%s error: %d.", __func__, transfer->status);
+		otc_dbg("%s error: %d.", __func__, transfer->status);
 
 	/* Cancel pending transfers. */
 	if (transfer->actual_length == 0) {
@@ -186,13 +186,13 @@ void LIBUSB_CALL h4032l_data_transfer_callback(struct libusb_transfer *transfer)
 	num_samples = MIN(devc->remaining_samples, max_samples);
 	devc->remaining_samples -= num_samples;
 	send_data(sdi, buf, num_samples);
-	sr_dbg("Remaining: %d %08X %08X.", devc->remaining_samples,
+	otc_dbg("Remaining: %d %08X %08X.", devc->remaining_samples,
 		buf[0], buf[1]);
 
 	/* Close data receiving. */
 	if (devc->remaining_samples == 0) {
 		if (buf[num_samples] != H4032L_END_PACKET_MAGIC)
-			sr_err("Mismatch magic number of end poll.");
+			otc_err("Mismatch magic number of end poll.");
 
 		abort_acquisition(devc);
 		free_transfer(transfer);
@@ -207,9 +207,9 @@ void LIBUSB_CALL h4032l_data_transfer_callback(struct libusb_transfer *transfer)
 
 void LIBUSB_CALL h4032l_usb_callback(struct libusb_transfer *transfer)
 {
-	struct sr_dev_inst *const sdi = transfer->user_data;
+	struct otc_dev_inst *const sdi = transfer->user_data;
 	struct dev_context *const devc = sdi->priv;
-	struct sr_usb_dev_inst *usb = sdi->conn;
+	struct otc_usb_dev_inst *usb = sdi->conn;
 	gboolean cmd = FALSE;
 	uint32_t max_samples = transfer->actual_length / sizeof(uint32_t);
 	uint32_t *buf;
@@ -227,13 +227,13 @@ void LIBUSB_CALL h4032l_usb_callback(struct libusb_transfer *transfer)
 	}
 
 	if (transfer->status != LIBUSB_TRANSFER_COMPLETED)
-		sr_dbg("%s error: %d.", __func__, transfer->status);
+		otc_dbg("%s error: %d.", __func__, transfer->status);
 
 	buf = (uint32_t *)transfer->buffer;
 
 	switch (devc->status) {
 	case H4032L_STATUS_IDLE:
-		sr_err("USB callback called in idle.");
+		otc_err("USB callback called in idle.");
 		break;
 	case H4032L_STATUS_CMD_CONFIGURE:
 		/* Select status request as next. */
@@ -276,7 +276,7 @@ void LIBUSB_CALL h4032l_usb_callback(struct libusb_transfer *transfer)
 	case H4032L_STATUS_FIRST_TRANSFER:
 		/* Drop packets until H4032L_START_PACKET_MAGIC. */
 		if (buf[0] != H4032L_START_PACKET_MAGIC) {
-			sr_dbg("Mismatch magic number of start poll.");
+			otc_dbg("Mismatch magic number of start poll.");
 			break;
 		}
 		devc->status = H4032L_STATUS_TRANSFER;
@@ -287,21 +287,21 @@ void LIBUSB_CALL h4032l_usb_callback(struct libusb_transfer *transfer)
 		num_samples = MIN(devc->remaining_samples, max_samples);
 		devc->remaining_samples -= num_samples;
 		send_data(sdi, buf, num_samples);
-		sr_dbg("Remaining: %d %08X %08X.", devc->remaining_samples,
+		otc_dbg("Remaining: %d %08X %08X.", devc->remaining_samples,
 		       buf[0], buf[1]);
 		break;
 	}
 
 	/* Start data receiving. */
 	if (devc->status == H4032L_STATUS_TRANSFER) {
-		if ((ret = h4032l_start_data_transfers(sdi)) != SR_OK) {
-			sr_err("Can not start data transfers: %d", ret);
+		if ((ret = h4032l_start_data_transfers(sdi)) != OTC_OK) {
+			otc_err("Can not start data transfers: %d", ret);
 			devc->status = H4032L_STATUS_IDLE;
 		}
 	} else if (devc->status != H4032L_STATUS_IDLE) {
 		if (cmd) {
 			/* Setup new USB cmd packet, reuse transfer object. */
-			sr_dbg("New command: %d.", devc->status);
+			otc_dbg("New command: %d.", devc->status);
 			libusb_fill_bulk_transfer(transfer, usb->devhdl,
 				2 | LIBUSB_ENDPOINT_OUT,
 				(unsigned char *)&devc->cmd_pkt,
@@ -310,7 +310,7 @@ void LIBUSB_CALL h4032l_usb_callback(struct libusb_transfer *transfer)
 				(void *)sdi, H4032L_USB_TIMEOUT);
 		} else {
 			/* Setup new USB poll packet, reuse transfer object. */
-			sr_dbg("Poll: %d.", devc->status);
+			otc_dbg("Poll: %d.", devc->status);
 			libusb_fill_bulk_transfer(transfer, usb->devhdl,
 				6 | LIBUSB_ENDPOINT_IN,
 				devc->buf, ARRAY_SIZE(devc->buf),
@@ -319,12 +319,12 @@ void LIBUSB_CALL h4032l_usb_callback(struct libusb_transfer *transfer)
 		}
 		/* Send prepared USB packet. */
 		if ((ret = libusb_submit_transfer(transfer)) != 0) {
-			sr_err("Failed to submit transfer: %s.",
+			otc_err("Failed to submit transfer: %s.",
 			       libusb_error_name(ret));
 			devc->status = H4032L_STATUS_IDLE;
 		}
 	} else {
-		sr_dbg("Now idle.");
+		otc_dbg("Now idle.");
 	}
 
 	if (devc->status == H4032L_STATUS_IDLE)
@@ -354,10 +354,10 @@ uint16_t h4032l_voltage2pwm(double voltage)
 	return (uint16_t) ((voltage + 5.0) * (4096.0 / 15.0));
 }
 
-SR_PRIV int h4032l_start_data_transfers(const struct sr_dev_inst *sdi)
+OTC_PRIV int h4032l_start_data_transfers(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
-	struct sr_usb_dev_inst *usb = sdi->conn;
+	struct otc_usb_dev_inst *usb = sdi->conn;
 	struct libusb_transfer *transfer;
 	uint8_t *buf;
 	unsigned int num_transfers;
@@ -391,24 +391,24 @@ SR_PRIV int h4032l_start_data_transfers(const struct sr_dev_inst *sdi)
 
 		/* Send prepared usb packet. */
 		if ((ret = libusb_submit_transfer(transfer)) != 0) {
-			sr_err("Failed to submit transfer: %s.",
+			otc_err("Failed to submit transfer: %s.",
 			       libusb_error_name(ret));
 			libusb_free_transfer(transfer);
 			g_free(buf);
 			abort_acquisition(devc);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		devc->transfers[i] = transfer;
 		devc->submitted_transfers++;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int h4032l_start(const struct sr_dev_inst *sdi)
+OTC_PRIV int h4032l_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
-	struct sr_usb_dev_inst *usb = sdi->conn;
+	struct otc_usb_dev_inst *usb = sdi->conn;
 	struct libusb_transfer *transfer;
 	unsigned char buf[] = {0x0f, 0x03, 0x03, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 	int ret;
@@ -417,9 +417,9 @@ SR_PRIV int h4032l_start(const struct sr_dev_inst *sdi)
 	if ((ret = libusb_control_transfer(usb->devhdl,
 		LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_OUT, CMD_RESET,
 		0x00, 0x00, buf, ARRAY_SIZE(buf), H4032L_USB_TIMEOUT)) < 0) {
-		sr_err("Failed to send vendor request %s.",
+		otc_err("Failed to send vendor request %s.",
 		       libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* Wait for reset vendor request. */
@@ -438,10 +438,10 @@ SR_PRIV int h4032l_start(const struct sr_dev_inst *sdi)
 		(void *)sdi, H4032L_USB_TIMEOUT);
 
 	if ((ret = libusb_submit_transfer(transfer)) != 0) {
-		sr_err("Failed to submit transfer: %s.",
+		otc_err("Failed to submit transfer: %s.",
 		       libusb_error_name(ret));
 		libusb_free_transfer(transfer);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	devc->transfers = g_malloc0(sizeof(*devc->transfers));
@@ -449,30 +449,30 @@ SR_PRIV int h4032l_start(const struct sr_dev_inst *sdi)
 	devc->num_transfers = 1;
 	devc->transfers[0] = transfer;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int h4032l_stop(struct sr_dev_inst *sdi)
+OTC_PRIV int h4032l_stop(struct otc_dev_inst *sdi)
 {
 	abort_acquisition(sdi->priv);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int h4032l_dev_open(struct sr_dev_inst *sdi)
+OTC_PRIV int h4032l_dev_open(struct otc_dev_inst *sdi)
 {
 	struct drv_context *drvc = sdi->driver->context;
-	struct sr_usb_dev_inst *usb = sdi->conn;
+	struct otc_usb_dev_inst *usb = sdi->conn;
 	struct libusb_device_descriptor des;
 	libusb_device **devlist;
-	int ret = SR_ERR, i, device_count;
+	int ret = OTC_ERR, i, device_count;
 	char connection_id[64];
 
-	device_count = libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+	device_count = libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 	if (device_count < 0) {
-		sr_err("Failed to get device list: %s.",
+		otc_err("Failed to get device list: %s.",
 		       libusb_error_name(device_count));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	for (i = 0; i < device_count; i++) {
@@ -482,8 +482,8 @@ SR_PRIV int h4032l_dev_open(struct sr_dev_inst *sdi)
 		    des.idProduct != H4032L_USB_PRODUCT)
 			continue;
 
-		if ((sdi->status == SR_ST_INITIALIZING) ||
-		    (sdi->status == SR_ST_INACTIVE)) {
+		if ((sdi->status == OTC_ST_INITIALIZING) ||
+		    (sdi->status == OTC_ST_INACTIVE)) {
 			/* Check device by its physical USB bus/port address. */
 			if (usb_get_port_path(devlist[i], connection_id, sizeof(connection_id)) < 0)
 				continue;
@@ -502,13 +502,13 @@ SR_PRIV int h4032l_dev_open(struct sr_dev_inst *sdi)
 				usb->address =
 					libusb_get_device_address(devlist[i]);
 		} else {
-			sr_err("Failed to open device: %s.",
+			otc_err("Failed to open device: %s.",
 			       libusb_error_name(ret));
-			ret = SR_ERR;
+			ret = OTC_ERR;
 			break;
 		}
 
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
 	}
 
@@ -516,10 +516,10 @@ SR_PRIV int h4032l_dev_open(struct sr_dev_inst *sdi)
 	return ret;
 }
 
-SR_PRIV int h4032l_get_fpga_version(const struct sr_dev_inst *sdi)
+OTC_PRIV int h4032l_get_fpga_version(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
-	struct sr_usb_dev_inst *usb = sdi->conn;
+	struct otc_usb_dev_inst *usb = sdi->conn;
 	struct h4032l_status_packet *status;
 	int transferred;
 	int i, ret;
@@ -532,9 +532,9 @@ SR_PRIV int h4032l_get_fpga_version(const struct sr_dev_inst *sdi)
 	if ((ret = libusb_bulk_transfer(usb->devhdl,
 		2 | LIBUSB_ENDPOINT_OUT, (unsigned char *)&devc->cmd_pkt,
 		sizeof(struct h4032l_cmd_pkt), &transferred, H4032L_USB_TIMEOUT)) < 0) {
-		sr_err("Unable to send FPGA version request: %s.",
+		otc_err("Unable to send FPGA version request: %s.",
 		       libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* Attempt to get FGPA version. */
@@ -542,19 +542,19 @@ SR_PRIV int h4032l_get_fpga_version(const struct sr_dev_inst *sdi)
 		if ((ret = libusb_bulk_transfer(usb->devhdl,
 			6 | LIBUSB_ENDPOINT_IN, devc->buf,
 			ARRAY_SIZE(devc->buf), &transferred, H4032L_USB_TIMEOUT)) < 0) {
-			sr_err("Unable to receive FPGA version: %s.",
+			otc_err("Unable to receive FPGA version: %s.",
 			       libusb_error_name(ret));
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		status = (struct h4032l_status_packet *)devc->buf;
 		if (status->magic == H4032L_STATUS_PACKET_MAGIC) {
-			sr_dbg("FPGA version: 0x%x.", status->fpga_version);
+			otc_dbg("FPGA version: 0x%x.", status->fpga_version);
 			devc->fpga_version = status->fpga_version;
-			return SR_OK;
+			return OTC_OK;
 		}
 	}
 
-	sr_err("Unable to get FPGA version.");
+	otc_err("Unable to get FPGA version.");
 
-	return SR_ERR;
+	return OTC_ERR;
 }

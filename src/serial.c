@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010-2012 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2010-2012 Uwe Hermann <uwe@hermann-uwe.de>
@@ -29,8 +29,8 @@
 #ifdef HAVE_LIBSERIALPORT
 #include <libserialport.h>
 #endif
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 #ifdef _WIN32
 #include <windows.h> /* for HANDLE */
 #endif
@@ -56,7 +56,7 @@
 #ifdef HAVE_SERIAL_COMM
 
 /* See if an (assumed opened) serial port is of any supported type. */
-static int dev_is_supported(struct sr_serial_dev_inst *serial)
+static int dev_is_supported(struct otc_serial_dev_inst *serial)
 {
 	if (!serial || !serial->lib_funcs)
 		return 0;
@@ -74,21 +74,21 @@ static int dev_is_supported(struct sr_serial_dev_inst *serial)
  * If the serial structure contains a serialcomm string, it will be
  * passed to serial_set_paramstr() after the port is opened.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int serial_open(struct sr_serial_dev_inst *serial, int flags)
+OTC_PRIV int serial_open(struct otc_serial_dev_inst *serial, int flags)
 {
 	int ret;
 
 	if (!serial) {
-		sr_dbg("Invalid serial port.");
-		return SR_ERR;
+		otc_dbg("Invalid serial port.");
+		return OTC_ERR;
 	}
 
-	sr_spew("Opening serial port '%s' (flags %d).", serial->port, flags);
+	otc_spew("Opening serial port '%s' (flags %d).", serial->port, flags);
 
 	/*
 	 * Determine which serial transport library to use. Derive the
@@ -104,7 +104,7 @@ SR_PRIV int serial_open(struct sr_serial_dev_inst *serial, int flags)
 	else
 		serial->lib_funcs = ser_lib_funcs_libsp;
 	if (!serial->lib_funcs)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	/*
 	 * Note that use of the 'rcv_buffer' is optional, and the buffer's
@@ -119,14 +119,14 @@ SR_PRIV int serial_open(struct sr_serial_dev_inst *serial, int flags)
 	 * UART frame format.
 	 */
 	if (!serial->lib_funcs->open)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	ret = serial->lib_funcs->open(serial, flags);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (serial->serialcomm) {
 		ret = serial_set_paramstr(serial, serial->serialcomm);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
@@ -136,12 +136,12 @@ SR_PRIV int serial_open(struct sr_serial_dev_inst *serial, int flags)
 	 * is non-fatal.
 	 */
 	ret = serial_flush(serial);
-	if (ret == SR_ERR_NA)
-		ret = SR_OK;
-	if (ret != SR_OK)
+	if (ret == OTC_ERR_NA)
+		ret = OTC_OK;
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -149,27 +149,27 @@ SR_PRIV int serial_open(struct sr_serial_dev_inst *serial, int flags)
  *
  * @param serial Previously initialized serial port structure.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int serial_close(struct sr_serial_dev_inst *serial)
+OTC_PRIV int serial_close(struct otc_serial_dev_inst *serial)
 {
 	int rc;
 
 	if (!serial) {
-		sr_dbg("Invalid serial port.");
-		return SR_ERR;
+		otc_dbg("Invalid serial port.");
+		return OTC_ERR;
 	}
 
-	sr_spew("Closing serial port %s.", serial->port);
+	otc_spew("Closing serial port %s.", serial->port);
 
 	if (!serial->lib_funcs || !serial->lib_funcs->close)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	rc = serial->lib_funcs->close(serial);
-	if (rc == SR_OK && serial->rcv_buffer) {
+	if (rc == OTC_OK && serial->rcv_buffer) {
 		g_string_free(serial->rcv_buffer, TRUE);
 		serial->rcv_buffer = NULL;
 	}
@@ -182,24 +182,24 @@ SR_PRIV int serial_close(struct sr_serial_dev_inst *serial)
  *
  * @param serial Previously initialized serial port structure.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int serial_flush(struct sr_serial_dev_inst *serial)
+OTC_PRIV int serial_flush(struct otc_serial_dev_inst *serial)
 {
 	if (!serial) {
-		sr_dbg("Invalid serial port.");
-		return SR_ERR;
+		otc_dbg("Invalid serial port.");
+		return OTC_ERR;
 	}
 
-	sr_spew("Flushing serial port %s.", serial->port);
+	otc_spew("Flushing serial port %s.", serial->port);
 
-	sr_ser_discard_queued_data(serial);
+	otc_ser_discard_queued_data(serial);
 
 	if (!serial->lib_funcs || !serial->lib_funcs->flush)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	return serial->lib_funcs->flush(serial);
 }
@@ -209,22 +209,22 @@ SR_PRIV int serial_flush(struct sr_serial_dev_inst *serial)
  *
  * @param serial Previously initialized serial port structure.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int serial_drain(struct sr_serial_dev_inst *serial)
+OTC_PRIV int serial_drain(struct otc_serial_dev_inst *serial)
 {
 	if (!serial) {
-		sr_dbg("Invalid serial port.");
-		return SR_ERR;
+		otc_dbg("Invalid serial port.");
+		return OTC_ERR;
 	}
 
-	sr_spew("Draining serial port %s.", serial->port);
+	otc_spew("Draining serial port %s.", serial->port);
 
 	if (!serial->lib_funcs || !serial->lib_funcs->drain)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	return serial->lib_funcs->drain(serial);
 }
@@ -257,23 +257,23 @@ SR_PRIV int serial_drain(struct sr_serial_dev_inst *serial)
  * @param[in] cb Routine to call as RX data becomes available.
  * @param[in] cb_data User data to pass to the callback in addition to RX data.
  *
- * @retval SR_ERR_ARG Invalid parameters.
- * @retval SR_OK Successful registration.
+ * @retval OTC_ERR_ARG Invalid parameters.
+ * @retval OTC_OK Successful registration.
  *
  * Callbacks get unregistered by specifying NULL for the 'cb' parameter.
  *
  * @private
  */
-SR_PRIV int serial_set_read_chunk_cb(struct sr_serial_dev_inst *serial,
+OTC_PRIV int serial_set_read_chunk_cb(struct otc_serial_dev_inst *serial,
 	serial_rx_chunk_callback cb, void *cb_data)
 {
 	if (!serial)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	serial->rx_chunk_cb_func = cb;
 	serial->rx_chunk_cb_data = cb_data;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -284,7 +284,7 @@ SR_PRIV int serial_set_read_chunk_cb(struct sr_serial_dev_inst *serial,
  *
  * @private
  */
-SR_PRIV void sr_ser_discard_queued_data(struct sr_serial_dev_inst *serial)
+OTC_PRIV void otc_ser_discard_queued_data(struct otc_serial_dev_inst *serial)
 {
 	if (!serial || !serial->rcv_buffer)
 		return;
@@ -300,7 +300,7 @@ SR_PRIV void sr_ser_discard_queued_data(struct sr_serial_dev_inst *serial)
  *
  * @private
  */
-SR_PRIV size_t sr_ser_has_queued_data(struct sr_serial_dev_inst *serial)
+OTC_PRIV size_t otc_ser_has_queued_data(struct otc_serial_dev_inst *serial)
 {
 	if (!serial || !serial->rcv_buffer)
 		return 0;
@@ -318,7 +318,7 @@ SR_PRIV size_t sr_ser_has_queued_data(struct sr_serial_dev_inst *serial)
  *
  * @private
  */
-SR_PRIV void sr_ser_queue_rx_data(struct sr_serial_dev_inst *serial,
+OTC_PRIV void otc_ser_queue_rx_data(struct otc_serial_dev_inst *serial,
 	const uint8_t *data, size_t len)
 {
 	if (!serial || !data || !len)
@@ -340,7 +340,7 @@ SR_PRIV void sr_ser_queue_rx_data(struct sr_serial_dev_inst *serial,
  *
  * @private
  */
-SR_PRIV size_t sr_ser_unqueue_rx_data(struct sr_serial_dev_inst *serial,
+OTC_PRIV size_t otc_ser_unqueue_rx_data(struct otc_serial_dev_inst *serial,
 	uint8_t *data, size_t len)
 {
 	size_t qlen;
@@ -349,7 +349,7 @@ SR_PRIV size_t sr_ser_unqueue_rx_data(struct sr_serial_dev_inst *serial,
 	if (!serial || !data || !len)
 		return 0;
 
-	qlen = sr_ser_has_queued_data(serial);
+	qlen = otc_ser_has_queued_data(serial);
 	if (!qlen)
 		return 0;
 
@@ -376,7 +376,7 @@ SR_PRIV size_t sr_ser_unqueue_rx_data(struct sr_serial_dev_inst *serial,
  *
  * @private
  */
-SR_PRIV size_t serial_has_receive_data(struct sr_serial_dev_inst *serial)
+OTC_PRIV size_t serial_has_receive_data(struct otc_serial_dev_inst *serial)
 {
 	size_t lib_count, buf_count;
 
@@ -387,27 +387,27 @@ SR_PRIV size_t serial_has_receive_data(struct sr_serial_dev_inst *serial)
 	if (serial->lib_funcs && serial->lib_funcs->get_rx_avail)
 		lib_count = serial->lib_funcs->get_rx_avail(serial);
 
-	buf_count = sr_ser_has_queued_data(serial);
+	buf_count = otc_ser_has_queued_data(serial);
 
 	return lib_count + buf_count;
 }
 
-static int _serial_write(struct sr_serial_dev_inst *serial,
+static int _serial_write(struct otc_serial_dev_inst *serial,
 	const void *buf, size_t count,
 	int nonblocking, unsigned int timeout_ms)
 {
 	ssize_t ret;
 
 	if (!serial) {
-		sr_dbg("Invalid serial port.");
-		return SR_ERR;
+		otc_dbg("Invalid serial port.");
+		return OTC_ERR;
 	}
 
 	if (!serial->lib_funcs || !serial->lib_funcs->write)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	ret = serial->lib_funcs->write(serial, buf, count,
 		nonblocking, timeout_ms);
-	sr_spew("Wrote %zd/%zu bytes.", ret, count);
+	otc_spew("Wrote %zd/%zu bytes.", ret, count);
 
 	return ret;
 }
@@ -420,14 +420,14 @@ static int _serial_write(struct sr_serial_dev_inst *serial,
  * @param[in] count Number of bytes to write.
  * @param[in] timeout_ms Timeout in ms, or 0 for no timeout.
  *
- * @retval SR_ERR_ARG Invalid argument.
- * @retval SR_ERR Other error.
+ * @retval OTC_ERR_ARG Invalid argument.
+ * @retval OTC_ERR Other error.
  * @retval other The number of bytes written. If this is less than the number
  * specified in the call, the timeout was reached.
  *
  * @private
  */
-SR_PRIV int serial_write_blocking(struct sr_serial_dev_inst *serial,
+OTC_PRIV int serial_write_blocking(struct otc_serial_dev_inst *serial,
 	const void *buf, size_t count, unsigned int timeout_ms)
 {
 	return _serial_write(serial, buf, count, 0, timeout_ms);
@@ -440,34 +440,34 @@ SR_PRIV int serial_write_blocking(struct sr_serial_dev_inst *serial,
  * @param[in] buf Buffer containing the bytes to write.
  * @param[in] count Number of bytes to write.
  *
- * @retval SR_ERR_ARG Invalid argument.
- * @retval SR_ERR Other error.
+ * @retval OTC_ERR_ARG Invalid argument.
+ * @retval OTC_ERR Other error.
  * @retval other The number of bytes written.
  *
  * @private
  */
-SR_PRIV int serial_write_nonblocking(struct sr_serial_dev_inst *serial,
+OTC_PRIV int serial_write_nonblocking(struct otc_serial_dev_inst *serial,
 	const void *buf, size_t count)
 {
 	return _serial_write(serial, buf, count, 1, 0);
 }
 
-static int _serial_read(struct sr_serial_dev_inst *serial,
+static int _serial_read(struct otc_serial_dev_inst *serial,
 	void *buf, size_t count, int nonblocking, unsigned int timeout_ms)
 {
 	ssize_t ret;
 
 	if (!serial) {
-		sr_dbg("Invalid serial port.");
-		return SR_ERR;
+		otc_dbg("Invalid serial port.");
+		return OTC_ERR;
 	}
 
 	if (!serial->lib_funcs || !serial->lib_funcs->read)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	ret = serial->lib_funcs->read(serial, buf, count,
 		nonblocking, timeout_ms);
 	if (ret > 0)
-		sr_spew("Read %zd/%zu bytes.", ret, count);
+		otc_spew("Read %zd/%zu bytes.", ret, count);
 
 	return ret;
 }
@@ -480,14 +480,14 @@ static int _serial_read(struct sr_serial_dev_inst *serial,
  * @param[in] count The number of bytes to read.
  * @param[in] timeout_ms Timeout in ms, or 0 for no timeout.
  *
- * @retval SR_ERR_ARG Invalid argument.
- * @retval SR_ERR Other error.
+ * @retval OTC_ERR_ARG Invalid argument.
+ * @retval OTC_ERR Other error.
  * @retval other The number of bytes read. If this is less than the number
  * requested, the timeout was reached.
  *
  * @private
  */
-SR_PRIV int serial_read_blocking(struct sr_serial_dev_inst *serial,
+OTC_PRIV int serial_read_blocking(struct otc_serial_dev_inst *serial,
 	void *buf, size_t count, unsigned int timeout_ms)
 {
 	return _serial_read(serial, buf, count, 0, timeout_ms);
@@ -501,13 +501,13 @@ SR_PRIV int serial_read_blocking(struct sr_serial_dev_inst *serial,
  * @param buf Buffer where to store the bytes that are read.
  * @param[in] count The number of bytes to read.
  *
- * @retval SR_ERR_ARG Invalid argument.
- * @retval SR_ERR Other error.
+ * @retval OTC_ERR_ARG Invalid argument.
+ * @retval OTC_ERR Other error.
  * @retval other The number of bytes read.
  *
  * @private
  */
-SR_PRIV int serial_read_nonblocking(struct sr_serial_dev_inst *serial,
+OTC_PRIV int serial_read_nonblocking(struct otc_serial_dev_inst *serial,
 	void *buf, size_t count)
 {
 	return _serial_read(serial, buf, count, 1, 0);
@@ -526,35 +526,35 @@ SR_PRIV int serial_read_nonblocking(struct sr_serial_dev_inst *serial,
  * @param[in] rts Status of RTS line (0 or 1; required by some interfaces).
  * @param[in] dtr Status of DTR line (0 or 1; required by some interfaces).
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int serial_set_params(struct sr_serial_dev_inst *serial,
+OTC_PRIV int serial_set_params(struct otc_serial_dev_inst *serial,
 	int baudrate, int bits, int parity, int stopbits,
 	int flowcontrol, int rts, int dtr)
 {
 	int ret;
 
 	if (!serial) {
-		sr_dbg("Invalid serial port.");
-		return SR_ERR;
+		otc_dbg("Invalid serial port.");
+		return OTC_ERR;
 	}
 
-	sr_spew("Setting serial parameters on port %s.", serial->port);
+	otc_spew("Setting serial parameters on port %s.", serial->port);
 
 	if (!serial->lib_funcs || !serial->lib_funcs->set_params)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	ret = serial->lib_funcs->set_params(serial,
 		baudrate, bits, parity, stopbits,
 		flowcontrol, rts, dtr);
-	if (ret == SR_OK) {
+	if (ret == OTC_OK) {
 		serial->comm_params.bit_rate = baudrate;
 		serial->comm_params.data_bits = bits;
 		serial->comm_params.parity_bits = parity ? 1 : 0;
 		serial->comm_params.stop_bits = stopbits;
-		sr_dbg("DBG: %s() rate %d, %d%s%d", __func__,
+		otc_dbg("DBG: %s() rate %d, %d%s%d", __func__,
 				baudrate, bits,
 				(parity == 0) ? "n" : "x",
 				stopbits);
@@ -570,25 +570,25 @@ SR_PRIV int serial_set_params(struct sr_serial_dev_inst *serial,
  * @param[in] rts Status of RTS line (0 or 1; or -1 to ignore).
  * @param[in] dtr Status of DTR line (0 or 1; or -1 to ignore).
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int serial_set_handshake(struct sr_serial_dev_inst *serial,
+OTC_PRIV int serial_set_handshake(struct otc_serial_dev_inst *serial,
 	int rts, int dtr)
 {
 	int ret;
 
 	if (!serial) {
-		sr_dbg("Invalid serial port.");
-		return SR_ERR;
+		otc_dbg("Invalid serial port.");
+		return OTC_ERR;
 	}
 
-	sr_spew("Modifying serial parameters on port %s.", serial->port);
+	otc_spew("Modifying serial parameters on port %s.", serial->port);
 
 	if (!serial->lib_funcs || !serial->lib_funcs->set_handshake)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	ret = serial->lib_funcs->set_handshake(serial, rts, dtr);
 
 	return ret;
@@ -612,12 +612,12 @@ SR_PRIV int serial_set_handshake(struct sr_serial_dev_inst *serial,
  * Please note that values and combinations of these parameters must be
  * supported by the concrete serial interface hardware and the drivers for it.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int serial_set_paramstr(struct sr_serial_dev_inst *serial,
+OTC_PRIV int serial_set_paramstr(struct otc_serial_dev_inst *serial,
 	const char *paramstr)
 {
 /** @cond PRIVATE */
@@ -634,7 +634,7 @@ SR_PRIV int serial_set_paramstr(struct sr_serial_dev_inst *serial,
 	parity = SP_PARITY_NONE;
 	stopbits = 1;
 	rts = dtr = -1;
-	sr_spew("Parsing parameters from \"%s\".", paramstr);
+	otc_spew("Parsing parameters from \"%s\".", paramstr);
 	reg = g_regex_new(SERIAL_COMM_SPEC, 0, 0, NULL);
 	if (g_regex_match(reg, paramstr, 0, &match)) {
 		if ((mstr = g_match_info_fetch(match, 1)))
@@ -662,7 +662,7 @@ SR_PRIV int serial_set_paramstr(struct sr_serial_dev_inst *serial,
 		g_free(mstr);
 		if ((mstr = g_match_info_fetch(match, 6)) && mstr[0] != '\0') {
 			if (mstr[0] != '/') {
-				sr_dbg("missing separator before extra options");
+				otc_dbg("missing separator before extra options");
 				speed = 0;
 			} else {
 				/* A set of "key=value" options separated by / */
@@ -675,7 +675,7 @@ SR_PRIV int serial_set_paramstr(struct sr_serial_dev_inst *serial,
 						else if (kv[1][0] == '0')
 							rts = 0;
 						else {
-							sr_dbg("invalid value for rts: %c", kv[1][0]);
+							otc_dbg("invalid value for rts: %c", kv[1][0]);
 							speed = 0;
 						}
 					} else if (!strncmp(kv[0], "dtr", 3)) {
@@ -684,7 +684,7 @@ SR_PRIV int serial_set_paramstr(struct sr_serial_dev_inst *serial,
 						else if (kv[1][0] == '0')
 							dtr = 0;
 						else {
-							sr_dbg("invalid value for dtr: %c", kv[1][0]);
+							otc_dbg("invalid value for dtr: %c", kv[1][0]);
 							speed = 0;
 						}
 					} else if (!strncmp(kv[0], "flow", 4)) {
@@ -695,7 +695,7 @@ SR_PRIV int serial_set_paramstr(struct sr_serial_dev_inst *serial,
 						else if (kv[1][0] == '2')
 							flow = 2;
 						else {
-							sr_dbg("invalid value for flow: %c", kv[1][0]);
+							otc_dbg("invalid value for flow: %c", kv[1][0]);
 							speed = 0;
 						}
 					}
@@ -708,12 +708,12 @@ SR_PRIV int serial_set_paramstr(struct sr_serial_dev_inst *serial,
 	}
 	g_match_info_unref(match);
 	g_regex_unref(reg);
-	sr_spew("Got params: rate %d, frame %d/%d/%d, flow %d, rts %d, dtr %d.",
+	otc_spew("Got params: rate %d, frame %d/%d/%d, flow %d, rts %d, dtr %d.",
 		speed, databits, parity, stopbits, flow, rts, dtr);
 
 	if (!speed) {
-		sr_dbg("Could not infer speed from parameter string.");
-		return SR_ERR_ARG;
+		otc_dbg("Could not infer speed from parameter string.");
+		return OTC_ERR_ARG;
 	}
 
 	return serial_set_params(serial, speed,
@@ -731,24 +731,24 @@ SR_PRIV int serial_set_paramstr(struct sr_serial_dev_inst *serial,
  *
  * Reading stops when CR or LF is found, which is stripped from the buffer.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int serial_readline(struct sr_serial_dev_inst *serial,
+OTC_PRIV int serial_readline(struct otc_serial_dev_inst *serial,
 	char **buf, int *buflen, gint64 timeout_ms)
 {
 	gint64 start, remaining;
 	int maxlen, len;
 
 	if (!serial) {
-		sr_dbg("Invalid serial port.");
-		return SR_ERR;
+		otc_dbg("Invalid serial port.");
+		return OTC_ERR;
 	}
 
 	if (!dev_is_supported(serial)) {
-		sr_dbg("Cannot use unopened serial port %s.", serial->port);
+		otc_dbg("Cannot use unopened serial port %s.", serial->port);
 		return -1;
 	}
 
@@ -781,9 +781,9 @@ SR_PRIV int serial_readline(struct sr_serial_dev_inst *serial,
 			g_usleep(2000);
 	}
 	if (*buflen)
-		sr_dbg("Received %d: '%s'.", *buflen, *buf);
+		otc_dbg("Received %d: '%s'.", *buflen, *buf);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -807,12 +807,12 @@ SR_PRIV int serial_readline(struct sr_serial_dev_inst *serial,
  * packets of variable length (#is_valid_len parameter, minimum length
  * #packet_size required for first invocation).
  *
- * @retval SR_OK Valid packet was found within the given timeout.
- * @retval SR_ERR Failure.
+ * @retval OTC_OK Valid packet was found within the given timeout.
+ * @retval OTC_ERR Failure.
  *
  * @private
  */
-SR_PRIV int serial_stream_detect(struct sr_serial_dev_inst *serial,
+OTC_PRIV int serial_stream_detect(struct otc_serial_dev_inst *serial,
 	uint8_t *buf, size_t *buflen,
 	size_t packet_size, packet_valid_callback is_valid,
 	packet_valid_len_callback is_valid_len, size_t *return_size,
@@ -826,7 +826,7 @@ SR_PRIV int serial_stream_detect(struct sr_serial_dev_inst *serial,
 	gboolean do_dump;
 	int ret;
 
-	sr_dbg("Detecting packets on %s (timeout = %" PRIu64 "ms).",
+	otc_dbg("Detecting packets on %s (timeout = %" PRIu64 "ms).",
 		serial->port, timeout_ms);
 
 	max_fill_idx = *buflen;
@@ -836,8 +836,8 @@ SR_PRIV int serial_stream_detect(struct sr_serial_dev_inst *serial,
 		 * packet length scenarios, but for variable length setups
 		 * we don't know the packets' sizes up front.
 		 */
-		sr_err("Small stream detect RX buffer, want 2x packet size.");
-		return SR_ERR_ARG;
+		otc_err("Small stream detect RX buffer, want 2x packet size.");
+		return OTC_ERR_ARG;
 	}
 
 	byte_delay_us = serial_timeout(serial, 1) * 1000;
@@ -859,14 +859,14 @@ SR_PRIV int serial_stream_detect(struct sr_serial_dev_inst *serial,
 		check_ptr = &buf[check_idx];
 		check_len = fill_idx - check_idx;
 		do_dump = check_len >= packet_size;
-		do_dump &= sr_log_loglevel_get() >= SR_LOG_SPEW;
+		do_dump &= otc_log_loglevel_get() >= OTC_LOG_SPEW;
 		if (do_dump) {
 			GString *text;
 
-			text = sr_hexdump_new(check_ptr, check_len);
-			sr_spew("Trying packet: len %zu, bytes %s",
+			text = otc_hexdump_new(check_ptr, check_len);
+			otc_spew("Trying packet: len %zu, bytes %s",
 				check_len, text->str);
-			sr_hexdump_free(text);
+			otc_hexdump_free(text);
 		}
 
 		/* A packet's (minimum) length was received, check its data. */
@@ -875,56 +875,56 @@ SR_PRIV int serial_stream_detect(struct sr_serial_dev_inst *serial,
 		if (is_valid_len && check_len >= packet_size) {
 			pkt_len = packet_size;
 			ret = is_valid_len(NULL, check_ptr, check_len, &pkt_len);
-			if (ret == SR_PACKET_VALID) {
+			if (ret == OTC_PACKET_VALID) {
 				/* Exact match. Terminate with success. */
-				sr_spew("Valid packet after %" PRIu64 "ms.",
+				otc_spew("Valid packet after %" PRIu64 "ms.",
 					elapsed_ms);
-				sr_spew("RX count %zu, packet len %zu.",
+				otc_spew("RX count %zu, packet len %zu.",
 					fill_idx, pkt_len);
 				*buflen = fill_idx;
 				if (return_size)
 					*return_size = pkt_len;
-				return SR_OK;
+				return OTC_OK;
 			}
-			if (ret == SR_PACKET_NEED_RX) {
+			if (ret == OTC_PACKET_NEED_RX) {
 				/* Incomplete, keep accumulating RX data. */
-				sr_spew("Checker needs more RX data.");
+				otc_spew("Checker needs more RX data.");
 			} else {
 				/* Not a valid packet. Continue searching. */
-				sr_spew("Invalid packet, advancing read pos.");
+				otc_spew("Invalid packet, advancing read pos.");
 				check_idx++;
 			}
 		}
 		if (is_valid && check_len >= packet_size) {
 			if (is_valid(check_ptr)) {
 				/* Exact match. Terminate with success. */
-				sr_spew("Valid packet after %" PRIu64 "ms.",
+				otc_spew("Valid packet after %" PRIu64 "ms.",
 					elapsed_ms);
-				sr_spew("RX count %zu, packet len %zu.",
+				otc_spew("RX count %zu, packet len %zu.",
 					fill_idx, packet_size);
 				*buflen = fill_idx;
 				if (return_size)
 					*return_size = packet_size;
-				return SR_OK;
+				return OTC_OK;
 			}
 			/* Not a valid packet. Continue searching. */
-			sr_spew("Invalid packet, advancing read pointer.");
+			otc_spew("Invalid packet, advancing read pointer.");
 			check_idx++;
 		}
 
 		/* Check for packet search timeout. */
 		if (elapsed_ms >= timeout_ms) {
-			sr_dbg("Detection timed out after %" PRIu64 "ms.",
+			otc_dbg("Detection timed out after %" PRIu64 "ms.",
 				elapsed_ms);
 			break;
 		}
 		if (recv_len < 1)
 			g_usleep(byte_delay_us);
 	}
-	sr_info("Didn't find a valid packet (read %zu bytes).", fill_idx);
+	otc_info("Didn't find a valid packet (read %zu bytes).", fill_idx);
 	*buflen = fill_idx;
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
 #endif
@@ -945,95 +945,95 @@ SR_PRIV int serial_stream_detect(struct sr_serial_dev_inst *serial,
  * @param[out] serial_options Pointer where to store the optional extracted serial
  * options.
  *
- * @return SR_OK if a serial_device is found, SR_ERR if no device is found.
+ * @return OTC_OK if a serial_device is found, OTC_ERR if no device is found.
  *
  * @private
  */
-SR_PRIV int sr_serial_extract_options(GSList *options,
+OTC_PRIV int otc_serial_extract_options(GSList *options,
 	const char **serial_device, const char **serial_options)
 {
 	GSList *l;
-	struct sr_config *src;
+	struct otc_config *src;
 
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			if (!serial_device)
 				break;
 			*serial_device = g_variant_get_string(src->data, NULL);
-			sr_dbg("Parsed serial device: %s.", *serial_device);
+			otc_dbg("Parsed serial device: %s.", *serial_device);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			if (!serial_options)
 				break;
 			*serial_options = g_variant_get_string(src->data, NULL);
-			sr_dbg("Parsed serial options: %s.", *serial_options);
+			otc_dbg("Parsed serial options: %s.", *serial_options);
 			break;
 		}
 	}
 
 	if (serial_device && !*serial_device) {
-		sr_dbg("No serial device specified.");
-		return SR_ERR;
+		otc_dbg("No serial device specified.");
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 #ifdef HAVE_SERIAL_COMM
 
 /** @private */
-SR_PRIV int serial_source_add(struct sr_session *session,
-	struct sr_serial_dev_inst *serial, int events, int timeout,
-	sr_receive_data_callback cb, void *cb_data)
+OTC_PRIV int serial_source_add(struct otc_session *session,
+	struct otc_serial_dev_inst *serial, int events, int timeout,
+	otc_receive_data_callback cb, void *cb_data)
 {
 	if ((events & (G_IO_IN | G_IO_ERR)) && (events & G_IO_OUT)) {
-		sr_err("Cannot poll input/error and output simultaneously.");
-		return SR_ERR_ARG;
+		otc_err("Cannot poll input/error and output simultaneously.");
+		return OTC_ERR_ARG;
 	}
 
 	if (!dev_is_supported(serial)) {
-		sr_err("Invalid serial port.");
-		return SR_ERR_ARG;
+		otc_err("Invalid serial port.");
+		return OTC_ERR_ARG;
 	}
 
 	if (!serial->lib_funcs || !serial->lib_funcs->setup_source_add)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	return serial->lib_funcs->setup_source_add(session, serial,
 		events, timeout, cb, cb_data);
 }
 
 /** @private */
-SR_PRIV int serial_source_remove(struct sr_session *session,
-	struct sr_serial_dev_inst *serial)
+OTC_PRIV int serial_source_remove(struct otc_session *session,
+	struct otc_serial_dev_inst *serial)
 {
 	if (!dev_is_supported(serial)) {
-		sr_err("Invalid serial port.");
-		return SR_ERR_ARG;
+		otc_err("Invalid serial port.");
+		return OTC_ERR_ARG;
 	}
 
 	if (!serial->lib_funcs || !serial->lib_funcs->setup_source_remove)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	return serial->lib_funcs->setup_source_remove(session, serial);
 }
 
 /**
- * Create/allocate a new sr_serial_port structure.
+ * Create/allocate a new otc_serial_port structure.
  *
  * @param name The OS dependent name of the serial port. Must not be NULL.
  * @param description An end user friendly description for the serial port.
  *                    Can be NULL (in that case the empty string is used
  *                    as description).
  *
- * @return The newly allocated sr_serial_port struct.
+ * @return The newly allocated otc_serial_port struct.
  */
-static struct sr_serial_port *sr_serial_new(const char *name,
+static struct otc_serial_port *otc_serial_new(const char *name,
 	const char *description)
 {
-	struct sr_serial_port *serial;
+	struct otc_serial_port *serial;
 
 	if (!name)
 		return NULL;
@@ -1046,11 +1046,11 @@ static struct sr_serial_port *sr_serial_new(const char *name,
 }
 
 /**
- * Free a previously allocated sr_serial_port structure.
+ * Free a previously allocated otc_serial_port structure.
  *
- * @param serial The sr_serial_port struct to free. Must not be NULL.
+ * @param serial The otc_serial_port struct to free. Must not be NULL.
  */
-SR_API void sr_serial_free(struct sr_serial_port *serial)
+OTC_API void otc_serial_free(struct otc_serial_port *serial)
 {
 	if (!serial)
 		return;
@@ -1061,7 +1061,7 @@ SR_API void sr_serial_free(struct sr_serial_port *serial)
 
 static GSList *append_port_list(GSList *devs, const char *name, const char *desc)
 {
-	return g_slist_append(devs, sr_serial_new(name, desc));
+	return g_slist_append(devs, otc_serial_new(name, desc));
 }
 
 /**
@@ -1071,10 +1071,10 @@ static GSList *append_port_list(GSList *devs, const char *name, const char *desc
  *         NULL if no serial device is found. The returned list must be freed
  *         by the caller.
  */
-SR_API GSList *sr_serial_list(const struct sr_dev_driver *driver)
+OTC_API GSList *otc_serial_list(const struct otc_dev_driver *driver)
 {
 	GSList *tty_devs;
-	GSList *(*list_func)(GSList *list, sr_ser_list_append_t append);
+	GSList *(*list_func)(GSList *list, otc_ser_list_append_t append);
 
 	/* Currently unused, but will be used by some drivers later on. */
 	(void)driver;
@@ -1116,10 +1116,10 @@ static GSList *append_port_find(GSList *devs, const char *name)
  *
  * @private
  */
-SR_PRIV GSList *sr_serial_find_usb(uint16_t vendor_id, uint16_t product_id)
+OTC_PRIV GSList *otc_serial_find_usb(uint16_t vendor_id, uint16_t product_id)
 {
 	GSList *tty_devs;
-	GSList *(*find_func)(GSList *list, sr_ser_find_append_t append,
+	GSList *(*find_func)(GSList *list, otc_ser_find_append_t append,
 			uint16_t vid, uint16_t pid);
 
 	tty_devs = NULL;
@@ -1138,7 +1138,7 @@ SR_PRIV GSList *sr_serial_find_usb(uint16_t vendor_id, uint16_t product_id)
 }
 
 /** @private */
-SR_PRIV int serial_timeout(struct sr_serial_dev_inst *port, int num_bytes)
+OTC_PRIV int serial_timeout(struct otc_serial_dev_inst *port, int num_bytes)
 {
 	int bits, baud, ret, timeout_ms;
 
@@ -1146,7 +1146,7 @@ SR_PRIV int serial_timeout(struct sr_serial_dev_inst *port, int num_bytes)
 	bits = baud = 0;
 	if (port->lib_funcs && port->lib_funcs->get_frame_format) {
 		ret = port->lib_funcs->get_frame_format(port, &baud, &bits);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			bits = baud = 0;
 	} else {
 		baud = port->comm_params.bit_rate;

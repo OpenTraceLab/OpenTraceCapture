@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017 Marcus Comstedt <marcus@mc.pp.se>
  *
@@ -19,16 +19,16 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /*
  * This marks the end of the driver list. This file must be linked
  * after any actual drivers.
  */
 
-SR_PRIV const struct sr_dev_driver *sr_driver_list__stop[]
-	SR_DRIVER_LIST_NOREORDER
-	__attribute__((section (SR_DRIVER_LIST_SECTION),
-		       used, aligned(sizeof(struct sr_dev_driver *))))
+OTC_PRIV const struct otc_dev_driver *otc_driver_list__stop[]
+	OTC_DRIVER_LIST_NOREORDER
+	__attribute__((section (OTC_DRIVER_LIST_SECTION),
+		       used, aligned(sizeof(struct otc_dev_driver *))))
   = { NULL /* Dummy item, as zero length arrays are not allowed by C99 */ };

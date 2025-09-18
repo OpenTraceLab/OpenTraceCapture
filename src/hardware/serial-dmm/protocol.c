@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Alexandru Gagniuc <mr.nuke.me@gmail.com>
  * Copyright (C) 2012 Uwe Hermann <uwe@hermann-uwe.de>
@@ -23,36 +23,36 @@
 #include <math.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 static void log_dmm_packet(const uint8_t *buf, size_t len)
 {
 	GString *text;
 
-	if (sr_log_loglevel_get() < SR_LOG_DBG)
+	if (otc_log_loglevel_get() < OTC_LOG_DBG)
 		return;
 
-	text = sr_hexdump_new(buf, len);
-	sr_dbg("DMM packet: %s", text->str);
-	sr_hexdump_free(text);
+	text = otc_hexdump_new(buf, len);
+	otc_dbg("DMM packet: %s", text->str);
+	otc_hexdump_free(text);
 }
 
-static void handle_packet(struct sr_dev_inst *sdi,
+static void handle_packet(struct otc_dev_inst *sdi,
 	const uint8_t *buf, size_t len, void *info)
 {
 	struct dmm_info *dmm;
 	struct dev_context *devc;
 	float floatval;
 	double doubleval;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	gboolean sent_sample;
-	struct sr_channel *channel;
+	struct otc_channel *channel;
 	size_t ch_idx;
 
 	dmm = (struct dmm_info *)sdi->driver;
@@ -64,7 +64,7 @@ static void handle_packet(struct sr_dev_inst *sdi,
 	memset(info, 0, dmm->info_size);
 	for (ch_idx = 0; ch_idx < dmm->channel_count; ch_idx++) {
 		/* Note: digits/spec_digits will be overridden by the DMM parsers. */
-		sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+		otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 
 		channel = g_slist_nth_data(sdi->channels, ch_idx);
 		analog.meaning->channels = g_slist_append(NULL, channel);
@@ -88,30 +88,30 @@ static void handle_packet(struct sr_dev_inst *sdi,
 
 		if (analog.meaning->mq != 0 && channel->enabled) {
 			/* Got a measurement. */
-			packet.type = SR_DF_ANALOG;
+			packet.type = OTC_DF_ANALOG;
 			packet.payload = &analog;
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 			sent_sample = TRUE;
 		}
 	}
 
 	if (sent_sample) {
-		sr_sw_limits_update_samples_read(&devc->limits, 1);
+		otc_sw_limits_update_samples_read(&devc->limits, 1);
 	}
 }
 
 /** Request packet, if required. */
-SR_PRIV int req_packet(struct sr_dev_inst *sdi)
+OTC_PRIV int req_packet(struct otc_dev_inst *sdi)
 {
 	struct dmm_info *dmm;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	uint64_t now, left, next;
 	int ret;
 
 	dmm = (struct dmm_info *)sdi->driver;
 	if (!dmm->packet_request)
-		return SR_OK;
+		return OTC_OK;
 
 	devc = sdi->priv;
 	serial = sdi->conn;
@@ -119,14 +119,14 @@ SR_PRIV int req_packet(struct sr_dev_inst *sdi)
 	now = g_get_monotonic_time();
 	if (devc->req_next_at && now < devc->req_next_at) {
 		left = (devc->req_next_at - now) / 1000;
-		sr_spew("Not re-requesting yet, %" PRIu64 "ms left.", left);
-		return SR_OK;
+		otc_spew("Not re-requesting yet, %" PRIu64 "ms left.", left);
+		return OTC_OK;
 	}
 
-	sr_spew("Requesting next packet.");
+	otc_spew("Requesting next packet.");
 	ret = dmm->packet_request(serial);
 	if (ret < 0) {
-		sr_err("Failed to request packet: %d.", ret);
+		otc_err("Failed to request packet: %d.", ret);
 		return ret;
 	}
 
@@ -135,14 +135,14 @@ SR_PRIV int req_packet(struct sr_dev_inst *sdi)
 		devc->req_next_at = next;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void handle_new_data(struct sr_dev_inst *sdi, void *info)
+static void handle_new_data(struct otc_dev_inst *sdi, void *info)
 {
 	struct dmm_info *dmm;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int ret;
 	size_t read_len, check_pos, check_len, pkt_size, copy_len;
 	uint8_t *check_ptr;
@@ -159,7 +159,7 @@ static void handle_new_data(struct sr_dev_inst *sdi, void *info)
 	if (ret == 0)
 		return; /* No new bytes, nothing to do. */
 	if (ret < 0) {
-		sr_err("Serial port read error: %d.", ret);
+		otc_err("Serial port read error: %d.", ret);
 		return;
 	}
 	devc->buflen += ret;
@@ -174,25 +174,25 @@ static void handle_new_data(struct sr_dev_inst *sdi, void *info)
 		check_len = devc->buflen - check_pos;
 		if (check_len < dmm->packet_size)
 			break;
-		sr_dbg("Checking: pos %zu, len %zu.", check_pos, check_len);
+		otc_dbg("Checking: pos %zu, len %zu.", check_pos, check_len);
 
 		/* Is it a valid packet? */
 		check_ptr = &devc->buf[check_pos];
 		if (dmm->packet_valid_len) {
 			ret = dmm->packet_valid_len(dmm->dmm_state,
 				check_ptr, check_len, &pkt_size);
-			if (ret == SR_PACKET_NEED_RX) {
-				sr_dbg("Need more RX data.");
+			if (ret == OTC_PACKET_NEED_RX) {
+				otc_dbg("Need more RX data.");
 				break;
 			}
-			if (ret == SR_PACKET_INVALID) {
-				sr_dbg("Not a valid packet, searching.");
+			if (ret == OTC_PACKET_INVALID) {
+				otc_dbg("Not a valid packet, searching.");
 				check_pos++;
 				continue;
 			}
 		} else if (dmm->packet_valid) {
 			if (!dmm->packet_valid(check_ptr)) {
-				sr_dbg("Not a valid packet, searching.");
+				otc_dbg("Not a valid packet, searching.");
 				check_pos++;
 				continue;
 			}
@@ -200,7 +200,7 @@ static void handle_new_data(struct sr_dev_inst *sdi, void *info)
 		}
 
 		/* Process the packet. */
-		sr_dbg("Valid packet, size %zu, processing", pkt_size);
+		otc_dbg("Valid packet, size %zu, processing", pkt_size);
 		handle_packet(sdi, check_ptr, pkt_size, info);
 		check_pos += pkt_size;
 
@@ -229,14 +229,14 @@ static void handle_new_data(struct sr_dev_inst *sdi, void *info)
 	 * calls again.
 	 */
 	if (devc->buflen == sizeof(devc->buf)) {
-		sr_info("Drop unprocessed RX data, try to re-sync to stream.");
+		otc_info("Drop unprocessed RX data, try to re-sync to stream.");
 		devc->buflen = 0;
 	}
 }
 
 int receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct dmm_info *dmm;
 	void *info;
@@ -262,8 +262,8 @@ int receive_data(int fd, int revents, void *cb_data)
 			return FALSE;
 	}
 
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 
 	return TRUE;
 }

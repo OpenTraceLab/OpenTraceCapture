@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -64,34 +64,34 @@
 #define PICKIT2_DEFAULT_ADDRESS	"04d8.0033"
 #define PICKIT2_USB_INTERFACE	0
 
-static struct sr_dev_driver microchip_pickit2_driver_info;
+static struct otc_dev_driver microchip_pickit2_driver_info;
 
 static const char *channel_names[] = {
 	"pin4", "pin5", "pin6",
 };
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_PROBE_NAMES,
+	OTC_CONF_CONN,
+	OTC_CONF_PROBE_NAMES,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
+	OTC_CONF_CAPTURE_RATIO | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const int32_t trigger_matches[] = {
-	SR_TRIGGER_ZERO,
-	SR_TRIGGER_ONE,
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
+	OTC_TRIGGER_ZERO,
+	OTC_TRIGGER_ONE,
+	OTC_TRIGGER_RISING,
+	OTC_TRIGGER_FALLING,
 };
 
 /*
@@ -106,28 +106,28 @@ static const uint64_t captureratios[] = {
 };
 
 static const uint64_t samplerates[] = {
-	SR_KHZ(5),
-	SR_KHZ(10),
-	SR_KHZ(25),
-	SR_KHZ(50),
-	SR_KHZ(100),
-	SR_KHZ(250),
-	SR_KHZ(500),
-	SR_MHZ(1),
+	OTC_KHZ(5),
+	OTC_KHZ(10),
+	OTC_KHZ(25),
+	OTC_KHZ(50),
+	OTC_KHZ(100),
+	OTC_KHZ(250),
+	OTC_KHZ(500),
+	OTC_MHZ(1),
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct drv_context *drvc;
 	const char *conn;
 	const char *probe_names;
 	GSList *l, *devices, *usb_devices;
-	struct sr_config *cfg;
-	struct sr_usb_dev_inst *usb;
-	struct sr_dev_inst *sdi;
-	struct sr_channel_group *cg;
+	struct otc_config *cfg;
+	struct otc_usb_dev_inst *usb;
+	struct otc_dev_inst *sdi;
+	struct otc_channel_group *cg;
 	size_t ch_count, ch_idx;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	struct dev_context *devc;
 
 	drvc = di->context;
@@ -137,17 +137,17 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		cfg = l->data;
 		switch (cfg->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(cfg->data, NULL);
 			break;
-		case SR_CONF_PROBE_NAMES:
+		case OTC_CONF_PROBE_NAMES:
 			probe_names = g_variant_get_string(cfg->data, NULL);
 			break;
 		}
 	}
 
 	devices = NULL;
-	usb_devices = sr_usb_find(drvc->sr_ctx->libusb_ctx, conn);
+	usb_devices = otc_usb_find(drvc->otc_ctx->libusb_ctx, conn);
 	if (!usb_devices)
 		return NULL;
 
@@ -157,10 +157,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		/* Create the device instance. */
 		sdi = g_malloc0(sizeof(*sdi));
 		devices = g_slist_append(devices, sdi);
-		sdi->status = SR_ST_INACTIVE;
+		sdi->status = OTC_ST_INACTIVE;
 		sdi->vendor = g_strdup(PICKIT2_VENDOR_NAME);
 		sdi->model = g_strdup(PICKIT2_PRODUCT_NAME);
-		sdi->inst_type = SR_INST_USB;
+		sdi->inst_type = OTC_INST_USB;
 		sdi->conn = usb;
 		sdi->connection_id = g_strdup(conn);
 
@@ -177,14 +177,14 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		devc->num_captureratios = ARRAY_SIZE(captureratios);
 		devc->curr_captureratio_idx = 0;
 		devc->sw_limits.limit_samples = PICKIT2_SAMPLE_COUNT;
-		devc->channel_names = sr_parse_probe_names(probe_names,
+		devc->channel_names = otc_parse_probe_names(probe_names,
 			channel_names, ARRAY_SIZE(channel_names),
 			ARRAY_SIZE(channel_names), &ch_count);
 
 		/* Create the logic channels group. */
-		cg = sr_channel_group_new(sdi, "Logic", NULL);
+		cg = otc_channel_group_new(sdi, "Logic", NULL);
 		for (ch_idx = 0; ch_idx < ch_count; ch_idx++) {
-			ch = sr_channel_new(sdi, ch_idx, SR_CHANNEL_LOGIC,
+			ch = otc_channel_new(sdi, ch_idx, OTC_CHANNEL_LOGIC,
 				TRUE, devc->channel_names[ch_idx]);
 			cg->channels = g_slist_append(cg->channels, ch);
 		}
@@ -193,11 +193,11 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	return std_scan_complete(di, devices);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct dev_context *devc;
-	struct sr_dev_driver *di;
+	struct otc_dev_driver *di;
 	struct drv_context *drvc;
 	int ret;
 
@@ -206,32 +206,32 @@ static int dev_open(struct sr_dev_inst *sdi)
 	di = sdi->driver;
 	drvc = di->context;
 
-	ret = sr_usb_open(drvc->sr_ctx->libusb_ctx, usb);
+	ret = otc_usb_open(drvc->otc_ctx->libusb_ctx, usb);
 	if (ret < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (libusb_kernel_driver_active(usb->devhdl, PICKIT2_USB_INTERFACE) == 1) {
 		ret = libusb_detach_kernel_driver(usb->devhdl, PICKIT2_USB_INTERFACE);
 		if (ret < 0) {
-			sr_err("Canot detach kernel driver: %s.",
+			otc_err("Canot detach kernel driver: %s.",
 				libusb_error_name(ret));
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		devc->detached_kernel_driver = TRUE;
 	}
 
 	ret = libusb_claim_interface(usb->devhdl, PICKIT2_USB_INTERFACE);
 	if (ret < 0) {
-		sr_err("Cannot claim interface: %s.", libusb_error_name(ret));
-		return SR_ERR;
+		otc_err("Cannot claim interface: %s.", libusb_error_name(ret));
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct dev_context *devc;
 	int ret;
 
@@ -239,22 +239,22 @@ static int dev_close(struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	if (!usb)
-		return SR_OK;
+		return OTC_OK;
 	if (!usb->devhdl)
-		return SR_OK;
+		return OTC_OK;
 
 	ret = libusb_release_interface(usb->devhdl, PICKIT2_USB_INTERFACE);
 	if (ret) {
-		sr_err("Cannot release interface: %s.", libusb_error_name(ret));
-		return SR_ERR;
+		otc_err("Cannot release interface: %s.", libusb_error_name(ret));
+		return OTC_ERR;
 	}
 
 	if (devc->detached_kernel_driver) {
 		ret = libusb_attach_kernel_driver(usb->devhdl, PICKIT2_USB_INTERFACE);
 		if (ret) {
-			sr_err("Cannot attach kernel driver: %s.",
+			otc_err("Cannot attach kernel driver: %s.",
 				libusb_error_name(ret));
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		devc->detached_kernel_driver = FALSE;
 	}
@@ -262,14 +262,14 @@ static int dev_close(struct sr_dev_inst *sdi)
 	libusb_close(usb->devhdl);
 	sdi->conn = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	uint64_t rate, ratio;
 
 	(void)cg;
@@ -278,34 +278,34 @@ static int config_get(uint32_t key, GVariant **data,
 	usb = sdi ? sdi->conn : NULL;
 
 	switch (key) {
-	case SR_CONF_CONN:
+	case OTC_CONF_CONN:
 		if (!usb)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_printf("%d.%d", usb->bus, usb->address);
-		return SR_OK;
-	case SR_CONF_SAMPLERATE:
+		return OTC_OK;
+	case OTC_CONF_SAMPLERATE:
 		if (!devc)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		rate = devc->samplerates[devc->curr_samplerate_idx];
 		*data = g_variant_new_uint64(rate);
-		return SR_OK;
-	case SR_CONF_LIMIT_SAMPLES:
+		return OTC_OK;
+	case OTC_CONF_LIMIT_SAMPLES:
 		if (!devc)
-			return SR_ERR_ARG;
-		return sr_sw_limits_config_get(&devc->sw_limits, key, data);
-	case SR_CONF_CAPTURE_RATIO:
+			return OTC_ERR_ARG;
+		return otc_sw_limits_config_get(&devc->sw_limits, key, data);
+	case OTC_CONF_CAPTURE_RATIO:
 		if (!devc)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		ratio = devc->captureratios[devc->curr_captureratio_idx];
 		*data = g_variant_new_uint64(ratio);
-		return SR_OK;
+		return OTC_OK;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	int idx;
@@ -315,61 +315,61 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi ? sdi->priv : NULL;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		if (!devc)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		idx = std_u64_idx(data, devc->samplerates, devc->num_samplerates);
 		if (idx < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->curr_samplerate_idx = idx;
-		return SR_OK;
-	case SR_CONF_CAPTURE_RATIO:
+		return OTC_OK;
+	case OTC_CONF_CAPTURE_RATIO:
 		if (!devc)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		idx = std_u64_idx(data, devc->captureratios, devc->num_captureratios);
 		if (idx >= 0)
 			devc->curr_captureratio_idx = idx;
-		return SR_OK;
-	case SR_CONF_LIMIT_SAMPLES:
-		return sr_sw_limits_config_set(&devc->sw_limits, key, data);
+		return OTC_OK;
+	case OTC_CONF_LIMIT_SAMPLES:
+		return otc_sw_limits_config_set(&devc->sw_limits, key, data);
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	devc = sdi ? sdi->priv : NULL;
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		if (!devc)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		*data = std_gvar_samplerates(devc->samplerates, devc->num_samplerates);
-		return SR_OK;
-	case SR_CONF_TRIGGER_MATCH:
+		return OTC_OK;
+	case OTC_CONF_TRIGGER_MATCH:
 		*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
-		return SR_OK;
-	case SR_CONF_CAPTURE_RATIO:
+		return OTC_OK;
+	case OTC_CONF_CAPTURE_RATIO:
 		*data = std_gvar_array_u64(ARRAY_AND_SIZE(captureratios));
-		return SR_OK;
+		return OTC_OK;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_trigger *trigger;
-	struct sr_trigger_stage *stage;
-	struct sr_trigger_match *match;
+	struct otc_trigger *trigger;
+	struct otc_trigger_stage *stage;
+	struct otc_trigger_match *match;
 	GSList *l;
 	size_t idx;
 	int ret;
@@ -383,13 +383,13 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	 * stage, with match conditions for one or multiple channels.
 	 */
 	memset(&devc->triggers, 0, sizeof(devc->triggers));
-	trigger = sr_session_trigger_get(sdi->session);
+	trigger = otc_session_trigger_get(sdi->session);
 	if (trigger) {
 		if (g_slist_length(trigger->stages) > 1)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		stage = g_slist_nth_data(trigger->stages, 0);
 		if (!stage)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		for (l = stage->matches; l; l = l->next) {
 			match = l->data;
 			if (!match->match)
@@ -399,7 +399,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			idx = match->channel->index;
 			devc->triggers[idx] = match->match;
 		}
-		sr_dbg("acq start: trigger specs: %x/%x/%x",
+		otc_dbg("acq start: trigger specs: %x/%x/%x",
 			devc->triggers[0], devc->triggers[1],
 			devc->triggers[2]);
 	}
@@ -415,19 +415,19 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	devc->state = STATE_WAIT;
 
 	std_session_send_df_header(sdi);
-	sr_session_source_add(sdi->session, -1, 0, 20,
+	otc_session_source_add(sdi->session, -1, 0, 20,
 		microchip_pickit2_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
 	devc = sdi->priv;
 	if (devc->state < STATE_CONF)
-		return SR_OK;
+		return OTC_OK;
 
 	/*
 	 * Keep up the acquisition until either data becomes available
@@ -437,20 +437,20 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	 * vendor software "suffers from" as well.
 	 */
 	if (devc->state == STATE_WAIT) {
-		sr_err("Cannot terminate by software, need either data trigger or cancel button.");
-		return SR_OK;
+		otc_err("Cannot terminate by software, need either data trigger or cancel button.");
+		return OTC_OK;
 	}
 
 	if (devc->state > STATE_CONF) {
 		std_session_send_df_end(sdi);
 	}
-	sr_session_source_remove(sdi->session, -1);
+	otc_session_source_remove(sdi->session, -1);
 	devc->state = STATE_IDLE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver microchip_pickit2_driver_info = {
+static struct otc_dev_driver microchip_pickit2_driver_info = {
 	.name = "microchip-pickit2",
 	.longname = PICKIT2_VENDOR_NAME " " PICKIT2_PRODUCT_NAME,
 	.api_version = 1,
@@ -468,4 +468,4 @@ static struct sr_dev_driver microchip_pickit2_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(microchip_pickit2_driver_info);
+OTC_REGISTER_DEV_DRIVER(microchip_pickit2_driver_info);

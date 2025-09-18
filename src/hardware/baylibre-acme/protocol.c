@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Bartosz Golaszewski <bgolaszewski@baylibre.com>
  *
@@ -104,17 +104,17 @@ static const uint32_t revB_pws_gpios[] = {
 #define MOHM_TO_UOHM(x) ((x) * 1000)
 #define UOHM_TO_MOHM(x) ((x) / 1000)
 
-SR_PRIV uint8_t bl_acme_get_enrg_addr(int index)
+OTC_PRIV uint8_t bl_acme_get_enrg_addr(int index)
 {
 	return enrg_i2c_addrs[index];
 }
 
-SR_PRIV uint8_t bl_acme_get_temp_addr(int index)
+OTC_PRIV uint8_t bl_acme_get_temp_addr(int index)
 {
 	return temp_i2c_addrs[index];
 }
 
-SR_PRIV gboolean bl_acme_is_sane(void)
+OTC_PRIV gboolean bl_acme_is_sane(void)
 {
 	gboolean status;
 
@@ -125,7 +125,7 @@ SR_PRIV gboolean bl_acme_is_sane(void)
 	 */
 	status = g_file_test("/sys", G_FILE_TEST_IS_DIR);
 	if (!status) {
-		sr_err("/sys/ directory not found - sysfs not mounted?");
+		otc_err("/sys/ directory not found - sysfs not mounted?");
 		return FALSE;
 	}
 
@@ -154,7 +154,7 @@ static void probe_eeprom_path(unsigned int addr, GString *path)
 			addr + 0x10);
 }
 
-SR_PRIV gboolean bl_acme_detect_probe(unsigned int addr,
+OTC_PRIV gboolean bl_acme_detect_probe(unsigned int addr,
 				      int prb_num, const char *prb_name)
 {
 	gboolean ret = FALSE, status;
@@ -168,7 +168,7 @@ SR_PRIV gboolean bl_acme_detect_probe(unsigned int addr,
 	if (!status) {
 		/* Don't log "No such file or directory" messages. */
 		if (err->code != G_FILE_ERROR_NOENT)
-			sr_dbg("Name for probe %d can't be read (%d): %s",
+			otc_dbg("Name for probe %d can't be read (%d): %s",
 			       prb_num, err->code, err->message);
 		g_string_free(path, TRUE);
 		g_error_free(err);
@@ -204,7 +204,7 @@ static int get_hwmon_index(unsigned int addr)
 	probe_hwmon_path(addr, path);
 	dir = g_dir_open(path->str, 0, &err);
 	if (!dir) {
-		sr_err("Error opening %s: %s", path->str, err->message);
+		otc_err("Error opening %s: %s", path->str, err->message);
 		g_string_free(path, TRUE);
 		g_error_free(err);
 		return -1;
@@ -219,19 +219,19 @@ static int get_hwmon_index(unsigned int addr)
 	status = sscanf(g_dir_read_name(dir), "hwmon%d", &hwmon);
 	g_dir_close(dir);
 	if (status != 1) {
-		sr_err("Unable to determine the hwmon entry");
+		otc_err("Unable to determine the hwmon entry");
 		return -1;
 	}
 
 	return hwmon;
 }
 
-static void append_channel(struct sr_dev_inst *sdi, struct sr_channel_group *cg,
+static void append_channel(struct otc_dev_inst *sdi, struct otc_channel_group *cg,
 			   int index, int type)
 {
 	struct channel_priv *cp;
 	struct dev_context *devc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	char *name;
 
 	devc = sdi->priv;
@@ -253,7 +253,7 @@ static void append_channel(struct sr_dev_inst *sdi, struct sr_channel_group *cg,
 		name = g_strdup_printf("P%d_TEMP_OUT", index);
 		break;
 	default:
-		sr_err("Invalid channel type: %d.", type);
+		otc_err("Invalid channel type: %d.", type);
 		return;
 	}
 
@@ -261,8 +261,8 @@ static void append_channel(struct sr_dev_inst *sdi, struct sr_channel_group *cg,
 	cp->ch_type = type;
 	cp->probe = cg->priv;
 
-	ch = sr_channel_new(sdi, devc->num_channels++,
-			    SR_CHANNEL_ANALOG, TRUE, name);
+	ch = otc_channel_new(sdi, devc->num_channels++,
+			    OTC_CHANNEL_ANALOG, TRUE, name);
 	g_free(name);
 
 	ch->priv = cp;
@@ -318,10 +318,10 @@ static int revB_addr_to_num(unsigned int addr)
 	}
 }
 
-SR_PRIV gboolean bl_acme_register_probe(struct sr_dev_inst *sdi, int type,
+OTC_PRIV gboolean bl_acme_register_probe(struct otc_dev_inst *sdi, int type,
 					unsigned int addr, int prb_num)
 {
-	struct sr_channel_group *cg;
+	struct otc_channel_group *cg;
 	struct channel_group_priv *cgp;
 	struct probe_eeprom eeprom;
 	int hwmon, status;
@@ -333,7 +333,7 @@ SR_PRIV gboolean bl_acme_register_probe(struct sr_dev_inst *sdi, int type,
 		return FALSE;
 
 	cgp = g_malloc0(sizeof(struct channel_group_priv));
-	cg = sr_channel_group_new(sdi, NULL, cgp);
+	cg = otc_channel_group_new(sdi, NULL, cgp);
 
 	/*
 	 * See if we can read the EEPROM contents. If not, assume it's
@@ -352,7 +352,7 @@ SR_PRIV gboolean bl_acme_register_probe(struct sr_dev_inst *sdi, int type,
 
 	if (cgp->rev == ACME_REV_A) {
 		gpio = revA_pws_info_gpios[cgp->index];
-		cgp->has_pws = sr_gpio_getval_export(gpio);
+		cgp->has_pws = otc_gpio_getval_export(gpio);
 		cgp->pws_gpio = revA_pws_gpios[cgp->index];
 	} else {
 		cgp->has_pws = eeprom.pwr_sw;
@@ -376,20 +376,20 @@ SR_PRIV gboolean bl_acme_register_probe(struct sr_dev_inst *sdi, int type,
 		append_channel(sdi, cg, prb_num, TEMP_IN);
 		append_channel(sdi, cg, prb_num, TEMP_OUT);
 	} else {
-		sr_err("Invalid probe type: %d.", type);
+		otc_err("Invalid probe type: %d.", type);
 	}
 
 	return TRUE;
 }
 
-SR_PRIV int bl_acme_get_probe_type(const struct sr_channel_group *cg)
+OTC_PRIV int bl_acme_get_probe_type(const struct otc_channel_group *cg)
 {
 	struct channel_group_priv *cgp = cg->priv;
 
 	return cgp->probe_type;
 }
 
-SR_PRIV int bl_acme_probe_has_pws(const struct sr_channel_group *cg)
+OTC_PRIV int bl_acme_probe_has_pws(const struct otc_channel_group *cg)
 {
 	struct channel_group_priv *cgp = cg->priv;
 
@@ -401,16 +401,16 @@ SR_PRIV int bl_acme_probe_has_pws(const struct sr_channel_group *cg)
  * supports shunt resistance setting. The caller has to supply
  * a valid GString.
  */
-static int get_shunt_path(const struct sr_channel_group *cg, GString *path)
+static int get_shunt_path(const struct otc_channel_group *cg, GString *path)
 {
 	struct channel_group_priv *cgp;
-	int ret = SR_OK, status;
+	int ret = OTC_OK, status;
 
 	cgp = cg->priv;
 
 	if (cgp->probe_type != PROBE_ENRG) {
-		sr_err("Probe doesn't support shunt resistance setting");
-		return SR_ERR_ARG;
+		otc_err("Probe doesn't support shunt resistance setting");
+		return OTC_ERR_ARG;
 	}
 
 	g_string_append_printf(path,
@@ -424,9 +424,9 @@ static int get_shunt_path(const struct sr_channel_group *cg, GString *path)
 	 */
 	status = g_file_test(path->str, G_FILE_TEST_EXISTS);
 	if (!status) {
-		sr_err("shunt_resistance attribute not present, please update "
+		otc_err("shunt_resistance attribute not present, please update "
 		       "your kernel to version >=3.20");
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
 	return ret;
@@ -436,10 +436,10 @@ static int get_shunt_path(const struct sr_channel_group *cg, GString *path)
  * Try setting the update_interval sysfs attribute for each probe according
  * to samplerate.
  */
-SR_PRIV void bl_acme_maybe_set_update_interval(const struct sr_dev_inst *sdi,
+OTC_PRIV void bl_acme_maybe_set_update_interval(const struct otc_dev_inst *sdi,
 					       uint64_t samplerate)
 {
-	struct sr_channel_group *cg;
+	struct otc_channel_group *cg;
 	struct channel_group_priv *cgp;
 	GString *hwmon;
 	GSList *l;
@@ -469,24 +469,24 @@ SR_PRIV void bl_acme_maybe_set_update_interval(const struct sr_dev_inst *sdi,
 	}
 }
 
-SR_PRIV int bl_acme_get_shunt(const struct sr_channel_group *cg,
+OTC_PRIV int bl_acme_get_shunt(const struct otc_channel_group *cg,
 			      uint64_t *shunt)
 {
 	GString *path = g_string_sized_new(64);
 	gchar *contents;
-	int status, ret = SR_OK;
+	int status, ret = OTC_OK;
 	GError *err = NULL;
 
 	status = get_shunt_path(cg, path);
-	if (status != SR_OK) {
+	if (status != OTC_OK) {
 		ret = status;
 		goto out;
 	}
 
 	status = g_file_get_contents(path->str, &contents, NULL, &err);
 	if (!status) {
-		sr_err("Error reading shunt resistance: %s", err->message);
-		ret = SR_ERR_IO;
+		otc_err("Error reading shunt resistance: %s", err->message);
+		ret = OTC_ERR_IO;
 		g_error_free(err);
 		goto out;
 	}
@@ -498,14 +498,14 @@ out:
 	return ret;
 }
 
-SR_PRIV int bl_acme_set_shunt(const struct sr_channel_group *cg, uint64_t shunt)
+OTC_PRIV int bl_acme_set_shunt(const struct otc_channel_group *cg, uint64_t shunt)
 {
 	GString *path = g_string_sized_new(64);;
-	int status, ret = SR_OK;
+	int status, ret = OTC_OK;
 	FILE *fd;
 
 	status = get_shunt_path(cg, path);
-	if (status != SR_OK) {
+	if (status != OTC_OK) {
 		ret = status;
 		goto out;
 	}
@@ -516,8 +516,8 @@ SR_PRIV int bl_acme_set_shunt(const struct sr_channel_group *cg, uint64_t shunt)
 	 */
 	fd = g_fopen(path->str, "w");
 	if (!fd) {
-		sr_err("Error opening %s: %s", path->str, g_strerror(errno));
-		ret = SR_ERR_IO;
+		otc_err("Error opening %s: %s", path->str, g_strerror(errno));
+		ret = OTC_ERR_IO;
 		goto out;
 	}
 
@@ -529,7 +529,7 @@ out:
 	return ret;
 }
 
-SR_PRIV int bl_acme_read_power_state(const struct sr_channel_group *cg,
+OTC_PRIV int bl_acme_read_power_state(const struct otc_channel_group *cg,
 				     gboolean *off)
 {
 	struct channel_group_priv *cgp;
@@ -538,17 +538,17 @@ SR_PRIV int bl_acme_read_power_state(const struct sr_channel_group *cg,
 	cgp = cg->priv;
 
 	if (!bl_acme_probe_has_pws(cg)) {
-		sr_err("Probe has no power-switch");
-		return SR_ERR_ARG;
+		otc_err("Probe has no power-switch");
+		return OTC_ERR_ARG;
 	}
 
-	val = sr_gpio_getval_export(cgp->pws_gpio);
+	val = otc_gpio_getval_export(cgp->pws_gpio);
 	*off = val ? FALSE : TRUE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int bl_acme_set_power_off(const struct sr_channel_group *cg,
+OTC_PRIV int bl_acme_set_power_off(const struct otc_channel_group *cg,
 				  gboolean off)
 {
 	struct channel_group_priv *cgp;
@@ -557,21 +557,21 @@ SR_PRIV int bl_acme_set_power_off(const struct sr_channel_group *cg,
 	cgp = cg->priv;
 
 	if (!bl_acme_probe_has_pws(cg)) {
-		sr_err("Probe has no power-switch");
-		return SR_ERR_ARG;
+		otc_err("Probe has no power-switch");
+		return OTC_ERR_ARG;
 	}
 
-	val = sr_gpio_setval_export(cgp->pws_gpio, off ? 0 : 1);
+	val = otc_gpio_setval_export(cgp->pws_gpio, off ? 0 : 1);
 	if (val < 0) {
-		sr_err("Error setting power-off state: gpio: %d",
+		otc_err("Error setting power-off state: gpio: %d",
 		       cgp->pws_gpio);
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int channel_to_mq(struct sr_channel *ch)
+static int channel_to_mq(struct otc_channel *ch)
 {
 	struct channel_priv *chp;
 
@@ -579,20 +579,20 @@ static int channel_to_mq(struct sr_channel *ch)
 
 	switch (chp->ch_type) {
 	case ENRG_PWR:
-		return SR_MQ_POWER;
+		return OTC_MQ_POWER;
 	case ENRG_CURR:
-		return SR_MQ_CURRENT;
+		return OTC_MQ_CURRENT;
 	case ENRG_VOL:
-		return SR_MQ_VOLTAGE;
+		return OTC_MQ_VOLTAGE;
 	case TEMP_IN: /* Fallthrough */
 	case TEMP_OUT:
-		return SR_MQ_TEMPERATURE;
+		return OTC_MQ_TEMPERATURE;
 	default:
 		return -1;
 	}
 }
 
-static int channel_to_unit(struct sr_channel *ch)
+static int channel_to_unit(struct otc_channel *ch)
 {
 	struct channel_priv *chp;
 
@@ -600,14 +600,14 @@ static int channel_to_unit(struct sr_channel *ch)
 
 	switch (chp->ch_type) {
 	case ENRG_PWR:
-		return SR_UNIT_WATT;
+		return OTC_UNIT_WATT;
 	case ENRG_CURR:
-		return SR_UNIT_AMPERE;
+		return OTC_UNIT_AMPERE;
 	case ENRG_VOL:
-		return SR_UNIT_VOLT;
+		return OTC_UNIT_VOLT;
 	case TEMP_IN: /* Fallthrough */
 	case TEMP_OUT:
-		return SR_UNIT_CELSIUS;
+		return OTC_UNIT_CELSIUS;
 	default:
 		return -1;
 	}
@@ -629,7 +629,7 @@ static int type_digits(int type)
 	}
 }
 
-static float read_sample(struct sr_channel *ch)
+static float read_sample(struct otc_channel *ch)
 {
 	struct channel_priv *chp;
 	char buf[16];
@@ -643,7 +643,7 @@ static float read_sample(struct sr_channel *ch)
 
 	len = read(fd, buf, sizeof(buf));
 	if (len < 0) {
-		sr_err("Error reading from channel %s (hwmon: %d): %s",
+		otc_err("Error reading from channel %s (hwmon: %d): %s",
 			ch->name, chp->probe->hwmon_num, g_strerror(errno));
 		ch->enabled = FALSE;
 		return -1.0;
@@ -653,7 +653,7 @@ static float read_sample(struct sr_channel *ch)
 	return strtol(buf, NULL, 10) * powf(10, -chp->digits);
 }
 
-SR_PRIV int bl_acme_open_channel(struct sr_channel *ch)
+OTC_PRIV int bl_acme_open_channel(struct otc_channel *ch)
 {
 	struct channel_priv *chp;
 	char path[64];
@@ -669,8 +669,8 @@ SR_PRIV int bl_acme_open_channel(struct sr_channel *ch)
 	case TEMP_IN:	file = "temp1_input";	break;
 	case TEMP_OUT:	file = "temp2_input";	break;
 	default:
-		sr_err("Invalid channel type: %d.", chp->ch_type);
-		return SR_ERR;
+		otc_err("Invalid channel type: %d.", chp->ch_type);
+		return OTC_ERR;
 	}
 
 	snprintf(path, sizeof(path), "/sys/class/hwmon/hwmon%d/%s",
@@ -678,9 +678,9 @@ SR_PRIV int bl_acme_open_channel(struct sr_channel *ch)
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
-		sr_err("Error opening %s: %s", path, g_strerror(errno));
+		otc_err("Error opening %s: %s", path, g_strerror(errno));
 		ch->enabled = FALSE;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	chp->fd = fd;
@@ -688,7 +688,7 @@ SR_PRIV int bl_acme_open_channel(struct sr_channel *ch)
 	return 0;
 }
 
-SR_PRIV void bl_acme_close_channel(struct sr_channel *ch)
+OTC_PRIV void bl_acme_close_channel(struct otc_channel *ch)
 {
 	struct channel_priv *chp;
 
@@ -697,16 +697,16 @@ SR_PRIV void bl_acme_close_channel(struct sr_channel *ch)
 	chp->fd = -1;
 }
 
-SR_PRIV int bl_acme_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int bl_acme_receive_data(int fd, int revents, void *cb_data)
 {
 	uint64_t nrexpiration;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
-	struct sr_dev_inst *sdi;
-	struct sr_channel *ch;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
+	struct otc_dev_inst *sdi;
+	struct otc_channel *ch;
 	struct channel_priv *chp;
 	struct dev_context *devc;
 	GSList *chl, chonly;
@@ -723,12 +723,12 @@ SR_PRIV int bl_acme_receive_data(int fd, int revents, void *cb_data)
 	if (!devc)
 		return TRUE;
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 
 	if (read(devc->timer_fd, &nrexpiration, sizeof(nrexpiration)) < 0) {
-		sr_warn("Failed to read timer information");
+		otc_warn("Failed to read timer information");
 		return TRUE;
 	}
 
@@ -781,16 +781,16 @@ SR_PRIV int bl_acme_receive_data(int fd, int revents, void *cb_data)
 			analog.encoding->digits  = chp->digits;
 			analog.spec->spec_digits = chp->digits;
 			analog.data = &chp->val;
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 		}
 
 		std_session_send_df_frame_end(sdi);
 	}
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 
-	if (sr_sw_limits_check(&devc->limits)) {
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits)) {
+		otc_dev_acquisition_stop(sdi);
 		return TRUE;
 	}
 

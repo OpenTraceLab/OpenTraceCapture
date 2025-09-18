@@ -1,0 +1,87 @@
+/*
+ * This file is part of the libsigrok project.
+ *
+ * Copyright (C) 2010-2012 Bert Vermeulen <bert@biot.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#ifndef OPENTRACECAPTURE_VERSION_H
+#define OPENTRACECAPTURE_VERSION_H
+
+/*
+ * Only libsigrok library builds, and only parts of the library build,
+ * need to reference the git-version.h header file. Which contains the
+ * version suffix, which is relevant to local development, but is not
+ * applicable to release builds. Application builds need not bother with
+ * internal library version details, and always can get this information
+ * in text form for display purposes from the library at runtime.
+ */
+#if defined WANT_OPENTRACECAPTURE_GIT_VERSION_H
+#  include <opentracecapture/git-version.h>
+#else
+#  undef OTC_PACKAGE_VERSION_STRING_SUFFIX
+#  define OTC_PACKAGE_VERSION_STRING_SUFFIX ""
+#endif
+
+/**
+ * @file
+ *
+ * Version number definitions and macros.
+ */
+
+/**
+ * @ingroup grp_versions
+ *
+ * @{
+ */
+
+/*
+ * Package version macros (can be used for conditional compilation).
+ */
+
+/** The libsigrok package 'major' version number. */
+#undef OTC_PACKAGE_VERSION_MAJOR
+
+/** The libsigrok package 'minor' version number. */
+#undef OTC_PACKAGE_VERSION_MINOR
+
+/** The libsigrok package 'micro' version number. */
+#undef OTC_PACKAGE_VERSION_MICRO
+
+/** The libsigrok package version ("major.minor.micro") as string. */
+#define OTC_PACKAGE_VERSION_STRING_PREFIX
+
+/** The libsigrok package version with git commit suffix. */
+#define OTC_PACKAGE_VERSION_STRING (OTC_PACKAGE_VERSION_STRING_PREFIX OTC_PACKAGE_VERSION_STRING_SUFFIX)
+
+/*
+ * Library/libtool version macros (can be used for conditional compilation).
+ */
+
+/** The libsigrok libtool 'current' version number. */
+#undef OTC_LIB_VERSION_CURRENT
+
+/** The libsigrok libtool 'revision' version number. */
+#undef OTC_LIB_VERSION_REVISION
+
+/** The libsigrok libtool 'age' version number. */
+#undef OTC_LIB_VERSION_AGE
+
+/** The libsigrok libtool version ("current:revision:age") as string. */
+#undef OTC_LIB_VERSION_STRING
+
+/** @} */
+
+#endif /* OPENTRACECAPTURE_VERSION_H */

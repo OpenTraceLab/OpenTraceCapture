@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010-2012 Bert Vermeulen <bert@biot.com>
  *
@@ -22,7 +22,7 @@
 #include "protocol.h"
 #include "analyzer.h"
 
-SR_PRIV size_t get_memory_size(int type)
+OTC_PRIV size_t get_memory_size(int type)
 {
 	if (type == MEMORY_SIZE_8K)
 		return (8 * 1024);
@@ -57,7 +57,7 @@ static int clz(unsigned int x)
 	return n;
 }
 
-SR_PRIV int set_limit_samples(struct dev_context *devc, uint64_t samples)
+OTC_PRIV int set_limit_samples(struct dev_context *devc, uint64_t samples)
 {
 	size_t mem_kb;
 
@@ -74,14 +74,14 @@ SR_PRIV int set_limit_samples(struct dev_context *devc, uint64_t samples)
 		devc->memory_size = 19 - clz(samples - 1);
 
 	mem_kb = get_memory_size(devc->memory_size) / 1024;
-	sr_info("Setting memory size to %zuK.", mem_kb);
+	otc_info("Setting memory size to %zuK.", mem_kb);
 
 	analyzer_set_memory_size(devc->memory_size);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int set_voltage_threshold(struct dev_context *devc, double thresh)
+OTC_PRIV int set_voltage_threshold(struct dev_context *devc, double thresh)
 {
 	if (thresh > 6.0)
 		thresh = 6.0;
@@ -92,12 +92,12 @@ SR_PRIV int set_voltage_threshold(struct dev_context *devc, double thresh)
 
 	analyzer_set_voltage_threshold((int) round(-9.1*thresh + 62.6));
 
-	sr_info("Setting voltage threshold to %fV.", devc->cur_threshold);
+	otc_info("Setting voltage threshold to %fV.", devc->cur_threshold);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV void set_triggerbar(struct dev_context *devc)
+OTC_PRIV void set_triggerbar(struct dev_context *devc)
 {
 	unsigned int trigger_depth, triggerbar, ramsize_trigger;
 
@@ -122,7 +122,7 @@ SR_PRIV void set_triggerbar(struct dev_context *devc)
 	analyzer_set_triggerbar_address(triggerbar);
 	analyzer_set_ramsize_trigger_address(ramsize_trigger);
 
-	sr_dbg("triggerbar_address = %d(0x%x)", triggerbar, triggerbar);
-	sr_dbg("ramsize_triggerbar_address = %d(0x%x)",
+	otc_dbg("triggerbar_address = %d(0x%x)", triggerbar, triggerbar);
+	otc_dbg("ramsize_triggerbar_address = %d(0x%x)",
 	       ramsize_trigger, ramsize_trigger);
 }

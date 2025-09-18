@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Aurelien Jacobs <aurel@gnuage.org>
  *
@@ -21,8 +21,8 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "modbus_serial"
 
@@ -31,7 +31,7 @@
 #define BUFFER_SIZE 1024
 
 struct modbus_serial_rtu {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	uint8_t slave_addr;
 	uint16_t crc;
 };
@@ -43,37 +43,37 @@ static int modbus_serial_rtu_dev_inst_new(void *priv, const char *resource,
 
 	(void)params;
 
-	modbus->serial = sr_serial_dev_inst_new(resource, serialcomm);
+	modbus->serial = otc_serial_dev_inst_new(resource, serialcomm);
 	modbus->slave_addr = modbusaddr;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int modbus_serial_rtu_open(void *priv)
 {
 	struct modbus_serial_rtu *modbus = priv;
-	struct sr_serial_dev_inst *serial = modbus->serial;
+	struct otc_serial_dev_inst *serial = modbus->serial;
 
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
-		return SR_ERR;
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int modbus_serial_rtu_source_add(struct sr_session *session, void *priv,
-		int events, int timeout, sr_receive_data_callback cb, void *cb_data)
+static int modbus_serial_rtu_source_add(struct otc_session *session, void *priv,
+		int events, int timeout, otc_receive_data_callback cb, void *cb_data)
 {
 	struct modbus_serial_rtu *modbus = priv;
-	struct sr_serial_dev_inst *serial = modbus->serial;
+	struct otc_serial_dev_inst *serial = modbus->serial;
 
 	return serial_source_add(session, serial, events, timeout, cb, cb_data);
 }
 
-static int modbus_serial_rtu_source_remove(struct sr_session *session,
+static int modbus_serial_rtu_source_remove(struct otc_session *session,
 		void *priv)
 {
 	struct modbus_serial_rtu *modbus = priv;
-	struct sr_serial_dev_inst *serial = modbus->serial;
+	struct otc_serial_dev_inst *serial = modbus->serial;
 
 	return serial_source_remove(session, serial);
 }
@@ -83,26 +83,26 @@ static int modbus_serial_rtu_send(void *priv,
 {
 	int result;
 	struct modbus_serial_rtu *modbus = priv;
-	struct sr_serial_dev_inst *serial = modbus->serial;
+	struct otc_serial_dev_inst *serial = modbus->serial;
 	uint8_t slave_addr = modbus->slave_addr;
 	uint16_t crc;
 
 	result = serial_write_blocking(serial, &slave_addr, sizeof(slave_addr), 0);
 	if (result < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
 	result = serial_write_blocking(serial, buffer, buffer_size, 0);
 	if (result < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
-	crc = sr_crc16(SR_CRC16_DEFAULT_INIT, &slave_addr, sizeof(slave_addr));
-	crc = sr_crc16(crc, buffer, buffer_size);
+	crc = otc_crc16(OTC_CRC16_DEFAULT_INIT, &slave_addr, sizeof(slave_addr));
+	crc = otc_crc16(crc, buffer, buffer_size);
 
 	result = serial_write_blocking(serial, &crc, sizeof(crc), 0);
 	if (result < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int modbus_serial_rtu_read_begin(void *priv, uint8_t *function_code)
@@ -113,16 +113,16 @@ static int modbus_serial_rtu_read_begin(void *priv, uint8_t *function_code)
 
 	ret = serial_read_blocking(modbus->serial, &slave_addr, 1, 500);
 	if (ret != 1 || slave_addr != modbus->slave_addr)
-		return SR_ERR;
+		return OTC_ERR;
 
 	ret = serial_read_blocking(modbus->serial, function_code, 1, 100);
 	if (ret != 1)
-		return SR_ERR;
+		return OTC_ERR;
 
-	modbus->crc = sr_crc16(SR_CRC16_DEFAULT_INIT, &slave_addr, sizeof(slave_addr));
-	modbus->crc = sr_crc16(modbus->crc, function_code, 1);
+	modbus->crc = otc_crc16(OTC_CRC16_DEFAULT_INIT, &slave_addr, sizeof(slave_addr));
+	modbus->crc = otc_crc16(modbus->crc, function_code, 1);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int modbus_serial_rtu_read_data(void *priv, uint8_t *buf, int maxlen)
@@ -133,7 +133,7 @@ static int modbus_serial_rtu_read_data(void *priv, uint8_t *buf, int maxlen)
 	ret = serial_read_nonblocking(modbus->serial, buf, maxlen);
 	if (ret < 0)
 		return ret;
-	modbus->crc = sr_crc16(modbus->crc, buf, ret);
+	modbus->crc = otc_crc16(modbus->crc, buf, ret);
 	return ret;
 }
 
@@ -145,14 +145,14 @@ static int modbus_serial_rtu_read_end(void *priv)
 
 	ret = serial_read_blocking(modbus->serial, &crc, sizeof(crc), 100);
 	if (ret != 2)
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (crc != modbus->crc) {
-		sr_err("CRC error (0x%04X vs 0x%04X).", crc, modbus->crc);
-		return SR_ERR_DATA;
+		otc_err("CRC error (0x%04X vs 0x%04X).", crc, modbus->crc);
+		return OTC_ERR_DATA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int modbus_serial_rtu_close(void *priv)
@@ -166,10 +166,10 @@ static void modbus_serial_rtu_free(void *priv)
 {
 	struct modbus_serial_rtu *modbus = priv;
 
-	sr_serial_dev_inst_free(modbus->serial);
+	otc_serial_dev_inst_free(modbus->serial);
 }
 
-SR_PRIV const struct sr_modbus_dev_inst modbus_serial_rtu_dev = {
+OTC_PRIV const struct otc_modbus_dev_inst modbus_serial_rtu_dev = {
 	.name          = "serial_rtu",
 	.prefix        = "",
 	.priv_size     = sizeof(struct modbus_serial_rtu),

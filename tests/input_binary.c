@@ -20,7 +20,7 @@
 #include <config.h>
 #include <check.h>
 #include <glib/gstdio.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libsigrok.h>
 #include "lib.h"
 
 #define BUFSIZE (1000 * 1000)
@@ -38,7 +38,7 @@ static int check_to_perform;
 static uint64_t expected_samples;
 static uint64_t *expected_samplerate;
 
-static void check_all_low(const struct sr_datafeed_logic *logic)
+static void check_all_low(const struct otc_datafeed_logic *logic)
 {
 	uint64_t i;
 	uint8_t *data;
@@ -50,7 +50,7 @@ static void check_all_low(const struct sr_datafeed_logic *logic)
 	}
 }
 
-static void check_all_high(const struct sr_datafeed_logic *logic)
+static void check_all_high(const struct otc_datafeed_logic *logic)
 {
 	uint64_t i;
 	uint8_t *data;
@@ -62,7 +62,7 @@ static void check_all_high(const struct sr_datafeed_logic *logic)
 	}
 }
 
-static void check_hello_world(const struct sr_datafeed_logic *logic)
+static void check_hello_world(const struct otc_datafeed_logic *logic)
 {
 	uint64_t i;
 	uint8_t *data, b;
@@ -76,12 +76,12 @@ static void check_hello_world(const struct sr_datafeed_logic *logic)
 	}
 }
 
-static void datafeed_in(const struct sr_dev_inst *sdi,
-	const struct sr_datafeed_packet *packet, void *cb_data)
+static void datafeed_in(const struct otc_dev_inst *sdi,
+	const struct otc_datafeed_packet *packet, void *cb_data)
 {
-	const struct sr_datafeed_meta *meta;
-	const struct sr_datafeed_logic *logic;
-	struct sr_config *src;
+	const struct otc_datafeed_meta *meta;
+	const struct otc_datafeed_logic *logic;
+	struct otc_config *src;
 	uint64_t samplerate, sample_interval;
 	GSList *l;
 	const void *p;
@@ -92,36 +92,36 @@ static void datafeed_in(const struct sr_dev_inst *sdi,
 	fail_unless(packet != NULL);
 
 	if (df_packet_counter++ == 0)
-		fail_unless(packet->type == SR_DF_HEADER,
-			    "The first packet must be an SR_DF_HEADER.");
+		fail_unless(packet->type == OTC_DF_HEADER,
+			    "The first packet must be an OTC_DF_HEADER.");
 
 	if (have_seen_df_end)
-		fail("There must be no packets after an SR_DF_END, but we "
+		fail("There must be no packets after an OTC_DF_END, but we "
 		     "received a packet of type %d.", packet->type);
 
 	p = packet->payload;
 
 	switch (packet->type) {
-	case SR_DF_HEADER:
-		// g_debug("Received SR_DF_HEADER.");
-		// fail_unless(p != NULL, "SR_DF_HEADER payload was NULL.");
+	case OTC_DF_HEADER:
+		// g_debug("Received OTC_DF_HEADER.");
+		// fail_unless(p != NULL, "OTC_DF_HEADER payload was NULL.");
 
 		logic_channellist = srtest_get_enabled_logic_channels(sdi);
 		fail_unless(logic_channellist != NULL);
 		fail_unless(logic_channellist->len != 0);
 		// g_debug("Enabled channels: %d.", logic_channellist->len);
 		break;
-	case SR_DF_META:
-		// g_debug("Received SR_DF_META.");
+	case OTC_DF_META:
+		// g_debug("Received OTC_DF_META.");
 
 		meta = packet->payload;
-		fail_unless(p != NULL, "SR_DF_META payload was NULL.");
+		fail_unless(p != NULL, "OTC_DF_META payload was NULL.");
 
 		for (l = meta->config; l; l = l->next) {
 			src = l->data;
 			// g_debug("Got meta key: %d.", src->key);
 			switch (src->key) {
-			case SR_CONF_SAMPLERATE:
+			case OTC_CONF_SAMPLERATE:
 				samplerate = g_variant_get_uint64(src->data);
 				if (!expected_samplerate)
 					break;
@@ -132,7 +132,7 @@ static void datafeed_in(const struct sr_dev_inst *sdi,
 				// g_debug("samplerate = %" PRIu64 " Hz.",
 				// 	samplerate);
 				break;
-			case SR_CONF_SAMPLE_INTERVAL:
+			case OTC_CONF_SAMPLE_INTERVAL:
 				sample_interval = g_variant_get_uint64(src->data);
 				(void)sample_interval;
 				// g_debug("sample interval = %" PRIu64 " ms.",
@@ -145,11 +145,11 @@ static void datafeed_in(const struct sr_dev_inst *sdi,
 			}
 		}
 		break;
-	case SR_DF_LOGIC:
+	case OTC_DF_LOGIC:
 		logic = packet->payload;
-		fail_unless(p != NULL, "SR_DF_LOGIC payload was NULL.");
+		fail_unless(p != NULL, "OTC_DF_LOGIC payload was NULL.");
 
-		// g_debug("Received SR_DF_LOGIC (%" PRIu64 " bytes, "
+		// g_debug("Received OTC_DF_LOGIC (%" PRIu64 " bytes, "
 		// 	"unitsize %d).", logic->length, logic->unitsize);
 
 		if (check_to_perform == CHECK_ALL_LOW)
@@ -162,9 +162,9 @@ static void datafeed_in(const struct sr_dev_inst *sdi,
 		sample_counter += logic->length / logic->unitsize;
 
 		break;
-	case SR_DF_END:
-		// g_debug("Received SR_DF_END.");
-		// fail_unless(p != NULL, "SR_DF_END payload was NULL.");
+	case OTC_DF_END:
+		// g_debug("Received OTC_DF_END.");
+		// fail_unless(p != NULL, "OTC_DF_END payload was NULL.");
 		have_seen_df_end = TRUE;
 		if (sample_counter != expected_samples)
 			fail("Expected %" PRIu64 " samples, got %" PRIu64 "",
@@ -172,7 +172,7 @@ static void datafeed_in(const struct sr_dev_inst *sdi,
 		break;
 	default:
 		/*
-		 * Note: The binary input format doesn't support SR_DF_TRIGGER
+		 * Note: The binary input format doesn't support OTC_DF_TRIGGER
 		 * and some other types, those should yield an error.
 		 */
 		fail("Invalid packet type: %d.", packet->type);
@@ -184,10 +184,10 @@ static void check_buf(GHashTable *options, const uint8_t *buf, int check,
 		uint64_t samples, uint64_t *samplerate)
 {
 	int ret;
-	struct sr_input *in;
-	const struct sr_input_module *imod;
-	struct sr_session *session;
-	struct sr_dev_inst *sdi;
+	struct otc_input *in;
+	const struct otc_input_module *imod;
+	struct otc_session *session;
+	struct otc_dev_inst *sdi;
 	GString *gbuf;
 
 	/* Initialize global variables for this run. */
@@ -200,23 +200,23 @@ static void check_buf(GHashTable *options, const uint8_t *buf, int check,
 
 	gbuf = g_string_new_len((gchar *)buf, (gssize)samples);
 
-	imod = sr_input_find("binary");
+	imod = otc_input_find("binary");
 	fail_unless(imod != NULL, "Failed to find input module.");
 
-	in = sr_input_new(imod, options);
+	in = otc_input_new(imod, options);
 	fail_unless(in != NULL, "Failed to create input instance.");
 
-	sdi = sr_input_dev_inst_get(in);
+	sdi = otc_input_dev_inst_get(in);
 
-	sr_session_new(srtest_ctx, &session);
-	sr_session_datafeed_callback_add(session, datafeed_in, NULL);
-	sr_session_dev_add(session, sdi);
+	otc_session_new(srtest_ctx, &session);
+	otc_session_datafeed_callback_add(session, datafeed_in, NULL);
+	otc_session_dev_add(session, sdi);
 
-	ret = sr_input_send(in, gbuf);
-	fail_unless(ret == SR_OK, "sr_input_send() error: %d", ret);
-	sr_input_free(in);
+	ret = otc_input_send(in, gbuf);
+	fail_unless(ret == OTC_OK, "otc_input_send() error: %d", ret);
+	otc_input_free(in);
 
-	sr_session_destroy(session);
+	otc_session_destroy(session);
 
 	g_string_free(gbuf, TRUE);
 }
@@ -235,7 +235,7 @@ START_TEST(test_input_binary_all_low)
 			(GDestroyNotify)g_variant_unref);
 	g_hash_table_insert(options, g_strdup("samplerate"),
 		g_variant_ref_sink(gvar));
-	samplerate = SR_HZ(1250);
+	samplerate = OTC_HZ(1250);
 
 	/* Check various filesizes, with/without specifying a samplerate. */
 	check_buf(NULL, buf, CHECK_ALL_LOW, 0, NULL);
@@ -297,7 +297,7 @@ START_TEST(test_input_binary_hello_world)
 			(GDestroyNotify)g_variant_unref);
 	g_hash_table_insert(options, g_strdup("samplerate"),
 			g_variant_ref_sink(gvar));
-	samplerate = SR_HZ(1250);
+	samplerate = OTC_HZ(1250);
 
 	/* Check with and without specifying a samplerate. */
 	check_buf(NULL, buf, CHECK_HELLO_WORLD, 11, NULL);

@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2015 Martin Ling <martin-sigrok@earth.li>
+ * Copyright (C) 2015 Martin Ling <martin-opentracelab@earth.li>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,8 +25,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "ut372"
 
@@ -70,7 +70,7 @@ static uint8_t decode_pair(const uint8_t *buf)
 	return strtol(hex, NULL, 16);
 }
 
-SR_PRIV gboolean sr_ut372_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_ut372_packet_valid(const uint8_t *buf)
 {
 	uint8_t flags2;
 
@@ -86,8 +86,8 @@ SR_PRIV gboolean sr_ut372_packet_valid(const uint8_t *buf)
 	return TRUE;
 }
 
-SR_PRIV int sr_ut372_parse(const uint8_t *buf, float *floatval,
-		struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_ut372_parse(const uint8_t *buf, float *floatval,
+		struct otc_datafeed_analog *analog, void *info)
 {
 	unsigned int i, j, value;
 	uint8_t segments, flags1, flags2;
@@ -99,21 +99,21 @@ SR_PRIV int sr_ut372_parse(const uint8_t *buf, float *floatval,
 	flags2 = decode_pair(buf + 23);
 
 	if (flags2 & FLAGS2_RPM_MASK) {
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_REVOLUTIONS_PER_MINUTE;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_REVOLUTIONS_PER_MINUTE;
 	} else if (flags2 & FLAGS2_COUNT_MASK) {
-		analog->meaning->mq = SR_MQ_COUNT;
-		analog->meaning->unit = SR_UNIT_UNITLESS;
+		analog->meaning->mq = OTC_MQ_COUNT;
+		analog->meaning->unit = OTC_UNIT_UNITLESS;
 	}
 
 	if (flags1 & FLAGS1_HOLD_MASK)
-		analog->meaning->mqflags |= SR_MQFLAG_HOLD;
+		analog->meaning->mqflags |= OTC_MQFLAG_HOLD;
 	if (flags2 & FLAGS2_MIN_MASK)
-		analog->meaning->mqflags |= SR_MQFLAG_MIN;
+		analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 	if (flags2 & FLAGS2_MAX_MASK)
-		analog->meaning->mqflags |= SR_MQFLAG_MAX;
+		analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 	if (flags2 & FLAGS2_AVG_MASK)
-		analog->meaning->mqflags |= SR_MQFLAG_AVG;
+		analog->meaning->mqflags |= OTC_MQFLAG_AVG;
 
 	value = 0;
 	exponent = 0;
@@ -135,5 +135,5 @@ SR_PRIV int sr_ut372_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 }

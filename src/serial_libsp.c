@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010-2012 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2010-2012 Uwe Hermann <uwe@hermann-uwe.de>
@@ -22,8 +22,8 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 #ifdef HAVE_LIBSERIALPORT
 #include <libserialport.h>
 #endif
@@ -49,7 +49,7 @@
  * @{
  */
 
-static int sr_ser_libsp_open(struct sr_serial_dev_inst *serial, int flags)
+static int otc_ser_libsp_open(struct otc_serial_dev_inst *serial, int flags)
 {
 	int ret;
 	char *error;
@@ -58,10 +58,10 @@ static int sr_ser_libsp_open(struct sr_serial_dev_inst *serial, int flags)
 	ret = sp_get_port_by_name(serial->port, &serial->sp_data);
 	if (ret != SP_OK) {
 		error = sp_last_error_message();
-		sr_err("Error getting port from name %s: (%d) %s.",
+		otc_err("Error getting port from name %s: (%d) %s.",
 			serial->port, sp_last_error_code(), error);
 		sp_free_error_message(error);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	sp_flags = 0;
@@ -74,100 +74,100 @@ static int sr_ser_libsp_open(struct sr_serial_dev_inst *serial, int flags)
 
 	switch (ret) {
 	case SP_ERR_ARG:
-		sr_err("Attempt to open serial port with invalid parameters.");
-		return SR_ERR_ARG;
+		otc_err("Attempt to open serial port with invalid parameters.");
+		return OTC_ERR_ARG;
 	case SP_ERR_FAIL:
 		error = sp_last_error_message();
-		sr_err("Error opening port (%d): %s.",
+		otc_err("Error opening port (%d): %s.",
 			sp_last_error_code(), error);
 		sp_free_error_message(error);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int sr_ser_libsp_close(struct sr_serial_dev_inst *serial)
+static int otc_ser_libsp_close(struct otc_serial_dev_inst *serial)
 {
 	int ret;
 	char *error;
 
 	if (!serial->sp_data) {
-		sr_dbg("Cannot close unopened serial port %s.", serial->port);
-		return SR_ERR;
+		otc_dbg("Cannot close unopened serial port %s.", serial->port);
+		return OTC_ERR;
 	}
 
 	ret = sp_close(serial->sp_data);
 
 	switch (ret) {
 	case SP_ERR_ARG:
-		sr_err("Attempt to close an invalid serial port.");
-		return SR_ERR_ARG;
+		otc_err("Attempt to close an invalid serial port.");
+		return OTC_ERR_ARG;
 	case SP_ERR_FAIL:
 		error = sp_last_error_message();
-		sr_err("Error closing port (%d): %s.",
+		otc_err("Error closing port (%d): %s.",
 			sp_last_error_code(), error);
 		sp_free_error_message(error);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	sp_free_port(serial->sp_data);
 	serial->sp_data = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int sr_ser_libsp_flush(struct sr_serial_dev_inst *serial)
+static int otc_ser_libsp_flush(struct otc_serial_dev_inst *serial)
 {
 	int ret;
 	char *error;
 
 	if (!serial->sp_data) {
-		sr_dbg("Cannot flush unopened serial port %s.", serial->port);
-		return SR_ERR;
+		otc_dbg("Cannot flush unopened serial port %s.", serial->port);
+		return OTC_ERR;
 	}
 
 	ret = sp_flush(serial->sp_data, SP_BUF_BOTH);
 
 	switch (ret) {
 	case SP_ERR_ARG:
-		sr_err("Attempt to flush an invalid serial port.");
-		return SR_ERR_ARG;
+		otc_err("Attempt to flush an invalid serial port.");
+		return OTC_ERR_ARG;
 	case SP_ERR_FAIL:
 		error = sp_last_error_message();
-		sr_err("Error flushing port (%d): %s.",
+		otc_err("Error flushing port (%d): %s.",
 			sp_last_error_code(), error);
 		sp_free_error_message(error);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int sr_ser_libsp_drain(struct sr_serial_dev_inst *serial)
+static int otc_ser_libsp_drain(struct otc_serial_dev_inst *serial)
 {
 	int ret;
 	char *error;
 
 	if (!serial->sp_data) {
-		sr_dbg("Cannot drain unopened serial port %s.", serial->port);
-		return SR_ERR;
+		otc_dbg("Cannot drain unopened serial port %s.", serial->port);
+		return OTC_ERR;
 	}
 
 	ret = sp_drain(serial->sp_data);
 
 	if (ret == SP_ERR_FAIL) {
 		error = sp_last_error_message();
-		sr_err("Error draining port (%d): %s.",
+		otc_err("Error draining port (%d): %s.",
 			sp_last_error_code(), error);
 		sp_free_error_message(error);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int sr_ser_libsp_write(struct sr_serial_dev_inst *serial,
+static int otc_ser_libsp_write(struct otc_serial_dev_inst *serial,
 	const void *buf, size_t count,
 	int nonblocking, unsigned int timeout_ms)
 {
@@ -175,8 +175,8 @@ static int sr_ser_libsp_write(struct sr_serial_dev_inst *serial,
 	char *error;
 
 	if (!serial->sp_data) {
-		sr_dbg("Cannot use unopened serial port %s.", serial->port);
-		return SR_ERR;
+		otc_dbg("Cannot use unopened serial port %s.", serial->port);
+		return OTC_ERR;
 	}
 
 	if (nonblocking)
@@ -186,19 +186,19 @@ static int sr_ser_libsp_write(struct sr_serial_dev_inst *serial,
 
 	switch (ret) {
 	case SP_ERR_ARG:
-		sr_err("Attempted serial port write with invalid arguments.");
-		return SR_ERR_ARG;
+		otc_err("Attempted serial port write with invalid arguments.");
+		return OTC_ERR_ARG;
 	case SP_ERR_FAIL:
 		error = sp_last_error_message();
-		sr_err("Write error (%d): %s.", sp_last_error_code(), error);
+		otc_err("Write error (%d): %s.", sp_last_error_code(), error);
 		sp_free_error_message(error);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	return ret;
 }
 
-static int sr_ser_libsp_read(struct sr_serial_dev_inst *serial,
+static int otc_ser_libsp_read(struct otc_serial_dev_inst *serial,
 	void *buf, size_t count,
 	int nonblocking, unsigned int timeout_ms)
 {
@@ -206,8 +206,8 @@ static int sr_ser_libsp_read(struct sr_serial_dev_inst *serial,
 	char *error;
 
 	if (!serial->sp_data) {
-		sr_dbg("Cannot use unopened serial port %s.", serial->port);
-		return SR_ERR;
+		otc_dbg("Cannot use unopened serial port %s.", serial->port);
+		return OTC_ERR;
 	}
 
 	if (nonblocking)
@@ -217,19 +217,19 @@ static int sr_ser_libsp_read(struct sr_serial_dev_inst *serial,
 
 	switch (ret) {
 	case SP_ERR_ARG:
-		sr_err("Attempted serial port read with invalid arguments.");
-		return SR_ERR_ARG;
+		otc_err("Attempted serial port read with invalid arguments.");
+		return OTC_ERR_ARG;
 	case SP_ERR_FAIL:
 		error = sp_last_error_message();
-		sr_err("Read error (%d): %s.", sp_last_error_code(), error);
+		otc_err("Read error (%d): %s.", sp_last_error_code(), error);
 		sp_free_error_message(error);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	return ret;
 }
 
-static int sr_ser_libsp_set_params(struct sr_serial_dev_inst *serial,
+static int otc_ser_libsp_set_params(struct otc_serial_dev_inst *serial,
 	int baudrate, int bits, int parity, int stopbits,
 	int flowcontrol, int rts, int dtr)
 {
@@ -239,8 +239,8 @@ static int sr_ser_libsp_set_params(struct sr_serial_dev_inst *serial,
 	int cts, xonoff;
 
 	if (!serial->sp_data) {
-		sr_dbg("Cannot configure unopened serial port %s.", serial->port);
-		return SR_ERR;
+		otc_dbg("Cannot configure unopened serial port %s.", serial->port);
+		return OTC_ERR;
 	}
 
 	sp_new_config(&config);
@@ -257,7 +257,7 @@ static int sr_ser_libsp_set_params(struct sr_serial_dev_inst *serial,
 		sp_set_config_parity(config, SP_PARITY_ODD);
 		break;
 	default:
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	sp_set_config_stopbits(config, stopbits);
 	rts = flowcontrol == 1 ? SP_RTS_FLOW_CONTROL : rts;
@@ -274,41 +274,41 @@ static int sr_ser_libsp_set_params(struct sr_serial_dev_inst *serial,
 
 	switch (ret) {
 	case SP_ERR_ARG:
-		sr_err("Invalid arguments for setting serial port parameters.");
-		return SR_ERR_ARG;
+		otc_err("Invalid arguments for setting serial port parameters.");
+		return OTC_ERR_ARG;
 	case SP_ERR_FAIL:
 		error = sp_last_error_message();
-		sr_err("Error setting serial port parameters (%d): %s.",
+		otc_err("Error setting serial port parameters (%d): %s.",
 			sp_last_error_code(), error);
 		sp_free_error_message(error);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int sr_ser_libsp_set_handshake(struct sr_serial_dev_inst *serial,
+static int otc_ser_libsp_set_handshake(struct otc_serial_dev_inst *serial,
 	int rts, int dtr)
 {
 	int ret;
 
 	if (!serial->sp_data) {
-		sr_dbg("Cannot configure unopened serial port %s.", serial->port);
-		return SR_ERR;
+		otc_dbg("Cannot configure unopened serial port %s.", serial->port);
+		return OTC_ERR;
 	}
 
 	if (rts >= 0) {
 		ret = sp_set_rts(serial->sp_data, rts ? SP_RTS_ON : SP_RTS_OFF);
 		if (ret != SP_OK)
-			return SR_ERR;
+			return OTC_ERR;
 	}
 	if (dtr >= 0) {
 		ret = sp_set_dtr(serial->sp_data, dtr ? SP_DTR_ON : SP_DTR_OFF);
 		if (ret != SP_OK)
-			return SR_ERR;
+			return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 #ifdef G_OS_WIN32
@@ -317,7 +317,7 @@ typedef HANDLE event_handle;
 typedef int event_handle;
 #endif
 
-static int sr_ser_libsp_source_add_int(struct sr_serial_dev_inst *serial,
+static int otc_ser_libsp_source_add_int(struct otc_serial_dev_inst *serial,
 	int events,
 	void **keyptr, gintptr *fdptr, unsigned int *pollevtptr)
 {
@@ -327,16 +327,16 @@ static int sr_ser_libsp_source_add_int(struct sr_serial_dev_inst *serial,
 	enum sp_event mask;
 
 	if ((events & (G_IO_IN | G_IO_ERR)) && (events & G_IO_OUT)) {
-		sr_err("Cannot poll input/error and output simultaneously.");
-		return SR_ERR_ARG;
+		otc_err("Cannot poll input/error and output simultaneously.");
+		return OTC_ERR_ARG;
 	}
 	if (!serial->sp_data) {
-		sr_err("Invalid serial port.");
-		return SR_ERR_ARG;
+		otc_err("Invalid serial port.");
+		return OTC_ERR_ARG;
 	}
 
 	if (sp_new_event_set(&event_set) != SP_OK)
-		return SR_ERR;
+		return OTC_ERR;
 
 	mask = 0;
 	if (events & G_IO_IN)
@@ -348,13 +348,13 @@ static int sr_ser_libsp_source_add_int(struct sr_serial_dev_inst *serial,
 
 	if (sp_add_port_events(event_set, serial->sp_data, mask) != SP_OK) {
 		sp_free_event_set(event_set);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	if (event_set->count != 1) {
-		sr_err("Unexpected number (%u) of event handles to poll.",
+		otc_err("Unexpected number (%u) of event handles to poll.",
 			event_set->count);
 		sp_free_event_set(event_set);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	poll_fd = (gintptr) ((event_handle *)event_set->handles)[0];
@@ -380,38 +380,38 @@ static int sr_ser_libsp_source_add_int(struct sr_serial_dev_inst *serial,
 	*fdptr = poll_fd;
 	*pollevtptr = poll_events;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int sr_ser_libsp_source_add(struct sr_session *session,
-	struct sr_serial_dev_inst *serial, int events, int timeout,
-	sr_receive_data_callback cb, void *cb_data)
+static int otc_ser_libsp_source_add(struct otc_session *session,
+	struct otc_serial_dev_inst *serial, int events, int timeout,
+	otc_receive_data_callback cb, void *cb_data)
 {
 	int ret;
 	void *key;
 	gintptr poll_fd;
 	unsigned int poll_events;
 
-	ret = sr_ser_libsp_source_add_int(serial, events,
+	ret = otc_ser_libsp_source_add_int(serial, events,
 		&key, &poll_fd, &poll_events);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return sr_session_fd_source_add(session,
+	return otc_session_fd_source_add(session,
 		key, poll_fd, poll_events,
 		timeout, cb, cb_data);
 }
 
-static int sr_ser_libsp_source_remove(struct sr_session *session,
-	struct sr_serial_dev_inst *serial)
+static int otc_ser_libsp_source_remove(struct otc_session *session,
+	struct otc_serial_dev_inst *serial)
 {
 	void *key;
 
 	key = serial->sp_data;
-	return sr_session_source_remove_internal(session, key);
+	return otc_session_source_remove_internal(session, key);
 }
 
-static GSList *sr_ser_libsp_list(GSList *list, sr_ser_list_append_t append)
+static GSList *otc_ser_libsp_list(GSList *list, otc_ser_list_append_t append)
 {
 	struct sp_port **ports;
 	size_t i;
@@ -432,7 +432,7 @@ static GSList *sr_ser_libsp_list(GSList *list, sr_ser_list_append_t append)
 	return list;
 }
 
-static GSList *sr_ser_libsp_find_usb(GSList *list, sr_ser_find_append_t append,
+static GSList *otc_ser_libsp_find_usb(GSList *list, otc_ser_find_append_t append,
 	uint16_t vendor_id, uint16_t product_id)
 {
 	struct sp_port **ports;
@@ -458,7 +458,7 @@ static GSList *sr_ser_libsp_find_usb(GSList *list, sr_ser_find_append_t append,
 	return list;
 }
 
-static int sr_ser_libsp_get_frame_format(struct sr_serial_dev_inst *serial,
+static int otc_ser_libsp_get_frame_format(struct otc_serial_dev_inst *serial,
 	int *baud, int *bits)
 {
 	struct sp_port_config *config;
@@ -466,34 +466,34 @@ static int sr_ser_libsp_get_frame_format(struct sr_serial_dev_inst *serial,
 	enum sp_parity parity;
 
 	if (sp_new_config(&config) < 0)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	*baud = *bits = 0;
-	ret = SR_OK;
+	ret = OTC_OK;
 	do {
 		if (sp_get_config(serial->sp_data, config) < 0) {
-			ret = SR_ERR_NA;
+			ret = OTC_ERR_NA;
 			break;
 		}
 
 		if (sp_get_config_baudrate(config, &tmp) < 0) {
-			ret = SR_ERR_NA;
+			ret = OTC_ERR_NA;
 			break;
 		}
 		*baud = tmp;
 
 		*bits += 1;	/* Start bit. */
 		if (sp_get_config_bits(config, &tmp) < 0) {
-			ret = SR_ERR_NA;
+			ret = OTC_ERR_NA;
 			break;
 		}
 		*bits += tmp;
 		if (sp_get_config_parity(config, &parity) < 0) {
-			ret = SR_ERR_NA;
+			ret = OTC_ERR_NA;
 			break;
 		}
 		*bits += (parity != SP_PARITY_NONE) ? 1 : 0;
 		if (sp_get_config_stopbits(config, &tmp) < 0) {
-			ret = SR_ERR_NA;
+			ret = OTC_ERR_NA;
 			break;
 		}
 		*bits += tmp;
@@ -503,7 +503,7 @@ static int sr_ser_libsp_get_frame_format(struct sr_serial_dev_inst *serial,
 	return ret;
 }
 
-static size_t sr_ser_libsp_get_rx_avail(struct sr_serial_dev_inst *serial)
+static size_t otc_ser_libsp_get_rx_avail(struct otc_serial_dev_inst *serial)
 {
 	int rc;
 
@@ -518,25 +518,25 @@ static size_t sr_ser_libsp_get_rx_avail(struct sr_serial_dev_inst *serial)
 }
 
 static struct ser_lib_functions serlib_sp = {
-	.open = sr_ser_libsp_open,
-	.close = sr_ser_libsp_close,
-	.flush = sr_ser_libsp_flush,
-	.drain = sr_ser_libsp_drain,
-	.write = sr_ser_libsp_write,
-	.read = sr_ser_libsp_read,
-	.set_params = sr_ser_libsp_set_params,
-	.set_handshake = sr_ser_libsp_set_handshake,
-	.setup_source_add = sr_ser_libsp_source_add,
-	.setup_source_remove = sr_ser_libsp_source_remove,
-	.list = sr_ser_libsp_list,
-	.find_usb = sr_ser_libsp_find_usb,
-	.get_frame_format = sr_ser_libsp_get_frame_format,
-	.get_rx_avail = sr_ser_libsp_get_rx_avail,
+	.open = otc_ser_libsp_open,
+	.close = otc_ser_libsp_close,
+	.flush = otc_ser_libsp_flush,
+	.drain = otc_ser_libsp_drain,
+	.write = otc_ser_libsp_write,
+	.read = otc_ser_libsp_read,
+	.set_params = otc_ser_libsp_set_params,
+	.set_handshake = otc_ser_libsp_set_handshake,
+	.setup_source_add = otc_ser_libsp_source_add,
+	.setup_source_remove = otc_ser_libsp_source_remove,
+	.list = otc_ser_libsp_list,
+	.find_usb = otc_ser_libsp_find_usb,
+	.get_frame_format = otc_ser_libsp_get_frame_format,
+	.get_rx_avail = otc_ser_libsp_get_rx_avail,
 };
-SR_PRIV struct ser_lib_functions *ser_lib_funcs_libsp = &serlib_sp;
+OTC_PRIV struct ser_lib_functions *ser_lib_funcs_libsp = &serlib_sp;
 
 #else
 
-SR_PRIV struct ser_lib_functions *ser_lib_funcs_libsp = NULL;
+OTC_PRIV struct ser_lib_functions *ser_lib_funcs_libsp = NULL;
 
 #endif

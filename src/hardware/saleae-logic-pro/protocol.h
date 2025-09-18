@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017 Jan Luebbe <jluebbe@lasnet.de>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "saleae-logic-pro"
 
@@ -53,10 +53,10 @@ struct dev_context {
 	unsigned int batch_index;
 };
 
-SR_PRIV int saleae_logic_pro_init(const struct sr_dev_inst *sdi);
-SR_PRIV int saleae_logic_pro_prepare(const struct sr_dev_inst *sdi);
-SR_PRIV int saleae_logic_pro_start(const struct sr_dev_inst *sdi);
-SR_PRIV int saleae_logic_pro_stop(const struct sr_dev_inst *sdi);
-SR_PRIV void LIBUSB_CALL saleae_logic_pro_receive_data(struct libusb_transfer *transfer);
+OTC_PRIV int saleae_logic_pro_init(const struct otc_dev_inst *sdi);
+OTC_PRIV int saleae_logic_pro_prepare(const struct otc_dev_inst *sdi);
+OTC_PRIV int saleae_logic_pro_start(const struct otc_dev_inst *sdi);
+OTC_PRIV int saleae_logic_pro_stop(const struct otc_dev_inst *sdi);
+OTC_PRIV void LIBUSB_CALL saleae_logic_pro_receive_data(struct libusb_transfer *transfer);
 
 #endif

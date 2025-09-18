@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Alexandru Gagniuc <mr.nuke.me@gmail.com>
  *
@@ -18,52 +18,52 @@
  */
 
 #include <config.h>
-#include <scpi.h>
+#include "../../scpi.h"
 #include <string.h>
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_MULTIMETER,
+	OTC_CONF_MULTIMETER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_SET,
-	SR_CONF_MEASURED_QUANTITY | SR_CONF_SET,
-	SR_CONF_ADC_POWERLINE_CYCLES | SR_CONF_SET | SR_CONF_GET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_SET,
+	OTC_CONF_MEASURED_QUANTITY | OTC_CONF_SET,
+	OTC_CONF_ADC_POWERLINE_CYCLES | OTC_CONF_SET | OTC_CONF_GET,
 };
 
-static struct sr_dev_driver hp_3457a_driver_info;
+static struct otc_dev_driver hp_3457a_driver_info;
 
-static int create_front_channel(struct sr_dev_inst *sdi, int chan_idx)
+static int create_front_channel(struct otc_dev_inst *sdi, int chan_idx)
 {
-	struct sr_channel *channel;
-	struct sr_channel_group *front;
+	struct otc_channel *channel;
+	struct otc_channel_group *front;
 	struct channel_context *chanc;
 
 	chanc = g_malloc(sizeof(*chanc));
 	chanc->location = CONN_FRONT;
 
-	channel = sr_channel_new(sdi, chan_idx++, SR_CHANNEL_ANALOG,
+	channel = otc_channel_new(sdi, chan_idx++, OTC_CHANNEL_ANALOG,
 				 TRUE, "Front");
 	channel->priv = chanc;
 
-	front = sr_channel_group_new(sdi, "Front", NULL);
+	front = otc_channel_group_new(sdi, "Front", NULL);
 	front->channels = g_slist_append(front->channels, channel);
 
 	return chan_idx;
 }
 
-static int create_rear_channels(struct sr_dev_inst *sdi, int chan_idx,
+static int create_rear_channels(struct otc_dev_inst *sdi, int chan_idx,
 				 const struct rear_card_info *card)
 {
 	unsigned int i;
-	struct sr_channel *channel;
-	struct sr_channel_group *group;
+	struct otc_channel *channel;
+	struct otc_channel_group *group;
 	struct channel_context *chanc;
 	char name[16];
 
@@ -71,7 +71,7 @@ static int create_rear_channels(struct sr_dev_inst *sdi, int chan_idx,
 	if (!card)
 		return chan_idx;
 
-	group = sr_channel_group_new(sdi, card->cg_name, NULL);
+	group = otc_channel_group_new(sdi, card->cg_name, NULL);
 
 	for (i = 0; i < card->num_channels; i++) {
 
@@ -86,7 +86,7 @@ static int create_rear_channels(struct sr_dev_inst *sdi, int chan_idx,
 			g_snprintf(name, sizeof(name), "%s%u", card->cg_name, i);
 		}
 
-		channel = sr_channel_new(sdi, chan_idx++, SR_CHANNEL_ANALOG,
+		channel = otc_channel_new(sdi, chan_idx++, OTC_CHANNEL_ANALOG,
 					FALSE, name);
 		channel->priv = chanc;
 		group->channels = g_slist_append(group->channels, channel);
@@ -95,7 +95,7 @@ static int create_rear_channels(struct sr_dev_inst *sdi, int chan_idx,
 	return chan_idx;
 }
 
-static gchar *get_revision(struct sr_scpi_dev_inst *scpi)
+static gchar *get_revision(struct otc_scpi_dev_inst *scpi)
 {
 	int ret, major, minor;
 	GArray *rev_numbers;
@@ -103,8 +103,8 @@ static gchar *get_revision(struct sr_scpi_dev_inst *scpi)
 	/* Report a version of '0.0' if we can't parse the response. */
 	major = minor = 0;
 
-	ret = sr_scpi_get_floatv(scpi, "REV?", &rev_numbers);
-	if ((ret == SR_OK) && (rev_numbers->len >= 2)) {
+	ret = otc_scpi_get_floatv(scpi, "REV?", &rev_numbers);
+	if ((ret == OTC_OK) && (rev_numbers->len >= 2)) {
 		major = (int)g_array_index(rev_numbers, float, 0);
 		minor = (int)g_array_index(rev_numbers, float, 1);
 	}
@@ -114,11 +114,11 @@ static gchar *get_revision(struct sr_scpi_dev_inst *scpi)
 	return g_strdup_printf("%d.%d", major, minor);
 }
 
-static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
+static struct otc_dev_inst *probe_device(struct otc_scpi_dev_inst *scpi)
 {
 	int ret, idx;
 	char *response;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 
 	/*
@@ -133,11 +133,11 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 	 * This command ensures we receive an EOI after every response, so that
 	 * we don't wait the entire timeout after the response is received.
 	 */
-	if (sr_scpi_send(scpi, "END ALWAYS") != SR_OK)
+	if (otc_scpi_send(scpi, "END ALWAYS") != OTC_OK)
 		return NULL;
 
-	ret = sr_scpi_get_string(scpi, "ID?", &response);
-	if ((ret != SR_OK) || !response)
+	ret = otc_scpi_get_string(scpi, "ID?", &response);
+	if ((ret != OTC_OK) || !response)
 		return NULL;
 
 	if (strcmp(response, "HP3457A") != 0) {
@@ -154,7 +154,7 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 	sdi->version = get_revision(scpi);
 	sdi->conn = scpi;
 	sdi->driver = &hp_3457a_driver_info;
-	sdi->inst_type = SR_INST_SCPI;
+	sdi->inst_type = OTC_INST_SCPI;
 	sdi->priv = devc;
 
 	/* There is no way to probe the measurement mode. It must be set. */
@@ -170,17 +170,17 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 	return sdi;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	const char *conn;
 
 	/* Only scan for a device when conn= was specified. */
 	conn = NULL;
-	(void)sr_serial_extract_options(options, &conn, NULL);
+	(void)otc_serial_extract_options(options, &conn, NULL);
 	if (!conn)
 		return NULL;
 
-	return sr_scpi_scan(di->context, options, probe_device);
+	return otc_scpi_scan(di->context, options, probe_device);
 }
 
 /*
@@ -202,40 +202,40 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
  *   TRIG HOLD
  *     Do not trigger new measurements until instructed to do so.
  */
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	struct sr_scpi_dev_inst *scpi = sdi->conn;
+	struct otc_scpi_dev_inst *scpi = sdi->conn;
 	struct dev_context *devc;
 
-	if (sr_scpi_open(scpi) != SR_OK)
-		return SR_ERR;
+	if (otc_scpi_open(scpi) != OTC_OK)
+		return OTC_ERR;
 
 	devc = sdi->priv;
 
-	sr_scpi_send(scpi, "PRESET");
-	sr_scpi_send(scpi, "INBUF ON");
-	sr_scpi_send(scpi, "TRIG HOLD");
-	sr_scpi_get_float(scpi, "NPLC?", &devc->nplc);
+	otc_scpi_send(scpi, "PRESET");
+	otc_scpi_send(scpi, "INBUF ON");
+	otc_scpi_send(scpi, "TRIG HOLD");
+	otc_scpi_get_float(scpi, "NPLC?", &devc->nplc);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	struct sr_scpi_dev_inst *scpi = sdi->conn;
+	struct otc_scpi_dev_inst *scpi = sdi->conn;
 
 	/* Disable scan-advance (preserve relay life). */
-	sr_scpi_send(scpi, "SADV HOLD");
+	otc_scpi_send(scpi, "SADV HOLD");
 	/* Switch back to auto-triggering. */
-	sr_scpi_send(scpi, "TRIG AUTO");
+	otc_scpi_send(scpi, "TRIG AUTO");
 
-	sr_scpi_close(scpi);
+	otc_scpi_close(scpi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
@@ -244,21 +244,21 @@ static int config_get(uint32_t key, GVariant **data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_ADC_POWERLINE_CYCLES:
+	case OTC_CONF_ADC_POWERLINE_CYCLES:
 		*data = g_variant_new_double(devc->nplc);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
-	enum sr_mq mq;
-	enum sr_mqflag mq_flags;
+	enum otc_mq mq;
+	enum otc_mqflag mq_flags;
 	struct dev_context *devc;
 	GVariant *tuple_child;
 
@@ -267,27 +267,27 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		devc->limit_samples = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_MEASURED_QUANTITY:
+	case OTC_CONF_MEASURED_QUANTITY:
 		tuple_child = g_variant_get_child_value(data, 0);
 		mq = g_variant_get_uint32(tuple_child);
 		tuple_child = g_variant_get_child_value(data, 1);
 		mq_flags = g_variant_get_uint64(tuple_child);
 		g_variant_unref(tuple_child);
 		return hp_3457a_set_mq(sdi, mq, mq_flags);
-	case SR_CONF_ADC_POWERLINE_CYCLES:
+	case OTC_CONF_ADC_POWERLINE_CYCLES:
 		return hp_3457a_set_nplc(sdi, g_variant_get_double(data));
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	/*
 	 * TODO: Implement channel group configuration when adding support for
@@ -299,7 +299,7 @@ static int config_list(uint32_t key, GVariant **data,
 
 static void create_channel_index_list(GSList *channels, GArray **arr)
 {
-	struct sr_channel *channel;
+	struct otc_channel *channel;
 	struct channel_context *chanc;
 	GSList *list_elem;
 
@@ -325,12 +325,12 @@ static void create_channel_index_list(GSList *channels, GArray **arr)
  *   channel in the scan list to the A/D converter. This way, we do not need to
  *   occupy the HP-IB bus to send channel select commands.
  */
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	int ret;
 	gboolean front_selected, rear_selected;
-	struct sr_scpi_dev_inst *scpi;
-	struct sr_channel *channel;
+	struct otc_scpi_dev_inst *scpi;
+	struct otc_channel *channel;
 	struct dev_context *devc;
 	struct channel_context *chanc;
 	GArray *ch_list;
@@ -339,9 +339,9 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	scpi = sdi->conn;
 	devc = sdi->priv;
 
-	ret = sr_scpi_source_add(sdi->session, scpi, G_IO_IN, 100,
+	ret = otc_scpi_source_add(sdi->session, scpi, G_IO_IN, 100,
 				 hp_3457a_receive_data, (void *)sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	std_session_send_df_header(sdi);
@@ -366,16 +366,16 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	}
 
 	if (front_selected && rear_selected) {
-		sr_err("Can not use front and rear channels at the same time!");
+		otc_err("Can not use front and rear channels at the same time!");
 		g_slist_free(devc->active_channels);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
 	devc->num_active_channels = g_slist_length(devc->active_channels);
 	if (!devc->num_active_channels) {
-		sr_err("Need at least one active channel!");
+		otc_err("Need at least one active channel!");
 		g_slist_free(devc->active_channels);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	devc->current_channel = devc->active_channels->data;
 
@@ -385,19 +385,19 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	if (rear_selected && (devc->rear_card->card_id != REAR_TERMINALS)) {
 		create_channel_index_list(devc->active_channels, &ch_list);
 		hp_3457a_send_scan_list(sdi, (void *)ch_list->data, ch_list->len);
-		sr_scpi_send(scpi, "SADV AUTO");
+		otc_scpi_send(scpi, "SADV AUTO");
 		g_array_free(ch_list, TRUE);
 	}
 
 	/* Start first measurement. */
-	sr_scpi_send(scpi, "TRIG SGL");
+	otc_scpi_send(scpi, "TRIG SGL");
 	devc->acq_state = ACQ_TRIGGERED_MEASUREMENT;
 	devc->num_samples = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -405,10 +405,10 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 
 	g_slist_free(devc->active_channels);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver hp_3457a_driver_info = {
+static struct otc_dev_driver hp_3457a_driver_info = {
 	.name = "hp-3457a",
 	.longname = "HP 3457A",
 	.api_version = 1,
@@ -426,4 +426,4 @@ static struct sr_dev_driver hp_3457a_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(hp_3457a_driver_info);
+OTC_REGISTER_DEV_DRIVER(hp_3457a_driver_info);

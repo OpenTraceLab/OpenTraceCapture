@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -25,8 +25,8 @@
 #include <ctype.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "center-3xx"
 
@@ -43,25 +43,25 @@ struct center_dev_info {
 	uint32_t max_sample_points;
 	uint8_t packet_size;
 	gboolean (*packet_valid)(const uint8_t *);
-	struct sr_dev_driver *di;
+	struct otc_dev_driver *di;
 	int (*receive_data)(int, int, void *);
 };
 
-extern SR_PRIV const struct center_dev_info center_devs[];
+extern OTC_PRIV const struct center_dev_info center_devs[];
 
 #define SERIAL_BUFSIZE 256
 
 struct dev_context {
-	struct sr_sw_limits sw_limits;
+	struct otc_sw_limits sw_limits;
 
 	uint8_t buf[SERIAL_BUFSIZE];
 	int bufoffset;
 	int buflen;
 };
 
-SR_PRIV gboolean center_3xx_packet_valid(const uint8_t *buf);
+OTC_PRIV gboolean center_3xx_packet_valid(const uint8_t *buf);
 
-SR_PRIV int receive_data_CENTER_309(int fd, int revents, void *cb_data);
-SR_PRIV int receive_data_VOLTCRAFT_K204(int fd, int revents, void *cb_data);
+OTC_PRIV int receive_data_CENTER_309(int fd, int revents, void *cb_data);
+OTC_PRIV int receive_data_VOLTCRAFT_K204(int fd, int revents, void *cb_data);
 
 #endif

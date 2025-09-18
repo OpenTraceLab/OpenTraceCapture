@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Alexandru Gagniuc <mr.nuke.me@gmail.com>
  *
@@ -23,8 +23,8 @@
 #define LOG_PREFIX "serial-dmm"
 
 struct dmm_info {
-	/** libsigrok driver info struct. */
-	struct sr_dev_driver di;
+	/** libopentracecapture driver info struct. */
+	struct otc_dev_driver di;
 	/** Manufacturer/brand. */
 	const char *vendor;
 	/** Model. */
@@ -46,7 +46,7 @@ struct dmm_info {
 	 */
 	uint64_t req_delay_ms;
 	/** Packet request function. */
-	int (*packet_request)(struct sr_serial_dev_inst *);
+	int (*packet_request)(struct otc_serial_dev_inst *);
 	/** Number of channels / displays. */
 	size_t channel_count;
 	/** (Optional) printf formats for channel names. */
@@ -55,35 +55,35 @@ struct dmm_info {
 	gboolean (*packet_valid)(const uint8_t *);
 	/** Packet parsing function. */
 	int (*packet_parse)(const uint8_t *, float *,
-			    struct sr_datafeed_analog *, void *);
+			    struct otc_datafeed_analog *, void *);
 	/** */
-	void (*dmm_details)(struct sr_datafeed_analog *, void *);
+	void (*dmm_details)(struct otc_datafeed_analog *, void *);
 	/** Size of chipset info struct. */
 	gsize info_size;
 	/* Serial-dmm items "with state" and variable length packets. */
 	void *dmm_state;
 	void *(*dmm_state_init)(void);
 	void (*dmm_state_free)(void *state);
-	int (*after_open)(struct sr_serial_dev_inst *serial);
+	int (*after_open)(struct otc_serial_dev_inst *serial);
 	int (*packet_valid_len)(void *state, const uint8_t *data, size_t dlen,
 		size_t *pkt_len);
 	int (*packet_parse_len)(void *state, const uint8_t *data, size_t dlen,
-		double *val, struct sr_datafeed_analog *analog, void *info);
+		double *val, struct otc_datafeed_analog *analog, void *info);
 	int (*config_get)(void *state, uint32_t key, GVariant **data,
-		const struct sr_dev_inst *sdi, const struct sr_channel_group *cg);
+		const struct otc_dev_inst *sdi, const struct otc_channel_group *cg);
 	int (*config_set)(void *state, uint32_t key, GVariant *data,
-		const struct sr_dev_inst *sdi, const struct sr_channel_group *cg);
+		const struct otc_dev_inst *sdi, const struct otc_channel_group *cg);
 	int (*config_list)(void *state, uint32_t key, GVariant **data,
-		const struct sr_dev_inst *sdi, const struct sr_channel_group *cg);
+		const struct otc_dev_inst *sdi, const struct otc_channel_group *cg);
 	/** Hook at acquisition start. Can re-route the receive routine. */
-	int (*acquire_start)(void *state, const struct sr_dev_inst *sdi,
-		sr_receive_data_callback *cb, void **cb_data);
+	int (*acquire_start)(void *state, const struct otc_dev_inst *sdi,
+		otc_receive_data_callback *cb, void **cb_data);
 };
 
 #define DMM_BUFSIZE 256
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 
 	uint8_t buf[DMM_BUFSIZE];
 	size_t buflen;
@@ -95,7 +95,7 @@ struct dev_context {
 	uint64_t req_next_at;
 };
 
-SR_PRIV int req_packet(struct sr_dev_inst *sdi);
-SR_PRIV int receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int req_packet(struct otc_dev_inst *sdi);
+OTC_PRIV int receive_data(int fd, int revents, void *cb_data);
 
 #endif

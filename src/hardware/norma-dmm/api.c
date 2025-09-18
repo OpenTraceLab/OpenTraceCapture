@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2013 Matthias Heidbrink <m-sigrok@heidbrink.biz>
+ * Copyright (C) 2013 Matthias Heidbrink <m-opentracelab@heidbrink.biz>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,33 +21,33 @@
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_MULTIMETER,
+	OTC_CONF_MULTIMETER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_SET,
 };
 
 #define BUF_MAX 50
 
 #define SERIALCOMM "4800/8n1/dtr=1/rts=0/flow=1"
 
-static struct sr_dev_driver norma_dmm_driver_info;
-static struct sr_dev_driver siemens_b102x_driver_info;
+static struct otc_dev_driver norma_dmm_driver_info;
+static struct otc_dev_driver siemens_b102x_driver_info;
 
-static const char *get_brandstr(struct sr_dev_driver *drv)
+static const char *get_brandstr(struct otc_dev_driver *drv)
 {
 	return (drv == &norma_dmm_driver_info) ? "Norma" : "Siemens";
 }
 
-static const char *get_typestr(int type, struct sr_dev_driver *drv)
+static const char *get_typestr(int type, struct otc_dev_driver *drv)
 {
 	static const char *nameref[5][2] = {
 		{"DM910", "B1024"},
@@ -63,12 +63,12 @@ static const char *get_typestr(int type, struct sr_dev_driver *drv)
 	return nameref[type - 1][(drv == &siemens_b102x_driver_info)];
 }
 
-static GSList *scan(struct sr_dev_driver *drv, GSList *options)
+static GSList *scan(struct otc_dev_driver *drv, GSList *options)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_config *src;
-	struct sr_serial_dev_inst *serial;
+	struct otc_config *src;
+	struct otc_serial_dev_inst *serial;
 	GSList *l, *devices;
 	int len, cnt, auxtype;
 	const char *conn, *serialcomm;
@@ -81,10 +81,10 @@ static GSList *scan(struct sr_dev_driver *drv, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -94,9 +94,9 @@ static GSList *scan(struct sr_dev_driver *drv, GSList *options)
 	if (!serialcomm)
 		serialcomm = SERIALCOMM;
 
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
 
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
 		return NULL;
 
 	buf = g_malloc(BUF_MAX);
@@ -107,7 +107,7 @@ static GSList *scan(struct sr_dev_driver *drv, GSList *options)
 	for (cnt = 0; cnt < 7; cnt++) {
 		if (serial_write_blocking(serial, req, strlen(req),
 				serial_timeout(serial, strlen(req))) < 0) {
-			sr_err("Unable to send identification request.");
+			otc_err("Unable to send identification request.");
 			g_free(buf);
 			return NULL;
 		}
@@ -120,19 +120,19 @@ static GSList *scan(struct sr_dev_driver *drv, GSList *options)
 		/* Match ID string, e.g. "1834 065 V1.06,IF V1.02" (DM950). */
 		if (g_regex_match_simple("^1834 [^,]*,IF V*", (char *)buf, 0, 0)) {
 			auxtype = xgittoint(buf[7]);
-			sr_spew("%s %s DMM %s detected!", get_brandstr(drv), get_typestr(auxtype, drv), buf + 9);
+			otc_spew("%s %s DMM %s detected!", get_brandstr(drv), get_typestr(auxtype, drv), buf + 9);
 
-			sdi = g_malloc0(sizeof(struct sr_dev_inst));
-			sdi->status = SR_ST_INACTIVE;
+			sdi = g_malloc0(sizeof(struct otc_dev_inst));
+			sdi->status = OTC_ST_INACTIVE;
 			sdi->vendor = g_strdup(get_brandstr(drv));
 			sdi->model = g_strdup(get_typestr(auxtype, drv));
 			sdi->version = g_strdup(buf + 9);
 			devc = g_malloc0(sizeof(struct dev_context));
-			sr_sw_limits_init(&devc->limits);
+			otc_sw_limits_init(&devc->limits);
 			devc->type = auxtype;
 			sdi->conn = serial;
 			sdi->priv = devc;
-			sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "P1");
+			otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, "P1");
 			devices = g_slist_append(devices, sdi);
 			break;
 		}
@@ -144,7 +144,7 @@ static GSList *scan(struct sr_dev_driver *drv, GSList *options)
 		 * chances.
 		 */
 		if (cnt == 3) {
-			sr_info("Waiting 5s to allow interface to settle.");
+			otc_info("Waiting 5s to allow interface to settle.");
 			g_usleep(5 * 1000 * 1000);
 		}
 	}
@@ -153,13 +153,13 @@ static GSList *scan(struct sr_dev_driver *drv, GSList *options)
 
 	serial_close(serial);
 	if (!devices)
-		sr_serial_dev_inst_free(serial);
+		otc_serial_dev_inst_free(serial);
 
 	return std_scan_complete(drv, devices);
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
@@ -167,33 +167,33 @@ static int config_set(uint32_t key, GVariant *data,
 
 	devc = sdi->priv;
 
-	return sr_sw_limits_config_set(&devc->limits, key, data);
+	return otc_sw_limits_config_set(&devc->limits, key, data);
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	std_session_send_df_header(sdi);
 
 	serial = sdi->conn;
 	serial_source_add(sdi->session, serial, G_IO_IN, 100,
 			norma_dmm_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver norma_dmm_driver_info = {
+static struct otc_dev_driver norma_dmm_driver_info = {
 	.name = "norma-dmm",
 	.longname = "Norma DM9x0 DMMs",
 	.api_version = 1,
@@ -211,9 +211,9 @@ static struct sr_dev_driver norma_dmm_driver_info = {
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(norma_dmm_driver_info);
+OTC_REGISTER_DEV_DRIVER(norma_dmm_driver_info);
 
-static struct sr_dev_driver siemens_b102x_driver_info = {
+static struct otc_dev_driver siemens_b102x_driver_info = {
 	.name = "siemens-b102x",
 	.longname = "Siemens B102x DMMs",
 	.api_version = 1,
@@ -231,4 +231,4 @@ static struct sr_dev_driver siemens_b102x_driver_info = {
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(siemens_b102x_driver_info);
+OTC_REGISTER_DEV_DRIVER(siemens_b102x_driver_info);

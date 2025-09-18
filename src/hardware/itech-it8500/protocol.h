@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2020 Timo Kokkonen <tjko@iki.fi>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "itech-it8500"
 
@@ -184,31 +184,31 @@ struct dev_context {
 	gboolean load_on;
 
 	uint64_t sample_rate;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 
 	GMutex mutex;
 };
 
-SR_PRIV uint8_t itech_it8500_checksum(const uint8_t *packet);
-SR_PRIV const char *itech_it8500_mode_to_string(enum itech_it8500_modes mode);
-SR_PRIV int itech_it8500_string_to_mode(const char *modename,
+OTC_PRIV uint8_t itech_it8500_checksum(const uint8_t *packet);
+OTC_PRIV const char *itech_it8500_mode_to_string(enum itech_it8500_modes mode);
+OTC_PRIV int itech_it8500_string_to_mode(const char *modename,
 		enum itech_it8500_modes *mode);
-SR_PRIV int itech_it8500_send_cmd(struct sr_serial_dev_inst *serial,
+OTC_PRIV int itech_it8500_send_cmd(struct otc_serial_dev_inst *serial,
 		struct itech_it8500_cmd_packet *cmd,
 		struct itech_it8500_cmd_packet **response);
-SR_PRIV int itech_it8500_cmd(const struct sr_dev_inst *sdi,
+OTC_PRIV int itech_it8500_cmd(const struct otc_dev_inst *sdi,
 		struct itech_it8500_cmd_packet *cmd,
 		struct itech_it8500_cmd_packet **response);
-SR_PRIV void itech_it8500_status_change(const struct sr_dev_inst *sdi,
+OTC_PRIV void itech_it8500_status_change(const struct otc_dev_inst *sdi,
 		uint8_t old_op, uint8_t new_op,
 		uint16_t old_de, uint16_t new_de,
 		enum itech_it8500_modes old_m, enum itech_it8500_modes new_m);
-SR_PRIV int itech_it8500_get_status(const struct sr_dev_inst *sdi);
-SR_PRIV int itech_it8500_get_int(const struct sr_dev_inst *sdi,
+OTC_PRIV int itech_it8500_get_status(const struct otc_dev_inst *sdi);
+OTC_PRIV int itech_it8500_get_int(const struct otc_dev_inst *sdi,
 		enum itech_it8500_command command, int *result);
-SR_PRIV void itech_it8500_channel_send_value(const struct sr_dev_inst *sdi,
-		struct sr_channel *ch, double value, enum sr_mq mq,
-		enum sr_mqflag mqflags, enum sr_unit unit, int digits);
-SR_PRIV int itech_it8500_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV void itech_it8500_channel_send_value(const struct otc_dev_inst *sdi,
+		struct otc_channel *ch, double value, enum otc_mq mq,
+		enum otc_mqflag mqflags, enum otc_unit unit, int digits);
+OTC_PRIV int itech_it8500_receive_data(int fd, int revents, void *cb_data);
 
 #endif

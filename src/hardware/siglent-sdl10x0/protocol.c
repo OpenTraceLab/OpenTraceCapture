@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2024 Timo Boettcher <timo@timoboettcher.name>
  *
@@ -18,10 +18,10 @@
  */
 
 #include <config.h>
-#include "scpi.h"
+#include "../../scpi.h"
 #include "protocol.h"
 
-SR_PRIV const char *siglent_sdl10x0_mode_to_string(enum siglent_sdl10x0_modes mode)
+OTC_PRIV const char *siglent_sdl10x0_mode_to_string(enum siglent_sdl10x0_modes mode)
 {
 	switch (mode) {
 	case CC:
@@ -37,7 +37,7 @@ SR_PRIV const char *siglent_sdl10x0_mode_to_string(enum siglent_sdl10x0_modes mo
 	}
 }
 
-SR_PRIV const char *siglent_sdl10x0_mode_to_longstring(enum siglent_sdl10x0_modes mode)
+OTC_PRIV const char *siglent_sdl10x0_mode_to_longstring(enum siglent_sdl10x0_modes mode)
 {
 	switch (mode) {
 	case CC:
@@ -54,7 +54,7 @@ SR_PRIV const char *siglent_sdl10x0_mode_to_longstring(enum siglent_sdl10x0_mode
 }
 
 
-SR_PRIV int siglent_sdl10x0_string_to_mode(const char *modename, enum siglent_sdl10x0_modes *mode)
+OTC_PRIV int siglent_sdl10x0_string_to_mode(const char *modename, enum siglent_sdl10x0_modes *mode)
 {
 	size_t i;
 	const char *s;
@@ -63,23 +63,23 @@ SR_PRIV int siglent_sdl10x0_string_to_mode(const char *modename, enum siglent_sd
 		s = siglent_sdl10x0_mode_to_string(i);
 		if (strncmp(modename, s, strlen(s)) == 0) {
 			*mode = i;
-			return SR_OK;
+			return OTC_OK;
 		}
 	}
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
 
-SR_PRIV void siglent_sdl10x0_send_value(const struct sr_dev_inst *sdi, float value, enum sr_mq mq, enum sr_mqflag mqflags, enum sr_unit unit, int digits)
+OTC_PRIV void siglent_sdl10x0_send_value(const struct otc_dev_inst *sdi, float value, enum otc_mq mq, enum otc_mqflag mqflags, enum otc_unit unit, int digits)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, digits);
 	analog.meaning->channels = sdi->channels;
 	analog.num_samples = 1;
 	analog.data = &value;
@@ -95,14 +95,14 @@ SR_PRIV void siglent_sdl10x0_send_value(const struct sr_dev_inst *sdi, float val
 	analog.meaning->unit = unit;
 	analog.meaning->mqflags = mqflags;
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 }
 
 /* Gets invoked when RX data is available. */
 
-SR_PRIV int siglent_sdl10x0_receive_data(struct sr_dev_inst *sdi)
+OTC_PRIV int siglent_sdl10x0_receive_data(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -113,32 +113,32 @@ SR_PRIV int siglent_sdl10x0_receive_data(struct sr_dev_inst *sdi)
 	switch (devc->acq_state) {
 	case ACQ_REQUESTED_VOLTAGE:
 		/* Voltage was requested, read result */
-		ret = sr_scpi_get_float(sdi->conn, NULL, &ival);
-		if (ret != SR_OK)
-			return SR_ERR;
+		ret = otc_scpi_get_float(sdi->conn, NULL, &ival);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		devc->voltage = ival;
 
 		/* Now get next Value: Current */
-		sr_scpi_send(sdi->conn, "MEAS:CURR?");
+		otc_scpi_send(sdi->conn, "MEAS:CURR?");
 		devc->acq_state = ACQ_REQUESTED_CURRENT;
 		break;
 
 	case ACQ_REQUESTED_CURRENT:
 		/* Current was requested, read result */
-		ret = sr_scpi_get_float(sdi->conn, NULL, &ival);
-		if (ret != SR_OK)
-			return SR_ERR;
+		ret = otc_scpi_get_float(sdi->conn, NULL, &ival);
+		if (ret != OTC_OK)
+			return OTC_ERR;
 		devc->current = ival;
 
 		/* All values received, now build a frame */
 		std_session_send_df_frame_begin(sdi);
-		siglent_sdl10x0_send_value(sdi, devc->voltage, SR_MQ_VOLTAGE, SR_MQFLAG_DC, SR_UNIT_VOLT, 7);
-		siglent_sdl10x0_send_value(sdi, devc->current, SR_MQ_CURRENT, SR_MQFLAG_DC, SR_UNIT_AMPERE, 7);
+		siglent_sdl10x0_send_value(sdi, devc->voltage, OTC_MQ_VOLTAGE, OTC_MQFLAG_DC, OTC_UNIT_VOLT, 7);
+		siglent_sdl10x0_send_value(sdi, devc->current, OTC_MQ_CURRENT, OTC_MQFLAG_DC, OTC_UNIT_AMPERE, 7);
 		std_session_send_df_frame_end(sdi);
-		sr_sw_limits_update_samples_read(&devc->limits, 1);
+		otc_sw_limits_update_samples_read(&devc->limits, 1);
 
 		/* Now get next Value: Voltage */
-		sr_scpi_send(sdi->conn, "MEAS:VOLT?");
+		otc_scpi_send(sdi->conn, "MEAS:VOLT?");
 		devc->acq_state = ACQ_REQUESTED_VOLTAGE;
 		break;
 
@@ -149,10 +149,10 @@ SR_PRIV int siglent_sdl10x0_receive_data(struct sr_dev_inst *sdi)
 	return TRUE;
 }
 
-SR_PRIV int siglent_sdl10x0_handle_events(int fd, int revents, void *cb_data)
+OTC_PRIV int siglent_sdl10x0_handle_events(int fd, int revents, void *cb_data)
 {
 	struct dev_context *devc;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 
 	(void)fd;
 	(void)revents;
@@ -172,8 +172,8 @@ SR_PRIV int siglent_sdl10x0_handle_events(int fd, int revents, void *cb_data)
 		return FALSE;
 	}
 
-	if (sr_sw_limits_check(&devc->limits)) {
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits)) {
+		otc_dev_acquisition_stop(sdi);
 		return FALSE;
 	}
 

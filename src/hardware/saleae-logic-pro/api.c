@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017 Jan Luebbe <jluebbe@lasnet.de>
  *
@@ -27,17 +27,17 @@
 #define BUF_TIMEOUT 1000
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const char *channel_names[] = {
@@ -46,33 +46,33 @@ static const char *channel_names[] = {
 };
 
 static const uint64_t samplerates[] = {
-	SR_MHZ(1),
-	SR_MHZ(2),
-	SR_KHZ(2500),
-	SR_MHZ(10),
-	SR_MHZ(25),
-	SR_MHZ(50),
+	OTC_MHZ(1),
+	OTC_MHZ(2),
+	OTC_KHZ(2500),
+	OTC_MHZ(10),
+	OTC_MHZ(25),
+	OTC_MHZ(50),
 };
 
 #define FW_HEADER_SIZE 7
 #define FW_MAX_PART_SIZE (4 * 1024)
 
-static int upload_firmware(struct sr_context *ctx, libusb_device *dev, const char *name)
+static int upload_firmware(struct otc_context *ctx, libusb_device *dev, const char *name)
 {
 	struct libusb_device_handle *hdl = NULL;
 	unsigned char *firmware = NULL;
-	int ret = SR_ERR;
+	int ret = OTC_ERR;
 	size_t fw_size, fw_offset = 0;
 	uint32_t part_address = 0;
 	uint16_t part_size = 0;
 	uint8_t part_final = 0;
 
-	firmware = sr_resource_load(ctx, SR_RESOURCE_FIRMWARE,
+	firmware = otc_resource_load(ctx, OTC_RESOURCE_FIRMWARE,
 				    name, &fw_size, 256 * 1024);
 	if (!firmware)
 		goto out;
 
-	sr_info("Uploading firmware '%s'.", name);
+	otc_info("Uploading firmware '%s'.", name);
 
 	if (libusb_open(dev, &hdl) != 0)
 		goto out;
@@ -82,12 +82,12 @@ static int upload_firmware(struct sr_context *ctx, libusb_device *dev, const cha
 		part_address = GUINT32_FROM_LE(*(uint32_t*)(firmware + fw_offset + 2));
 		part_final = *(uint8_t*)(firmware + fw_offset + 6);
 		if (part_size > FW_MAX_PART_SIZE) {
-			sr_err("Part too large (%d).", part_size);
+			otc_err("Part too large (%d).", part_size);
 			goto out;
 		}
 		fw_offset += FW_HEADER_SIZE;
 		if ((fw_offset + part_size) > fw_size) {
-			sr_err("Truncated firmware file.");
+			otc_err("Truncated firmware file.");
 			goto out;
 		}
 		ret = libusb_control_transfer(hdl, LIBUSB_REQUEST_TYPE_VENDOR |
@@ -96,26 +96,26 @@ static int upload_firmware(struct sr_context *ctx, libusb_device *dev, const cha
 					      firmware + fw_offset, part_size,
 					      100);
 		if (ret < 0) {
-			sr_err("Unable to send firmware to device: %s.",
+			otc_err("Unable to send firmware to device: %s.",
 			       libusb_error_name(ret));
-			ret = SR_ERR;
+			ret = OTC_ERR;
 			goto out;
 		}
 		if (part_size)
-			sr_spew("Uploaded %d bytes.", part_size);
+			otc_spew("Uploaded %d bytes.", part_size);
 		else
-			sr_info("Started firmware at 0x%x.", part_address);
+			otc_info("Started firmware at 0x%x.", part_address);
 		fw_offset += part_size;
 	}
 
 	if ((!part_final) || (part_size != 0)) {
-		sr_err("Missing final part.");
+		otc_err("Missing final part.");
 		goto out;
 	}
 
-	ret = SR_OK;
+	ret = OTC_OK;
 
-	sr_info("Firmware upload done.");
+	otc_info("Firmware upload done.");
 
  out:
 	if (hdl)
@@ -162,11 +162,11 @@ out:
 	return ret;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct drv_context *drvc;
 	struct dev_context *devc;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	GSList *devices, *conn_devices;
 	libusb_device **devlist;
 	struct libusb_device_descriptor des;
@@ -181,16 +181,16 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	conn = NULL;
 	for (GSList *l = options; l; l = l->next) {
-		struct sr_config *src = l->data;
+		struct otc_config *src = l->data;
 
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
 		}
 	}
 
-	libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+	libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 	for (unsigned int i = 0; devlist[i]; i++) {
 		libusb_get_device_descriptor(devlist[i], &des);
 
@@ -199,11 +199,11 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 		if (!scan_firmware(devlist[i])) {
 			const char *fwname;
-			sr_info("Found a Logic Pro 16 device (no firmware loaded).");
+			otc_info("Found a Logic Pro 16 device (no firmware loaded).");
 			fwname = "saleae-logicpro16-fx3.fw";
-			if (upload_firmware(drvc->sr_ctx, devlist[i],
-					    fwname) != SR_OK) {
-				sr_err("Firmware upload failed, name %s.", fwname);
+			if (upload_firmware(drvc->otc_ctx, devlist[i],
+					    fwname) != OTC_OK) {
+				otc_err("Firmware upload failed, name %s.", fwname);
 				continue;
 			};
 			fw_loaded = TRUE;
@@ -214,13 +214,13 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		/* Give the device some time to come back and scan again */
 		libusb_free_device_list(devlist, 1);
 		g_usleep(500 * 1000);
-		libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+		libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 	}
 	if (conn)
-		conn_devices = sr_usb_find(drvc->sr_ctx->libusb_ctx, conn);
+		conn_devices = otc_usb_find(drvc->otc_ctx->libusb_ctx, conn);
 	for (unsigned int i = 0; devlist[i]; i++) {
 		if (conn_devices) {
-			struct sr_usb_dev_inst *usb = NULL;
+			struct otc_usb_dev_inst *usb = NULL;
 			GSList *l;
 
 			for (l = conn_devices; l; l = l->next) {
@@ -243,20 +243,20 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		if (usb_get_port_path(devlist[i], connection_id, sizeof(connection_id)) < 0)
 			continue;
 
-		sdi = g_malloc0(sizeof(struct sr_dev_inst));
-		sdi->status = SR_ST_INITIALIZING;
+		sdi = g_malloc0(sizeof(struct otc_dev_inst));
+		sdi->status = OTC_ST_INITIALIZING;
 		sdi->vendor = g_strdup("Saleae");
 		sdi->model = g_strdup("Logic Pro 16");
 		sdi->connection_id = g_strdup(connection_id);
 
 		for (unsigned int j = 0; j < ARRAY_SIZE(channel_names); j++)
-			sr_channel_new(sdi, j, SR_CHANNEL_LOGIC, TRUE,
+			otc_channel_new(sdi, j, OTC_CHANNEL_LOGIC, TRUE,
 				       channel_names[j]);
 
-		sr_dbg("Found a Logic Pro 16 device.");
-		sdi->status = SR_ST_INACTIVE;
-		sdi->inst_type = SR_INST_USB;
-		sdi->conn = sr_usb_dev_inst_new(libusb_get_bus_number(devlist[i]),
+		otc_dbg("Found a Logic Pro 16 device.");
+		sdi->status = OTC_ST_INACTIVE;
+		sdi->inst_type = OTC_INST_USB;
+		sdi->conn = otc_usb_dev_inst_new(libusb_get_bus_number(devlist[i]),
 						libusb_get_device_address(devlist[i]), NULL);
 
 		devc = g_malloc0(sizeof(struct dev_context));
@@ -264,26 +264,26 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		devices = g_slist_append(devices, sdi);
 
 	}
-	g_slist_free_full(conn_devices, (GDestroyNotify)sr_usb_dev_inst_free);
+	g_slist_free_full(conn_devices, (GDestroyNotify)otc_usb_dev_inst_free);
 	libusb_free_device_list(devlist, 1);
 
 	return std_scan_complete(di, devices);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	struct sr_dev_driver *di = sdi->driver;
+	struct otc_dev_driver *di = sdi->driver;
 	struct drv_context *drvc = di->context;
 	struct dev_context *devc = sdi->priv;
-	struct sr_usb_dev_inst *usb = sdi->conn;
+	struct otc_usb_dev_inst *usb = sdi->conn;
 	int ret;
 
-	if (sr_usb_open(drvc->sr_ctx->libusb_ctx, usb) != SR_OK)
-		return SR_ERR;
+	if (otc_usb_open(drvc->otc_ctx->libusb_ctx, usb) != OTC_OK)
+		return OTC_ERR;
 
 	if ((ret = libusb_claim_interface(usb->devhdl, 0))) {
-		sr_err("Failed to claim interface: %s.", libusb_error_name(ret));
-		return SR_ERR;
+		otc_err("Failed to claim interface: %s.", libusb_error_name(ret));
+		return OTC_ERR;
 	}
 
 	/* Configure default samplerate. */
@@ -293,43 +293,43 @@ static int dev_open(struct sr_dev_inst *sdi)
 	return saleae_logic_pro_init(sdi);
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	sr_usb_close(sdi->conn);
+	otc_usb_close(sdi->conn);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct dev_context *devc;
 
 	(void)cg;
 
 	switch (key) {
-	case SR_CONF_CONN:
+	case OTC_CONF_CONN:
 		if (!sdi || !sdi->conn)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		usb = sdi->conn;
 		*data = g_variant_new_printf("%d.%d", usb->bus, usb->address);
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		if (!sdi)
-			return SR_ERR;
+			return OTC_ERR;
 		devc = sdi->priv;
 		*data = g_variant_new_uint64(devc->dig_samplerate);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
@@ -338,34 +338,34 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		devc->dig_samplerate = g_variant_get_uint64(data);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates));
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void dev_acquisition_abort(const struct sr_dev_inst *sdi)
+static void dev_acquisition_abort(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	unsigned int i;
@@ -378,32 +378,32 @@ static void dev_acquisition_abort(const struct sr_dev_inst *sdi)
 
 static int dev_acquisition_handle(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi = cb_data;
+	struct otc_dev_inst *sdi = cb_data;
 	struct drv_context *drvc = sdi->driver->context;
 	struct timeval tv = ALL_ZERO;
 
 	(void)fd;
 
-	libusb_handle_events_timeout(drvc->sr_ctx->libusb_ctx, &tv);
+	libusb_handle_events_timeout(drvc->otc_ctx->libusb_ctx, &tv);
 
 	/* Handle timeout */
 	if (!revents)
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 
 	return TRUE;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	struct drv_context *drvc = sdi->driver->context;
 	struct libusb_transfer *transfer;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	uint8_t *buf;
 	unsigned int i, ret;
 
 	ret = saleae_logic_pro_prepare(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	usb = sdi->conn;
@@ -419,29 +419,29 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			2 | LIBUSB_ENDPOINT_IN, buf, BUF_SIZE,
 			saleae_logic_pro_receive_data, (void *)sdi, 0);
 		if ((ret = libusb_submit_transfer(transfer)) != 0) {
-			sr_err("Failed to submit transfer: %s.",
+			otc_err("Failed to submit transfer: %s.",
 			       libusb_error_name(ret));
 			libusb_free_transfer(transfer);
 			g_free(buf);
 			dev_acquisition_abort(sdi);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		devc->transfers[i] = transfer;
 		devc->submitted_transfers++;
 	}
 
-	usb_source_add(sdi->session, drvc->sr_ctx, BUF_TIMEOUT, dev_acquisition_handle, (void *)sdi);
+	usb_source_add(sdi->session, drvc->otc_ctx, BUF_TIMEOUT, dev_acquisition_handle, (void *)sdi);
 
 	std_session_send_df_header(sdi);
 
 	saleae_logic_pro_start(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	struct drv_context *drvc = sdi->driver->context;
@@ -450,14 +450,14 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 
 	std_session_send_df_end(sdi);
 
-	usb_source_remove(sdi->session, drvc->sr_ctx);
+	usb_source_remove(sdi->session, drvc->otc_ctx);
 
 	g_free(devc->conv_buffer);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver saleae_logic_pro_driver_info = {
+static struct otc_dev_driver saleae_logic_pro_driver_info = {
 	.name = "saleae-logic-pro",
 	.longname = "Saleae Logic Pro",
 	.api_version = 1,
@@ -475,4 +475,4 @@ static struct sr_dev_driver saleae_logic_pro_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(saleae_logic_pro_driver_info);
+OTC_REGISTER_DEV_DRIVER(saleae_logic_pro_driver_info);

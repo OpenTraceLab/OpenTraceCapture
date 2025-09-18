@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Daniel Glöckner <daniel-gl@gmx.net>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "hung-chang-dso-2100"
 
@@ -54,11 +54,11 @@ struct dev_context {
 	gboolean state_known;
 };
 
-SR_PRIV void hung_chang_dso_2100_reset_port(struct parport *port);
-SR_PRIV gboolean hung_chang_dso_2100_check_id(struct parport *port);
-SR_PRIV void hung_chang_dso_2100_write_mbox(struct parport *port, uint8_t val);
-SR_PRIV uint8_t hung_chang_dso_2100_read_mbox(struct parport *port, float timeout);
-SR_PRIV int hung_chang_dso_2100_move_to(const struct sr_dev_inst *sdi, uint8_t target);
-SR_PRIV int hung_chang_dso_2100_poll(int fd, int revents, void *cb_data);
+OTC_PRIV void hung_chang_dso_2100_reset_port(struct parport *port);
+OTC_PRIV gboolean hung_chang_dso_2100_check_id(struct parport *port);
+OTC_PRIV void hung_chang_dso_2100_write_mbox(struct parport *port, uint8_t val);
+OTC_PRIV uint8_t hung_chang_dso_2100_read_mbox(struct parport *port, float timeout);
+OTC_PRIV int hung_chang_dso_2100_move_to(const struct otc_dev_inst *sdi, uint8_t target);
+OTC_PRIV int hung_chang_dso_2100_poll(int fd, int revents, void *cb_data);
 
 #endif

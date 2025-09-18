@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2015 Stefan Brüns <stefan.bruens@rwth-aachen.de>
@@ -25,8 +25,8 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdint.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "input/raw_analog"
 
@@ -40,16 +40,16 @@ struct context {
 	int fmt_index;
 	uint64_t samplerate;
 	int samplesize;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 };
 
 struct sample_format {
 	const char *fmt_name;
-	struct sr_analog_encoding encoding;
+	struct otc_analog_encoding encoding;
 };
 
 static const struct sample_format sample_formats[] =
@@ -93,7 +93,7 @@ static int parse_format_string(const char *format)
 
 static void init_context(struct context *inc, const struct sample_format *fmt, GSList *channels)
 {
-	inc->packet.type = SR_DF_ANALOG;
+	inc->packet.type = OTC_DF_ANALOG;
 	inc->packet.payload = &inc->analog;
 
 	inc->analog.data = NULL;
@@ -112,7 +112,7 @@ static void init_context(struct context *inc, const struct sample_format *fmt, G
 	inc->spec.spec_digits = 0;
 }
 
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	struct context *inc;
 	int num_channels;
@@ -122,8 +122,8 @@ static int init(struct sr_input *in, GHashTable *options)
 
 	num_channels = g_variant_get_int32(g_hash_table_lookup(options, "numchannels"));
 	if (num_channels < 1) {
-		sr_err("Invalid value for numchannels: must be at least 1.");
-		return SR_ERR_ARG;
+		otc_err("Invalid value for numchannels: must be at least 1.");
+		return OTC_ERR_ARG;
 	}
 
 	format = g_variant_get_string(g_hash_table_lookup(options, "format"), NULL);
@@ -131,28 +131,28 @@ static int init(struct sr_input *in, GHashTable *options)
 		GString *formats = g_string_sized_new(200);
 		for (unsigned int i = 0; i < ARRAY_SIZE(sample_formats); i++)
 			g_string_append_printf(formats, "%s ", sample_formats[i].fmt_name);
-		sr_err("Invalid format '%s': must be one of: %s.",
+		otc_err("Invalid format '%s': must be one of: %s.",
 		       format, formats->str);
 		g_string_free(formats, TRUE);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
-	in->sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	in->sdi = g_malloc0(sizeof(struct otc_dev_inst));
 	in->priv = inc = g_malloc0(sizeof(struct context));
 
 	for (int i = 0; i < num_channels; i++) {
 		snprintf(channelname, sizeof(channelname) - 1, "CH%d", i + 1);
-		sr_channel_new(in->sdi, i, SR_CHANNEL_ANALOG, TRUE, channelname);
+		otc_channel_new(in->sdi, i, OTC_CHANNEL_ANALOG, TRUE, channelname);
 	}
 
 	inc->samplerate = g_variant_get_uint64(g_hash_table_lookup(options, "samplerate"));
 	inc->samplesize = sample_formats[fmt_index].encoding.unitsize * num_channels;
 	init_context(inc, &sample_formats[fmt_index], in->sdi->channels);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int process_buffer(struct sr_input *in)
+static int process_buffer(struct otc_input *in)
 {
 	struct context *inc;
 	unsigned int offset, chunk_size;
@@ -162,7 +162,7 @@ static int process_buffer(struct sr_input *in)
 		std_session_send_df_header(in->sdi);
 
 		if (inc->samplerate) {
-			(void)sr_session_send_meta(in->sdi, SR_CONF_SAMPLERATE,
+			(void)otc_session_send_meta(in->sdi, OTC_CONF_SAMPLERATE,
 				g_variant_new_uint64(inc->samplerate));
 		}
 
@@ -176,7 +176,7 @@ static int process_buffer(struct sr_input *in)
 
 	while ((offset + chunk_size) < in->buf->len) {
 		inc->analog.data = in->buf->str + offset;
-		sr_session_send(in->sdi, &inc->packet);
+		otc_session_send(in->sdi, &inc->packet);
 		offset += chunk_size;
 	}
 
@@ -184,7 +184,7 @@ static int process_buffer(struct sr_input *in)
 	chunk_size = inc->analog.num_samples * inc->samplesize;
 	if (chunk_size > 0) {
 		inc->analog.data = in->buf->str + offset;
-		sr_session_send(in->sdi, &inc->packet);
+		otc_session_send(in->sdi, &inc->packet);
 		offset += chunk_size;
 	}
 
@@ -198,10 +198,10 @@ static int process_buffer(struct sr_input *in)
 		g_string_truncate(in->buf, 0);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 	int ret;
 
@@ -210,7 +210,7 @@ static int receive(struct sr_input *in, GString *buf)
 	if (!in->sdi_ready) {
 		/* sdi is ready, notify frontend. */
 		in->sdi_ready = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	ret = process_buffer(in);
@@ -218,7 +218,7 @@ static int receive(struct sr_input *in, GString *buf)
 	return ret;
 }
 
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	struct context *inc;
 	int ret;
@@ -226,7 +226,7 @@ static int end(struct sr_input *in)
 	if (in->sdi_ready)
 		ret = process_buffer(in);
 	else
-		ret = SR_OK;
+		ret = OTC_OK;
 
 	inc = in->priv;
 	if (inc->started)
@@ -235,14 +235,14 @@ static int end(struct sr_input *in)
 	return ret;
 }
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	{ "numchannels", "Number of analog channels", "The number of (analog) channels in the data", NULL, NULL },
 	{ "samplerate", "Sample rate (Hz)", "The sample rate of the (analog) data in Hz", NULL, NULL },
 	{ "format", "Data format", "The format of the data (data type, signedness, endianness)", NULL, NULL },
 	ALL_ZERO
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	if (!options[0].def) {
 		options[0].def = g_variant_ref_sink(g_variant_new_int32(DEFAULT_NUM_CHANNELS));
@@ -257,7 +257,7 @@ static const struct sr_option *get_options(void)
 	return options;
 }
 
-static void cleanup(struct sr_input *in)
+static void cleanup(struct otc_input *in)
 {
 	g_free(in->priv);
 	in->priv = NULL;
@@ -268,7 +268,7 @@ static void cleanup(struct sr_input *in)
 	g_slist_free_full(options[2].values, (GDestroyNotify)g_variant_unref);
 }
 
-static int reset(struct sr_input *in)
+static int reset(struct otc_input *in)
 {
 	struct context *inc = in->priv;
 
@@ -276,10 +276,10 @@ static int reset(struct sr_input *in)
 
 	g_string_truncate(in->buf, 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_input_module input_raw_analog = {
+OTC_PRIV struct otc_input_module input_raw_analog = {
 	.id = "raw_analog",
 	.name = "RAW analog",
 	.desc = "Raw analog data without header",

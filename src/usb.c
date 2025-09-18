@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
@@ -24,10 +24,10 @@
 #include <memory.h>
 #include <glib.h>
 #include <libusb.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
-/* SR_CONF_CONN takes one of these: */
+/* OTC_CONF_CONN takes one of these: */
 #define CONN_USB_VIDPID  "^([0-9a-fA-F]{4})\\.([0-9a-fA-F]{4})$"
 #define CONN_USB_BUSADDR "^(\\d+)\\.(\\d+)$"
 
@@ -46,7 +46,7 @@ struct usb_source {
 	int64_t due_us;
 
 	/* Needed to keep track of installed sources */
-	struct sr_session *session;
+	struct otc_session *session;
 
 	struct libusb_context *usb_ctx;
 	GPtrArray *pollfds;
@@ -66,7 +66,7 @@ static gboolean usb_source_prepare(GSource *source, int *timeout)
 
 	ret = libusb_get_next_timeout(usource->usb_ctx, &usb_timeout);
 	if (G_UNLIKELY(ret < 0)) {
-		sr_err("Failed to get libusb timeout: %s",
+		otc_err("Failed to get libusb timeout: %s",
 			libusb_error_name(ret));
 	}
 	now_us = g_source_get_time(source);
@@ -135,10 +135,10 @@ static gboolean usb_source_dispatch(GSource *source,
 	}
 
 	if (!callback) {
-		sr_err("Callback not set, cannot dispatch event.");
+		otc_err("Callback not set, cannot dispatch event.");
 		return G_SOURCE_REMOVE;
 	}
-	keep = (*SR_RECEIVE_DATA_CALLBACK(callback))(-1, revents, user_data);
+	keep = (*OTC_RECEIVE_DATA_CALLBACK(callback))(-1, revents, user_data);
 
 	if (G_LIKELY(keep) && G_LIKELY(!g_source_is_destroyed(source))) {
 		if (usource->timeout_us >= 0)
@@ -158,14 +158,14 @@ static void usb_source_finalize(GSource *source)
 
 	usource = (struct usb_source *)source;
 
-	sr_spew("%s", __func__);
+	otc_spew("%s", __func__);
 
 	libusb_set_pollfd_notifiers(usource->usb_ctx, NULL, NULL, NULL);
 
 	g_ptr_array_unref(usource->pollfds);
 	usource->pollfds = NULL;
 
-	sr_session_source_destroyed(usource->session,
+	otc_session_source_destroyed(usource->session,
 			usource->usb_ctx, source);
 }
 
@@ -218,7 +218,7 @@ static LIBUSB_CALL void usb_pollfd_removed(libusb_os_handle fd, void *user_data)
 			return;
 		}
 	}
-	sr_err("FD to be removed (%" G_GINTPTR_FORMAT
+	otc_err("FD to be removed (%" G_GINTPTR_FORMAT
 		") not found in event source poll set.", (gintptr)fd);
 }
 
@@ -235,7 +235,7 @@ static void usb_source_free_pollfd(void *data)
  * conceptually broken. The user timeout supplied here is completely
  * unrelated to I/O -- the actual I/O timeout is set when submitting
  * a USB transfer.
- * The sigrok drivers generally use the timeout to poll device state.
+ * The opentracelab drivers generally use the timeout to poll device state.
  * Usually, this polling can be sensibly done only when there is no
  * active USB transfer -- i.e. it's actually mutually exclusive with
  * waiting for transfer completion.
@@ -248,7 +248,7 @@ static void usb_source_free_pollfd(void *data)
  * @param timeout_ms The timeout interval in ms, or -1 to wait indefinitely.
  * @return A new event source object, or NULL on failure.
  */
-static GSource *usb_source_new(struct sr_session *session,
+static GSource *usb_source_new(struct otc_session *session,
 		struct libusb_context *usb_ctx, int timeout_ms)
 {
 	static GSourceFuncs usb_source_funcs = {
@@ -263,7 +263,7 @@ static GSource *usb_source_new(struct sr_session *session,
 
 	upollfds = libusb_get_pollfds(usb_ctx);
 	if (!upollfds) {
-		sr_err("Failed to get libusb file descriptors.");
+		otc_err("Failed to get libusb file descriptors.");
 		return NULL;
 	}
 	source = g_source_new(&usb_source_funcs, sizeof(struct usb_source));
@@ -305,7 +305,7 @@ static GSource *usb_source_new(struct sr_session *session,
  * @param[out] bus Pointer to extracted bus number. Can be #NULL.
  * @param[out] addr Pointer to extracted device number. Can be #NULL.
  *
- * @return SR_OK when parsing succeeded, SR_ERR* otherwise.
+ * @return OTC_OK when parsing succeeded, OTC_ERR* otherwise.
  *
  * @private
  *
@@ -313,7 +313,7 @@ static GSource *usb_source_new(struct sr_session *session,
  * in the return code. Callers can specify #NULL for variable references
  * if they are not interested in specific aspects of the USB address.
  */
-SR_PRIV int sr_usb_split_conn(const char *conn,
+OTC_PRIV int otc_usb_split_conn(const char *conn,
 	uint16_t *vid, uint16_t *pid, uint8_t *bus, uint8_t *addr)
 {
 	gboolean valid;
@@ -376,7 +376,7 @@ SR_PRIV int sr_usb_split_conn(const char *conn,
 	g_match_info_unref(match);
 	g_regex_unref(reg);
 
-	return valid ? SR_OK : SR_ERR_ARG;
+	return valid ? OTC_OK : OTC_ERR_ARG;
 }
 
 /**
@@ -386,13 +386,13 @@ SR_PRIV int sr_usb_split_conn(const char *conn,
  * @param conn Connection string specifying the device(s) to match. This
  * can be of the form "<bus>.<address>", or "<vendorid>.<productid>".
  *
- * @return A GSList of struct sr_usb_dev_inst, with bus and address fields
+ * @return A GSList of struct otc_usb_dev_inst, with bus and address fields
  * matching the device that matched the connection string. The GSList and
  * its contents must be freed by the caller.
  */
-SR_PRIV GSList *sr_usb_find(libusb_context *usb_ctx, const char *conn)
+OTC_PRIV GSList *otc_usb_find(libusb_context *usb_ctx, const char *conn)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct libusb_device **devlist;
 	struct libusb_device_descriptor des;
 	GSList *devices;
@@ -400,13 +400,13 @@ SR_PRIV GSList *sr_usb_find(libusb_context *usb_ctx, const char *conn)
 	uint8_t bus, addr;
 	int b, a, ret, i;
 
-	ret = sr_usb_split_conn(conn, &vid, &pid, &bus, &addr);
-	if (ret != SR_OK) {
-		sr_err("Invalid input, or neither VID:PID nor bus.address specified.");
+	ret = otc_usb_split_conn(conn, &vid, &pid, &bus, &addr);
+	if (ret != OTC_OK) {
+		otc_err("Invalid input, or neither VID:PID nor bus.address specified.");
 		return NULL;
 	}
 	if (!(vid && pid) && !(bus && addr)) {
-		sr_err("Could neither determine VID:PID nor bus.address numbers.");
+		otc_err("Could neither determine VID:PID nor bus.address numbers.");
 		return NULL;
 	}
 
@@ -415,7 +415,7 @@ SR_PRIV GSList *sr_usb_find(libusb_context *usb_ctx, const char *conn)
 	libusb_get_device_list(usb_ctx, &devlist);
 	for (i = 0; devlist[i]; i++) {
 		if ((ret = libusb_get_device_descriptor(devlist[i], &des))) {
-			sr_err("Failed to get device descriptor: %s.",
+			otc_err("Failed to get device descriptor: %s.",
 			       libusb_error_name(ret));
 			continue;
 		}
@@ -428,10 +428,10 @@ SR_PRIV GSList *sr_usb_find(libusb_context *usb_ctx, const char *conn)
 		if (bus && addr && (b != bus || a != addr))
 			continue;
 
-		sr_dbg("Found USB device (VID:PID = %04x:%04x, bus.address = "
+		otc_dbg("Found USB device (VID:PID = %04x:%04x, bus.address = "
 		       "%d.%d).", des.idVendor, des.idProduct, b, a);
 
-		usb = sr_usb_dev_inst_new(b, a, NULL);
+		usb = otc_usb_dev_inst_new(b, a, NULL);
 		devices = g_slist_append(devices, usb);
 	}
 	libusb_free_device_list(devlist, 1);
@@ -441,24 +441,24 @@ SR_PRIV GSList *sr_usb_find(libusb_context *usb_ctx, const char *conn)
 	return devices;
 }
 
-SR_PRIV int sr_usb_open(libusb_context *usb_ctx, struct sr_usb_dev_inst *usb)
+OTC_PRIV int otc_usb_open(libusb_context *usb_ctx, struct otc_usb_dev_inst *usb)
 {
 	struct libusb_device **devlist;
 	struct libusb_device_descriptor des;
 	int ret, r, cnt, i, a, b;
 
-	sr_dbg("Trying to open USB device %d.%d.", usb->bus, usb->address);
+	otc_dbg("Trying to open USB device %d.%d.", usb->bus, usb->address);
 
 	if ((cnt = libusb_get_device_list(usb_ctx, &devlist)) < 0) {
-		sr_err("Failed to retrieve device list: %s.",
+		otc_err("Failed to retrieve device list: %s.",
 		       libusb_error_name(cnt));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	ret = SR_ERR;
+	ret = OTC_ERR;
 	for (i = 0; i < cnt; i++) {
 		if ((r = libusb_get_device_descriptor(devlist[i], &des)) < 0) {
-			sr_err("Failed to get device descriptor: %s.",
+			otc_err("Failed to get device descriptor: %s.",
 			       libusb_error_name(r));
 			continue;
 		}
@@ -469,15 +469,15 @@ SR_PRIV int sr_usb_open(libusb_context *usb_ctx, struct sr_usb_dev_inst *usb)
 			continue;
 
 		if ((r = libusb_open(devlist[i], &usb->devhdl)) < 0) {
-			sr_err("Failed to open device: %s.",
+			otc_err("Failed to open device: %s.",
 			       libusb_error_name(r));
 			break;
 		}
 
-		sr_dbg("Opened USB device (VID:PID = %04x:%04x, bus.address = "
+		otc_dbg("Opened USB device (VID:PID = %04x:%04x, bus.address = "
 		       "%d.%d).", des.idVendor, des.idProduct, b, a);
 
-		ret = SR_OK;
+		ret = OTC_OK;
 		break;
 	}
 
@@ -486,37 +486,37 @@ SR_PRIV int sr_usb_open(libusb_context *usb_ctx, struct sr_usb_dev_inst *usb)
 	return ret;
 }
 
-SR_PRIV void sr_usb_close(struct sr_usb_dev_inst *usb)
+OTC_PRIV void otc_usb_close(struct otc_usb_dev_inst *usb)
 {
 	libusb_close(usb->devhdl);
 	usb->devhdl = NULL;
-	sr_dbg("Closed USB device %d.%d.", usb->bus, usb->address);
+	otc_dbg("Closed USB device %d.%d.", usb->bus, usb->address);
 }
 
-SR_PRIV int usb_source_add(struct sr_session *session, struct sr_context *ctx,
-		int timeout, sr_receive_data_callback cb, void *cb_data)
+OTC_PRIV int usb_source_add(struct otc_session *session, struct otc_context *ctx,
+		int timeout, otc_receive_data_callback cb, void *cb_data)
 {
 	GSource *source;
 	int ret;
 
 	source = usb_source_new(session, ctx->libusb_ctx, timeout);
 	if (!source)
-		return SR_ERR;
+		return OTC_ERR;
 
 	g_source_set_callback(source, G_SOURCE_FUNC(cb), cb_data, NULL);
 
-	ret = sr_session_source_add_internal(session, ctx->libusb_ctx, source);
+	ret = otc_session_source_add_internal(session, ctx->libusb_ctx, source);
 	g_source_unref(source);
 
 	return ret;
 }
 
-SR_PRIV int usb_source_remove(struct sr_session *session, struct sr_context *ctx)
+OTC_PRIV int usb_source_remove(struct otc_session *session, struct otc_context *ctx)
 {
-	return sr_session_source_remove_internal(session, ctx->libusb_ctx);
+	return otc_session_source_remove_internal(session, ctx->libusb_ctx);
 }
 
-SR_PRIV int usb_get_port_path(libusb_device *dev, char *path, int path_len)
+OTC_PRIV int usb_get_port_path(libusb_device *dev, char *path, int path_len)
 {
 	uint8_t port_numbers[8];
 	int i, n, len;
@@ -529,7 +529,7 @@ SR_PRIV int usb_get_port_path(libusb_device *dev, char *path, int path_len)
 #if defined(__FreeBSD__) || defined(__APPLE__)
 	struct libusb_device_handle *devh;
 	if (libusb_open(dev, &devh) != 0)
-		return SR_ERR;
+		return OTC_ERR;
 #endif
 	n = libusb_get_port_numbers(dev, port_numbers, sizeof(port_numbers));
 #if defined(__FreeBSD__) || defined(__APPLE__)
@@ -544,7 +544,7 @@ SR_PRIV int usb_get_port_path(libusb_device *dev, char *path, int path_len)
 	}
 #endif
 	if (n < 1)
-		return SR_ERR;
+		return OTC_ERR;
 
 	len = snprintf(path, path_len, "usb/%d-%d",
 	               libusb_get_bus_number(dev), port_numbers[0]);
@@ -552,7 +552,7 @@ SR_PRIV int usb_get_port_path(libusb_device *dev, char *path, int path_len)
 	for (i = 1; i < n; i++)
 		len += snprintf(path+len, path_len-len, ".%d", port_numbers[i]);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -562,7 +562,7 @@ SR_PRIV int usb_get_port_path(libusb_device *dev, char *path, int path_len)
  * @return TRUE if the device's configuration profile strings
  *         configuration, FALSE otherwise.
  */
-SR_PRIV gboolean usb_match_manuf_prod(libusb_device *dev,
+OTC_PRIV gboolean usb_match_manuf_prod(libusb_device *dev,
 		const char *manufacturer, const char *product)
 {
 	struct libusb_device_descriptor des;

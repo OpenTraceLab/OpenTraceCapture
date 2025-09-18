@@ -1,11 +1,11 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017 Kumar Abhishek <abhishek@theembeddedkitchen.net>
  * Portions of the code are adapted from scpi_tcp.c and scpi.c, their
  * copyright notices are listed below:
  *
- * Copyright (C) 2013 Martin Ling <martin-sigrok@earth.li>
+ * Copyright (C) 2013 Martin Ling <martin-opentracelab@earth.li>
  * Copyright (C) 2013 poljar (Damir Jelić) <poljarinho@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -56,9 +56,9 @@ static int beaglelogic_tcp_open(struct dev_context *devc)
 	err = getaddrinfo(devc->address, devc->port, &hints, &results);
 
 	if (err) {
-		sr_err("Address lookup failed: %s:%s: %s", devc->address,
+		otc_err("Address lookup failed: %s:%s: %s", devc->address,
 			devc->port, gai_strerror(err));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	for (res = results; res; res = res->ai_next) {
@@ -76,12 +76,12 @@ static int beaglelogic_tcp_open(struct dev_context *devc)
 	freeaddrinfo(results);
 
 	if (devc->socket < 0) {
-		sr_err("Failed to connect to %s:%s: %s", devc->address,
+		otc_err("Failed to connect to %s:%s: %s", devc->address,
 			devc->port, g_strerror(errno));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int beaglelogic_tcp_send_cmd(struct dev_context *devc,
@@ -106,21 +106,21 @@ static int beaglelogic_tcp_send_cmd(struct dev_context *devc,
 	out = send(devc->socket, buf, strlen(buf), 0);
 
 	if (out < 0) {
-		sr_err("Send error: %s", g_strerror(errno));
+		otc_err("Send error: %s", g_strerror(errno));
 		g_free(buf);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if (out < (int)strlen(buf)) {
-		sr_dbg("Only sent %d/%zu bytes of command: '%s'.", out,
+		otc_dbg("Only sent %d/%zu bytes of command: '%s'.", out,
 		       strlen(buf), buf);
 	}
 
-	sr_spew("Sent command: '%s'.", buf);
+	otc_spew("Sent command: '%s'.", buf);
 
 	g_free(buf);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int beaglelogic_tcp_read_data(struct dev_context *devc, char *buf,
@@ -131,14 +131,14 @@ static int beaglelogic_tcp_read_data(struct dev_context *devc, char *buf,
 	len = recv(devc->socket, buf, maxlen, 0);
 
 	if (len < 0) {
-		sr_err("Receive error: %s", g_strerror(errno));
-		return SR_ERR;
+		otc_err("Receive error: %s", g_strerror(errno));
+		return OTC_ERR;
 	}
 
 	return len;
 }
 
-SR_PRIV int beaglelogic_tcp_drain(struct dev_context *devc)
+OTC_PRIV int beaglelogic_tcp_drain(struct dev_context *devc)
 {
 	char *buf = g_malloc(1024);
 	fd_set rset;
@@ -158,11 +158,11 @@ SR_PRIV int beaglelogic_tcp_drain(struct dev_context *devc)
 			len += beaglelogic_tcp_read_data(devc, buf, 1024);
 	} while (ret > 0);
 
-	sr_spew("Drained %d bytes of data.", len);
+	otc_spew("Drained %d bytes of data.", len);
 
 	g_free(buf);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int beaglelogic_tcp_get_string(struct dev_context *devc, const char *cmd,
@@ -174,8 +174,8 @@ static int beaglelogic_tcp_get_string(struct dev_context *devc, const char *cmd,
 
 	*tcp_resp = NULL;
 	if (cmd) {
-		if (beaglelogic_tcp_send_cmd(devc, cmd) != SR_OK)
-			return SR_ERR;
+		if (beaglelogic_tcp_send_cmd(devc, cmd) != OTC_OK)
+			return OTC_ERR;
 	}
 
 	timeout = g_get_monotonic_time() + devc->read_timeout;
@@ -184,16 +184,16 @@ static int beaglelogic_tcp_get_string(struct dev_context *devc, const char *cmd,
 
 	if (len < 0) {
 		g_string_free(response, TRUE);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if (len > 0)
 		g_string_set_size(response, len);
 
 	if (g_get_monotonic_time() > timeout) {
-		sr_err("Timed out waiting for response.");
+		otc_err("Timed out waiting for response.");
 		g_string_free(response, TRUE);
-		return SR_ERR_TIMEOUT;
+		return OTC_ERR_TIMEOUT;
 	}
 
 	/* Remove trailing newline if present */
@@ -204,12 +204,12 @@ static int beaglelogic_tcp_get_string(struct dev_context *devc, const char *cmd,
 	if (response->len >= 1 && response->str[response->len - 1] == '\r')
 		g_string_truncate(response, response->len - 1);
 
-	sr_spew("Got response: '%.70s', length %" G_GSIZE_FORMAT ".",
+	otc_spew("Got response: '%.70s', length %" G_GSIZE_FORMAT ".",
 		response->str, response->len);
 
 	*tcp_resp = g_string_free(response, FALSE);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int beaglelogic_tcp_get_int(struct dev_context *devc,
@@ -219,29 +219,29 @@ static int beaglelogic_tcp_get_int(struct dev_context *devc,
 	char *resp = NULL;
 
 	ret = beaglelogic_tcp_get_string(devc, cmd, &resp);
-	if (!resp && ret != SR_OK)
+	if (!resp && ret != OTC_OK)
 		return ret;
 
-	if (sr_atoi(resp, response) == SR_OK)
-		ret = SR_OK;
+	if (otc_atoi(resp, response) == OTC_OK)
+		ret = OTC_OK;
 	else
-		ret = SR_ERR_DATA;
+		ret = OTC_ERR_DATA;
 
 	g_free(resp);
 
 	return ret;
 }
 
-SR_PRIV int beaglelogic_tcp_detect(struct dev_context *devc)
+OTC_PRIV int beaglelogic_tcp_detect(struct dev_context *devc)
 {
 	char *resp = NULL;
 	int ret;
 
 	ret = beaglelogic_tcp_get_string(devc, "version", &resp);
-	if (ret == SR_OK && !g_ascii_strncasecmp(resp, "BeagleLogic", 11))
-		ret = SR_OK;
+	if (ret == OTC_OK && !g_ascii_strncasecmp(resp, "BeagleLogic", 11))
+		ret = OTC_OK;
 	else
-		ret = SR_ERR;
+		ret = OTC_ERR;
 
 	g_free(resp);
 
@@ -256,9 +256,9 @@ static int beaglelogic_open(struct dev_context *devc)
 static int beaglelogic_close(struct dev_context *devc)
 {
 	if (close(devc->socket) < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int beaglelogic_get_buffersize(struct dev_context *devc)
@@ -274,10 +274,10 @@ static int beaglelogic_set_buffersize(struct dev_context *devc)
 
 	beaglelogic_tcp_send_cmd(devc, "memalloc %" PRIu32, devc->buffersize);
 	ret = beaglelogic_tcp_get_string(devc, NULL, &resp);
-	if (ret == SR_OK && !g_ascii_strncasecmp(resp, "ok", 2))
-		ret = SR_OK;
+	if (ret == OTC_OK && !g_ascii_strncasecmp(resp, "ok", 2))
+		ret = OTC_OK;
 	else
-		ret = SR_ERR;
+		ret = OTC_ERR;
 
 	g_free(resp);
 
@@ -293,7 +293,7 @@ static int beaglelogic_get_samplerate(struct dev_context *devc)
 		return err;
 
 	devc->cur_samplerate = arg;
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int beaglelogic_set_samplerate(struct dev_context *devc)
@@ -304,10 +304,10 @@ static int beaglelogic_set_samplerate(struct dev_context *devc)
 	beaglelogic_tcp_send_cmd(devc, "samplerate %" PRIu32,
 		(uint32_t)devc->cur_samplerate);
 	ret = beaglelogic_tcp_get_string(devc, NULL, &resp);
-	if (ret == SR_OK && !g_ascii_strncasecmp(resp, "ok", 2))
-		ret = SR_OK;
+	if (ret == OTC_OK && !g_ascii_strncasecmp(resp, "ok", 2))
+		ret = OTC_OK;
 	else
-		ret = SR_ERR;
+		ret = OTC_ERR;
 
 	g_free(resp);
 
@@ -327,10 +327,10 @@ static int beaglelogic_set_sampleunit(struct dev_context *devc)
 
 	beaglelogic_tcp_send_cmd(devc, "sampleunit %" PRIu32, devc->sampleunit);
 	ret = beaglelogic_tcp_get_string(devc, NULL, &resp);
-	if (ret == SR_OK && !g_ascii_strncasecmp(resp, "ok", 2))
-		ret = SR_OK;
+	if (ret == OTC_OK && !g_ascii_strncasecmp(resp, "ok", 2))
+		ret = OTC_OK;
 	else
-		ret = SR_ERR;
+		ret = OTC_ERR;
 
 	g_free(resp);
 
@@ -350,10 +350,10 @@ static int beaglelogic_set_triggerflags(struct dev_context *devc)
 
 	beaglelogic_tcp_send_cmd(devc, "triggerflags %" PRIu32, devc->triggerflags);
 	ret = beaglelogic_tcp_get_string(devc, NULL, &resp);
-	if (ret == SR_OK && !g_ascii_strncasecmp(resp, "ok", 2))
-		ret = SR_OK;
+	if (ret == OTC_OK && !g_ascii_strncasecmp(resp, "ok", 2))
+		ret = OTC_OK;
 	else
-		ret = SR_ERR;
+		ret = OTC_ERR;
 
 	g_free(resp);
 
@@ -364,7 +364,7 @@ static int beaglelogic_get_lasterror(struct dev_context *devc)
 {
 	devc->last_error = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int beaglelogic_start(struct dev_context *devc)
@@ -392,10 +392,10 @@ static int beaglelogic_set_bufunitsize(struct dev_context *devc)
 
 	beaglelogic_tcp_send_cmd(devc, "bufunitsize %" PRIu32, devc->bufunitsize);
 	ret = beaglelogic_tcp_get_string(devc, NULL, &resp);
-	if (ret == SR_OK && !g_ascii_strncasecmp(resp, "ok", 2))
-		ret = SR_OK;
+	if (ret == OTC_OK && !g_ascii_strncasecmp(resp, "ok", 2))
+		ret = OTC_OK;
 	else
-		ret = SR_ERR;
+		ret = OTC_ERR;
 
 	g_free(resp);
 
@@ -406,10 +406,10 @@ static int dummy(struct dev_context *devc)
 {
 	(void)devc;
 
-	return SR_ERR_NA;
+	return OTC_ERR_NA;
 }
 
-SR_PRIV const struct beaglelogic_ops beaglelogic_tcp_ops = {
+OTC_PRIV const struct beaglelogic_ops beaglelogic_tcp_ops = {
 	.open = beaglelogic_open,
 	.close = beaglelogic_close,
 	.get_buffersize = beaglelogic_get_buffersize,

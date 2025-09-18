@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Hannu Vuolasaho <vuokkosetae@gmail.com>
  * Copyright (C) 2018-2019 Frank Stettner <frank-stettner@gmx.net>
@@ -25,28 +25,28 @@
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
-	SR_CONF_FORCE_DETECT,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
+	OTC_CONF_FORCE_DETECT,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_POWER_SUPPLY,
+	OTC_CONF_POWER_SUPPLY,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_REGULATION | SR_CONF_GET,
-	SR_CONF_OVER_CURRENT_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 /* Voltage and current ranges. Values are: Min, max, step. */
@@ -116,7 +116,7 @@ static gboolean model_matches(const struct korad_kaxxxxp_model *model,
 			matches = g_strcmp0(id_text, model->id) == 0;
 			if (!matches)
 				return FALSE;
-			sr_dbg("Matches expected ID text: '%s'.", model->id);
+			otc_dbg("Matches expected ID text: '%s'.", model->id);
 			return TRUE;
 		}
 		matches = g_str_has_prefix(id_text, model->id);
@@ -134,7 +134,7 @@ static gboolean model_matches(const struct korad_kaxxxxp_model *model,
 		}
 		if (*id_text)
 			return FALSE;
-		sr_dbg("Matches expected ID text [vers]: '%s'.", model->id);
+		otc_dbg("Matches expected ID text [vers]: '%s'.", model->id);
 		return TRUE;
 	}
 
@@ -194,7 +194,7 @@ static gboolean model_matches(const struct korad_kaxxxxp_model *model,
 	}
 	if (*id_text)
 		return FALSE;
-	sr_dbg("Matches generic '[vendor] model [vers] [trail]' pattern.");
+	otc_dbg("Matches generic '[vendor] model [vers] [trail]' pattern.");
 	return TRUE;
 }
 
@@ -206,7 +206,7 @@ static const struct korad_kaxxxxp_model *model_lookup(const char *id_text)
 
 	if (!id_text || !*id_text)
 		return NULL;
-	sr_dbg("Looking up: [%s].", id_text);
+	otc_dbg("Looking up: [%s].", id_text);
 
 	for (idx = 0; idx < ARRAY_SIZE(models); idx++) {
 		check = &models[idx];
@@ -214,25 +214,25 @@ static const struct korad_kaxxxxp_model *model_lookup(const char *id_text)
 			continue;
 		if (!model_matches(check, id_text))
 			continue;
-		sr_dbg("Found: [%s] [%s]", check->vendor, check->name);
+		otc_dbg("Found: [%s] [%s]", check->vendor, check->name);
 		return check;
 	}
-	sr_dbg("Not found");
+	otc_dbg("Not found");
 
 	return NULL;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	static const char *serno_prefix = " SN:";
 
 	struct dev_context *devc;
 	GSList *l;
-	struct sr_dev_inst *sdi;
-	struct sr_config *src;
+	struct otc_dev_inst *sdi;
+	struct otc_config *src;
 	const char *conn, *serialcomm;
 	const char *force_detect;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	char reply[50];
 	int ret;
 	const struct korad_kaxxxxp_model *model;
@@ -246,17 +246,17 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_FORCE_DETECT:
+		case OTC_CONF_FORCE_DETECT:
 			force_detect = g_variant_get_string(src->data, NULL);
 			break;
 		default:
-			sr_err("Unknown option %d, skipping.", src->key);
+			otc_err("Unknown option %d, skipping.", src->key);
 			break;
 		}
 	}
@@ -268,15 +268,15 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	if (force_detect && !*force_detect)
 		force_detect = NULL;
 
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
 		return NULL;
 
 	/* Communicate the identification request. */
 	len = id_text_buffer_size;
 	if (len > sizeof(reply) - 1)
 		len = sizeof(reply) - 1;
-	sr_dbg("Want max %zu bytes.", len);
+	otc_dbg("Want max %zu bytes.", len);
 
 	ret = korad_kaxxxxp_send_cmd(serial, "*IDN?");
 	if (ret < 0)
@@ -285,7 +285,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	ret = korad_kaxxxxp_read_chars(serial, len, reply);
 	if (ret < 0)
 		return NULL;
-	sr_dbg("Received: %d, %s", ret, reply);
+	otc_dbg("Received: %d, %s", ret, reply);
 
 	/*
 	 * Isolate the optional serial number at the response's end.
@@ -299,34 +299,34 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	model = model_lookup(reply);
 	if (!model && force_detect) {
-		sr_warn("Could not find model ID '%s', trying '%s'.",
+		otc_warn("Could not find model ID '%s', trying '%s'.",
 			reply, force_detect);
 		model = model_lookup(force_detect);
 		if (model)
-			sr_info("Found replacement, using it instead.");
+			otc_info("Found replacement, using it instead.");
 	}
 	if (!model) {
-		sr_err("Unsupported model ID '%s', aborting.", reply);
+		otc_err("Unsupported model ID '%s', aborting.", reply);
 		return NULL;
 	}
-	sr_dbg("Found: %s %s (idx %zu).", model->vendor, model->name,
+	otc_dbg("Found: %s %s (idx %zu).", model->vendor, model->name,
 		model - &models[0]);
 
 	sdi = g_malloc0(sizeof(*sdi));
-	sdi->status = SR_ST_INACTIVE;
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup(model->vendor);
 	sdi->model = g_strdup(model->name);
 	if (serno)
 		sdi->serial_num = g_strdup(serno);
-	sdi->inst_type = SR_INST_SERIAL;
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->conn = serial;
 	sdi->connection_id = g_strdup(conn);
 
-	sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "V");
-	sr_channel_new(sdi, 1, SR_CHANNEL_ANALOG, TRUE, "I");
+	otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, "V");
+	otc_channel_new(sdi, 1, OTC_CHANNEL_ANALOG, TRUE, "I");
 
 	devc = g_malloc0(sizeof(*devc));
-	sr_sw_limits_init(&devc->limits);
+	otc_sw_limits_init(&devc->limits);
 	g_mutex_init(&devc->rw_mutex);
 	devc->model = model;
 	devc->next_req_time = 0;
@@ -346,74 +346,74 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	return std_scan_complete(di, g_slist_append(NULL, sdi));
 
 exit_err:
-	sr_dev_inst_free(sdi);
+	otc_dev_inst_free(sdi);
 	g_free(devc);
-	sr_dbg("Scan failed.");
+	otc_dbg("Scan failed.");
 
 	return NULL;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	(void)cg;
 
 	if (!sdi || !data)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_get(&devc->limits, key, data);
-	case SR_CONF_CONN:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_get(&devc->limits, key, data);
+	case OTC_CONF_CONN:
 		*data = g_variant_new_string(sdi->connection_id);
 		break;
-	case SR_CONF_VOLTAGE:
+	case OTC_CONF_VOLTAGE:
 		korad_kaxxxxp_get_value(sdi->conn, KAXXXXP_VOLTAGE, devc);
 		*data = g_variant_new_double(devc->voltage);
 		break;
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		korad_kaxxxxp_get_value(sdi->conn, KAXXXXP_VOLTAGE_TARGET, devc);
 		*data = g_variant_new_double(devc->voltage_target);
 		break;
-	case SR_CONF_CURRENT:
+	case OTC_CONF_CURRENT:
 		korad_kaxxxxp_get_value(sdi->conn, KAXXXXP_CURRENT, devc);
 		*data = g_variant_new_double(devc->current);
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		korad_kaxxxxp_get_value(sdi->conn, KAXXXXP_CURRENT_LIMIT, devc);
 		*data = g_variant_new_double(devc->current_limit);
 		break;
-	case SR_CONF_ENABLED:
+	case OTC_CONF_ENABLED:
 		korad_kaxxxxp_get_value(sdi->conn, KAXXXXP_OUTPUT, devc);
 		*data = g_variant_new_boolean(devc->output_enabled);
 		break;
-	case SR_CONF_REGULATION:
+	case OTC_CONF_REGULATION:
 		/* Dual channel not supported. */
 		korad_kaxxxxp_get_value(sdi->conn, KAXXXXP_STATUS, devc);
 		*data = g_variant_new_string((devc->cc_mode[0]) ? "CC" : "CV");
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED:
 		korad_kaxxxxp_get_value(sdi->conn, KAXXXXP_OCP, devc);
 		*data = g_variant_new_boolean(devc->ocp_enabled);
 		break;
-	case SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED:
 		korad_kaxxxxp_get_value(sdi->conn, KAXXXXP_OVP, devc);
 		*data = g_variant_new_boolean(devc->ovp_enabled);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	double dval;
@@ -424,80 +424,80 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_MSEC:
-	case SR_CONF_LIMIT_SAMPLES:
-		return sr_sw_limits_config_set(&devc->limits, key, data);
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_SAMPLES:
+		return otc_sw_limits_config_set(&devc->limits, key, data);
+	case OTC_CONF_VOLTAGE_TARGET:
 		dval = g_variant_get_double(data);
 		if (dval < devc->model->voltage[0] || dval > devc->model->voltage[1])
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->set_voltage_target = dval;
 		if (korad_kaxxxxp_set_value(sdi->conn, KAXXXXP_VOLTAGE_TARGET, devc) < 0)
-			return SR_ERR;
+			return OTC_ERR;
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		dval = g_variant_get_double(data);
 		if (dval < devc->model->current[0] || dval > devc->model->current[1])
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->set_current_limit = dval;
 		if (korad_kaxxxxp_set_value(sdi->conn, KAXXXXP_CURRENT_LIMIT, devc) < 0)
-			return SR_ERR;
+			return OTC_ERR;
 		break;
-	case SR_CONF_ENABLED:
+	case OTC_CONF_ENABLED:
 		bval = g_variant_get_boolean(data);
-		/* Set always so it is possible turn off with sigrok-cli. */
+		/* Set always so it is possible turn off with opentracelab-cli. */
 		devc->set_output_enabled = bval;
 		if (korad_kaxxxxp_set_value(sdi->conn, KAXXXXP_OUTPUT, devc) < 0)
-			return SR_ERR;
+			return OTC_ERR;
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED:
 		bval = g_variant_get_boolean(data);
 		devc->set_ocp_enabled = bval;
 		if (korad_kaxxxxp_set_value(sdi->conn, KAXXXXP_OCP, devc) < 0)
-			return SR_ERR;
+			return OTC_ERR;
 		break;
-	case SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED:
 		bval = g_variant_get_boolean(data);
 		devc->set_ovp_enabled = bval;
 		if (korad_kaxxxxp_set_value(sdi->conn, KAXXXXP_OVP, devc) < 0)
-			return SR_ERR;
+			return OTC_ERR;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	devc = (sdi) ? sdi->priv : NULL;
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		if (!devc || !devc->model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = std_gvar_min_max_step_array(devc->model->voltage);
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		if (!devc || !devc->model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = std_gvar_min_max_step_array(devc->model->current);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -508,14 +508,14 @@ static int dev_close(struct sr_dev_inst *sdi)
 	return std_serial_dev_close(sdi);
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	std_session_send_df_header(sdi);
 
 	devc->next_req_time = 0;
@@ -524,10 +524,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 			KAXXXXP_POLL_INTERVAL_MS,
 			korad_kaxxxxp_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver korad_kaxxxxp_driver_info = {
+static struct otc_dev_driver korad_kaxxxxp_driver_info = {
 	.name = "korad-kaxxxxp",
 	.longname = "Korad KAxxxxP",
 	.api_version = 1,
@@ -545,4 +545,4 @@ static struct sr_dev_driver korad_kaxxxxp_driver_info = {
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(korad_kaxxxxp_driver_info);
+OTC_REGISTER_DEV_DRIVER(korad_kaxxxxp_driver_info);

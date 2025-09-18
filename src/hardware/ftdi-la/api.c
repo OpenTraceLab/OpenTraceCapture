@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Sergey Alirzaev <zl29ah@gmail.com>
  *
@@ -20,29 +20,29 @@
 #include <config.h>
 #include <ftdi.h>
 #include <libusb.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_SET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CONN | SR_CONF_GET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_SET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CONN | OTC_CONF_GET,
 };
 
 static const uint64_t samplerates[] = {
-	SR_HZ(3600),
-	SR_MHZ(10),
-	SR_HZ(1),
+	OTC_HZ(3600),
+	OTC_MHZ(10),
+	OTC_HZ(1),
 };
 
 static const struct ftdi_chip_desc ft2232h_desc = {
@@ -117,7 +117,7 @@ static void scan_device(struct ftdi_context *ftdic,
 	const struct ftdi_chip_desc *desc;
 	struct dev_context *devc;
 	char *vendor, *model, *serial_num;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	int rv;
 
 	libusb_get_device_descriptor(dev, &usb_desc);
@@ -133,7 +133,7 @@ static void scan_device(struct ftdi_context *ftdic,
 	}
 
 	if (!desc) {
-		sr_spew("Unsupported FTDI device 0x%04x:0x%04x.",
+		otc_spew("Unsupported FTDI device 0x%04x:0x%04x.",
 			usb_desc.idVendor, usb_desc.idProduct);
 		return;
 	}
@@ -155,11 +155,11 @@ static void scan_device(struct ftdi_context *ftdic,
 		break;
 	/* ftdi_usb_get_strings() fails on first miss, hence fall through. */
 	case -7:
-		sr_dbg("The device lacks a manufacturer descriptor.");
+		otc_dbg("The device lacks a manufacturer descriptor.");
 		g_snprintf(vendor, usb_str_maxlen, "Generic");
 		/* FALLTHROUGH */
 	case -8:
-		sr_dbg("The device lacks a product descriptor.");
+		otc_dbg("The device lacks a product descriptor.");
 		switch (usb_desc.idProduct) {
 		case 0x6001:
 			g_snprintf(model, usb_str_maxlen, "FT232R");
@@ -182,18 +182,18 @@ static void scan_device(struct ftdi_context *ftdic,
 		}
 		/* FALLTHROUGH */
 	case -9:
-		sr_dbg("The device lacks a serial number.");
+		otc_dbg("The device lacks a serial number.");
 		g_free(serial_num);
 		serial_num = NULL;
 		break;
 	default:
-		sr_err("Failed to get the FTDI strings: %d", rv);
+		otc_err("Failed to get the FTDI strings: %d", rv);
 		goto err_free_strings;
 	}
-	sr_dbg("Found an FTDI device: %s.", model);
+	otc_dbg("Found an FTDI device: %s.", model);
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = vendor;
 	sdi->model = model;
 	sdi->serial_num = serial_num;
@@ -202,8 +202,8 @@ static void scan_device(struct ftdi_context *ftdic,
 		libusb_get_bus_number(dev), libusb_get_device_address(dev));
 
 	for (char *const *chan = &(desc->channel_names[0]); *chan; chan++)
-		sr_channel_new(sdi, chan - &(desc->channel_names[0]),
-				SR_CHANNEL_LOGIC, TRUE, *chan);
+		otc_channel_new(sdi, chan - &(desc->channel_names[0]),
+				OTC_CHANNEL_LOGIC, TRUE, *chan);
 
 	*devices = g_slist_append(*devices, sdi);
 	return;
@@ -229,7 +229,7 @@ static GSList *scan_all(struct ftdi_context *ftdic, GSList *options)
 
 	ret = ftdi_usb_find_all(ftdic, &devlist, 0, 0);
 	if (ret < 0) {
-		sr_err("Failed to list devices (%d): %s", ret,
+		otc_err("Failed to list devices (%d): %s", ret,
 		       ftdi_get_error_string(ftdic));
 		return NULL;
 	}
@@ -245,11 +245,11 @@ static GSList *scan_all(struct ftdi_context *ftdic, GSList *options)
 	return devices;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct ftdi_context *ftdic;
-	struct sr_config *src;
-	struct sr_usb_dev_inst *usb;
+	struct otc_config *src;
+	struct otc_usb_dev_inst *usb;
 	const char *conn;
 	GSList *l, *conn_devices;
 	GSList *devices;
@@ -261,7 +261,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	conn = NULL;
 	for (l = options; l; l = l->next) {
 		src = l->data;
-		if (src->key == SR_CONF_CONN) {
+		if (src->key == OTC_CONF_CONN) {
 			conn = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -269,15 +269,15 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	ftdic = ftdi_new();
 	if (!ftdic) {
-		sr_err("Failed to initialize libftdi.");
+		otc_err("Failed to initialize libftdi.");
 		return NULL;
 	}
 
 	if (conn) {
 		devices = NULL;
-		libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+		libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 		for (i = 0; devlist[i]; i++) {
-			conn_devices = sr_usb_find(drvc->sr_ctx->libusb_ctx, conn);
+			conn_devices = otc_usb_find(drvc->otc_ctx->libusb_ctx, conn);
 			for (l = conn_devices; l; l = l->next) {
 				usb = l->data;
 				if (usb->bus == libusb_get_bus_number(devlist[i])
@@ -300,53 +300,53 @@ static void clear_helper(struct dev_context *devc)
 	g_free(devc->data_buf);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	int ret = SR_OK;
+	int ret = OTC_OK;
 
 	devc = sdi->priv;
 
 	devc->ftdic = ftdi_new();
 	if (!devc->ftdic)
-		return SR_ERR;
+		return OTC_ERR;
 
 	ret = ftdi_usb_open_string(devc->ftdic, sdi->connection_id);
 	if (ret < 0) {
 		/* Log errors, except for -3 ("device not found"). */
 		if (ret != -3)
-			sr_err("Failed to open device (%d): %s", ret,
+			otc_err("Failed to open device (%d): %s", ret,
 			       ftdi_get_error_string(devc->ftdic));
 		goto err_ftdi_free;
 	}
 
 	ret = PURGE_FTDI_BOTH(devc->ftdic);
 	if (ret < 0) {
-		sr_err("Failed to purge FTDI RX/TX buffers (%d): %s.",
+		otc_err("Failed to purge FTDI RX/TX buffers (%d): %s.",
 		       ret, ftdi_get_error_string(devc->ftdic));
 		goto err_dev_open_close_ftdic;
 	}
 
 	ret = ftdi_set_bitmode(devc->ftdic, 0x00, BITMODE_RESET);
 	if (ret < 0) {
-		sr_err("Failed to reset the FTDI chip bitmode (%d): %s.",
+		otc_err("Failed to reset the FTDI chip bitmode (%d): %s.",
 		       ret, ftdi_get_error_string(devc->ftdic));
 		goto err_dev_open_close_ftdic;
 	}
 
 	ret = ftdi_set_bitmode(devc->ftdic, 0x00, BITMODE_BITBANG);
 	if (ret < 0) {
-		sr_err("Failed to put FTDI chip into bitbang mode (%d): %s.",
+		otc_err("Failed to put FTDI chip into bitbang mode (%d): %s.",
 		       ret, ftdi_get_error_string(devc->ftdic));
 		goto err_dev_open_close_ftdic;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 
 err_dev_open_close_ftdic:
 	ftdi_usb_close(devc->ftdic);
@@ -354,54 +354,54 @@ err_dev_open_close_ftdic:
 err_ftdi_free:
 	ftdi_free(devc->ftdic);
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
 	devc = sdi->priv;
 
 	if (!devc->ftdic)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	ftdi_usb_close(devc->ftdic);
 	ftdi_free(devc->ftdic);
 	devc->ftdic = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 
 	(void)cg;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(devc->cur_samplerate);
 		break;
-	case SR_CONF_CONN:
+	case OTC_CONF_CONN:
 		if (!sdi || !sdi->conn)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		usb = sdi->conn;
 		*data = g_variant_new_printf("%d.%d", usb->bus, usb->address);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	uint64_t value;
@@ -411,52 +411,52 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_MSEC:
 		value = g_variant_get_uint64(data);
 		/* TODO: Implement. */
 		(void)value;
-		return SR_ERR_NA;
-	case SR_CONF_LIMIT_SAMPLES:
+		return OTC_ERR_NA;
+	case OTC_CONF_LIMIT_SAMPLES:
 		devc->limit_samples = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		value = g_variant_get_uint64(data);
 		if (value < 3600)
-			return SR_ERR_SAMPLERATE;
+			return OTC_ERR_SAMPLERATE;
 		devc->cur_samplerate = value;
 		return ftdi_la_set_samplerate(devc);
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
 	devc = sdi->priv;
 
 	if (!devc->ftdic)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	ftdi_set_bitmode(devc->ftdic, 0, BITMODE_BITBANG);
 
@@ -467,22 +467,22 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	std_session_send_df_header(sdi);
 
 	/* Hook up a dummy handler to receive data from the device. */
-	sr_session_source_add(sdi->session, -1, G_IO_IN, 0,
+	otc_session_source_add(sdi->session, -1, G_IO_IN, 0,
 			      ftdi_la_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
-	sr_session_source_remove(sdi->session, -1);
+	otc_session_source_remove(sdi->session, -1);
 
 	std_session_send_df_end(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver ftdi_la_driver_info = {
+static struct otc_dev_driver ftdi_la_driver_info = {
 	.name = "ftdi-la",
 	.longname = "FTDI LA",
 	.api_version = 1,
@@ -500,4 +500,4 @@ static struct sr_dev_driver ftdi_la_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(ftdi_la_driver_info);
+OTC_REGISTER_DEV_DRIVER(ftdi_la_driver_info);

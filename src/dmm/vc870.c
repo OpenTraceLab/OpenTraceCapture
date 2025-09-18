@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014-2015 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -22,8 +22,8 @@
 #include <ctype.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "vc870"
 
@@ -69,16 +69,16 @@ static int parse_value(const uint8_t *buf, struct vc870_info *info,
 
 	/* Bytes 3-7: Main display value (5 decimal digits) */
 	if (info->is_open || info->is_ol1) {
-		sr_spew("Over limit.");
+		otc_spew("Over limit.");
 		*result = INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	} else if (!isdigit(buf[3]) || !isdigit(buf[4]) ||
 	           !isdigit(buf[5]) || !isdigit(buf[6]) || !isdigit(buf[7])) {
-		sr_dbg("Invalid digits: %02x %02x %02x %02x %02X "
+		otc_dbg("Invalid digits: %02x %02x %02x %02x %02X "
 			"(%c %c %c %c %c).",
 			buf[3], buf[4], buf[5], buf[6], buf[7],
 			buf[3], buf[4], buf[5], buf[6], buf[7]);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	intval = 0;
@@ -92,11 +92,11 @@ static int parse_value(const uint8_t *buf, struct vc870_info *info,
 
 	/* Note: The decimal point position will be parsed later. */
 
-	sr_spew("The display value without comma is %05d.", intval);
+	otc_spew("The display value without comma is %05d.", intval);
 
 	*result = (float)intval;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int parse_range(uint8_t b, float *floatval, int *exponent,
@@ -107,8 +107,8 @@ static int parse_range(uint8_t b, float *floatval, int *exponent,
 	idx = b - '0';
 
 	if (idx < 0 || idx > 7) {
-		sr_dbg("Invalid range byte / index: 0x%02x / 0x%02x.", b, idx);
-		return SR_ERR;
+		otc_dbg("Invalid range byte / index: 0x%02x / 0x%02x.", b, idx);
+		return OTC_ERR;
 	}
 
 	/* Parse range byte (depends on the measurement mode). */
@@ -151,17 +151,17 @@ static int parse_range(uint8_t b, float *floatval, int *exponent,
 	else if (info->is_v_a_rms_value)
 		mode = 18; /* V eff + A eff */
 	else {
-		sr_dbg("Invalid mode, range byte was: 0x%02x.", b);
-		return SR_ERR;
+		otc_dbg("Invalid mode, range byte was: 0x%02x.", b);
+		return OTC_ERR;
 	}
 
 	*exponent = exponents[mode][idx];
 
 	/* Apply respective exponent (mode-dependent) on the value. */
 	*floatval *= powf(10, *exponent);
-	sr_dbg("Applying exponent %d, new value is %f.", *exponent, *floatval);
+	otc_dbg("Applying exponent %d, new value is %f.", *exponent, *floatval);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void parse_flags(const uint8_t *buf, struct vc870_info *info)
@@ -221,7 +221,7 @@ static void parse_flags(const uint8_t *buf, struct vc870_info *info)
 			info->is_v_a_rms_value = TRUE;
 		break;
 	default:
-		sr_dbg("Invalid function bytes: %02x %02x.", buf[0], buf[1]);
+		otc_dbg("Invalid function bytes: %02x %02x.", buf[0], buf[1]);
 		break;
 	}
 
@@ -275,7 +275,7 @@ static void parse_flags(const uint8_t *buf, struct vc870_info *info)
 	info->is_auto = !info->is_manu;
 }
 
-static void handle_flags(struct sr_datafeed_analog *analog,
+static void handle_flags(struct otc_datafeed_analog *analog,
 			 float *floatval, const struct vc870_info *info)
 {
 	/*
@@ -285,101 +285,101 @@ static void handle_flags(struct sr_datafeed_analog *analog,
 
 	/* Measurement modes */
 	if (info->is_voltage) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_current) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 	}
 	if (info->is_resistance) {
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 	if (info->is_frequency) {
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 	}
 	if (info->is_capacitance) {
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 	}
 	if (info->is_temperature) {
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
-		analog->meaning->unit = SR_UNIT_CELSIUS;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
+		analog->meaning->unit = OTC_UNIT_CELSIUS;
 		/* TODO: Handle Fahrenheit in auxiliary display. */
-		// analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+		// analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 	}
 	if (info->is_continuity) {
-		analog->meaning->mq = SR_MQ_CONTINUITY;
-		analog->meaning->unit = SR_UNIT_BOOLEAN;
+		analog->meaning->mq = OTC_MQ_CONTINUITY;
+		analog->meaning->unit = OTC_UNIT_BOOLEAN;
 		/* Vendor docs: "< 20 Ohm acoustic" */
 		*floatval = (*floatval < 0.0 || *floatval > 20.0) ? 0.0 : 1.0;
 	}
 	if (info->is_diode) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_loop_current) {
 		/* 4mA = 0%, 20mA = 100% */
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 	}
 	if (info->is_power) {
-		analog->meaning->mq = SR_MQ_POWER;
-		analog->meaning->unit = SR_UNIT_WATT;
+		analog->meaning->mq = OTC_MQ_POWER;
+		analog->meaning->unit = OTC_UNIT_WATT;
 	}
 	if (info->is_power_apparent_power) {
-		analog->meaning->mq = SR_MQ_POWER;
-		analog->meaning->unit = SR_UNIT_WATT;
+		analog->meaning->mq = OTC_MQ_POWER;
+		analog->meaning->unit = OTC_UNIT_WATT;
 		/* TODO: Handle apparent power. */
-		// analog->meaning->mq = SR_MQ_APPARENT_POWER;
-		// analog->meaning->unit = SR_UNIT_VOLT_AMPERE;
+		// analog->meaning->mq = OTC_MQ_APPARENT_POWER;
+		// analog->meaning->unit = OTC_UNIT_VOLT_AMPERE;
 	}
 	if (info->is_power_factor_freq) {
-		analog->meaning->mq = SR_MQ_POWER_FACTOR;
-		analog->meaning->unit = SR_UNIT_UNITLESS;
+		analog->meaning->mq = OTC_MQ_POWER_FACTOR;
+		analog->meaning->unit = OTC_UNIT_UNITLESS;
 		/* TODO: Handle frequency. */
-		// analog->meaning->mq = SR_MQ_FREQUENCY;
-		// analog->meaning->unit = SR_UNIT_HERTZ;
+		// analog->meaning->mq = OTC_MQ_FREQUENCY;
+		// analog->meaning->unit = OTC_UNIT_HERTZ;
 	}
 	if (info->is_v_a_rms_value) {
-		analog->meaning->mqflags |= SR_MQFLAG_RMS;
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mqflags |= OTC_MQFLAG_RMS;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 		/* TODO: Handle effective current value */
-		// analog->meaning->mq = SR_MQ_CURRENT;
-		// analog->meaning->unit = SR_UNIT_AMPERE;
+		// analog->meaning->mq = OTC_MQ_CURRENT;
+		// analog->meaning->unit = OTC_UNIT_AMPERE;
 	}
 
 	/* Measurement related flags */
 	if (info->is_ac)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (info->is_dc)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	if (info->is_auto)
-		analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 	if (info->is_diode)
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 	if (info->is_hold)
 		/*
 		 * Note: HOLD only affects the number displayed on the LCD,
 		 * but not the value sent via the protocol! It also does not
 		 * affect the bargraph on the LCD.
 		 */
-		analog->meaning->mqflags |= SR_MQFLAG_HOLD;
+		analog->meaning->mqflags |= OTC_MQFLAG_HOLD;
 	if (info->is_max)
-		analog->meaning->mqflags |= SR_MQFLAG_MAX;
+		analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 	if (info->is_min)
-		analog->meaning->mqflags |= SR_MQFLAG_MIN;
+		analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 	if (info->is_rel)
-		analog->meaning->mqflags |= SR_MQFLAG_RELATIVE;
+		analog->meaning->mqflags |= OTC_MQFLAG_RELATIVE;
 
 	/* Other flags */
 	if (info->is_batt)
-		sr_spew("Battery is low.");
+		otc_spew("Battery is low.");
 	if (info->is_auto_power)
-		sr_spew("Auto-Power-Off enabled.");
+		otc_spew("Auto-Power-Off enabled.");
 }
 
 static gboolean flags_valid(const struct vc870_info *info)
@@ -390,7 +390,7 @@ static gboolean flags_valid(const struct vc870_info *info)
 	return TRUE;
 }
 
-SR_PRIV gboolean sr_vc870_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_vc870_packet_valid(const uint8_t *buf)
 {
 	struct vc870_info info;
 
@@ -404,8 +404,8 @@ SR_PRIV gboolean sr_vc870_packet_valid(const uint8_t *buf)
 	return flags_valid(&info);
 }
 
-SR_PRIV int sr_vc870_parse(const uint8_t *buf, float *floatval,
-			   struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_vc870_parse(const uint8_t *buf, float *floatval,
+			   struct otc_datafeed_analog *analog, void *info)
 {
 	int ret, exponent = 0;
 	struct vc870_info *info_local;
@@ -413,17 +413,17 @@ SR_PRIV int sr_vc870_parse(const uint8_t *buf, float *floatval,
 	info_local = info;
 	memset(info_local, 0, sizeof(struct vc870_info));
 
-	if (!sr_vc870_packet_valid(buf))
-		return SR_ERR;
+	if (!otc_vc870_packet_valid(buf))
+		return OTC_ERR;
 
 	parse_flags(buf, info_local);
 
-	if ((ret = parse_value(buf, info_local, floatval)) != SR_OK) {
-		sr_dbg("Error parsing value: %d.", ret);
+	if ((ret = parse_value(buf, info_local, floatval)) != OTC_OK) {
+		otc_dbg("Error parsing value: %d.", ret);
 		return ret;
 	}
 
-	if ((ret = parse_range(buf[2], floatval, &exponent, info_local)) != SR_OK)
+	if ((ret = parse_range(buf[2], floatval, &exponent, info_local)) != OTC_OK)
 		return ret;
 
 	handle_flags(analog, floatval, info_local);
@@ -431,5 +431,5 @@ SR_PRIV int sr_vc870_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2022 Shawn Walker <ac0bi00@gmail.com>
  *
@@ -27,45 +27,45 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
-SR_PRIV int send_serial_str(struct sr_serial_dev_inst *serial, char *str)
+OTC_PRIV int send_serial_str(struct otc_serial_dev_inst *serial, char *str)
 {
 	int len = strlen(str);
 	if ((len > 15) || (len < 1)) {
-		sr_err("ERROR: Serial string len %d invalid ", len);
-		return SR_ERR;
+		otc_err("ERROR: Serial string len %d invalid ", len);
+		return OTC_ERR;
 	}
 
 	/* 100ms timeout. With USB CDC serial we can't define the timeout based
 	 * on link rate, so just pick something large as we shouldn't normally
 	 * see them */
 	if (serial_write_blocking(serial, str, len, 100) != len) {
-		sr_err("ERROR: Serial str write failed");
-		return SR_ERR;
+		otc_err("ERROR: Serial str write failed");
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int send_serial_char(struct sr_serial_dev_inst *serial, char ch)
+OTC_PRIV int send_serial_char(struct otc_serial_dev_inst *serial, char ch)
 {
 	char buf[1];
 	buf[0] = ch;
 
 	if (serial_write_blocking(serial, buf, 1, 100) != 1) {	/* 100ms */
-		sr_err("ERROR: Serial char write failed");
-		return SR_ERR;
+		otc_err("ERROR: Serial char write failed");
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Issue a command that expects a string return that is less than 30 characters.
  * Returns the length of string */
-int send_serial_w_resp(struct sr_serial_dev_inst *serial, char *str,
+int send_serial_w_resp(struct otc_serial_dev_inst *serial, char *str,
 	char *resp, size_t cnt)
 {
 	int num_read, i;
@@ -87,14 +87,14 @@ int send_serial_w_resp(struct sr_serial_dev_inst *serial, char *str,
 	num_read += serial_read_blocking(serial, &(resp[num_read]), cnt - num_read,
 		10);
 	if ((num_read < 1) || (num_read > 30)) {
-		sr_err("ERROR: Serial_w_resp failed (%d).", num_read);
+		otc_err("ERROR: Serial_w_resp failed (%d).", num_read);
 		return -1;
 	} else
 		return num_read;
 }
 
 /* Issue a command that expects a single char ack */
-SR_PRIV int send_serial_w_ack(struct sr_serial_dev_inst *serial, char *str)
+OTC_PRIV int send_serial_w_ack(struct otc_serial_dev_inst *serial, char *str)
 {
 	char buf[2];
 	int num_read;
@@ -102,7 +102,7 @@ SR_PRIV int send_serial_w_ack(struct sr_serial_dev_inst *serial, char *str)
 	/* In case we have left over transfer from the device, drain them.
 	 * These should not exist in normal operation */
 	while ((num_read = serial_read_blocking(serial, buf, 2, 10)))
-		sr_dbg("swack drops 2 bytes %d %d", buf[0], buf[1]);
+		otc_dbg("swack drops 2 bytes %d %d", buf[0], buf[1]);
 
 	send_serial_str(serial, str);
 
@@ -110,12 +110,12 @@ SR_PRIV int send_serial_w_ack(struct sr_serial_dev_inst *serial, char *str)
 	num_read = serial_read_blocking(serial, buf, 1, 1000);
 
 	if ((num_read == 1) && (buf[0] == '*')) {
-		return SR_OK;
+		return OTC_OK;
 	} else {
-		sr_err("ERROR: Serial_w_ack %s failed (%d).", str, num_read);
+		otc_err("ERROR: Serial_w_ack %s failed (%d).", str, num_read);
 		if (num_read)
-			sr_err("ack resp char %c d %d", buf[0], buf[0]);
-		return SR_ERR;
+			otc_err("ack resp char %c d %d", buf[0], buf[0]);
+		return OTC_ERR;
 	}
 }
 
@@ -131,7 +131,7 @@ SR_PRIV int send_serial_w_ack(struct sr_serial_dev_inst *serial, char *str)
  * groups.
  * In this mode we can always consume all bytes because there are no cases where
  * the processing of one byte requires the one after it. */
-void process_D4(struct sr_dev_inst *sdi, struct dev_context *d)
+void process_D4(struct otc_dev_inst *sdi, struct dev_context *d)
 {
 	uint32_t j;
 	uint8_t cbyte, cval;
@@ -162,7 +162,7 @@ void process_D4(struct sr_dev_inst *sdi, struct dev_context *d)
 				d->d_data_buf[didx+j] = 0;
 
 			d->byte_cnt++;
-			sr_spew("Dchan4 rdptr %d wrptr %d bytein 0x%X rle %d cval 0x%X didx %d",
+			otc_spew("Dchan4 rdptr %d wrptr %d bytein 0x%X rle %d cval 0x%X didx %d",
 				(d->ser_rdptr) - 1, d->cbuf_wrptr, cbyte, rlecnt, cval, didx);
 			d->cbuf_wrptr++;
 			rlecnt = 0;
@@ -171,11 +171,11 @@ void process_D4(struct sr_dev_inst *sdi, struct dev_context *d)
 			/* Any other character ends parsing - it could be a frame error or a
 			 * start of the final byte cnt */
 			if (cbyte == '$') {
-				sr_info("D4 Data stream stops with cbyte %d char %c rdidx %d cnt %lu",
+				otc_info("D4 Data stream stops with cbyte %d char %c rdidx %d cnt %lu",
 					cbyte, cbyte, d->ser_rdptr, d->byte_cnt);
 				d->rxstate = RX_STOPPED;
 			} else {
-				sr_err("D4 Data stream aborts with cbyte %d char %c rdidx %d cnt %lu",
+				otc_err("D4 Data stream aborts with cbyte %d char %c rdidx %d cnt %lu",
 					cbyte, cbyte, d->ser_rdptr, d->byte_cnt);
 				d->rxstate = RX_ABORT;
 			}
@@ -194,7 +194,7 @@ void process_D4(struct sr_dev_inst *sdi, struct dev_context *d)
 		 * reasonable minimal value to send to the session */
 		if ((rlecnt >= 2000) || \
 			((rlecnt + ((d->cbuf_wrptr) <<2 ))) > (d->sample_buf_size - 1024)) {
-			sr_spew("D4 preoverflow wrptr %d bufsize %d rlecnt %d\n\r",
+			otc_spew("D4 preoverflow wrptr %d bufsize %d rlecnt %d\n\r",
 				d->cbuf_wrptr, d->sample_buf_size, rlecnt);
 			rle_memset(d, rlecnt);
 			process_group(sdi, d, d->cbuf_wrptr);
@@ -203,16 +203,16 @@ void process_D4(struct sr_dev_inst *sdi, struct dev_context *d)
 
 	} /*while rdptr < wrptr*/
 
-	sr_spew("D4 while done rdptr %d", d->ser_rdptr);
+	otc_spew("D4 while done rdptr %d", d->ser_rdptr);
 
 	/* If we reach the end of the serial input stream send any remaining values
 	 * or rles to the session */
 	if (rlecnt) {
-		sr_spew("Residual D4 slice rlecnt %d", rlecnt);
+		otc_spew("Residual D4 slice rlecnt %d", rlecnt);
 		rle_memset(d, rlecnt);
 	}
 	if (d->cbuf_wrptr) {
-		sr_spew("Residual D4 data wrptr %d", d->cbuf_wrptr);
+		otc_spew("Residual D4 data wrptr %d", d->cbuf_wrptr);
 		process_group(sdi, d, d->cbuf_wrptr);
 	}
 }
@@ -222,7 +222,7 @@ void process_D4(struct sr_dev_inst *sdi, struct dev_context *d)
  * The final value of ser_rdptr indicates how many bytes were processed.
  * This version handles all other enabled channel configurations that
  * Process_D4 doesn't */
-void process_slice(struct sr_dev_inst *sdi, struct dev_context *devc)
+void process_slice(struct otc_dev_inst *sdi, struct dev_context *devc)
 {
 	int32_t i;
 	uint32_t tmp32, cword;
@@ -237,11 +237,11 @@ void process_slice(struct sr_dev_inst *sdi, struct dev_context *devc)
 		cbyte = devc->buffer[slice_bytes - 1];
 		slice_bytes--;	/* Don't process the ending character */
 		if (cbyte == '$') {
-			sr_info("Data stream stops with cbyte %d char %c rdidx %d sbytes %d cnt %lu",
+			otc_info("Data stream stops with cbyte %d char %c rdidx %d sbytes %d cnt %lu",
 				cbyte, cbyte, devc->ser_rdptr, slice_bytes, devc->byte_cnt);
 			devc->rxstate = RX_STOPPED;
 		} else {
-			sr_err("Data stream aborts with cbyte %d char %c rdidx %d sbytes %d cnt %lu",
+			otc_err("Data stream aborts with cbyte %d char %c rdidx %d sbytes %d cnt %lu",
 				cbyte, cbyte, devc->ser_rdptr, slice_bytes, devc->byte_cnt);
 			devc->rxstate = RX_ABORT;
 		}
@@ -251,7 +251,7 @@ void process_slice(struct sr_dev_inst *sdi, struct dev_context *devc)
 	 * transfer, don't double count it towards byte_cnt*/
 	devc->byte_cnt += slice_bytes - (devc->wrptr);
 
-	sr_spew("process slice avail %d rdptr %d sb %d byte_cnt %" PRIu64 "",
+	otc_spew("process slice avail %d rdptr %d sb %d byte_cnt %" PRIu64 "",
 		devc->bytes_avail, devc->ser_rdptr, slice_bytes, devc->byte_cnt);
 
 	/* Must have a full slice or one rle byte */
@@ -266,9 +266,9 @@ void process_slice(struct sr_dev_inst *sdi, struct dev_context *devc)
 		else
 			rlecnt = (devc->buffer[devc->ser_rdptr] - 78) * 32;
 
-		sr_info("RLEcnt of %d in %d", rlecnt, devc->buffer[devc->ser_rdptr]);
+		otc_info("RLEcnt of %d in %d", rlecnt, devc->buffer[devc->ser_rdptr]);
 		if ((rlecnt < 1) || (rlecnt > 1568))
-			sr_err("Bad rlecnt val %d in %d",
+			otc_err("Bad rlecnt val %d in %d",
 				rlecnt, devc->buffer[devc->ser_rdptr]);
 		else
 			rle_memset(devc,rlecnt);
@@ -295,7 +295,7 @@ void process_slice(struct sr_dev_inst *sdi, struct dev_context *devc)
 			uint32_t idx = ((devc->cbuf_wrptr) * devc->dig_sample_bytes) +
 				(i >> 3);
 			devc->d_data_buf[idx] = cword & 0xFF;
-			sr_spew("Dchan i %d wrptr %d idx %d char 0x%X cword 0x%X",
+			otc_spew("Dchan i %d wrptr %d idx %d char 0x%X cword 0x%X",
 				i, devc->cbuf_wrptr, idx, devc->d_data_buf[idx], cword);
 			cword >>= 8;
 		}
@@ -314,7 +314,7 @@ void process_slice(struct sr_dev_inst *sdi, struct dev_context *devc)
 				    devc->a_offset[i];
 				devc->a_last[i] =
 				    devc->a_data_bufs[i][devc->cbuf_wrptr];
-				sr_spew
+				otc_spew
 				    ("AChan %d t32 %d value %f wrptr %d rdptr %d sc %f off %f",
 				     i, tmp32,
 				     devc->
@@ -331,7 +331,7 @@ void process_slice(struct sr_dev_inst *sdi, struct dev_context *devc)
            cbuf_wrptr and sample_buf_size are both in terms of slices
            2048 is more than needed for a max rle of 1640 on the next incoming character */
            if((devc->cbuf_wrptr +2048) >  devc->sample_buf_size){
-              sr_spew("Drain large buff %d %d\n\r",devc->cbuf_wrptr,devc->sample_buf_size);
+              otc_spew("Drain large buff %d %d\n\r",devc->cbuf_wrptr,devc->sample_buf_size);
               process_group(sdi, devc, devc->cbuf_wrptr);
 
            }
@@ -343,19 +343,19 @@ void process_slice(struct sr_dev_inst *sdi, struct dev_context *devc)
 }
 
 /* Send the processed analog values to the session */
-int send_analog(struct sr_dev_inst *sdi, struct dev_context *devc,
+int send_analog(struct otc_dev_inst *sdi, struct dev_context *devc,
 		uint32_t num_samples, uint32_t offset)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
-	struct sr_channel *ch;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
+	struct otc_channel *ch;
 	uint32_t i;
 	float *fptr;
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, ANALOG_DIGITS);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, ANALOG_DIGITS);
 	for (i = 0; i < devc->num_a_channels; i++) {
 		if ((devc->a_chan_mask >> i) & 1) {
 			ch = devc->analog_groups[i]->channels->data;
@@ -364,16 +364,16 @@ int send_analog(struct sr_dev_inst *sdi, struct dev_context *devc,
 			analog.num_samples = num_samples;
 			analog.data = (devc->a_data_bufs[i]) + offset;
 			fptr = analog.data;
-			sr_spew
+			otc_spew
 			    ("send analog num %d offset %d first %f 2 %f",
 			     num_samples, offset, *(devc->a_data_bufs[i]),
 			     *fptr);
-			analog.meaning->mq = SR_MQ_VOLTAGE;
-			analog.meaning->unit = SR_UNIT_VOLT;
+			analog.meaning->mq = OTC_MQ_VOLTAGE;
+			analog.meaning->unit = OTC_UNIT_VOLT;
 			analog.meaning->mqflags = 0;
-			packet.type = SR_DF_ANALOG;
+			packet.type = OTC_DF_ANALOG;
 			packet.payload = &analog;
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 			g_slist_free(analog.meaning->channels);
 		}/* if enabled */
 	}/* for channels */
@@ -384,15 +384,15 @@ int send_analog(struct sr_dev_inst *sdi, struct dev_context *devc,
 /*Send the ring buffer of pre-trigger analog samples.
   The entire buffer is sent (as long as it filled once), but need send two payloads split at the 
   the writeptr  */
-int send_analog_ring(struct sr_dev_inst *sdi, struct dev_context *devc,
+int send_analog_ring(struct otc_dev_inst *sdi, struct dev_context *devc,
 		     uint32_t num_samples)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
-	struct sr_channel *ch;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
+	struct otc_channel *ch;
 	int i;
 	uint32_t num_pre, start_pre;
 	uint32_t num_post, start_post;
@@ -402,21 +402,21 @@ int send_analog_ring(struct sr_dev_inst *sdi, struct dev_context *devc,
 	start_pre = devc->pretrig_wr_ptr - num_pre;
 	num_post = num_samples - num_pre;
 	start_post = devc->pretrig_entries - num_post;
-	sr_spew
+	otc_spew
 	    ("send_analog ring wrptr %u ns %d npre %u spre %u npost %u spost %u",
 	     devc->pretrig_wr_ptr, num_samples, num_pre, start_pre,
 	     num_post, start_post);
 	float *fptr;
-	sr_analog_init(&analog, &encoding, &meaning, &spec, ANALOG_DIGITS);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, ANALOG_DIGITS);
 	for (i = 0; i < devc->num_a_channels; i++) {
 		if ((devc->a_chan_mask >> i) & 1) {
 			ch = devc->analog_groups[i]->channels->data;
 			analog.meaning->channels =
 			    g_slist_append(NULL, ch);
-			analog.meaning->mq = SR_MQ_VOLTAGE;
-			analog.meaning->unit = SR_UNIT_VOLT;
+			analog.meaning->mq = OTC_MQ_VOLTAGE;
+			analog.meaning->unit = OTC_UNIT_VOLT;
 			analog.meaning->mqflags = 0;
-			packet.type = SR_DF_ANALOG;
+			packet.type = OTC_DF_ANALOG;
 			packet.payload = &analog;
 			/*First send what is after the write pointer because it is oldest */
 			if (num_post) {
@@ -429,26 +429,26 @@ int send_analog_ring(struct sr_dev_inst *sdi, struct dev_context *devc,
 					    analog.data +
 					    (j * sizeof(float));
 				}
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 			}
 			if (num_pre) {
 				analog.num_samples = num_pre;
 				analog.data =
 				    (devc->a_pretrig_bufs[i]) + start_pre;
-				sr_dbg("Sending A%d ring buffer newest ",
+				otc_dbg("Sending A%d ring buffer newest ",
 				       i);
 				for (uint32_t j = 0;
 				     j < analog.num_samples; j++) {
 					fptr =
 					    analog.data +
 					    (j * sizeof(float));
-					sr_spew("RNGDCW%d j %d %f %p", i,
+					otc_spew("RNGDCW%d j %d %f %p", i,
 						j, *fptr, (void *) fptr);
 				}
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 			}
 			g_slist_free(analog.meaning->channels);
-			sr_dbg("Sending A%d ring buffer done ", i);
+			otc_dbg("Sending A%d ring buffer done ", i);
 		}/*if enabled */
 	}/* for channels */
 	return 0;
@@ -457,15 +457,15 @@ int send_analog_ring(struct sr_dev_inst *sdi, struct dev_context *devc,
 
 /* Given a chunk of slices forward to trigger check or session as appropriate and update state
    these could be real slices or those generated by rles */
-int process_group(struct sr_dev_inst *sdi, struct dev_context *devc,
+int process_group(struct otc_dev_inst *sdi, struct dev_context *devc,
 		  uint32_t num_slices)
 {
 	int trigger_offset;
 	int pre_trigger_samples;
 	/*  These are samples sent to session and are less than num_slices if we reach limit_samples */
 	size_t num_samples;
-	struct sr_datafeed_logic logic;
-	struct sr_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
 	int i;
 	size_t cbuf_wrptr_cpy;
 	cbuf_wrptr_cpy = devc->cbuf_wrptr;
@@ -482,17 +482,17 @@ int process_group(struct sr_dev_inst *sdi, struct dev_context *devc,
 			num_samples = num_slices;
 		}
 		if (num_samples > 0) {
-			sr_spew("Process_group sending %lu post trig samples dsb %d",
+			otc_spew("Process_group sending %lu post trig samples dsb %d",
 				num_samples, devc->dig_sample_bytes);
 			if (devc->num_d_channels) {
-				packet.type = SR_DF_LOGIC;
+				packet.type = OTC_DF_LOGIC;
 				packet.payload = &logic;
 				/* The number of bytes required to fit all of the channels */
 				logic.unitsize = devc->dig_sample_bytes;
 				/* The total length of the array sent */
 				logic.length = num_samples * logic.unitsize;
 				logic.data = devc->d_data_buf;
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 			}
 			send_analog(sdi, devc, num_samples, 0);
 		}
@@ -523,7 +523,7 @@ int process_group(struct sr_dev_inst *sdi, struct dev_context *devc,
 		if (trigger_offset > -1) {
 			devc->trigger_fired = TRUE;
 			devc->sent_samples += pre_trigger_samples;
-			packet.type = SR_DF_LOGIC;
+			packet.type = OTC_DF_LOGIC;
 			packet.payload = &logic;
 			num_samples = num_slices - trigger_offset;
 
@@ -543,14 +543,14 @@ int process_group(struct sr_dev_inst *sdi, struct dev_context *devc,
 			/* The soft trigger logic issues the trigger and sends packets for
 			 * all logic data that was pretrigger so only send what is left */
 			if (num_samples > 0) {
-				sr_dbg("Sending post trigger logical remainder of %lu",
+				otc_dbg("Sending post trigger logical remainder of %lu",
 					num_samples);
 				logic.length = num_samples * devc->dig_sample_bytes;
 				logic.unitsize = devc->dig_sample_bytes;
 				logic.data = devc->d_data_buf +
 					(trigger_offset * devc->dig_sample_bytes);
 				devc->sent_samples += num_samples;
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 			}
 
 			size_t new_start, new_end, new_samples, ring_samples;
@@ -583,7 +583,7 @@ int process_group(struct sr_dev_inst *sdi, struct dev_context *devc,
 			 * more than the ring buffer depth (pretrig entries) */
 			ring_samples = (pre_trigger_samples > trigger_offset) ?
 				pre_trigger_samples - trigger_offset : 0;
-			sr_spew("SW trigger float info newstart %zu new_end %zu " \
+			otc_spew("SW trigger float info newstart %zu new_end %zu " \
 					"new_samp %zu ring_samp %zu",
 				new_start, new_end, new_samples, ring_samples);
 
@@ -614,7 +614,7 @@ int process_group(struct sr_dev_inst *sdi, struct dev_context *devc,
 				/* cbuf_wrptr points to where the next write should go,
 				 * not the actual write data */
 				srcptr = cbuf_wrptr_cpy - num_ring_samples;
-				sr_spew("RNG num %zu sptr %zu eptr %zu ",
+				otc_spew("RNG num %zu sptr %zu eptr %zu ",
 					num_ring_samples, sptr, eptr);
 
 				/* Copy tail */
@@ -647,7 +647,7 @@ int process_group(struct sr_dev_inst *sdi, struct dev_context *devc,
 void rle_memset(struct dev_context *devc, uint32_t num_slices)
 {
 	uint32_t j, k, didx;
-	sr_spew("rle_memset vals 0x%X, 0x%X, 0x%X slices %d dsb %d",
+	otc_spew("rle_memset vals 0x%X, 0x%X, 0x%X slices %d dsb %d",
 		devc->d_last[0], devc->d_last[1], devc->d_last[2],
 		num_slices, devc->dig_sample_bytes);
 
@@ -666,11 +666,11 @@ void rle_memset(struct dev_context *devc, uint32_t num_slices)
 /* This callback function is mapped from api.c with serial_source_add and is
  * created after a capture has been setup and is responsible for querying the
  * device trigger status, downloading data and forwarding packets */
-SR_PRIV int raspberrypi_pico_receive(int fd, int revents, void *cb_data)
+OTC_PRIV int raspberrypi_pico_receive(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int len;
 	uint32_t i, bytes_rem, residual_bytes;
 	(void) fd;
@@ -684,14 +684,14 @@ SR_PRIV int raspberrypi_pico_receive(int fd, int revents, void *cb_data)
 	if (devc->rxstate != RX_ACTIVE) {
 		/* This condition is normal operation and expected to happen
 		 * but printed as information */
-		sr_dbg("Reached non active state in receive %d", devc->rxstate);
+		otc_dbg("Reached non active state in receive %d", devc->rxstate);
 		/* Don't return - we may be waiting for a final bytecnt */
 	}
 
 	if (devc->rxstate == RX_IDLE) {
 		/* This is the normal end condition where we do one more receive
 		 * to make sure we get the full byte_cnt */
-		sr_dbg("Reached idle state in receive %d", devc->rxstate);
+		otc_dbg("Reached idle state in receive %d", devc->rxstate);
 		return FALSE;
 	}
 
@@ -708,20 +708,20 @@ SR_PRIV int raspberrypi_pico_receive(int fd, int revents, void *cb_data)
 	 * small 10ms timeout, if we get nothing, we'll always come back again */
 	len = serial_read_blocking(serial, &(devc->buffer[devc->wrptr]),
 		bytes_rem - 1, 10);
-	sr_spew("Entry wrptr %u bytes_rem %u len %d", devc->wrptr, bytes_rem, len);
+	otc_spew("Entry wrptr %u bytes_rem %u len %d", devc->wrptr, bytes_rem, len);
 
 	if (len > 0) {
 		devc->buffer[devc->wrptr + len] = 0;
 		/* Add the "#" so that spaces in the string are clearly seen */
-		sr_dbg("rx string %s#", devc->buffer);
+		otc_dbg("rx string %s#", devc->buffer);
 		devc->bytes_avail = (devc->wrptr + len);
-		sr_spew("rx len %d bytes_avail %ul sent_samples %ul wrptr %u",
+		otc_spew("rx len %d bytes_avail %ul sent_samples %ul wrptr %u",
 			len, devc->bytes_avail, devc->sent_samples, devc->wrptr);
 	} else {
 		if (len == 0) {
 			return TRUE;
 		} else {
-			sr_err("ERROR: Negative serial read code %d", len);
+			otc_err("ERROR: Negative serial read code %d", len);
 			sdi->driver->dev_acquisition_stop(sdi);
 			return FALSE;
 		}
@@ -747,7 +747,7 @@ SR_PRIV int raspberrypi_pico_receive(int fd, int revents, void *cb_data)
 
 		devc->ser_rdptr = 0;
 		devc->wrptr = residual_bytes;
-		sr_spew("Residual shift rdptr %u wrptr %u", devc->ser_rdptr, devc->wrptr);
+		otc_spew("Residual shift rdptr %u wrptr %u", devc->ser_rdptr, devc->wrptr);
 	} else {
 		/* If there are no residuals shifted then zero the wrptr since all data
 		 * is used */
@@ -756,19 +756,19 @@ SR_PRIV int raspberrypi_pico_receive(int fd, int revents, void *cb_data)
 
 	/* ABORT ends immediately */
 	if (devc->rxstate == RX_ABORT) {
-		sr_err("Ending receive on abort");
+		otc_err("Ending receive on abort");
 		sdi->driver->dev_acquisition_stop(sdi);
 		return FALSE;	
 	}
 
 	/* If stopped, look for final '+' indicating the full byte_cnt is received */
 	if (devc->rxstate == RX_STOPPED) {
-		sr_dbg("Stopped, checking byte_cnt");
+		otc_dbg("Stopped, checking byte_cnt");
 		if (devc->buffer[0] != '$') {
 			/* If this happens it means that we got a set of data that was not
 			 * processed as whole groups of slice bytes. So either we lost data
 			 * or are not parsing it correctly. */
-			sr_err("ERROR: Stop marker should be byte zero");
+			otc_err("ERROR: Stop marker should be byte zero");
 			devc->rxstate = RX_ABORT;
 			sdi->driver->dev_acquisition_stop(sdi);
 			return FALSE;
@@ -779,10 +779,10 @@ SR_PRIV int raspberrypi_pico_receive(int fd, int revents, void *cb_data)
 				devc->buffer[i] = 0;
 				uint64_t rxbytecnt;
 				rxbytecnt = atol((char*)&(devc->buffer[1]));
-				sr_dbg("Byte_cnt check device cnt %lu host cnt %lu",
+				otc_dbg("Byte_cnt check device cnt %lu host cnt %lu",
 					rxbytecnt, devc->byte_cnt);
 				if (rxbytecnt != devc->byte_cnt)
-					sr_err("ERROR: received %lu and counted %lu bytecnts " \
+					otc_err("ERROR: received %lu and counted %lu bytecnts " \
 							"don't match, data may be lost",
 						rxbytecnt, devc->byte_cnt);
 
@@ -798,7 +798,7 @@ SR_PRIV int raspberrypi_pico_receive(int fd, int revents, void *cb_data)
 
 		/*It's possible we need one more serial transfer to get the byte_cnt,
 		 * so print that here */
-		sr_dbg("Haven't seen byte_cnt + yet");
+		otc_dbg("Haven't seen byte_cnt + yet");
 	}
 	/* If at the sample limit, send a "+" in case we are in continuous mode and
 	 * need to stop the device.  Not that even in non continous mode there might
@@ -806,36 +806,36 @@ SR_PRIV int raspberrypi_pico_receive(int fd, int revents, void *cb_data)
 
 	if ((devc->sent_samples >= devc->limit_samples) \
 		&& (devc->rxstate == RX_ACTIVE)) {
-		sr_dbg("Ending: sent %u of limit %lu samples byte_cnt %lu",
+		otc_dbg("Ending: sent %u of limit %lu samples byte_cnt %lu",
 			devc->sent_samples, devc->limit_samples, devc->byte_cnt);
 		send_serial_char(serial, '+');
 	}
 
-	sr_spew("Receive function done: sent %u limit %lu wrptr %u len %d",
+	otc_spew("Receive function done: sent %u limit %lu wrptr %u len %d",
 		devc->sent_samples, devc->limit_samples, devc->wrptr, len);
 
 	return TRUE;
 }
 
 /* Read device specific information from the device */
-SR_PRIV int raspberrypi_pico_get_dev_cfg(const struct sr_dev_inst *sdi)
+OTC_PRIV int raspberrypi_pico_get_dev_cfg(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	char *cmd, response[20];
 	gchar **tokens;
 	unsigned int i;
 	int ret, num_tokens;
 
 	devc = sdi->priv;
-	sr_dbg("At get_dev_cfg");
+	otc_dbg("At get_dev_cfg");
 	serial = sdi->conn;
 	for (i = 0; i < devc->num_a_channels; i++) {
 		cmd = g_strdup_printf("a%d\n", i);
 		ret = send_serial_w_resp(serial, cmd, response, 20);
 		if (ret <= 0) {
-			sr_err("ERROR: No response from device for analog channel query");
-			return SR_ERR;
+			otc_err("ERROR: No response from device for analog channel query");
+			return OTC_ERR;
 		}
 		response[ret] = 0;
 		tokens = NULL;
@@ -845,11 +845,11 @@ SR_PRIV int raspberrypi_pico_get_dev_cfg(const struct sr_dev_inst *sdi)
 		if (num_tokens == 2) {
 			devc->a_scale[i] = ((float) atoi(tokens[0])) / 1000000.0;
 			devc->a_offset[i] = ((float) atoi(tokens[1])) / 1000000.0;
-			sr_dbg("A%d scale %f offset %f response #%s# tokens #%s# #%s#",
+			otc_dbg("A%d scale %f offset %f response #%s# tokens #%s# #%s#",
 				i, devc->a_scale[i], devc->a_offset[i],
 				response, tokens[0], tokens[1]);
 		} else {
-			sr_err("ERROR: Ascale read c%d got unparseable response %s tokens %d",
+			otc_err("ERROR: Ascale read c%d got unparseable response %s tokens %d",
 				i, response, num_tokens);
 			/* Force a legal fixed value assuming a 3.3V scale */
 			devc->a_scale[i] = 0.0257;
@@ -860,5 +860,5 @@ SR_PRIV int raspberrypi_pico_get_dev_cfg(const struct sr_dev_inst *sdi)
 		g_free(cmd);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Daniel Elstner <daniel.kitta@gmail.com>
  *
@@ -19,8 +19,8 @@
 
 #include <config.h>
 #include <glib/gstdio.h>
-#include <libsigrok/libsigrok.h>
-#include <libsigrok-internal.h>
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "lwla.h"
 #include "protocol.h"
 
@@ -30,20 +30,20 @@
 /* Load a bitstream file into memory. Returns a newly allocated array
  * consisting of a 32-bit length field followed by the bitstream data.
  */
-static unsigned char *load_bitstream(struct sr_context *ctx,
+static unsigned char *load_bitstream(struct otc_context *ctx,
 				     const char *name, int *length_p)
 {
-	struct sr_resource rbf;
+	struct otc_resource rbf;
 	unsigned char *stream;
 	ssize_t length, count;
 
-	if (sr_resource_open(ctx, &rbf, SR_RESOURCE_FIRMWARE, name) != SR_OK)
+	if (otc_resource_open(ctx, &rbf, OTC_RESOURCE_FIRMWARE, name) != OTC_OK)
 		return NULL;
 
 	if (rbf.size == 0 || rbf.size > BITSTREAM_MAX_SIZE) {
-		sr_err("Refusing to load bitstream of unreasonable size "
+		otc_err("Refusing to load bitstream of unreasonable size "
 		       "(%" PRIu64 " bytes).", rbf.size);
-		sr_resource_close(ctx, &rbf);
+		otc_resource_close(ctx, &rbf);
 		return NULL;
 	}
 
@@ -51,20 +51,20 @@ static unsigned char *load_bitstream(struct sr_context *ctx,
 	length = BITSTREAM_HEADER_SIZE + rbf.size;
 	stream = g_try_malloc(length);
 	if (!stream) {
-		sr_err("Failed to allocate bitstream buffer.");
-		sr_resource_close(ctx, &rbf);
+		otc_err("Failed to allocate bitstream buffer.");
+		otc_resource_close(ctx, &rbf);
 		return NULL;
 	}
 
 	/* Write the message length header. */
 	*(uint32_t *)stream = GUINT32_TO_BE(length);
 
-	count = sr_resource_read(ctx, &rbf, stream + BITSTREAM_HEADER_SIZE,
+	count = otc_resource_read(ctx, &rbf, stream + BITSTREAM_HEADER_SIZE,
 				 length - BITSTREAM_HEADER_SIZE);
-	sr_resource_close(ctx, &rbf);
+	otc_resource_close(ctx, &rbf);
 
 	if (count != length - BITSTREAM_HEADER_SIZE) {
-		sr_err("Failed to read bitstream '%s'.", name);
+		otc_err("Failed to read bitstream '%s'.", name);
 		g_free(stream);
 		return NULL;
 	}
@@ -76,21 +76,21 @@ static unsigned char *load_bitstream(struct sr_context *ctx,
 /* Load a Raw Binary File (.rbf) from the firmware directory and transfer
  * it to the device.
  */
-SR_PRIV int lwla_send_bitstream(struct sr_context *ctx,
-				const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_send_bitstream(struct otc_context *ctx,
+				const struct otc_usb_dev_inst *usb,
 				const char *name)
 {
 	unsigned char *stream;
 	int ret, length, xfer_len;
 
 	if (!ctx || !usb || !name)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	stream = load_bitstream(ctx, name, &length);
 	if (!stream)
-		return SR_ERR;
+		return OTC_ERR;
 
-	sr_info("Downloading FPGA bitstream '%s'.", name);
+	otc_info("Downloading FPGA bitstream '%s'.", name);
 
 	/* Transfer the entire bitstream in one URB. */
 	ret = libusb_bulk_transfer(usb->devhdl, EP_CONFIG,
@@ -98,68 +98,68 @@ SR_PRIV int lwla_send_bitstream(struct sr_context *ctx,
 	g_free(stream);
 
 	if (ret != 0) {
-		sr_err("Failed to transfer bitstream: %s.",
+		otc_err("Failed to transfer bitstream: %s.",
 		       libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	if (xfer_len != length) {
-		sr_err("Failed to transfer bitstream: incorrect length "
+		otc_err("Failed to transfer bitstream: incorrect length "
 		       "%d != %d.", xfer_len, length);
-		return SR_ERR;
+		return OTC_ERR;
 	}
-	sr_info("FPGA bitstream download of %d bytes done.", xfer_len);
+	otc_info("FPGA bitstream download of %d bytes done.", xfer_len);
 
 	/* This delay appears to be necessary for reliable operation. */
 	g_usleep(30 * 1000);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int lwla_send_command(const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_send_command(const struct otc_usb_dev_inst *usb,
 			      const uint16_t *command, int cmd_len)
 {
 	int ret, xfer_len;
 
 	if (!usb || !command || cmd_len <= 0)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	xfer_len = 0;
 	ret = libusb_bulk_transfer(usb->devhdl, EP_COMMAND,
 				   (unsigned char *)command, cmd_len * 2,
 				   &xfer_len, USB_TIMEOUT_MS);
 	if (ret != 0) {
-		sr_dbg("Failed to send command %d: %s.",
+		otc_dbg("Failed to send command %d: %s.",
 		       LWLA_TO_UINT16(command[0]), libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	if (xfer_len != cmd_len * 2) {
-		sr_dbg("Failed to send command %d: incorrect length %d != %d.",
+		otc_dbg("Failed to send command %d: incorrect length %d != %d.",
 		       LWLA_TO_UINT16(command[0]), xfer_len, cmd_len * 2);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int lwla_receive_reply(const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_receive_reply(const struct otc_usb_dev_inst *usb,
 			       void *reply, int buf_size, int *xfer_len)
 {
 	int ret;
 
 	if (!usb || !reply || buf_size <= 0)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	ret = libusb_bulk_transfer(usb->devhdl, EP_REPLY, reply, buf_size,
 				   xfer_len, USB_TIMEOUT_MS);
 	if (ret != 0) {
-		sr_dbg("Failed to receive reply: %s.", libusb_error_name(ret));
-		return SR_ERR;
+		otc_dbg("Failed to receive reply: %s.", libusb_error_name(ret));
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int lwla_read_reg(const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_read_reg(const struct otc_usb_dev_inst *usb,
 			  uint16_t reg, uint32_t *value)
 {
 	int xfer_len, ret;
@@ -170,24 +170,24 @@ SR_PRIV int lwla_read_reg(const struct sr_usb_dev_inst *usb,
 	command[1] = LWLA_WORD(reg);
 
 	ret = lwla_send_command(usb, ARRAY_AND_SIZE(command));
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = lwla_receive_reply(usb, reply, sizeof(reply), &xfer_len);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (xfer_len != 4) {
-		sr_dbg("Invalid register read response of length %d.",
+		otc_dbg("Invalid register read response of length %d.",
 		       xfer_len);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	*value = LWLA_TO_UINT32(reply[0]);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int lwla_write_reg(const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_write_reg(const struct otc_usb_dev_inst *usb,
 			   uint16_t reg, uint32_t value)
 {
 	uint16_t command[4];
@@ -200,17 +200,17 @@ SR_PRIV int lwla_write_reg(const struct sr_usb_dev_inst *usb,
 	return lwla_send_command(usb, ARRAY_AND_SIZE(command));
 }
 
-SR_PRIV int lwla_write_regs(const struct sr_usb_dev_inst *usb,
+OTC_PRIV int lwla_write_regs(const struct otc_usb_dev_inst *usb,
 			    const struct regval *regvals, int count)
 {
 	int i, ret;
 
-	ret = SR_OK;
+	ret = OTC_OK;
 
 	for (i = 0; i < count; i++) {
 		ret = lwla_write_reg(usb, regvals[i].reg, regvals[i].val);
 
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 	}
 

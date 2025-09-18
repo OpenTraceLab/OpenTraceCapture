@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <check.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libsigrok.h>
 #include "lib.h"
 
 /* Test lots of triggers/stages/matches/channels */
@@ -34,13 +34,13 @@
 START_TEST(test_trigger_new_free)
 {
 	int i;
-	struct sr_trigger *t[NUM_TRIGGERS];
+	struct otc_trigger *t[NUM_TRIGGERS];
 	char name[10];
 
 	/* Create a few triggers with a valid name. */
 	for (i = 0; i < NUM_TRIGGERS; i++) {
 		sprintf((char *)&name, "T%d", i);
-		t[i] = sr_trigger_new((const char *)&name);
+		t[i] = otc_trigger_new((const char *)&name);
 		fail_unless(t[i] != NULL);
 		fail_unless(!strcmp(t[i]->name, (const char *)&name));
 		fail_unless(t[i]->stages == NULL);
@@ -48,7 +48,7 @@ START_TEST(test_trigger_new_free)
 
 	/* Free the triggers again (must not segfault). */
 	for (i = 0; i < NUM_TRIGGERS; i++)
-		sr_trigger_free(t[i]);
+		otc_trigger_free(t[i]);
 }
 END_TEST
 
@@ -56,11 +56,11 @@ END_TEST
 START_TEST(test_trigger_new_free_null)
 {
 	int i;
-	struct sr_trigger *t[NUM_TRIGGERS];
+	struct otc_trigger *t[NUM_TRIGGERS];
 
 	/* Create a few triggers with a NULL name (which is allowed). */
 	for (i = 0; i < NUM_TRIGGERS; i++) {
-		t[i] = sr_trigger_new(NULL);
+		t[i] = otc_trigger_new(NULL);
 		fail_unless(t[i] != NULL);
 		fail_unless(t[i]->name == NULL);
 		fail_unless(t[i]->stages == NULL);
@@ -68,14 +68,14 @@ START_TEST(test_trigger_new_free_null)
 
 	/* Free the triggers again (must not segfault). */
 	for (i = 0; i < NUM_TRIGGERS; i++)
-		sr_trigger_free(t[i]);
+		otc_trigger_free(t[i]);
 }
 END_TEST
 
-/* Check whether sr_trigger_free(NULL) works without segfaulting. */
+/* Check whether otc_trigger_free(NULL) works without segfaulting. */
 START_TEST(test_trigger_free_null)
 {
-	sr_trigger_free(NULL);
+	otc_trigger_free(NULL);
 }
 END_TEST
 
@@ -83,16 +83,16 @@ END_TEST
 START_TEST(test_trigger_stage_add)
 {
 	int i, j;
-	struct sr_trigger *t[NUM_TRIGGERS];
-	struct sr_trigger_stage *s[NUM_STAGES];
+	struct otc_trigger *t[NUM_TRIGGERS];
+	struct otc_trigger_stage *s[NUM_STAGES];
 
 	/* Create a few triggers with a valid name. */
 	for (i = 0; i < NUM_TRIGGERS; i++) {
-		t[i] = sr_trigger_new("T");
+		t[i] = otc_trigger_new("T");
 
 		/* Add a bunch of trigger stages to this trigger. */
 		for (j = 0; j < NUM_STAGES; j++) {
-			s[j] = sr_trigger_stage_add(t[i]);
+			s[j] = otc_trigger_stage_add(t[i]);
 			fail_unless(s[j] != NULL);
 			fail_unless(t[i]->stages != NULL);
 			fail_unless((int)g_slist_length(t[i]->stages) == (j + 1));
@@ -103,7 +103,7 @@ START_TEST(test_trigger_stage_add)
 
 	/* Free the triggers again (must not segfault). */
 	for (i = 0; i < NUM_TRIGGERS; i++)
-		sr_trigger_free(t[i]);
+		otc_trigger_free(t[i]);
 }
 END_TEST
 
@@ -111,7 +111,7 @@ END_TEST
 START_TEST(test_trigger_stage_add_null)
 {
 	/* Should not segfault, but rather return NULL. */
-	fail_unless(sr_trigger_stage_add(NULL) == NULL);
+	fail_unless(otc_trigger_stage_add(NULL) == NULL);
 }
 END_TEST
 
@@ -119,56 +119,56 @@ END_TEST
 START_TEST(test_trigger_match_add)
 {
 	int i, j, k, tm, ret;
-	struct sr_trigger *t[NUM_TRIGGERS];
-	struct sr_trigger_stage *s[NUM_STAGES];
-	struct sr_channel *chl[NUM_CHANNELS];
-	struct sr_channel *cha[NUM_CHANNELS];
+	struct otc_trigger *t[NUM_TRIGGERS];
+	struct otc_trigger_stage *s[NUM_STAGES];
+	struct otc_channel *chl[NUM_CHANNELS];
+	struct otc_channel *cha[NUM_CHANNELS];
 	char name[10];
 
 	/* Create a bunch of logic and analog channels. */
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		sprintf((char *)&name, "L%d", i);
-		chl[i] = g_malloc0(sizeof(struct sr_channel));
+		chl[i] = g_malloc0(sizeof(struct otc_channel));
 		chl[i]->index = i;
-		chl[i]->type = SR_CHANNEL_LOGIC;
+		chl[i]->type = OTC_CHANNEL_LOGIC;
 		chl[i]->enabled = TRUE;
 		chl[i]->name = g_strdup((const char *)&name);
 
 		sprintf((char *)&name, "A%d", i);
-		cha[i] = g_malloc0(sizeof(struct sr_channel));
+		cha[i] = g_malloc0(sizeof(struct otc_channel));
 		cha[i]->index = i;
-		cha[i]->type = SR_CHANNEL_ANALOG;
+		cha[i]->type = OTC_CHANNEL_ANALOG;
 		cha[i]->enabled = TRUE;
 		cha[i]->name = g_strdup((const char *)&name);
 	}
 
 	/* Create a few triggers with a valid name. */
 	for (i = 0; i < NUM_TRIGGERS; i++) {
-		t[i] = sr_trigger_new("T");
+		t[i] = otc_trigger_new("T");
 
 		/* Add a bunch of trigger stages to this trigger. */
 		for (j = 0; j < NUM_STAGES; j++) {
-			s[j] = sr_trigger_stage_add(t[i]);
+			s[j] = otc_trigger_stage_add(t[i]);
 
 			/* Add a bunch of matches to this stage. */
 			for (k = 0; k < NUM_MATCHES; k++) {
 				/* Logic channel matches. */
 				tm = 1 + (k % 5); /* *_ZERO .. *_EDGE */
-				ret = sr_trigger_match_add(s[j], chl[k], tm, 0);
-				fail_unless(ret == SR_OK);
+				ret = otc_trigger_match_add(s[j], chl[k], tm, 0);
+				fail_unless(ret == OTC_OK);
 
 				/* Analog channel matches. */
 				tm = 3 + (k % 4); /* *_RISING .. *_UNDER */
-				ret = sr_trigger_match_add(s[j], cha[k],
+				ret = otc_trigger_match_add(s[j], cha[k],
 					tm, ((rand() % 500) - 500) * 1.739);
-				fail_unless(ret == SR_OK);
+				fail_unless(ret == OTC_OK);
 			}
 		}
 	}
 
 	/* Free the triggers again (must not segfault). */
 	for (i = 0; i < NUM_TRIGGERS; i++)
-		sr_trigger_free(t[i]);
+		otc_trigger_free(t[i]);
 
 	/* Free the channels. */
 	for (i = 0; i < NUM_CHANNELS; i++) {
@@ -184,20 +184,20 @@ END_TEST
 START_TEST(test_trigger_match_add_bogus)
 {
 	int ret;
-	struct sr_trigger *t;
-	struct sr_trigger_stage *s, *sl;
-	struct sr_channel *chl, *cha;
+	struct otc_trigger *t;
+	struct otc_trigger_stage *s, *sl;
+	struct otc_channel *chl, *cha;
 
-	t = sr_trigger_new("T");
-	s = sr_trigger_stage_add(t);
-	chl = g_malloc0(sizeof(struct sr_channel));
+	t = otc_trigger_new("T");
+	s = otc_trigger_stage_add(t);
+	chl = g_malloc0(sizeof(struct otc_channel));
 	chl->index = 0;
-	chl->type = SR_CHANNEL_LOGIC;
+	chl->type = OTC_CHANNEL_LOGIC;
 	chl->enabled = TRUE;
 	chl->name = g_strdup("L0");
-	cha = g_malloc0(sizeof(struct sr_channel));
+	cha = g_malloc0(sizeof(struct otc_channel));
 	cha->index = 1;
-	cha->type = SR_CHANNEL_ANALOG;
+	cha->type = OTC_CHANNEL_ANALOG;
 	cha->enabled = TRUE;
 	cha->name = g_strdup("A0");
 
@@ -206,42 +206,42 @@ START_TEST(test_trigger_match_add_bogus)
 	fail_unless(g_slist_length(sl->matches) == 0);
 
 	/* NULL stage */
-	ret = sr_trigger_match_add(NULL, chl, SR_TRIGGER_ZERO, 0);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_trigger_match_add(NULL, chl, OTC_TRIGGER_ZERO, 0);
+	fail_unless(ret == OTC_ERR_ARG);
 	fail_unless(g_slist_length(sl->matches) == 0);
 
 	/* NULL channel */
-	ret = sr_trigger_match_add(s, NULL, SR_TRIGGER_ZERO, 0);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_trigger_match_add(s, NULL, OTC_TRIGGER_ZERO, 0);
+	fail_unless(ret == OTC_ERR_ARG);
 	fail_unless(g_slist_length(sl->matches) == 0);
 
 	/* Invalid trigger matches for logic channels. */
-	ret = sr_trigger_match_add(s, chl, SR_TRIGGER_OVER, 0);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_trigger_match_add(s, chl, OTC_TRIGGER_OVER, 0);
+	fail_unless(ret == OTC_ERR_ARG);
 	fail_unless(g_slist_length(sl->matches) == 0);
-	ret = sr_trigger_match_add(s, chl, SR_TRIGGER_UNDER, 0);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_trigger_match_add(s, chl, OTC_TRIGGER_UNDER, 0);
+	fail_unless(ret == OTC_ERR_ARG);
 	fail_unless(g_slist_length(sl->matches) == 0);
 
 	/* Invalid trigger matches for analog channels. */
-	ret = sr_trigger_match_add(s, cha, SR_TRIGGER_ZERO, 9.4);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_trigger_match_add(s, cha, OTC_TRIGGER_ZERO, 9.4);
+	fail_unless(ret == OTC_ERR_ARG);
 	fail_unless(g_slist_length(sl->matches) == 0);
-	ret = sr_trigger_match_add(s, cha, SR_TRIGGER_ONE, -9.4);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_trigger_match_add(s, cha, OTC_TRIGGER_ONE, -9.4);
+	fail_unless(ret == OTC_ERR_ARG);
 	fail_unless(g_slist_length(sl->matches) == 0);
 
 	/* Invalid channel type. */
 	chl->type = -1;
-	ret = sr_trigger_match_add(s, chl, SR_TRIGGER_ZERO, 0);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_trigger_match_add(s, chl, OTC_TRIGGER_ZERO, 0);
+	fail_unless(ret == OTC_ERR_ARG);
 	fail_unless(g_slist_length(sl->matches) == 0);
 	chl->type = 270;
-	ret = sr_trigger_match_add(s, chl, SR_TRIGGER_ZERO, 0);
-	fail_unless(ret == SR_ERR_ARG);
+	ret = otc_trigger_match_add(s, chl, OTC_TRIGGER_ZERO, 0);
+	fail_unless(ret == OTC_ERR_ARG);
 	fail_unless(g_slist_length(sl->matches) == 0);
 
-	sr_trigger_free(t);
+	otc_trigger_free(t);
 	g_free(chl->name);
 	g_free(chl);
 	g_free(cha->name);

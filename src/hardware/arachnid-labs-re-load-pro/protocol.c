@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015-2016 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -24,13 +24,13 @@
 
 #define READ_TIMEOUT_MS 500
 
-static int send_cmd(const struct sr_dev_inst *sdi, const char *cmd,
+static int send_cmd(const struct otc_dev_inst *sdi, const char *cmd,
 		char *replybuf, int replybufsize)
 {
 	char *bufptr;
 	int len, ret;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 	serial = sdi->conn;
@@ -39,8 +39,8 @@ static int send_cmd(const struct sr_dev_inst *sdi, const char *cmd,
 	if ((ret = serial_write_blocking(serial, cmd,
 			strlen(cmd), serial_timeout(serial,
 			strlen(cmd)))) < (int)strlen(cmd)) {
-		sr_err("Unable to send command.");
-		return SR_ERR;
+		otc_err("Unable to send command.");
+		return OTC_ERR;
 	}
 
 	if (!devc->acquisition_running) {
@@ -57,15 +57,15 @@ static int send_cmd(const struct sr_dev_inst *sdi, const char *cmd,
 		}
 
 		if (g_str_has_prefix((const char *)&bufptr, "err ")) {
-			sr_err("Device replied with an error: '%s'.", bufptr);
-			return SR_ERR;
+			otc_err("Device replied with an error: '%s'.", bufptr);
+			return OTC_ERR;
 		}
 	}
 
 	return ret;
 }
 
-SR_PRIV int reloadpro_set_current_limit(const struct sr_dev_inst *sdi,
+OTC_PRIV int reloadpro_set_current_limit(const struct otc_dev_inst *sdi,
 					float current_limit)
 {
 	struct dev_context *devc;
@@ -76,8 +76,8 @@ SR_PRIV int reloadpro_set_current_limit(const struct sr_dev_inst *sdi,
 	devc = sdi->priv;
 
 	if (current_limit < 0 || current_limit > 6) {
-		sr_err("The current limit must be 0-6 A (was %f A).", current_limit);
-		return SR_ERR_ARG;
+		otc_err("The current limit must be 0-6 A (was %f A).", current_limit);
+		return OTC_ERR_ARG;
 	}
 
 	/* Hardware expects current limit in mA, integer (0..6000). */
@@ -90,13 +90,13 @@ SR_PRIV int reloadpro_set_current_limit(const struct sr_dev_inst *sdi,
 	g_free(cmd);
 
 	if (ret < 0) {
-		sr_err("Error sending current limit command: %d.", ret);
-		return SR_ERR;
+		otc_err("Error sending current limit command: %d.", ret);
+		return OTC_ERR;
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int reloadpro_set_on_off(const struct sr_dev_inst *sdi, gboolean on)
+OTC_PRIV int reloadpro_set_on_off(const struct otc_dev_inst *sdi, gboolean on)
 {
 	struct dev_context *devc;
 	int ret;
@@ -111,13 +111,13 @@ SR_PRIV int reloadpro_set_on_off(const struct sr_dev_inst *sdi, gboolean on)
 	g_mutex_unlock(&devc->acquisition_mutex);
 
 	if (ret < 0) {
-		sr_err("Error sending on/off command: %d.", ret);
-		return SR_ERR;
+		otc_err("Error sending on/off command: %d.", ret);
+		return OTC_ERR;
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int reloadpro_set_under_voltage_threshold(const struct sr_dev_inst *sdi,
+OTC_PRIV int reloadpro_set_under_voltage_threshold(const struct otc_dev_inst *sdi,
 					float voltage)
 {
 	struct dev_context *devc;
@@ -128,15 +128,15 @@ SR_PRIV int reloadpro_set_under_voltage_threshold(const struct sr_dev_inst *sdi,
 	devc = sdi->priv;
 
 	if (voltage < 0 || voltage > 60) {
-		sr_err("The under voltage threshold must be 0-60 V (was %f V).",
+		otc_err("The under voltage threshold must be 0-60 V (was %f V).",
 			voltage);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
 	/* Hardware expects voltage in mV, integer (0..60000). */
 	mv = (int)round(voltage * 1000);
 
-	sr_spew("Setting under voltage threshold to %f V (%d mV).", voltage, mv);
+	otc_spew("Setting under voltage threshold to %f V (%d mV).", voltage, mv);
 
 	cmd = g_strdup_printf("uvlo %d\n", mv);
 	g_mutex_lock(&devc->acquisition_mutex);
@@ -145,13 +145,13 @@ SR_PRIV int reloadpro_set_under_voltage_threshold(const struct sr_dev_inst *sdi,
 	g_free(cmd);
 
 	if (ret < 0) {
-		sr_err("Error sending under voltage threshold command: %d.", ret);
-		return SR_ERR;
+		otc_err("Error sending under voltage threshold command: %d.", ret);
+		return OTC_ERR;
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int reloadpro_get_current_limit(const struct sr_dev_inst *sdi,
+OTC_PRIV int reloadpro_get_current_limit(const struct otc_dev_inst *sdi,
 					float *current_limit)
 {
 	struct dev_context *devc;
@@ -163,8 +163,8 @@ SR_PRIV int reloadpro_get_current_limit(const struct sr_dev_inst *sdi,
 
 	g_mutex_lock(&devc->acquisition_mutex);
 	if ((ret = send_cmd(sdi, "set\n", (char *)&buf, sizeof(buf))) < 0) {
-		sr_err("Error sending current limit query: %d.", ret);
-		return SR_ERR;
+		otc_err("Error sending current limit query: %d.", ret);
+		return OTC_ERR;
 	}
 
 	if (devc->acquisition_running) {
@@ -173,7 +173,7 @@ SR_PRIV int reloadpro_get_current_limit(const struct sr_dev_inst *sdi,
 				&devc->acquisition_mutex, end_time)) {
 			/* Timeout has passed. */
 			g_mutex_unlock(&devc->acquisition_mutex);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	} else {
 		/* Hardware sends current limit in mA, integer (0..6000). */
@@ -184,10 +184,10 @@ SR_PRIV int reloadpro_get_current_limit(const struct sr_dev_inst *sdi,
 	if (current_limit)
 		*current_limit = devc->current_limit;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int reloadpro_get_under_voltage_threshold(const struct sr_dev_inst *sdi,
+OTC_PRIV int reloadpro_get_under_voltage_threshold(const struct otc_dev_inst *sdi,
 					float *uvc_threshold)
 {
 	struct dev_context *devc;
@@ -199,8 +199,8 @@ SR_PRIV int reloadpro_get_under_voltage_threshold(const struct sr_dev_inst *sdi,
 
 	g_mutex_lock(&devc->acquisition_mutex);
 	if ((ret = send_cmd(sdi, "uvlo\n", (char *)&buf, sizeof(buf))) < 0) {
-		sr_err("Error sending under voltage threshold query: %d.", ret);
-		return SR_ERR;
+		otc_err("Error sending under voltage threshold query: %d.", ret);
+		return OTC_ERR;
 	}
 
 	if (devc->acquisition_running) {
@@ -209,7 +209,7 @@ SR_PRIV int reloadpro_get_under_voltage_threshold(const struct sr_dev_inst *sdi,
 				&devc->acquisition_mutex, end_time)) {
 			/* Timeout has passed. */
 			g_mutex_unlock(&devc->acquisition_mutex);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	} else {
 		/* Hardware sends voltage in mV, integer (0..60000). */
@@ -220,10 +220,10 @@ SR_PRIV int reloadpro_get_under_voltage_threshold(const struct sr_dev_inst *sdi,
 	if (uvc_threshold)
 		*uvc_threshold = devc->uvc_threshold;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int reloadpro_get_voltage_current(const struct sr_dev_inst *sdi,
+OTC_PRIV int reloadpro_get_voltage_current(const struct otc_dev_inst *sdi,
 		float *voltage, float *current)
 {
 	struct dev_context *devc;
@@ -236,8 +236,8 @@ SR_PRIV int reloadpro_get_voltage_current(const struct sr_dev_inst *sdi,
 
 	g_mutex_lock(&devc->acquisition_mutex);
 	if ((ret = send_cmd(sdi, "read\n", (char *)&buf, sizeof(buf))) < 0) {
-		sr_err("Error sending voltage/current query: %d.", ret);
-		return SR_ERR;
+		otc_err("Error sending voltage/current query: %d.", ret);
+		return OTC_ERR;
 	}
 
 	if (devc->acquisition_running) {
@@ -246,7 +246,7 @@ SR_PRIV int reloadpro_get_voltage_current(const struct sr_dev_inst *sdi,
 				&devc->acquisition_mutex, end_time)) {
 			/* Timeout has passed. */
 			g_mutex_unlock(&devc->acquisition_mutex);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	} else {
 		/* Reply: "read <current> <voltage>". */
@@ -262,16 +262,16 @@ SR_PRIV int reloadpro_get_voltage_current(const struct sr_dev_inst *sdi,
 	if (current)
 		*current = devc->current;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void handle_packet(const struct sr_dev_inst *sdi)
+static void handle_packet(const struct otc_dev_inst *sdi)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	struct dev_context *devc;
 	char **tokens;
 	GSList *l;
@@ -279,23 +279,23 @@ static void handle_packet(const struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	if (g_str_has_prefix((const char *)devc->buf, "overtemp")) {
-		sr_warn("Overtemperature condition!");
+		otc_warn("Overtemperature condition!");
 		devc->otp_active = TRUE;
-		sr_session_send_meta(sdi, SR_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE,
+		otc_session_send_meta(sdi, OTC_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE,
 			g_variant_new_boolean(TRUE));
 		return;
 	}
 
 	if (g_str_has_prefix((const char *)devc->buf, "undervolt")) {
-		sr_warn("Undervoltage condition!");
+		otc_warn("Undervoltage condition!");
 		devc->uvc_active = TRUE;
-		sr_session_send_meta(sdi, SR_CONF_UNDER_VOLTAGE_CONDITION_ACTIVE,
+		otc_session_send_meta(sdi, OTC_CONF_UNDER_VOLTAGE_CONDITION_ACTIVE,
 			g_variant_new_boolean(TRUE));
 		return;
 	}
 
 	if (g_str_has_prefix((const char *)devc->buf, "err ")) {
-		sr_err("Device replied with an error: '%s'.", devc->buf);
+		otc_err("Device replied with an error: '%s'.", devc->buf);
 		return;
 	}
 
@@ -304,7 +304,7 @@ static void handle_packet(const struct sr_dev_inst *sdi)
 		devc->current_limit = g_ascii_strtod(tokens[1], NULL) / 1000;
 		g_strfreev(tokens);
 		g_cond_signal(&devc->current_limit_cond);
-		sr_session_send_meta(sdi, SR_CONF_CURRENT_LIMIT,
+		otc_session_send_meta(sdi, OTC_CONF_CURRENT_LIMIT,
 			g_variant_new_double(devc->current_limit));
 		return;
 	}
@@ -315,20 +315,20 @@ static void handle_packet(const struct sr_dev_inst *sdi)
 		g_strfreev(tokens);
 		g_cond_signal(&devc->uvc_threshold_cond);
 		if (devc->uvc_threshold == .0) {
-			sr_session_send_meta(sdi, SR_CONF_UNDER_VOLTAGE_CONDITION,
+			otc_session_send_meta(sdi, OTC_CONF_UNDER_VOLTAGE_CONDITION,
 				g_variant_new_boolean(FALSE));
 		} else {
-			sr_session_send_meta(sdi, SR_CONF_UNDER_VOLTAGE_CONDITION,
+			otc_session_send_meta(sdi, OTC_CONF_UNDER_VOLTAGE_CONDITION,
 				g_variant_new_boolean(TRUE));
-			sr_session_send_meta(sdi,
-				SR_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD,
+			otc_session_send_meta(sdi,
+				OTC_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD,
 				g_variant_new_double(devc->uvc_threshold));
 		}
 		return;
 	}
 
 	if (!g_str_has_prefix((const char *)devc->buf, "read ")) {
-		sr_dbg("Unknown packet: '%s'.", devc->buf);
+		otc_dbg("Unknown packet: '%s'.", devc->buf);
 		return;
 	}
 
@@ -341,9 +341,9 @@ static void handle_packet(const struct sr_dev_inst *sdi)
 	/* Begin frame. */
 	std_session_send_df_frame_begin(sdi);
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 4);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 4);
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
 	analog.num_samples = 1;
 
@@ -351,37 +351,37 @@ static void handle_packet(const struct sr_dev_inst *sdi)
 	l = g_slist_copy(sdi->channels);
 	l = g_slist_remove_link(l, g_slist_nth(l, 1));
 	meaning.channels = l;
-	meaning.mq = SR_MQ_VOLTAGE;
-	meaning.mqflags = SR_MQFLAG_DC;
-	meaning.unit = SR_UNIT_VOLT;
+	meaning.mq = OTC_MQ_VOLTAGE;
+	meaning.mqflags = OTC_MQFLAG_DC;
+	meaning.unit = OTC_UNIT_VOLT;
 	encoding.digits = 3;
 	analog.data = &devc->voltage;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 	g_slist_free(l);
 
 	/* Current */
 	l = g_slist_copy(sdi->channels);
 	l = g_slist_remove_link(l, g_slist_nth(l, 0));
 	meaning.channels = l;
-	meaning.mq = SR_MQ_CURRENT;
-	meaning.mqflags = SR_MQFLAG_DC;
-	meaning.unit = SR_UNIT_AMPERE;
+	meaning.mq = OTC_MQ_CURRENT;
+	meaning.mqflags = OTC_MQFLAG_DC;
+	meaning.unit = OTC_UNIT_AMPERE;
 	encoding.digits = 3;
 	analog.data = &devc->current;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 	g_slist_free(l);
 
 	/* End frame. */
 	std_session_send_df_frame_end(sdi);
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 }
 
-static void handle_new_data(const struct sr_dev_inst *sdi)
+static void handle_new_data(const struct otc_dev_inst *sdi)
 {
 	int len;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	char *buf;
 
 	devc = sdi->priv;
@@ -390,7 +390,7 @@ static void handle_new_data(const struct sr_dev_inst *sdi)
 	len = RELOADPRO_BUFSIZE - devc->buflen;
 	buf = devc->buf;
 	g_mutex_lock(&devc->acquisition_mutex);
-	if (serial_readline(serial, &buf, &len, 250) != SR_OK) {
+	if (serial_readline(serial, &buf, &len, 250) != OTC_OK) {
 		g_mutex_unlock(&devc->acquisition_mutex);
 		return;
 	}
@@ -400,7 +400,7 @@ static void handle_new_data(const struct sr_dev_inst *sdi)
 		return; /* No new bytes, nothing to do. */
 	}
 	if (len < 0) {
-		sr_err("Serial port read error: %d.", len);
+		otc_err("Serial port read error: %d.", len);
 		g_mutex_unlock(&devc->acquisition_mutex);
 		return;
 	}
@@ -412,9 +412,9 @@ static void handle_new_data(const struct sr_dev_inst *sdi)
 	devc->buflen = 0;
 }
 
-SR_PRIV int reloadpro_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int reloadpro_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 
 	(void)fd;
@@ -427,8 +427,8 @@ SR_PRIV int reloadpro_receive_data(int fd, int revents, void *cb_data)
 
 	handle_new_data(sdi);
 
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 
 	return TRUE;
 }

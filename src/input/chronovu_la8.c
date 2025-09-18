@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2011 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -22,13 +22,13 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "input/chronovu-la8"
 
 #define DEFAULT_NUM_CHANNELS    8
-#define DEFAULT_SAMPLERATE      SR_MHZ(100)
+#define DEFAULT_SAMPLERATE      OTC_MHZ(100)
 #define CHUNK_SIZE              (4 * 1024 * 1024)
 
 /*
@@ -94,15 +94,15 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	 * optionally give precedence to better matches.
 	 */
 	size = GPOINTER_TO_SIZE(g_hash_table_lookup(metadata,
-			GINT_TO_POINTER(SR_INPUT_META_FILESIZE)));
+			GINT_TO_POINTER(OTC_INPUT_META_FILESIZE)));
 	if (size != CHRONOVU_LA8_FILESIZE)
-		return SR_ERR;
+		return OTC_ERR;
 	*confidence = 100;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	struct context *inc;
 	int num_channels, i;
@@ -110,27 +110,27 @@ static int init(struct sr_input *in, GHashTable *options)
 
 	num_channels = g_variant_get_int32(g_hash_table_lookup(options, "numchannels"));
 	if (num_channels < 1) {
-		sr_err("Invalid value for numchannels: must be at least 1.");
-		return SR_ERR_ARG;
+		otc_err("Invalid value for numchannels: must be at least 1.");
+		return OTC_ERR_ARG;
 	}
 
-	in->sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	in->sdi = g_malloc0(sizeof(struct otc_dev_inst));
 	in->priv = inc = g_malloc0(sizeof(struct context));
 
 	inc->samplerate = g_variant_get_uint64(g_hash_table_lookup(options, "samplerate"));
 
 	for (i = 0; i < num_channels; i++) {
 		snprintf(name, sizeof(name), "%d", i);
-		sr_channel_new(in->sdi, i, SR_CHANNEL_LOGIC, TRUE, name);
+		otc_channel_new(in->sdi, i, OTC_CHANNEL_LOGIC, TRUE, name);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int process_buffer(struct sr_input *in)
+static int process_buffer(struct otc_input *in)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 	struct context *inc;
 	gsize chunk_size, i;
 	gsize chunk;
@@ -143,7 +143,7 @@ static int process_buffer(struct sr_input *in)
 		std_session_send_df_header(in->sdi);
 
 		if (inc->samplerate) {
-			(void)sr_session_send_meta(in->sdi, SR_CONF_SAMPLERATE,
+			(void)otc_session_send_meta(in->sdi, OTC_CONF_SAMPLERATE,
 				g_variant_new_uint64(inc->samplerate));
 		}
 
@@ -153,7 +153,7 @@ static int process_buffer(struct sr_input *in)
 		inc->started = TRUE;
 	}
 
-	packet.type = SR_DF_LOGIC;
+	packet.type = OTC_DF_LOGIC;
 	packet.payload = &logic;
 	logic.unitsize = unitsize;
 
@@ -166,16 +166,16 @@ static int process_buffer(struct sr_input *in)
 		chunk = MIN(CHUNK_SIZE, chunk_size - i);
 		if (chunk) {
 			logic.length = chunk;
-			sr_session_send(in->sdi, &packet);
+			otc_session_send(in->sdi, &packet);
 			inc->samples_remain -= chunk / unitsize;
 		}
 	}
 	g_string_erase(in->buf, 0, chunk_size);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 	int ret;
 
@@ -184,7 +184,7 @@ static int receive(struct sr_input *in, GString *buf)
 	if (!in->sdi_ready) {
 		/* sdi is ready, notify frontend. */
 		in->sdi_ready = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	ret = process_buffer(in);
@@ -192,7 +192,7 @@ static int receive(struct sr_input *in, GString *buf)
 	return ret;
 }
 
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	struct context *inc;
 	int ret;
@@ -200,7 +200,7 @@ static int end(struct sr_input *in)
 	if (in->sdi_ready)
 		ret = process_buffer(in);
 	else
-		ret = SR_OK;
+		ret = OTC_OK;
 
 	inc = in->priv;
 	if (inc->started)
@@ -209,23 +209,23 @@ static int end(struct sr_input *in)
 	return ret;
 }
 
-static int reset(struct sr_input *in)
+static int reset(struct otc_input *in)
 {
 	struct context *inc = in->priv;
 
 	inc->started = FALSE;
 	g_string_truncate(in->buf, 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	{ "numchannels", "Number of logic channels", "The number of (logic) channels in the data", NULL, NULL },
 	{ "samplerate", "Sample rate (Hz)", "The sample rate of the (logic) data in Hz", NULL, NULL },
 	ALL_ZERO
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	if (!options[0].def) {
 		options[0].def = g_variant_ref_sink(g_variant_new_int32(DEFAULT_NUM_CHANNELS));
@@ -235,12 +235,12 @@ static const struct sr_option *get_options(void)
 	return options;
 }
 
-SR_PRIV struct sr_input_module input_chronovu_la8 = {
+OTC_PRIV struct otc_input_module input_chronovu_la8 = {
 	.id = "chronovu-la8",
 	.name = "ChronoVu LA8/LA16",
 	.desc = "ChronoVu LA8/LA16 native file format data",
 	.exts = (const char*[]){"kdt", "kd1", NULL},
-	.metadata = { SR_INPUT_META_FILESIZE | SR_INPUT_META_REQUIRED },
+	.metadata = { OTC_INPUT_META_FILESIZE | OTC_INPUT_META_REQUIRED },
 	.options = get_options,
 	.format_match = format_match,
 	.init = init,

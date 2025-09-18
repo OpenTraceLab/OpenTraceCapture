@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 James Churchill <pelrun@gmail.com>
  * Copyright (C) 2019 Frank Stettner <frank-stettner@gmx.net>
@@ -25,10 +25,10 @@
 #include "config.h"
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <stdint.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "rdtech-dps"
 
@@ -59,7 +59,7 @@ struct dev_context {
 	const struct rdtech_dps_model *model;
 	double current_multiplier;
 	double voltage_multiplier;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	GMutex rw_mutex;
 	gboolean curr_ovp_state;
 	gboolean curr_ocp_state;
@@ -102,17 +102,17 @@ enum rdtech_dps_state_context {
 	ST_CTX_PRE_ACQ,
 	ST_CTX_IN_ACQ,
 };
-SR_PRIV int rdtech_dps_get_state(const struct sr_dev_inst *sdi,
+OTC_PRIV int rdtech_dps_get_state(const struct otc_dev_inst *sdi,
 	struct rdtech_dps_state *state, enum rdtech_dps_state_context reason);
-SR_PRIV int rdtech_dps_set_state(const struct sr_dev_inst *sdi,
+OTC_PRIV int rdtech_dps_set_state(const struct otc_dev_inst *sdi,
 	struct rdtech_dps_state *state);
 
-SR_PRIV int rdtech_dps_get_model_version(struct sr_modbus_dev_inst *modbus,
+OTC_PRIV int rdtech_dps_get_model_version(struct otc_modbus_dev_inst *modbus,
 	enum rdtech_dps_model_type model_type,
 	uint16_t *model, uint16_t *version, uint32_t *serno);
-SR_PRIV void rdtech_dps_update_multipliers(const struct sr_dev_inst *sdi);
-SR_PRIV int rdtech_dps_update_range(const struct sr_dev_inst *sdi);
-SR_PRIV int rdtech_dps_seed_receive(const struct sr_dev_inst *sdi);
-SR_PRIV int rdtech_dps_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV void rdtech_dps_update_multipliers(const struct otc_dev_inst *sdi);
+OTC_PRIV int rdtech_dps_update_range(const struct otc_dev_inst *sdi);
+OTC_PRIV int rdtech_dps_seed_receive(const struct otc_dev_inst *sdi);
+OTC_PRIV int rdtech_dps_receive_data(int fd, int revents, void *cb_data);
 
 #endif

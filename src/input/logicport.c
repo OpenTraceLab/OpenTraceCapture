@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -33,7 +33,7 @@
  * is terminated by means of CRLF.
  *
  * The software is rather complex and has features which don't easily
- * translate to sigrok semantics (like one signal being a member of
+ * translate to opentracelab semantics (like one signal being a member of
  * multiple groups, display format specs for groups' values).
  *
  * This input module implementation supports the following features:
@@ -46,7 +46,7 @@
  * - signal groups (no support for multiple assignments, no support for
  *   display format specs)
  * - "logic" channels (mere bits, no support for analog channels, also
- *   nothing analog "gets derived from" any signal groups) -- libsigrok
+ *   nothing analog "gets derived from" any signal groups) -- libopentracecapture
  *   using applications might provide such a feature if they want to
  */
 
@@ -57,8 +57,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX	"input/logicport"
 
@@ -81,7 +81,7 @@
 
 /*
  * The vendor software supports signal groups, and a single signal can
- * be a member in multiple groups at the same time. The sigrok project
+ * be a member in multiple groups at the same time. The opentracelab project
  * does not support that configuration. Let's ignore the "All Signals"
  * group by default, thus reducing the probability of a conflict.
  */
@@ -174,46 +174,46 @@ static int check_vers_line(char *line, int need_key,
 	/* Expect the 'Version' literal, followed by a DC1 separator. */
 	if (need_key) {
 		if (strncmp(read_ptr, keyword, strlen(keyword)) != 0)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		read_ptr += strlen(keyword);
 		if (*read_ptr != DC1_CHR)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		read_ptr++;
 	}
 
 	/* Expect some "\d+\.\d+" style version string and DC1. */
 	if (!*read_ptr)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (version)
 		*version = read_ptr;
 	prev_ptr = read_ptr;
 	read_ptr += strspn(read_ptr, "0123456789.");
 	if (read_ptr == prev_ptr)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (*read_ptr != DC1_CHR)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	*read_ptr++ = '\0';
 
 	/* Expect some "\d+" style build number and DC1. */
 	if (!*read_ptr)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (build)
 		*build = read_ptr;
 	prev_ptr = read_ptr;
 	read_ptr += strspn(read_ptr, "0123456789");
 	if (read_ptr == prev_ptr)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (*read_ptr != DC1_CHR)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	*read_ptr++ = '\0';
 
 	/* Expect the 'CAUTION...' text (weak test, only part of the text). */
 	if (strncmp(read_ptr, caution, strlen(caution)) != 0)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	read_ptr += strlen(caution);
 
 	/* No check for CRLF, due to the weak CAUTION test. */
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int process_wire_names(struct context *inc, char **names)
@@ -226,14 +226,14 @@ static int process_wire_names(struct context *inc, char **names)
 	 */
 	count = g_strv_length(names);
 	if (count != inc->channel_count + 1)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (strcmp(names[inc->channel_count], "Count") != 0)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	for (idx = 0; idx < inc->channel_count; idx++)
 		inc->wire_names[idx] = g_strdup(names[idx]);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int process_signal_names(struct context *inc, char **names)
@@ -246,12 +246,12 @@ static int process_signal_names(struct context *inc, char **names)
 	 */
 	count = g_strv_length(names);
 	if (count != inc->channel_count)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	for (idx = 0; idx < inc->channel_count; idx++)
 		inc->signal_names[idx] = g_strdup(names[idx]);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int process_signal_group(struct context *inc, char **args)
@@ -273,35 +273,35 @@ static int process_signal_group(struct context *inc, char **args)
 
 	/* Check for the minimum amount of input data. */
 	if (!args)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (g_strv_length(args) < 7)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	name = args[0];
 	wires = args[6];
 
 	/* Accept empty names and empty signal lists. Silently ignore. */
 	if (!name || !*name)
-		return SR_OK;
+		return OTC_OK;
 	if (!wires || !*wires)
-		return SR_OK;
+		return OTC_OK;
 	/*
 	 * TODO: Introduce a user configurable "ignore" option? Skip the
 	 * "All Signals" group by default, and in addition whatever
 	 * the user specified?
 	 */
 	if (strcmp(name, SKIP_SIGNAL_GROUP) == 0) {
-		sr_info("Skipping signal group '%s'", name);
-		return SR_OK;
+		otc_info("Skipping signal group '%s'", name);
+		return OTC_OK;
 	}
 
 	/*
 	 * Create the descriptor here to store the member list to. We
-	 * cannot access signal names and sigrok channels yet, they
+	 * cannot access signal names and opentracelab channels yet, they
 	 * only become avilable at a later point in time.
 	 */
 	desc = alloc_signal_group(name);
 	if (!desc)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	inc->signal_groups = g_slist_append(inc->signal_groups, desc);
 
 	/* Determine the bit mask of the group's signals' indices. */
@@ -311,27 +311,27 @@ static int process_signal_group(struct context *inc, char **args)
 		endp = NULL;
 		idx = strtoul(p, &endp, 0);
 		if (!endp || endp == p)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		if (*endp && *endp != ',')
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		p = endp;
 		if (*p == ',')
 			p++;
 		if (idx >= MAX_CHANNELS)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		bit_mask = UINT64_C(1) << idx;
 		if (inc->wires_grouped & bit_mask) {
-			sr_warn("Not adding signal at index %zu to group %s (multiple assignments)",
+			otc_warn("Not adding signal at index %zu to group %s (multiple assignments)",
 				idx, name);
 		} else {
 			desc->mask |= bit_mask;
 			inc->wires_grouped |= bit_mask;
 		}
 	}
-	sr_dbg("'Group' done, name '%s', mask 0x%" PRIx64 ".",
+	otc_dbg("'Group' done, name '%s', mask 0x%" PRIx64 ".",
 		desc->name, desc->mask);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int process_ungrouped_signals(struct context *inc)
@@ -344,7 +344,7 @@ static int process_ungrouped_signals(struct context *inc)
 	 * groups of other signals already.
 	 */
 	if (!inc->signal_groups)
-		return SR_OK;
+		return OTC_OK;
 
 	/*
 	 * Determine the bit mask of signals that are part of the
@@ -353,20 +353,20 @@ static int process_ungrouped_signals(struct context *inc)
 	bit_mask = inc->wires_all_mask;
 	bit_mask &= inc->wires_enabled;
 	bit_mask &= ~inc->wires_grouped;
-	sr_dbg("'ungrouped' check: all 0x%" PRIx64 ", en 0x%" PRIx64 ", grp 0x%" PRIx64 " -> un 0x%" PRIx64 ".",
+	otc_dbg("'ungrouped' check: all 0x%" PRIx64 ", en 0x%" PRIx64 ", grp 0x%" PRIx64 " -> un 0x%" PRIx64 ".",
 		inc->wires_all_mask, inc->wires_enabled,
 		inc->wires_grouped, bit_mask);
 	if (!bit_mask)
-		return SR_OK;
+		return OTC_OK;
 
-	/* Create a sigrok channel group without a name. */
+	/* Create a opentracelab channel group without a name. */
 	desc = alloc_signal_group(NULL);
 	if (!desc)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	inc->signal_groups = g_slist_append(inc->signal_groups, desc);
 	desc->mask = bit_mask;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int process_enabled_channels(struct context *inc, char **flags)
@@ -380,7 +380,7 @@ static int process_enabled_channels(struct context *inc, char **flags)
 	 */
 	count = g_strv_length(flags);
 	if (count != inc->channel_count)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	bits = 0;
 	mask = UINT64_C(1);
 	for (idx = 0; idx < inc->channel_count; idx++, mask <<= 1) {
@@ -389,7 +389,7 @@ static int process_enabled_channels(struct context *inc, char **flags)
 	}
 	inc->wires_enabled = bits;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int process_inverted_channels(struct context *inc, char **flags)
@@ -403,7 +403,7 @@ static int process_inverted_channels(struct context *inc, char **flags)
 	 */
 	count = g_strv_length(flags);
 	if (count != inc->channel_count)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	bits = 0;
 	mask = UINT64_C(1);
 	for (idx = 0; idx < inc->channel_count; idx++, mask <<= 1) {
@@ -412,7 +412,7 @@ static int process_inverted_channels(struct context *inc, char **flags)
 	}
 	inc->wires_inverted = bits;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int process_sample_line(struct context *inc, char **values)
@@ -430,7 +430,7 @@ static int process_sample_line(struct context *inc, char **values)
 	 */
 	count = g_strv_length(values);
 	if (count != inc->channel_count + 1)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	entry = &inc->sample_data_queue[inc->sample_lines_read];
 	entry->bits = 0;
 	mask = UINT64_C(1);
@@ -440,13 +440,13 @@ static int process_sample_line(struct context *inc, char **values)
 		if (strcmp(values[idx], "U") == 0)
 			inc->wires_undefined |= mask;
 	}
-	rc = sr_atol(values[inc->channel_count], &conv_ret);
-	if (rc != SR_OK)
+	rc = otc_atol(values[inc->channel_count], &conv_ret);
+	if (rc != OTC_OK)
 		return rc;
 	entry->repeat = conv_ret;
 	inc->samples_got_uncomp += entry->repeat;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int process_keyvalue_line(struct context *inc, char *line)
@@ -472,9 +472,9 @@ static int process_keyvalue_line(struct context *inc, char *line)
 	switch (inc->in_sample_data) {
 	case SAMPLEDATA_OPEN_BRACE:
 		if (strcmp(line, "{") != 0)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		inc->in_sample_data++;
-		return SR_OK;
+		return OTC_OK;
 	case SAMPLEDATA_WIRES_COUNT:
 		while (isspace(*line))
 			line++;
@@ -485,7 +485,7 @@ static int process_keyvalue_line(struct context *inc, char *line)
 			return rc;
 		inc->in_sample_data++;
 		inc->sample_lines_read = 0;
-		return SR_OK;
+		return OTC_OK;
 	case SAMPLEDATA_DATA_LINES:
 		while (isspace(*line))
 			line++;
@@ -497,15 +497,15 @@ static int process_keyvalue_line(struct context *inc, char *line)
 		inc->sample_lines_read++;
 		if (inc->sample_lines_read == inc->sample_lines_total)
 			inc->in_sample_data++;
-		return SR_OK;
+		return OTC_OK;
 	case SAMPLEDATA_CLOSE_BRACE:
 		if (strcmp(line, "}") != 0)
-			return SR_ERR_DATA;
-		sr_dbg("'SampleData' done: samples count %" PRIu64 ".",
+			return OTC_ERR_DATA;
+		otc_dbg("'SampleData' done: samples count %" PRIu64 ".",
 			inc->samples_got_uncomp);
 		inc->sample_lines_fed = 0;
 		inc->in_sample_data = SAMPLEDATA_NONE;
-		return SR_OK;
+		return OTC_OK;
 	case SAMPLEDATA_NONE:
 		/* EMPTY */ /* Fall through to regular keyword-line logic. */
 		break;
@@ -515,23 +515,23 @@ static int process_keyvalue_line(struct context *inc, char *line)
 	key = line;
 	sep = strchr(line, DC1_CHR);
 	if (!sep)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	*sep++ = '\0';
 	arg = sep;
 	if (strcmp(key, "Version") == 0) {
 		rc = check_vers_line(arg, 0, &version, &build);
-		if (rc == SR_OK) {
+		if (rc == OTC_OK) {
 			inc->sw_version = g_strdup(version ? version : "?");
-			rc = sr_atol(build, &build_num);
+			rc = otc_atol(build, &build_num);
 			inc->sw_build = build_num;
 		}
-		sr_dbg("'Version' line: version %s, build %zu.",
+		otc_dbg("'Version' line: version %s, build %zu.",
 			inc->sw_version, inc->sw_build);
 		return rc;
 	}
 	if (strcmp(key, "AcquiredSamplePeriod") == 0) {
-		rc = sr_atod(arg, &period);
-		if (rc != SR_OK)
+		rc = otc_atod(arg, &period);
+		if (rc != OTC_OK)
 			return rc;
 		/*
 		 * Implementation detail: The vendor's software provides
@@ -551,9 +551,9 @@ static int process_keyvalue_line(struct context *inc, char *line)
 		int_rate *= 1000;
 		inc->sample_rate = int_rate;
 		if (!inc->sample_rate)
-			return SR_ERR_DATA;
-		sr_dbg("Sample rate: %" PRIu64 ".", inc->sample_rate);
-		return SR_OK;
+			return OTC_ERR_DATA;
+		otc_dbg("Sample rate: %" PRIu64 ".", inc->sample_rate);
+		return OTC_OK;
 	}
 	if (strcmp(key, "AcquiredChannelList") == 0) {
 		args = g_strsplit(arg, DC1_STR, 0);
@@ -561,17 +561,17 @@ static int process_keyvalue_line(struct context *inc, char *line)
 		g_strfreev(args);
 		if (rc)
 			return rc;
-		sr_dbg("Enabled channels: 0x%" PRIx64 ".",
+		otc_dbg("Enabled channels: 0x%" PRIx64 ".",
 			inc->wires_enabled);
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (strcmp(key, "InvertedChannelList") == 0) {
 		args = g_strsplit(arg, DC1_STR, 0);
 		rc = process_inverted_channels(inc, args);
 		g_strfreev(args);
-		sr_dbg("Inverted channels: 0x%" PRIx64 ".",
+		otc_dbg("Inverted channels: 0x%" PRIx64 ".",
 			inc->wires_inverted);
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (strcmp(key, "Signals") == 0) {
 		args = g_strsplit(arg, DC1_STR, 0);
@@ -579,42 +579,42 @@ static int process_keyvalue_line(struct context *inc, char *line)
 		g_strfreev(args);
 		if (rc)
 			return rc;
-		sr_dbg("Got signal names.");
-		return SR_OK;
+		otc_dbg("Got signal names.");
+		return OTC_OK;
 	}
 	if (strcmp(key, "SampleData") == 0) {
 		args = g_strsplit(arg, DC1_STR, 3);
 		if (!args || !args[0] || !args[1]) {
 			g_strfreev(args);
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
-		rc = sr_atoi(args[0], &wires);
+		rc = otc_atoi(args[0], &wires);
 		if (rc) {
 			g_strfreev(args);
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
-		rc = sr_atoi(args[1], &samples);
+		rc = otc_atoi(args[1], &samples);
 		if (rc) {
 			g_strfreev(args);
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		g_strfreev(args);
 		if (!wires || !samples)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		inc->channel_count = wires;
 		inc->sample_lines_total = samples;
-		sr_dbg("'SampleData' start: wires %zu, sample lines %zu.",
+		otc_dbg("'SampleData' start: wires %zu, sample lines %zu.",
 			inc->channel_count, inc->sample_lines_total);
 		if (inc->channel_count > MAX_CHANNELS)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		inc->in_sample_data = SAMPLEDATA_OPEN_BRACE;
 		alloc_size = sizeof(inc->sample_data_queue[0]);
 		alloc_size *= inc->sample_lines_total;
 		inc->sample_data_queue = g_malloc0(alloc_size);
 		if (!inc->sample_data_queue)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		inc->sample_lines_fed = 0;
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (strcmp(key, "Group") == 0) {
 		args = g_strsplit(arg, DC1_STR, 0);
@@ -622,20 +622,20 @@ static int process_keyvalue_line(struct context *inc, char *line)
 		g_strfreev(args);
 		if (rc)
 			return rc;
-		return SR_OK;
+		return OTC_OK;
 	}
 	if (strcmp(key, LAST_KEYWORD) == 0) {
-		sr_dbg("'" LAST_KEYWORD "' seen, assuming \"header done\".");
+		otc_dbg("'" LAST_KEYWORD "' seen, assuming \"header done\".");
 		inc->got_header = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* Unsupported keyword, silently ignore the line. */
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Check for, and isolate another line of text input. */
-static int have_text_line(struct sr_input *in, char **line, char **next)
+static int have_text_line(struct otc_input *in, char **line, char **next)
 {
 	char *sol_ptr, *eol_ptr;
 
@@ -693,7 +693,7 @@ static int process_text_line(struct context *inc, char *line)
 		if (!is_cont_end) {
 			/* Keep accumulating. */
 			g_string_append_len(inc->cont_buff, CRLF, strlen(CRLF));
-			return SR_OK;
+			return OTC_OK;
 		}
 		/* End of continuation. */
 		line = inc->cont_buff->str;
@@ -726,7 +726,7 @@ static int have_header(GString *buf)
 }
 
 /* Process/inspect previously received input data. Get header parameters. */
-static int parse_header(struct sr_input *in)
+static int parse_header(struct otc_input *in)
 {
 	struct context *inc;
 	char *line, *next;
@@ -740,27 +740,27 @@ static int parse_header(struct sr_input *in)
 			return rc;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-/* Create sigrok channels and groups. */
-static int create_channels_groups(struct sr_input *in)
+/* Create opentracelab channels and groups. */
+static int create_channels_groups(struct otc_input *in)
 {
 	struct context *inc;
 	uint64_t mask;
 	size_t idx;
 	const char *name;
 	gboolean enabled;
-	struct sr_channel *ch;
-	struct sr_dev_inst *sdi;
+	struct otc_channel *ch;
+	struct otc_dev_inst *sdi;
 	GSList *l;
 	struct signal_group_desc *desc;
-	struct sr_channel_group *cg;
+	struct otc_channel_group *cg;
 
 	inc = in->priv;
 
 	if (inc->channels)
-		return SR_OK;
+		return OTC_OK;
 
 	mask = UINT64_C(1);
 	for (idx = 0; idx < inc->channel_count; idx++, mask <<= 1) {
@@ -768,35 +768,35 @@ static int create_channels_groups(struct sr_input *in)
 		if (!name || !*name)
 			name = inc->wire_names[idx];
 		enabled = (inc->wires_enabled & mask) ? TRUE : FALSE;
-		ch = sr_channel_new(in->sdi, idx,
-			SR_CHANNEL_LOGIC, enabled, name);
+		ch = otc_channel_new(in->sdi, idx,
+			OTC_CHANNEL_LOGIC, enabled, name);
 		if (!ch)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		inc->channels = g_slist_append(inc->channels, ch);
 	}
 
 	sdi = in->sdi;
 	for (l = inc->signal_groups; l; l = l->next) {
 		desc = l->data;
-		cg = sr_channel_group_new(sdi, desc->name, NULL);
+		cg = otc_channel_group_new(sdi, desc->name, NULL);
 		if (!cg)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		mask = UINT64_C(1);
 		for (idx = 0; idx < inc->channel_count; idx++, mask <<= 1) {
 			if (!(desc->mask & mask))
 				continue;
 			ch = g_slist_nth_data(inc->channels, idx);
 			if (!ch)
-				return SR_ERR_DATA;
+				return OTC_ERR_DATA;
 			cg->channels = g_slist_append(cg->channels, ch);
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Allocate the session feed buffer. */
-static int create_feed_buffer(struct sr_input *in)
+static int create_feed_buffer(struct otc_input *in)
 {
 	struct context *inc;
 
@@ -807,22 +807,22 @@ static int create_feed_buffer(struct sr_input *in)
 	inc->samples_in_buffer = 0;
 	inc->feed_buffer = g_malloc0(inc->samples_per_chunk * inc->unitsize);
 	if (!inc->feed_buffer)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Send all accumulated sample data values to the session. */
-static int send_buffer(struct sr_input *in)
+static int send_buffer(struct otc_input *in)
 {
 	struct context *inc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 	int rc;
 
 	inc = in->priv;
 	if (!inc->samples_in_buffer)
-		return SR_OK;
+		return OTC_OK;
 
 	if (!inc->header_sent) {
 		rc = std_session_send_df_header(in->sdi);
@@ -832,33 +832,33 @@ static int send_buffer(struct sr_input *in)
 	}
 
 	if (inc->sample_rate && !inc->rate_sent) {
-		rc = sr_session_send_meta(in->sdi, SR_CONF_SAMPLERATE,
+		rc = otc_session_send_meta(in->sdi, OTC_CONF_SAMPLERATE,
 			g_variant_new_uint64(inc->sample_rate));
 		if (rc)
 			return rc;
 		inc->rate_sent = TRUE;
 	}
 
-	packet.type = SR_DF_LOGIC;
+	packet.type = OTC_DF_LOGIC;
 	packet.payload = &logic;
 	logic.unitsize = inc->unitsize;
 	logic.data = inc->feed_buffer;
 	logic.length = inc->unitsize * inc->samples_in_buffer;
-	rc = sr_session_send(in->sdi, &packet);
+	rc = otc_session_send(in->sdi, &packet);
 
 	inc->samples_in_buffer = 0;
 
 	if (rc)
 		return rc;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
  * Add N copies of the current sample to the buffer. Send the buffer to
  * the session feed when a maximum amount of data was collected.
  */
-static int add_samples(struct sr_input *in, uint64_t samples, size_t count)
+static int add_samples(struct otc_input *in, uint64_t samples, size_t count)
 {
 	struct context *inc;
 	uint8_t sample_buffer[sizeof(uint64_t)];
@@ -892,11 +892,11 @@ static int add_samples(struct sr_input *in, uint64_t samples, size_t count)
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Pass on previously received samples to the session. */
-static int process_queued_samples(struct sr_input *in)
+static int process_queued_samples(struct otc_input *in)
 {
 	struct context *inc;
 	struct sample_data_entry *entry;
@@ -914,7 +914,7 @@ static int process_queued_samples(struct sr_input *in)
 			return rc;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -922,27 +922,27 @@ static int process_queued_samples(struct sr_input *in)
  * sending sample data to the session. Send initial packets before
  * sample data follows.
  */
-static int prepare_session_feed(struct sr_input *in)
+static int prepare_session_feed(struct otc_input *in)
 {
 	struct context *inc;
 	int rc;
 
 	inc = in->priv;
 	if (inc->ch_feed_prep)
-		return SR_OK;
+		return OTC_OK;
 
 	/* Got channel names? At least fallbacks? */
 	if (!inc->wire_names[0] || !inc->wire_names[0][0])
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	/* Samples seen? Seen them all? */
 	if (!inc->channel_count)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (!inc->sample_lines_total)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (inc->in_sample_data)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (!inc->sample_data_queue)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	inc->sample_lines_fed = 0;
 
 	/*
@@ -961,19 +961,19 @@ static int prepare_session_feed(struct sr_input *in)
 	inc->wires_all_mask = UINT64_C(1);
 	inc->wires_all_mask <<= inc->channel_count;
 	inc->wires_all_mask--;
-	sr_dbg("all wires mask: 0x%" PRIx64 ".", inc->wires_all_mask);
+	otc_dbg("all wires mask: 0x%" PRIx64 ".", inc->wires_all_mask);
 	if (!inc->wires_enabled) {
 		inc->wires_enabled = ~inc->wires_undefined;
 		inc->wires_enabled &= ~inc->wires_all_mask;
-		sr_dbg("enabled from undefined: 0x%" PRIx64 ".",
+		otc_dbg("enabled from undefined: 0x%" PRIx64 ".",
 			inc->wires_enabled);
 	}
 	if (!inc->wires_enabled) {
 		inc->wires_enabled = inc->wires_all_mask;
-		sr_dbg("enabled from total mask: 0x%" PRIx64 ".",
+		otc_dbg("enabled from total mask: 0x%" PRIx64 ".",
 			inc->wires_enabled);
 	}
-	sr_dbg("enabled mask: 0x%" PRIx64 ".",
+	otc_dbg("enabled mask: 0x%" PRIx64 ".",
 		inc->wires_enabled);
 	rc = process_ungrouped_signals(inc);
 	if (rc)
@@ -993,7 +993,7 @@ static int prepare_session_feed(struct sr_input *in)
 
 	inc->ch_feed_prep = TRUE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int format_match(GHashTable *metadata, unsigned int *confidence)
@@ -1003,17 +1003,17 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	gchar *version, *build;
 
 	/* Get a copy of the start of the file's content. */
-	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(SR_INPUT_META_HEADER));
+	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(OTC_INPUT_META_HEADER));
 	if (!buf || !buf->str)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	tmpbuf = g_string_new_len(buf->str, buf->len);
 	if (!tmpbuf || !tmpbuf->str)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
 	/* See if we can spot a typical first LPF line. */
 	rc = check_vers_line(tmpbuf->str, 1, &version, &build);
-	if (rc == SR_OK && version && build) {
-		sr_dbg("Looks like a LogicProbe project, version %s, build %s.",
+	if (rc == OTC_OK && version && build) {
+		otc_dbg("Looks like a LogicProbe project, version %s, build %s.",
 			version, build);
 		*confidence = 1;
 	}
@@ -1022,7 +1022,7 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	return rc;
 }
 
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	struct context *inc;
 
@@ -1032,10 +1032,10 @@ static int init(struct sr_input *in, GHashTable *options)
 	inc = g_malloc0(sizeof(*inc));
 	in->priv = inc;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 	struct context *inc;
 	int rc;
@@ -1052,7 +1052,7 @@ static int receive(struct sr_input *in, GString *buf)
 	inc = in->priv;
 	if (!inc->got_header) {
 		if (!have_header(in->buf))
-			return SR_OK;
+			return OTC_OK;
 		rc = parse_header(in);
 		if (rc)
 			return rc;
@@ -1060,7 +1060,7 @@ static int receive(struct sr_input *in, GString *buf)
 		if (rc)
 			return rc;
 		in->sdi_ready = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* Process sample data, after the header got processed. */
@@ -1069,14 +1069,14 @@ static int receive(struct sr_input *in, GString *buf)
 	return rc;
 }
 
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	struct context *inc;
 	int rc;
 
 	/* Nothing to do here if we never started feeding the session. */
 	if (!in->sdi_ready)
-		return SR_OK;
+		return OTC_OK;
 
 	/*
 	 * Process sample data that may not have been forwarded before.
@@ -1099,7 +1099,7 @@ static int end(struct sr_input *in)
 	return rc;
 }
 
-static void cleanup(struct sr_input *in)
+static void cleanup(struct otc_input *in)
 {
 	struct context *inc;
 	size_t idx;
@@ -1129,7 +1129,7 @@ static void cleanup(struct sr_input *in)
 	memset(inc, 0, sizeof(*inc));
 }
 
-static int reset(struct sr_input *in)
+static int reset(struct otc_input *in)
 {
 	struct context *inc;
 	GSList *channels;
@@ -1148,24 +1148,24 @@ static int reset(struct sr_input *in)
 	cleanup(in);
 	inc->channels = channels;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	ALL_ZERO,
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	return options;
 }
 
-SR_PRIV struct sr_input_module input_logicport = {
+OTC_PRIV struct otc_input_module input_logicport = {
 	.id = "logicport",
 	.name = "LogicPort File",
 	.desc = "Intronix LA1034 LogicPort project",
 	.exts = (const char *[]){ "lpf", NULL },
-	.metadata = { SR_INPUT_META_HEADER | SR_INPUT_META_REQUIRED },
+	.metadata = { OTC_INPUT_META_HEADER | OTC_INPUT_META_REQUIRED },
 	.options = get_options,
 	.format_match = format_match,
 	.init = init,

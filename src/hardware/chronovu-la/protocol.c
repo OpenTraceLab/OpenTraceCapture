@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2011-2014 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -20,21 +20,21 @@
 #include <config.h>
 #include "protocol.h"
 
-SR_PRIV const struct cv_profile cv_profiles[] = {
-	{ CHRONOVU_LA8,  "LA8",  "ChronoVu LA8",  8,  SR_MHZ(100), 2, 0.8388608 },
-	{ CHRONOVU_LA16, "LA16", "ChronoVu LA16", 16, SR_MHZ(200), 4, 0.042 },
+OTC_PRIV const struct cv_profile cv_profiles[] = {
+	{ CHRONOVU_LA8,  "LA8",  "ChronoVu LA8",  8,  OTC_MHZ(100), 2, 0.8388608 },
+	{ CHRONOVU_LA16, "LA16", "ChronoVu LA16", 16, OTC_MHZ(200), 4, 0.042 },
 	ALL_ZERO
 };
 
 /* LA8: channels are numbered 0-7. LA16: channels are numbered 0-15. */
-SR_PRIV const char *cv_channel_names[] = {
+OTC_PRIV const char *cv_channel_names[] = {
 	"0", "1", "2", "3", "4", "5", "6", "7",
 	"8", "9", "10", "11", "12", "13", "14", "15",
 };
 
 static int close_usb_reset_sequencer(struct dev_context *devc);
 
-SR_PRIV void cv_fill_samplerates_if_needed(const struct sr_dev_inst *sdi)
+OTC_PRIV void cv_fill_samplerates_if_needed(const struct otc_dev_inst *sdi)
 {
 	int i;
 	struct dev_context *devc;
@@ -56,7 +56,7 @@ SR_PRIV void cv_fill_samplerates_if_needed(const struct sr_dev_inst *sdi)
  *
  * @return 1 if the samplerate is supported/valid, 0 otherwise.
  */
-static int is_valid_samplerate(const struct sr_dev_inst *sdi,
+static int is_valid_samplerate(const struct otc_dev_inst *sdi,
 			       uint64_t samplerate)
 {
 	int i;
@@ -71,7 +71,7 @@ static int is_valid_samplerate(const struct sr_dev_inst *sdi,
 			return 1;
 	}
 
-	sr_err("Invalid samplerate (%" PRIu64 "Hz).", samplerate);
+	otc_err("Invalid samplerate (%" PRIu64 "Hz).", samplerate);
 
 	return 0;
 }
@@ -96,7 +96,7 @@ static int is_valid_samplerate(const struct sr_dev_inst *sdi,
  *
  * @return The divcount value as needed by the hardware, or 0xff upon errors.
  */
-SR_PRIV uint8_t cv_samplerate_to_divcount(const struct sr_dev_inst *sdi,
+OTC_PRIV uint8_t cv_samplerate_to_divcount(const struct otc_dev_inst *sdi,
 					  uint64_t samplerate)
 {
 	struct dev_context *devc;
@@ -104,12 +104,12 @@ SR_PRIV uint8_t cv_samplerate_to_divcount(const struct sr_dev_inst *sdi,
 	devc = sdi->priv;
 
 	if (samplerate == 0) {
-		sr_err("Can't convert invalid samplerate of 0 Hz.");
+		otc_err("Can't convert invalid samplerate of 0 Hz.");
 		return 0xff;
 	}
 
 	if (!is_valid_samplerate(sdi, samplerate)) {
-		sr_err("Can't get divcount, samplerate invalid.");
+		otc_err("Can't get divcount, samplerate invalid.");
 		return 0xff;
 	}
 
@@ -126,7 +126,7 @@ SR_PRIV uint8_t cv_samplerate_to_divcount(const struct sr_dev_inst *sdi,
  *
  * @return The number of bytes written, or a negative value upon errors.
  */
-SR_PRIV int cv_write(struct dev_context *devc, uint8_t *buf, int size)
+OTC_PRIV int cv_write(struct dev_context *devc, uint8_t *buf, int size)
 {
 	int bytes_written;
 
@@ -135,11 +135,11 @@ SR_PRIV int cv_write(struct dev_context *devc, uint8_t *buf, int size)
 	bytes_written = ftdi_write_data(devc->ftdic, buf, size);
 
 	if (bytes_written < 0) {
-		sr_err("Failed to write data (%d): %s.",
+		otc_err("Failed to write data (%d): %s.",
 		       bytes_written, ftdi_get_error_string(devc->ftdic));
 		(void) close_usb_reset_sequencer(devc); /* Ignore errors. */
 	} else if (bytes_written != size) {
-		sr_err("Failed to write data, only %d/%d bytes written.",
+		otc_err("Failed to write data, only %d/%d bytes written.",
 		       size, bytes_written);
 		(void) close_usb_reset_sequencer(devc); /* Ignore errors. */
 	}
@@ -167,10 +167,10 @@ static int cv_read(struct dev_context *devc, uint8_t *buf, int size)
 	bytes_read = ftdi_read_data(devc->ftdic, buf, size);
 
 	if (bytes_read < 0) {
-		sr_err("Failed to read data (%d): %s.",
+		otc_err("Failed to read data (%d): %s.",
 		       bytes_read, ftdi_get_error_string(devc->ftdic));
 	} else if (bytes_read != size) {
-		// sr_err("Failed to read data, only %d/%d bytes read.",
+		// otc_err("Failed to read data, only %d/%d bytes read.",
 		//        bytes_read, size);
 	}
 
@@ -182,7 +182,7 @@ static int cv_read(struct dev_context *devc, uint8_t *buf, int size)
  *
  * @param devc The struct containing private per-device-instance data.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments.
  */
 static int close_usb_reset_sequencer(struct dev_context *devc)
 {
@@ -194,22 +194,22 @@ static int close_usb_reset_sequencer(struct dev_context *devc)
 
 	if (devc->ftdic->usb_dev) {
 		/* Reset the sequencer logic, then wait 100ms. */
-		sr_dbg("Resetting sequencer logic.");
+		otc_dbg("Resetting sequencer logic.");
 		(void) cv_write(devc, buf, 8); /* Ignore errors. */
 		g_usleep(100 * 1000);
 
 		/* Purge FTDI buffers, then reset and close the FTDI device. */
-		sr_dbg("Purging buffers, resetting+closing FTDI device.");
+		otc_dbg("Purging buffers, resetting+closing FTDI device.");
 
 		/* Log errors, but ignore them (i.e., don't abort). */
 		if ((ret = PURGE_FTDI_BOTH(devc->ftdic)) < 0)
-			sr_err("Failed to purge FTDI buffers (%d): %s.",
+			otc_err("Failed to purge FTDI buffers (%d): %s.",
 			       ret, ftdi_get_error_string(devc->ftdic));
 		if ((ret = ftdi_usb_reset(devc->ftdic)) < 0)
-			sr_err("Failed to reset FTDI device (%d): %s.",
+			otc_err("Failed to reset FTDI device (%d): %s.",
 			       ret, ftdi_get_error_string(devc->ftdic));
 		if ((ret = ftdi_usb_close(devc->ftdic)) < 0)
-			sr_err("Failed to close FTDI device (%d): %s.",
+			otc_err("Failed to close FTDI device (%d): %s.",
 			       ret, ftdi_get_error_string(devc->ftdic));
 	}
 
@@ -217,7 +217,7 @@ static int close_usb_reset_sequencer(struct dev_context *devc)
 	ftdi_free(devc->ftdic);
 	devc->ftdic = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -227,7 +227,7 @@ static int close_usb_reset_sequencer(struct dev_context *devc)
  *
  * @param devc The struct containing private per-device-instance data.
  *
- * @return SR_OK upon success, SR_ERR upon failure.
+ * @return OTC_OK upon success, OTC_ERR upon failure.
  */
 static int reset_device(struct dev_context *devc)
 {
@@ -237,7 +237,7 @@ static int reset_device(struct dev_context *devc)
 
 	/* Note: Caller checked that devc and devc->ftdic != NULL. */
 
-	sr_dbg("Resetting the device.");
+	otc_dbg("Resetting the device.");
 
 	/*
 	 * Purge pending read data from the FTDI hardware FIFO until
@@ -253,17 +253,17 @@ static int reset_device(struct dev_context *devc)
 	/* Reset the sequencer logic and close the USB port. */
 	(void) close_usb_reset_sequencer(devc); /* Ignore errors. */
 
-	sr_dbg("Device reset finished.");
+	otc_dbg("Device reset finished.");
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int cv_convert_trigger(const struct sr_dev_inst *sdi)
+OTC_PRIV int cv_convert_trigger(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_trigger *trigger;
-	struct sr_trigger_stage *stage;
-	struct sr_trigger_match *match;
+	struct otc_trigger *trigger;
+	struct otc_trigger_stage *stage;
+	struct otc_trigger_match *match;
 	const GSList *l, *m;
 	uint16_t channel_bit;
 
@@ -272,12 +272,12 @@ SR_PRIV int cv_convert_trigger(const struct sr_dev_inst *sdi)
 	devc->trigger_mask = 0x0000; /* Default to "don't care". */
 	devc->trigger_edgemask = 0x0000; /* Default to "state triggered". */
 
-	if (!(trigger = sr_session_trigger_get(sdi->session)))
-		return SR_OK;
+	if (!(trigger = otc_session_trigger_get(sdi->session)))
+		return OTC_OK;
 
 	if (g_slist_length(trigger->stages) > 1) {
-		sr_err("This device only supports 1 trigger stage.");
-		return SR_ERR;
+		otc_err("This device only supports 1 trigger stage.");
+		return OTC_ERR;
 	}
 
 	for (l = trigger->stages; l; l = l->next) {
@@ -288,40 +288,40 @@ SR_PRIV int cv_convert_trigger(const struct sr_dev_inst *sdi)
 				/* Ignore disabled channels with a trigger. */
 				continue;
 			if (devc->prof->model == CHRONOVU_LA8 &&
-					(match->match == SR_TRIGGER_RISING
-					|| match->match == SR_TRIGGER_FALLING)) {
-				sr_err("This model supports only simple triggers.");
-				return SR_ERR;
+					(match->match == OTC_TRIGGER_RISING
+					|| match->match == OTC_TRIGGER_FALLING)) {
+				otc_err("This model supports only simple triggers.");
+				return OTC_ERR;
 			}
 			channel_bit = (1 << (match->channel->index));
 
 			/* state: 1 == high, edge: 1 == rising edge. */
-			if (match->match == SR_TRIGGER_ONE
-					|| match->match == SR_TRIGGER_RISING)
+			if (match->match == OTC_TRIGGER_ONE
+					|| match->match == OTC_TRIGGER_RISING)
 				devc->trigger_pattern |= channel_bit;
 
 			/* LA8 and LA16 support state triggering. */
-			if (match->match == SR_TRIGGER_ONE
-					|| match->match == SR_TRIGGER_ZERO)
+			if (match->match == OTC_TRIGGER_ONE
+					|| match->match == OTC_TRIGGER_ZERO)
 				devc->trigger_mask |= channel_bit;
 
 			/* LA16 (but not LA8) supports edge triggering. */
 			if ((devc->prof->model == CHRONOVU_LA16)) {
-				if (match->match == SR_TRIGGER_RISING
-						|| match->match == SR_TRIGGER_FALLING)
+				if (match->match == OTC_TRIGGER_RISING
+						|| match->match == OTC_TRIGGER_FALLING)
 						devc->trigger_edgemask |= channel_bit;
 			}
 		}
 	}
 
-	sr_dbg("Trigger pattern/mask/edgemask = 0x%04x / 0x%04x / 0x%04x.",
+	otc_dbg("Trigger pattern/mask/edgemask = 0x%04x / 0x%04x / 0x%04x.",
 			devc->trigger_pattern, devc->trigger_mask,
 			devc->trigger_edgemask);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int cv_set_samplerate(const struct sr_dev_inst *sdi, uint64_t samplerate)
+OTC_PRIV int cv_set_samplerate(const struct otc_dev_inst *sdi, uint64_t samplerate)
 {
 	struct dev_context *devc;
 
@@ -329,22 +329,22 @@ SR_PRIV int cv_set_samplerate(const struct sr_dev_inst *sdi, uint64_t samplerate
 
 	devc = sdi->priv;
 
-	sr_spew("Trying to set samplerate to %" PRIu64 "Hz.", samplerate);
+	otc_spew("Trying to set samplerate to %" PRIu64 "Hz.", samplerate);
 
 	cv_fill_samplerates_if_needed(sdi);
 
 	/* Check if this is a samplerate supported by the hardware. */
 	if (!is_valid_samplerate(sdi, samplerate)) {
-		sr_dbg("Failed to set invalid samplerate (%" PRIu64 "Hz).",
+		otc_dbg("Failed to set invalid samplerate (%" PRIu64 "Hz).",
 		       samplerate);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	devc->cur_samplerate = samplerate;
 
-	sr_dbg("Samplerate set to %" PRIu64 "Hz.", devc->cur_samplerate);
+	otc_dbg("Samplerate set to %" PRIu64 "Hz.", devc->cur_samplerate);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -353,23 +353,23 @@ SR_PRIV int cv_set_samplerate(const struct sr_dev_inst *sdi, uint64_t samplerate
  * @param devc The struct containing private per-device-instance data. Must not
  *             be NULL. devc->ftdic must not be NULL either.
  *
- * @return SR_OK upon success, or SR_ERR upon errors.
+ * @return OTC_OK upon success, or OTC_ERR upon errors.
  */
-SR_PRIV int cv_read_block(struct dev_context *devc)
+OTC_PRIV int cv_read_block(struct dev_context *devc)
 {
 	int i, byte_offset, m, mi, p, q, index, bytes_read;
 	gint64 now;
 
 	/* Note: Caller checked that devc and devc->ftdic != NULL. */
 
-	sr_spew("Reading block %d.", devc->block_counter);
+	otc_spew("Reading block %d.", devc->block_counter);
 
 	bytes_read = cv_read(devc, devc->mangled_buf, BS);
 
 	/* If first block read got 0 bytes, retry until success or timeout. */
 	if ((bytes_read == 0) && (devc->block_counter == 0)) {
 		do {
-			sr_spew("Reading block 0 (again).");
+			otc_spew("Reading block 0 (again).");
 			/* Note: If bytes_read < 0 cv_read() will log errors. */
 			bytes_read = cv_read(devc, devc->mangled_buf, BS);
 			now = g_get_monotonic_time();
@@ -378,13 +378,13 @@ SR_PRIV int cv_read_block(struct dev_context *devc)
 
 	/* Check if block read was successful or a timeout occurred. */
 	if (bytes_read != BS) {
-		sr_err("Trigger timed out. Bytes read: %d.", bytes_read);
+		otc_err("Trigger timed out. Bytes read: %d.", bytes_read);
 		(void) reset_device(devc); /* Ignore errors. */
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* De-mangle the data. */
-	sr_spew("Demangling block %d.", devc->block_counter);
+	otc_spew("Demangling block %d.", devc->block_counter);
 	byte_offset = devc->block_counter * BS;
 	m = byte_offset / (1024 * 1024);
 	mi = m * (1024 * 1024);
@@ -402,15 +402,15 @@ SR_PRIV int cv_read_block(struct dev_context *devc)
 		devc->final_buf[index] = devc->mangled_buf[i];
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV void cv_send_block_to_session_bus(const struct sr_dev_inst *sdi, int block)
+OTC_PRIV void cv_send_block_to_session_bus(const struct otc_dev_inst *sdi, int block)
 {
 	int i, idx;
 	uint8_t sample, expected_sample, tmp8;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 	int trigger_point; /* Relative trigger point (in this block). */
 	struct dev_context *devc;
 
@@ -431,7 +431,7 @@ SR_PRIV void cv_send_block_to_session_bus(const struct sr_dev_inst *sdi, int blo
 		/*
 		 * Also, don't continue if triggers are "don't care", i.e. if
 		 * no trigger conditions were specified by the user. In that
-		 * case we don't want to send an SR_DF_TRIGGER packet at all.
+		 * case we don't want to send an OTC_DF_TRIGGER packet at all.
 		 */
 		if (devc->trigger_mask == 0x0000)
 			break;
@@ -455,58 +455,58 @@ SR_PRIV void cv_send_block_to_session_bus(const struct sr_dev_inst *sdi, int blo
 		}
 	}
 
-	/* If no trigger was found, send one SR_DF_LOGIC packet. */
+	/* If no trigger was found, send one OTC_DF_LOGIC packet. */
 	if (trigger_point == -1) {
-		/* Send an SR_DF_LOGIC packet to the session bus. */
-		sr_spew("Sending SR_DF_LOGIC packet (%d bytes) for "
+		/* Send an OTC_DF_LOGIC packet to the session bus. */
+		otc_spew("Sending OTC_DF_LOGIC packet (%d bytes) for "
 		        "block %d.", BS, block);
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		logic.length = BS;
 		logic.unitsize = devc->prof->num_channels / 8;
 		logic.data = devc->final_buf + (block * BS);
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 		return;
 	}
 
 	/*
 	 * We found the trigger, so some special handling is needed. We have
-	 * to send an SR_DF_LOGIC packet with the samples before the trigger
+	 * to send an OTC_DF_LOGIC packet with the samples before the trigger
 	 * (if any), then the SD_DF_TRIGGER packet itself, then another
-	 * SR_DF_LOGIC packet with the samples after the trigger (if any).
+	 * OTC_DF_LOGIC packet with the samples after the trigger (if any).
 	 */
 
-	/* TODO: Send SR_DF_TRIGGER packet before or after the actual sample? */
+	/* TODO: Send OTC_DF_TRIGGER packet before or after the actual sample? */
 
 	/* If at least one sample is located before the trigger... */
 	if (trigger_point > 0) {
-		/* Send pre-trigger SR_DF_LOGIC packet to the session bus. */
-		sr_spew("Sending pre-trigger SR_DF_LOGIC packet, "
+		/* Send pre-trigger OTC_DF_LOGIC packet to the session bus. */
+		otc_spew("Sending pre-trigger OTC_DF_LOGIC packet, "
 			"start = %d, length = %d.", block * BS, trigger_point);
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		logic.length = trigger_point;
 		logic.unitsize = devc->prof->num_channels / 8;
 		logic.data = devc->final_buf + (block * BS);
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 	}
 
-	/* Send the SR_DF_TRIGGER packet to the session bus. */
-	sr_spew("Sending SR_DF_TRIGGER packet, sample = %d.",
+	/* Send the OTC_DF_TRIGGER packet to the session bus. */
+	otc_spew("Sending OTC_DF_TRIGGER packet, sample = %d.",
 		(block * BS) + trigger_point);
 	std_session_send_df_trigger(sdi);
 
 	/* If at least one sample is located after the trigger... */
 	if (trigger_point < (BS - 1)) {
-		/* Send post-trigger SR_DF_LOGIC packet to the session bus. */
-		sr_spew("Sending post-trigger SR_DF_LOGIC packet, "
+		/* Send post-trigger OTC_DF_LOGIC packet to the session bus. */
+		otc_spew("Sending post-trigger OTC_DF_LOGIC packet, "
 			"start = %d, length = %d.",
 			(block * BS) + trigger_point, BS - trigger_point);
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		logic.length = BS - trigger_point;
 		logic.unitsize = devc->prof->num_channels / 8;
 		logic.data = devc->final_buf + (block * BS) + trigger_point;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 	}
 }

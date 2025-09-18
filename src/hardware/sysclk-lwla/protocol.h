@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Daniel Elstner <daniel.kitta@gmail.com>
  *
@@ -23,8 +23,8 @@
 #include <stdint.h>
 #include <libusb.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include <libsigrok-internal.h>
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "sysclk-lwla"
 
@@ -142,17 +142,17 @@ struct model_info {
 	unsigned int num_samplerates;
 	uint64_t samplerates[20];
 
-	int (*apply_fpga_config)(const struct sr_dev_inst *sdi);
-	int (*device_init_check)(const struct sr_dev_inst *sdi);
-	int (*setup_acquisition)(const struct sr_dev_inst *sdi);
+	int (*apply_fpga_config)(const struct otc_dev_inst *sdi);
+	int (*device_init_check)(const struct otc_dev_inst *sdi);
+	int (*setup_acquisition)(const struct otc_dev_inst *sdi);
 
-	int (*prepare_request)(const struct sr_dev_inst *sdi);
-	int (*handle_response)(const struct sr_dev_inst *sdi);
+	int (*prepare_request)(const struct otc_dev_inst *sdi);
+	int (*handle_response)(const struct otc_dev_inst *sdi);
 };
 
-extern SR_PRIV const struct model_info lwla1016_info;
-extern SR_PRIV const struct model_info lwla1034_info;
+extern OTC_PRIV const struct model_info lwla1016_info;
+extern OTC_PRIV const struct model_info lwla1034_info;
 
-SR_PRIV int lwla_start_acquisition(const struct sr_dev_inst *sdi);
+OTC_PRIV int lwla_start_acquisition(const struct otc_dev_inst *sdi);
 
 #endif

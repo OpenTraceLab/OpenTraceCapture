@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2013 Marc Schink <sigrok-dev@marcschink.de>
+ * Copyright (C) 2013 Marc Schink <opentracelab-dev@marcschink.de>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,47 +21,47 @@
 #include "protocol.h"
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
+	OTC_CONF_CAPTURE_RATIO | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const int32_t trigger_matches[] = {
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
-	SR_TRIGGER_EDGE,
+	OTC_TRIGGER_RISING,
+	OTC_TRIGGER_FALLING,
+	OTC_TRIGGER_EDGE,
 };
 
-SR_PRIV const uint64_t sl2_samplerates[NUM_SAMPLERATES] = {
-	SR_KHZ(1.25),
-	SR_KHZ(10),
-	SR_KHZ(50),
-	SR_KHZ(100),
-	SR_KHZ(250),
-	SR_KHZ(500),
-	SR_MHZ(1),
-	SR_MHZ(2.5),
-	SR_MHZ(5),
-	SR_MHZ(10),
-	SR_MHZ(20),
+OTC_PRIV const uint64_t sl2_samplerates[NUM_SAMPLERATES] = {
+	OTC_KHZ(1.25),
+	OTC_KHZ(10),
+	OTC_KHZ(50),
+	OTC_KHZ(100),
+	OTC_KHZ(250),
+	OTC_KHZ(500),
+	OTC_MHZ(1),
+	OTC_MHZ(2.5),
+	OTC_MHZ(5),
+	OTC_MHZ(10),
+	OTC_MHZ(20),
 };
 
 static const char *channel_names[] = {
 	"0", "1", "2", "3",
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	GSList *usb_devices, *devices, *l;
 	struct drv_context *drvc;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct device_info dev_info;
 	unsigned int i;
 	int ret;
@@ -71,7 +71,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	devices = NULL;
 	drvc = di->context;
 
-	usb_devices = sr_usb_find(drvc->sr_ctx->libusb_ctx, USB_VID_PID);
+	usb_devices = otc_usb_find(drvc->otc_ctx->libusb_ctx, USB_VID_PID);
 
 	if (!usb_devices)
 		return NULL;
@@ -80,41 +80,41 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		usb = l->data;
 
 		if ((ret = sl2_get_device_info(di, *usb, &dev_info)) < 0) {
-			sr_warn("Failed to get device information: %d.", ret);
-			sr_usb_dev_inst_free(usb);
+			otc_warn("Failed to get device information: %d.", ret);
+			otc_usb_dev_inst_free(usb);
 			continue;
 		}
 
 		devc = g_malloc0(sizeof(struct dev_context));
 
 		if (!(devc->xfer_in = libusb_alloc_transfer(0))) {
-			sr_err("Transfer malloc failed.");
-			sr_usb_dev_inst_free(usb);
+			otc_err("Transfer malloc failed.");
+			otc_usb_dev_inst_free(usb);
 			g_free(devc);
 			continue;
 		}
 
 		if (!(devc->xfer_out = libusb_alloc_transfer(0))) {
-			sr_err("Transfer malloc failed.");
-			sr_usb_dev_inst_free(usb);
+			otc_err("Transfer malloc failed.");
+			otc_usb_dev_inst_free(usb);
 			libusb_free_transfer(devc->xfer_in);
 			g_free(devc);
 			continue;
 		}
 
-		sdi = g_malloc0(sizeof(struct sr_dev_inst));
-		sdi->status = SR_ST_INACTIVE;
+		sdi = g_malloc0(sizeof(struct otc_dev_inst));
+		sdi->status = OTC_ST_INACTIVE;
 		sdi->vendor = g_strdup("IKALOGIC");
 		sdi->model = g_strdup("Scanalogic-2");
 		sdi->version = g_strdup_printf("%u.%u", dev_info.fw_ver_major, dev_info.fw_ver_minor);
 		sdi->serial_num = g_strdup_printf("%d", dev_info.serial);
 		sdi->priv = devc;
-		sdi->inst_type = SR_INST_USB;
+		sdi->inst_type = OTC_INST_USB;
 		sdi->conn = usb;
 
 		for (i = 0; i < ARRAY_SIZE(channel_names); i++)
-			devc->channels[i] = sr_channel_new(sdi, i,
-				SR_CHANNEL_LOGIC, TRUE, channel_names[i]);
+			devc->channels[i] = otc_channel_new(sdi, i,
+				OTC_CHANNEL_LOGIC, TRUE, channel_names[i]);
 
 		devc->state = STATE_IDLE;
 		devc->next_state = STATE_IDLE;
@@ -161,39 +161,39 @@ static void clear_helper(struct dev_context *devc)
 	libusb_free_transfer(devc->xfer_out);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	struct sr_dev_driver *di = sdi->driver;
+	struct otc_dev_driver *di = sdi->driver;
 	struct drv_context *drvc = di->context;
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	uint8_t buffer[PACKET_LENGTH];
 	int ret;
 
 	usb = sdi->conn;
 	devc = sdi->priv;
 
-	if (sr_usb_open(drvc->sr_ctx->libusb_ctx, usb) != SR_OK)
-		return SR_ERR;
+	if (otc_usb_open(drvc->otc_ctx->libusb_ctx, usb) != OTC_OK)
+		return OTC_ERR;
 
 	if (libusb_kernel_driver_active(usb->devhdl, USB_INTERFACE) == 1) {
 		ret = libusb_detach_kernel_driver(usb->devhdl, USB_INTERFACE);
 		if (ret < 0) {
-			sr_err("Failed to detach kernel driver: %s.",
+			otc_err("Failed to detach kernel driver: %s.",
 				libusb_error_name(ret));
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	}
 
 	if ((ret = libusb_claim_interface(usb->devhdl, USB_INTERFACE)) < 0) {
-		sr_err("Failed to claim interface: %s.",
+		otc_err("Failed to claim interface: %s.",
 			libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	libusb_fill_control_transfer(devc->xfer_in, usb->devhdl,
@@ -208,8 +208,8 @@ static int dev_open(struct sr_dev_inst *sdi)
 
 	buffer[0] = CMD_RESET;
 	if ((ret = sl2_transfer_out(usb->devhdl, buffer)) != PACKET_LENGTH) {
-		sr_err("Device reset failed: %s.", libusb_error_name(ret));
-		return SR_ERR;
+		otc_err("Device reset failed: %s.", libusb_error_name(ret));
+		return OTC_ERR;
 	}
 
 	/*
@@ -219,33 +219,33 @@ static int dev_open(struct sr_dev_inst *sdi)
 	 */
 	buffer[0] = CMD_IDLE;
 	if ((ret = sl2_transfer_out(usb->devhdl, buffer)) != PACKET_LENGTH) {
-		sr_err("Failed to set device in idle state: %s.",
+		otc_err("Failed to set device in idle state: %s.",
 			libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 
 	usb = sdi->conn;
 
 	if (!usb->devhdl)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	libusb_release_interface(usb->devhdl, USB_INTERFACE);
 	libusb_close(usb->devhdl);
 
 	usb->devhdl = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
@@ -254,21 +254,21 @@ static int config_get(uint32_t key, GVariant **data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(devc->samplerate);
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		*data = g_variant_new_uint64(devc->capture_ratio);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	uint64_t samplerate, limit_samples;
@@ -278,47 +278,47 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		limit_samples = g_variant_get_uint64(data);
 		return sl2_set_limit_samples(sdi, limit_samples);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		samplerate = g_variant_get_uint64(data);
 		return sl2_set_samplerate(sdi, samplerate);
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		devc->capture_ratio = g_variant_get_uint64(data);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	switch (key) {
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, NO_OPTS, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = std_gvar_samplerates(ARRAY_AND_SIZE(sl2_samplerates));
 		break;
-	case SR_CONF_TRIGGER_MATCH:
+	case OTC_CONF_TRIGGER_MATCH:
 		*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		*data = std_gvar_tuple_u64(0, MAX_SAMPLES);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
-	struct sr_dev_driver *di = sdi->driver;
+	struct otc_dev_driver *di = sdi->driver;
 	struct drv_context *drvc;
 	struct dev_context *devc;
 	uint16_t trigger_bytes, tmp;
@@ -365,7 +365,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		}
 	}
 
-	sr_dbg("Number of enabled channels: %i.", devc->num_enabled_channels);
+	otc_dbg("Number of enabled channels: %i.", devc->num_enabled_channels);
 
 	/* Set up the transfer buffer for the acquisition. */
 	devc->xfer_data_out[0] = CMD_SAMPLE;
@@ -386,28 +386,28 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	memcpy(devc->xfer_data_out + 10, &tmp, sizeof(tmp));
 
 	if ((ret = libusb_submit_transfer(devc->xfer_out)) != 0) {
-		sr_err("Submit transfer failed: %s.", libusb_error_name(ret));
-		return SR_ERR;
+		otc_err("Submit transfer failed: %s.", libusb_error_name(ret));
+		return OTC_ERR;
 	}
 
-	usb_source_add(sdi->session, drvc->sr_ctx, 100,
+	usb_source_add(sdi->session, drvc->otc_ctx, 100,
 			ikalogic_scanalogic2_receive_data, (void *)sdi);
 
 	std_session_send_df_header(sdi);
 
 	devc->next_state = STATE_SAMPLE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
-	sdi->status = SR_ST_STOPPING;
+	sdi->status = OTC_ST_STOPPING;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver ikalogic_scanalogic2_driver_info = {
+static struct otc_dev_driver ikalogic_scanalogic2_driver_info = {
 	.name = "ikalogic-scanalogic2",
 	.longname = "IKALOGIC Scanalogic-2",
 	.api_version = 1,
@@ -425,4 +425,4 @@ static struct sr_dev_driver ikalogic_scanalogic2_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(ikalogic_scanalogic2_driver_info);
+OTC_REGISTER_DEV_DRIVER(ikalogic_scanalogic2_driver_info);

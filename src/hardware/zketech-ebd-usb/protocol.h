@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Sven Bursch-Osewold <sb_git@bursch.com>
  * Copyright (C) 2019 King Kévin <kingkevin@cuvoodoo.info>
@@ -23,8 +23,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "zketech-ebd-usb"
 
@@ -33,7 +33,7 @@
 #define MSG_FRAME_END 0xf8
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	GMutex rw_mutex;
 	float current_limit;
 	float uvc_threshold;
@@ -42,25 +42,25 @@ struct dev_context {
 };
 
 /* Communication via serial. */
-SR_PRIV int ebd_read_message(struct sr_serial_dev_inst *serial, size_t length,
+OTC_PRIV int ebd_read_message(struct otc_serial_dev_inst *serial, size_t length,
 	uint8_t *buf);
 
 /* Commands. */
-SR_PRIV int ebd_init(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ebd_init(struct otc_serial_dev_inst *serial,
 	struct dev_context *devc);
-SR_PRIV int ebd_loadstart(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ebd_loadstart(struct otc_serial_dev_inst *serial,
 	struct dev_context *devc);
-SR_PRIV int ebd_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV int ebd_stop(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ebd_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int ebd_stop(struct otc_serial_dev_inst *serial,
 	struct dev_context *devc);
-SR_PRIV int ebd_loadtoggle(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ebd_loadtoggle(struct otc_serial_dev_inst *serial,
 	struct dev_context *devc);
 
 /* Configuration. */
-SR_PRIV int ebd_get_current_limit(const struct sr_dev_inst *sdi, float *current);
-SR_PRIV int ebd_set_current_limit(const struct sr_dev_inst *sdi, float current);
-SR_PRIV int ebd_get_uvc_threshold(const struct sr_dev_inst *sdi, float *voltage);
-SR_PRIV int ebd_set_uvc_threshold(const struct sr_dev_inst *sdi, float voltage);
-SR_PRIV gboolean ebd_current_is0(struct dev_context *devc);
+OTC_PRIV int ebd_get_current_limit(const struct otc_dev_inst *sdi, float *current);
+OTC_PRIV int ebd_set_current_limit(const struct otc_dev_inst *sdi, float current);
+OTC_PRIV int ebd_get_uvc_threshold(const struct otc_dev_inst *sdi, float *voltage);
+OTC_PRIV int ebd_set_uvc_threshold(const struct otc_dev_inst *sdi, float voltage);
+OTC_PRIV gboolean ebd_current_is0(struct dev_context *devc);
 
 #endif

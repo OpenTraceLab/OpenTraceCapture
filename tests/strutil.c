@@ -21,7 +21,7 @@
 #include <check.h>
 #include <errno.h>
 #include <locale.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libsigrok.h>
 #include "lib.h"
 
 #if 0
@@ -56,7 +56,7 @@ static void test_sr_vsnprintf_ascii(const char *expected, char *format, ...)
 	s = g_malloc0(len + 1);
 
 	va_start(args, format);
-	len = sr_vsnprintf_ascii(s, len, format, args);
+	len = otc_vsnprintf_ascii(s, len, format, args);
 	va_end(args);
 
 	fail_unless(s != NULL,
@@ -75,12 +75,12 @@ static void test_sr_vsprintf_ascii(const char *expected, char *format, ...)
 	/* Get length of buffer required. */
 	va_start(args, format);
 	va_copy(args_copy, args);
-	len = sr_vsnprintf_ascii(NULL, 0, format, args);
+	len = otc_vsnprintf_ascii(NULL, 0, format, args);
 	va_end(args);
 
 	/* Allocate buffer and write out command. */
 	s = g_malloc0(len + 1);
-	len = sr_vsprintf_ascii(s, format, args_copy);
+	len = otc_vsprintf_ascii(s, format, args_copy);
 	va_end(args_copy);
 
 	fail_unless(s != NULL,
@@ -94,7 +94,7 @@ static void test_samplerate(uint64_t samplerate, const char *expected)
 {
 	char *s;
 
-	s = sr_samplerate_string(samplerate);
+	s = otc_samplerate_string(samplerate);
 	fail_unless(s != NULL);
 	fail_unless(!strcmp(s, expected),
 		    "Invalid result for '%s': %s.", expected, s);
@@ -105,20 +105,20 @@ static void test_period(uint64_t v_p, uint64_t v_q, const char *expected)
 {
 	char *s;
 
-	s = sr_period_string(v_p, v_q);
+	s = otc_period_string(v_p, v_q);
 	fail_unless(s != NULL);
 	fail_unless(!strcmp(s, expected),
 		    "Invalid result for '%s': %s.", expected, s);
 	g_free(s);
 }
 
-static void test_rational(const char *input, struct sr_rational expected)
+static void test_rational(const char *input, struct otc_rational expected)
 {
 	int ret;
-	struct sr_rational rational;
+	struct otc_rational rational;
 
-	ret = sr_parse_rational(input, &rational);
-	fail_unless(ret == SR_OK, "Unexpected rc for '%s': %d, errno %d.",
+	ret = otc_parse_rational(input, &rational);
+	fail_unless(ret == OTC_OK, "Unexpected rc for '%s': %d, errno %d.",
 		input, ret, errno);
 	fail_unless((expected.p == rational.p) && (expected.q == rational.q),
 		    "Invalid result for '%s': %" PRIi64 "/%" PRIu64 "'.",
@@ -128,17 +128,17 @@ static void test_rational(const char *input, struct sr_rational expected)
 static void test_rational_fail(const char *input)
 {
 	int ret;
-	struct sr_rational rational;
+	struct otc_rational rational;
 
-	ret = sr_parse_rational(input, &rational);
-	fail_unless(ret != SR_OK, "Unexpected success for '%s'.", input);
+	ret = otc_parse_rational(input, &rational);
+	fail_unless(ret != OTC_OK, "Unexpected success for '%s'.", input);
 }
 
 static void test_voltage(uint64_t v_p, uint64_t v_q, const char *expected)
 {
 	char *s;
 
-	s = sr_voltage_string(v_p, v_q);
+	s = otc_voltage_string(v_p, v_q);
 	fail_unless(s != NULL);
 	fail_unless(!strcmp(s, expected),
 		    "Invalid result for '%s': %s.", expected, s);
@@ -208,14 +208,14 @@ START_TEST(test_locale)
 END_TEST
 
 /*
- * Check various inputs for sr_samplerate_string():
+ * Check various inputs for otc_samplerate_string():
  *
  *  - One, two, or three digit results (e.g. 5/55/555 MHz).
  *  - Results which contain commas (e.g. 1.234 / 12.34 / 123.4 kHz).
  *  - Results with zeroes right after the comma (e.g. 1.034 Hz).
  *    See also: http://sigrok.org/bugzilla/show_bug.cgi?id=73
  *  - Results with zeroes in the middle (e.g. 1.204 kHz).
- *  - All of the above, but using SR_MHZ() and friends.
+ *  - All of the above, but using OTC_MHZ() and friends.
  *    See also: http://sigrok.org/bugzilla/show_bug.cgi?id=72
  *
  * All of the above tests are done for the Hz/kHz/MHz/GHz ranges.
@@ -230,13 +230,13 @@ START_TEST(test_hz)
 	test_samplerate(604, "604 Hz");
 	test_samplerate(550, "550 Hz");
 
-	/* Again, but now using SR_HZ(). */
-	test_samplerate(SR_HZ(0), "0 Hz");
-	test_samplerate(SR_HZ(1), "1 Hz");
-	test_samplerate(SR_HZ(23), "23 Hz");
-	test_samplerate(SR_HZ(644), "644 Hz");
-	test_samplerate(SR_HZ(604), "604 Hz");
-	test_samplerate(SR_HZ(550), "550 Hz");
+	/* Again, but now using OTC_HZ(). */
+	test_samplerate(OTC_HZ(0), "0 Hz");
+	test_samplerate(OTC_HZ(1), "1 Hz");
+	test_samplerate(OTC_HZ(23), "23 Hz");
+	test_samplerate(OTC_HZ(644), "644 Hz");
+	test_samplerate(OTC_HZ(604), "604 Hz");
+	test_samplerate(OTC_HZ(550), "550 Hz");
 }
 END_TEST
 
@@ -252,17 +252,17 @@ START_TEST(test_khz)
 	test_samplerate(1004, "1.004 kHz");
 	test_samplerate(1230, "1.23 kHz");
 
-	/* Again, but now using SR_KHZ(). */
-	test_samplerate(SR_KHZ(1), "1 kHz");
-	test_samplerate(SR_KHZ(99), "99 kHz");
-	test_samplerate(SR_KHZ(225), "225 kHz");
-	test_samplerate(SR_KHZ(1.234), "1.234 kHz");
-	test_samplerate(SR_KHZ(12.345), "12.345 kHz");
-	test_samplerate(SR_KHZ(123.456), "123.456 kHz");
-	test_samplerate(SR_KHZ(1.204), "1.204 kHz");
-	test_samplerate(SR_KHZ(1.034), "1.034 kHz");
-	test_samplerate(SR_KHZ(1.004), "1.004 kHz");
-	test_samplerate(SR_KHZ(1.230), "1.23 kHz");
+	/* Again, but now using OTC_KHZ(). */
+	test_samplerate(OTC_KHZ(1), "1 kHz");
+	test_samplerate(OTC_KHZ(99), "99 kHz");
+	test_samplerate(OTC_KHZ(225), "225 kHz");
+	test_samplerate(OTC_KHZ(1.234), "1.234 kHz");
+	test_samplerate(OTC_KHZ(12.345), "12.345 kHz");
+	test_samplerate(OTC_KHZ(123.456), "123.456 kHz");
+	test_samplerate(OTC_KHZ(1.204), "1.204 kHz");
+	test_samplerate(OTC_KHZ(1.034), "1.034 kHz");
+	test_samplerate(OTC_KHZ(1.004), "1.004 kHz");
+	test_samplerate(OTC_KHZ(1.230), "1.23 kHz");
 }
 END_TEST
 
@@ -279,17 +279,17 @@ START_TEST(test_mhz)
 	test_samplerate(1000007, "1.000007 MHz");
 	test_samplerate(1234000, "1.234 MHz");
 
-	/* Again, but now using SR_MHZ(). */
-	test_samplerate(SR_MHZ(1), "1 MHz");
-	test_samplerate(SR_MHZ(28), "28 MHz");
-	test_samplerate(SR_MHZ(775), "775 MHz");
-	test_samplerate(SR_MHZ(1.234567), "1.234567 MHz");
-	test_samplerate(SR_MHZ(12.345678), "12.345678 MHz");
-	test_samplerate(SR_MHZ(123.456789), "123.456789 MHz");
-	test_samplerate(SR_MHZ(1.230007), "1.230007 MHz");
-	test_samplerate(SR_MHZ(1.034567), "1.034567 MHz");
-	test_samplerate(SR_MHZ(1.000007), "1.000007 MHz");
-	test_samplerate(SR_MHZ(1.234000), "1.234 MHz");
+	/* Again, but now using OTC_MHZ(). */
+	test_samplerate(OTC_MHZ(1), "1 MHz");
+	test_samplerate(OTC_MHZ(28), "28 MHz");
+	test_samplerate(OTC_MHZ(775), "775 MHz");
+	test_samplerate(OTC_MHZ(1.234567), "1.234567 MHz");
+	test_samplerate(OTC_MHZ(12.345678), "12.345678 MHz");
+	test_samplerate(OTC_MHZ(123.456789), "123.456789 MHz");
+	test_samplerate(OTC_MHZ(1.230007), "1.230007 MHz");
+	test_samplerate(OTC_MHZ(1.034567), "1.034567 MHz");
+	test_samplerate(OTC_MHZ(1.000007), "1.000007 MHz");
+	test_samplerate(OTC_MHZ(1.234000), "1.234 MHz");
 }
 END_TEST
 
@@ -307,22 +307,22 @@ START_TEST(test_ghz)
 	test_samplerate(UINT64_C(441000000005), "441.000000005 GHz");
 	test_samplerate(UINT64_C(441500000000), "441.5 GHz");
 
-	/* Again, but now using SR_GHZ(). */
-	test_samplerate(SR_GHZ(1), "1 GHz");
-	test_samplerate(SR_GHZ(5), "5 GHz");
-	test_samplerate(SR_GHZ(72), "72 GHz");
-	test_samplerate(SR_GHZ(388), "388 GHz");
-	test_samplerate(SR_GHZ(4.417594444), "4.417594444 GHz");
-	test_samplerate(SR_GHZ(44.175944444), "44.175944444 GHz");
-	test_samplerate(SR_GHZ(441.759444441), "441.759444441 GHz");
-	test_samplerate(SR_GHZ(441.759000001), "441.759000001 GHz");
-	test_samplerate(SR_GHZ(441.050000000), "441.05 GHz");
-	test_samplerate(SR_GHZ(441.000000005), "441.000000005 GHz");
-	test_samplerate(SR_GHZ(441.500000000), "441.5 GHz");
+	/* Again, but now using OTC_GHZ(). */
+	test_samplerate(OTC_GHZ(1), "1 GHz");
+	test_samplerate(OTC_GHZ(5), "5 GHz");
+	test_samplerate(OTC_GHZ(72), "72 GHz");
+	test_samplerate(OTC_GHZ(388), "388 GHz");
+	test_samplerate(OTC_GHZ(4.417594444), "4.417594444 GHz");
+	test_samplerate(OTC_GHZ(44.175944444), "44.175944444 GHz");
+	test_samplerate(OTC_GHZ(441.759444441), "441.759444441 GHz");
+	test_samplerate(OTC_GHZ(441.759000001), "441.759000001 GHz");
+	test_samplerate(OTC_GHZ(441.050000000), "441.05 GHz");
+	test_samplerate(OTC_GHZ(441.000000005), "441.000000005 GHz");
+	test_samplerate(OTC_GHZ(441.500000000), "441.5 GHz");
 
 	/* Now check the biggest-possible samplerate (2^64 Hz). */
 	// test_samplerate(UINT64_C(18446744073709551615), "18446744073.709551615 GHz");
-	// test_samplerate(SR_GHZ(UINT64_C(18446744073)), "18446744073 GHz");
+	// test_samplerate(OTC_GHZ(UINT64_C(18446744073)), "18446744073 GHz");
 }
 END_TEST
 
@@ -334,12 +334,12 @@ START_TEST(test_hz_period)
 	test_period(1, 388, "2.577 ms");
 	test_period(10, 1000, "10 ms");
 
-	/* Again, but now using SR_HZ(). */
-	test_period(1, SR_HZ(1), "1 s");
-	test_period(1, SR_HZ(5), "200 ms");
-	test_period(1, SR_HZ(72), "13.889 ms");
-	test_period(1, SR_HZ(388), "2.577 ms");
-	test_period(10, SR_HZ(100), "100 ms");
+	/* Again, but now using OTC_HZ(). */
+	test_period(1, OTC_HZ(1), "1 s");
+	test_period(1, OTC_HZ(5), "200 ms");
+	test_period(1, OTC_HZ(72), "13.889 ms");
+	test_period(1, OTC_HZ(388), "2.577 ms");
+	test_period(10, OTC_HZ(100), "100 ms");
 }
 END_TEST
 
@@ -352,13 +352,13 @@ START_TEST(test_ghz_period)
 	test_period(10, UINT64_C(1000000000000), "10 ps");
 	test_period(200, UINT64_C(1000000000000), "200 ps");
 
-	/* Again, but now using SR_GHZ(). */
-	test_period(1, SR_GHZ(1), "1 ns");
-	test_period(1, SR_GHZ(5), "200 ps");
-	test_period(1, SR_GHZ(72), "13.889 ps");
-	test_period(1, SR_GHZ(388), "2.577 ps");
-	test_period(10, SR_GHZ(1), "10 ns");
-	test_period(200, SR_GHZ(1000), "200 ps");
+	/* Again, but now using OTC_GHZ(). */
+	test_period(1, OTC_GHZ(1), "1 ns");
+	test_period(1, OTC_GHZ(5), "200 ps");
+	test_period(1, OTC_GHZ(72), "13.889 ps");
+	test_period(1, OTC_GHZ(388), "2.577 ps");
+	test_period(10, OTC_GHZ(1), "10 ns");
+	test_period(200, OTC_GHZ(1000), "200 ps");
 }
 END_TEST
 
@@ -377,33 +377,33 @@ END_TEST
 
 START_TEST(test_integral)
 {
-	test_rational("1", (struct sr_rational){1, 1});
-	test_rational("2", (struct sr_rational){2, 1});
-	test_rational("10", (struct sr_rational){10, 1});
-	test_rational("-255", (struct sr_rational){-255, 1});
+	test_rational("1", (struct otc_rational){1, 1});
+	test_rational("2", (struct otc_rational){2, 1});
+	test_rational("10", (struct otc_rational){10, 1});
+	test_rational("-255", (struct otc_rational){-255, 1});
 }
 END_TEST
 
 START_TEST(test_fractional)
 {
-	test_rational("0.1", (struct sr_rational){1, 10});
-	test_rational("1.0", (struct sr_rational){10, 10});
-	test_rational("1.2", (struct sr_rational){12, 10});
-	test_rational("12.34", (struct sr_rational){1234, 100});
-	test_rational("-12.34", (struct sr_rational){-1234, 100});
-	test_rational("10.00", (struct sr_rational){1000, 100});
-	test_rational(".1", (struct sr_rational){1, 10});
-	test_rational("+0.1", (struct sr_rational){1, 10});
-	test_rational("+.1", (struct sr_rational){1, 10});
-	test_rational("-0.1", (struct sr_rational){-1, 10});
-	test_rational("-.1", (struct sr_rational){-1, 10});
-	test_rational(".1", (struct sr_rational){1, 10});
-	test_rational(".123", (struct sr_rational){123, 1000});
-	test_rational("1.", (struct sr_rational){1, 1});
-	test_rational("123.", (struct sr_rational){123, 1});
-	test_rational("-.1", (struct sr_rational){-1, 10});
-	test_rational(" .1", (struct sr_rational){1, 10});
-	test_rational("+.1", (struct sr_rational){1, 10});
+	test_rational("0.1", (struct otc_rational){1, 10});
+	test_rational("1.0", (struct otc_rational){10, 10});
+	test_rational("1.2", (struct otc_rational){12, 10});
+	test_rational("12.34", (struct otc_rational){1234, 100});
+	test_rational("-12.34", (struct otc_rational){-1234, 100});
+	test_rational("10.00", (struct otc_rational){1000, 100});
+	test_rational(".1", (struct otc_rational){1, 10});
+	test_rational("+0.1", (struct otc_rational){1, 10});
+	test_rational("+.1", (struct otc_rational){1, 10});
+	test_rational("-0.1", (struct otc_rational){-1, 10});
+	test_rational("-.1", (struct otc_rational){-1, 10});
+	test_rational(".1", (struct otc_rational){1, 10});
+	test_rational(".123", (struct otc_rational){123, 1000});
+	test_rational("1.", (struct otc_rational){1, 1});
+	test_rational("123.", (struct otc_rational){123, 1});
+	test_rational("-.1", (struct otc_rational){-1, 10});
+	test_rational(" .1", (struct otc_rational){1, 10});
+	test_rational("+.1", (struct otc_rational){1, 10});
 	test_rational_fail(".");
 	test_rational_fail(".e");
 	test_rational_fail(".e1");
@@ -412,21 +412,21 @@ END_TEST
 
 START_TEST(test_exponent)
 {
-	test_rational("1e0", (struct sr_rational){1, 1});
-	test_rational("1E0", (struct sr_rational){1, 1});
-	test_rational("1E1", (struct sr_rational){10, 1});
-	test_rational("1e-1", (struct sr_rational){1, 10});
-	test_rational("-1.234e-0", (struct sr_rational){-1234, 1000});
-	test_rational("-1.234e3", (struct sr_rational){-1234, 1});
-	test_rational("-1.234e-3", (struct sr_rational){-1234, 1000000});
-	test_rational("0.001e3", (struct sr_rational){1, 1});
-	test_rational("0.001e0", (struct sr_rational){1, 1000});
-	test_rational("0.001e-3", (struct sr_rational){1, 1000000});
-	test_rational("43.737E-3", (struct sr_rational){43737, 1000000});
-	test_rational("-0.1e-2", (struct sr_rational){-1, 1000});
-	test_rational("-.1e-2", (struct sr_rational){-1, 1000});
-	test_rational("-.0e-2", (struct sr_rational){0, 1000});
-	test_rational("+.0e-2", (struct sr_rational){0, 1000});
+	test_rational("1e0", (struct otc_rational){1, 1});
+	test_rational("1E0", (struct otc_rational){1, 1});
+	test_rational("1E1", (struct otc_rational){10, 1});
+	test_rational("1e-1", (struct otc_rational){1, 10});
+	test_rational("-1.234e-0", (struct otc_rational){-1234, 1000});
+	test_rational("-1.234e3", (struct otc_rational){-1234, 1});
+	test_rational("-1.234e-3", (struct otc_rational){-1234, 1000000});
+	test_rational("0.001e3", (struct otc_rational){1, 1});
+	test_rational("0.001e0", (struct otc_rational){1, 1000});
+	test_rational("0.001e-3", (struct otc_rational){1, 1000000});
+	test_rational("43.737E-3", (struct otc_rational){43737, 1000000});
+	test_rational("-0.1e-2", (struct otc_rational){-1, 1000});
+	test_rational("-.1e-2", (struct otc_rational){-1, 1000});
+	test_rational("-.0e-2", (struct otc_rational){0, 1000});
+	test_rational("+.0e-2", (struct otc_rational){0, 1000});
 }
 END_TEST
 
@@ -462,7 +462,7 @@ START_TEST(test_text_line)
 
 	/* Cover first line in tests. */
 	taken = 0;
-	line = sr_text_next_line(read_pos, input_len, &next_pos, &taken);
+	line = otc_text_next_line(read_pos, input_len, &next_pos, &taken);
 	fail_unless(line, "Text line not found");
 	fail_unless(strcmp(line, TEXT_CORE_1) == 0, "Unexpected line content");
 	fail_unless(next_pos, "No next line found");
@@ -475,7 +475,7 @@ START_TEST(test_text_line)
 	taken = 0;
 
 	/* Cover second line in tests. DO NOT void 'taken' yet. */
-	line = sr_text_next_line(read_pos, input_len, &next_pos, &taken);
+	line = otc_text_next_line(read_pos, input_len, &next_pos, &taken);
 	fail_unless(line, "Text line not found");
 	fail_unless(strcmp(line, TEXT_CORE_2) == 0,
 		"Unexpected text line content");
@@ -488,7 +488,7 @@ START_TEST(test_text_line)
 	read_pos = next_pos;
 
 	/* Cover third line in tests. Accumulates 'taken'. */
-	line = sr_text_next_line(read_pos, input_len, &next_pos, &taken);
+	line = otc_text_next_line(read_pos, input_len, &next_pos, &taken);
 	fail_unless(line, "Text line not found");
 	fail_unless(strcmp(line, TEXT_CORE_3) == 0, "Unexpected line content");
 	fail_unless(next_pos, "No next line found");
@@ -501,7 +501,7 @@ START_TEST(test_text_line)
 	taken = 0;
 
 	/* Cover last line in tests. */
-	line = sr_text_next_line(read_pos, input_len, &next_pos, &taken);
+	line = otc_text_next_line(read_pos, input_len, &next_pos, &taken);
 	fail_unless(line, "Text line not found");
 	fail_unless(strcmp(line, TEXT_CORE_4) == 0,
 		"Unexpected text line content");
@@ -554,7 +554,7 @@ START_TEST(test_text_word)
 		read_pos = line;
 		while (read_pos) {
 			want = words[word_idx];
-			have = sr_text_next_word(read_pos, &next_pos);
+			have = otc_text_next_word(read_pos, &next_pos);
 			if (!want) {
 				fail_unless(!have, "word found, unexpected");
 				fail_unless(!next_pos, "next found after end");
@@ -600,8 +600,8 @@ START_TEST(test_calc_power_of_two)
 
 	for (case_idx = 0; case_idx < ARRAY_SIZE(power_cases); case_idx++) {
 		tcase = &power_cases[case_idx];
-		ret = sr_next_power_of_two(tcase->value, &bits, &power);
-		fail_unless(ret == SR_OK, "bits count not found");
+		ret = otc_next_power_of_two(tcase->value, &bits, &power);
+		fail_unless(ret == OTC_OK, "bits count not found");
 		fail_unless(bits == tcase->want_bits, "bits count differs");
 		fail_unless(power == tcase->want_power, "power differs");
 	}
@@ -615,7 +615,7 @@ Suite *suite_strutil(void)
 
 	s = suite_create("strutil");
 
-	tc = tcase_create("sr_samplerate_string");
+	tc = tcase_create("otc_samplerate_string");
 	tcase_add_checked_fixture(tc, srtest_setup, srtest_teardown);
 	tcase_add_test(tc, test_locale);
 	tcase_add_test(tc, test_hz);

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2012 Joel Holdsworth <joel@airwebreathe.org.uk>
@@ -50,17 +50,17 @@ static int command_get_fw_version(libusb_device_handle *devhdl,
 		(unsigned char *)vi, sizeof(struct version_info), USB_TIMEOUT);
 
 	if (ret < 0) {
-		sr_err("Unable to get version info: %s.",
+		otc_err("Unable to get version info: %s.",
 		       libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int command_get_revid_version(struct sr_dev_inst *sdi, uint8_t *revid)
+static int command_get_revid_version(struct otc_dev_inst *sdi, uint8_t *revid)
 {
-	struct sr_usb_dev_inst *usb = sdi->conn;
+	struct otc_usb_dev_inst *usb = sdi->conn;
 	libusb_device_handle *devhdl = usb->devhdl;
 	int ret;
 
@@ -69,17 +69,17 @@ static int command_get_revid_version(struct sr_dev_inst *sdi, uint8_t *revid)
 		revid, 1, USB_TIMEOUT);
 
 	if (ret < 0) {
-		sr_err("Unable to get REVID: %s.", libusb_error_name(ret));
-		return SR_ERR;
+		otc_err("Unable to get REVID: %s.", libusb_error_name(ret));
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int command_start_acquisition(const struct sr_dev_inst *sdi)
+static int command_start_acquisition(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	uint64_t samplerate;
 	struct cmd_start_acquisition cmd;
 	int delay, ret;
@@ -90,31 +90,31 @@ static int command_start_acquisition(const struct sr_dev_inst *sdi)
 
 	/* Compute the sample rate. */
 	if (devc->sample_wide && samplerate > MAX_16BIT_SAMPLE_RATE) {
-		sr_err("Unable to sample at %" PRIu64 "Hz "
+		otc_err("Unable to sample at %" PRIu64 "Hz "
 		       "when collecting 16-bit samples.", samplerate);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	delay = 0;
 	cmd.flags = cmd.sample_delay_h = cmd.sample_delay_l = 0;
-	if ((SR_MHZ(48) % samplerate) == 0) {
+	if ((OTC_MHZ(48) % samplerate) == 0) {
 		cmd.flags = CMD_START_FLAGS_CLK_48MHZ;
-		delay = SR_MHZ(48) / samplerate - 1;
+		delay = OTC_MHZ(48) / samplerate - 1;
 		if (delay > MAX_SAMPLE_DELAY)
 			delay = 0;
 	}
 
-	if (delay == 0 && (SR_MHZ(30) % samplerate) == 0) {
+	if (delay == 0 && (OTC_MHZ(30) % samplerate) == 0) {
 		cmd.flags = CMD_START_FLAGS_CLK_30MHZ;
-		delay = SR_MHZ(30) / samplerate - 1;
+		delay = OTC_MHZ(30) / samplerate - 1;
 	}
 
-	sr_dbg("GPIF delay = %d, clocksource = %sMHz.", delay,
+	otc_dbg("GPIF delay = %d, clocksource = %sMHz.", delay,
 		(cmd.flags & CMD_START_FLAGS_CLK_48MHZ) ? "48" : "30");
 
 	if (delay < 0 || delay > MAX_SAMPLE_DELAY) {
-		sr_err("Unable to sample at %" PRIu64 "Hz.", samplerate);
-		return SR_ERR;
+		otc_err("Unable to sample at %" PRIu64 "Hz.", samplerate);
+		return OTC_ERR;
 	}
 
 	cmd.sample_delay_h = (delay >> 8) & 0xff;
@@ -131,23 +131,23 @@ static int command_start_acquisition(const struct sr_dev_inst *sdi)
 			LIBUSB_ENDPOINT_OUT, CMD_START, 0x0000, 0x0000,
 			(unsigned char *)&cmd, sizeof(cmd), USB_TIMEOUT);
 	if (ret < 0) {
-		sr_err("Unable to send start command: %s.",
+		otc_err("Unable to send start command: %s.",
 		       libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int fx2lafw_dev_open(struct sr_dev_inst *sdi, struct sr_dev_driver *di)
+OTC_PRIV int fx2lafw_dev_open(struct otc_dev_inst *sdi, struct otc_dev_driver *di)
 {
 	libusb_device **devlist;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct libusb_device_descriptor des;
 	struct dev_context *devc;
 	struct drv_context *drvc;
 	struct version_info vi;
-	int ret = SR_ERR, i, device_count;
+	int ret = OTC_ERR, i, device_count;
 	uint8_t revid;
 	char connection_id[64];
 
@@ -155,11 +155,11 @@ SR_PRIV int fx2lafw_dev_open(struct sr_dev_inst *sdi, struct sr_dev_driver *di)
 	devc = sdi->priv;
 	usb = sdi->conn;
 
-	device_count = libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+	device_count = libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 	if (device_count < 0) {
-		sr_err("Failed to get device list: %s.",
+		otc_err("Failed to get device list: %s.",
 		       libusb_error_name(device_count));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	for (i = 0; i < device_count; i++) {
@@ -169,8 +169,8 @@ SR_PRIV int fx2lafw_dev_open(struct sr_dev_inst *sdi, struct sr_dev_driver *di)
 		    || des.idProduct != devc->profile->pid)
 			continue;
 
-		if ((sdi->status == SR_ST_INITIALIZING) ||
-				(sdi->status == SR_ST_INACTIVE)) {
+		if ((sdi->status == OTC_ST_INITIALIZING) ||
+				(sdi->status == OTC_ST_INACTIVE)) {
 			/*
 			 * Check device by its physical USB bus/port address.
 			 */
@@ -190,32 +190,32 @@ SR_PRIV int fx2lafw_dev_open(struct sr_dev_inst *sdi, struct sr_dev_driver *di)
 				 */
 				usb->address = libusb_get_device_address(devlist[i]);
 		} else {
-			sr_err("Failed to open device: %s.",
+			otc_err("Failed to open device: %s.",
 			       libusb_error_name(ret));
-			ret = SR_ERR;
+			ret = OTC_ERR;
 			break;
 		}
 
 		if (libusb_has_capability(LIBUSB_CAP_SUPPORTS_DETACH_KERNEL_DRIVER)) {
 			if (libusb_kernel_driver_active(usb->devhdl, USB_INTERFACE) == 1) {
 				if ((ret = libusb_detach_kernel_driver(usb->devhdl, USB_INTERFACE)) < 0) {
-					sr_err("Failed to detach kernel driver: %s.",
+					otc_err("Failed to detach kernel driver: %s.",
 						libusb_error_name(ret));
-					ret = SR_ERR;
+					ret = OTC_ERR;
 					break;
 				}
 			}
 		}
 
 		ret = command_get_fw_version(usb->devhdl, &vi);
-		if (ret != SR_OK) {
-			sr_err("Failed to get firmware version.");
+		if (ret != OTC_OK) {
+			otc_err("Failed to get firmware version.");
 			break;
 		}
 
 		ret = command_get_revid_version(sdi, &revid);
-		if (ret != SR_OK) {
-			sr_err("Failed to get REVID.");
+		if (ret != OTC_OK) {
+			otc_err("Failed to get REVID.");
 			break;
 		}
 
@@ -225,21 +225,21 @@ SR_PRIV int fx2lafw_dev_open(struct sr_dev_inst *sdi, struct sr_dev_driver *di)
 		 * Different minor versions are OK, they should be compatible.
 		 */
 		if (vi.major != FX2LAFW_REQUIRED_VERSION_MAJOR) {
-			sr_err("Expected firmware version %d.x, "
+			otc_err("Expected firmware version %d.x, "
 			       "got %d.%d.", FX2LAFW_REQUIRED_VERSION_MAJOR,
 			       vi.major, vi.minor);
 			break;
 		}
 
-		sr_info("Opened device on %d.%d (logical) / %s (physical), "
+		otc_info("Opened device on %d.%d (logical) / %s (physical), "
 			"interface %d, firmware %d.%d.",
 			usb->bus, usb->address, connection_id,
 			USB_INTERFACE, vi.major, vi.minor);
 
-		sr_info("Detected REVID=%d, it's a Cypress CY7C68013%s.",
+		otc_info("Detected REVID=%d, it's a Cypress CY7C68013%s.",
 			revid, (revid != 1) ? " (FX2)" : "A (FX2LP)");
 
-		ret = SR_OK;
+		ret = OTC_OK;
 
 		break;
 	}
@@ -249,7 +249,7 @@ SR_PRIV int fx2lafw_dev_open(struct sr_dev_inst *sdi, struct sr_dev_driver *di)
 	return ret;
 }
 
-SR_PRIV struct dev_context *fx2lafw_dev_new(void)
+OTC_PRIV struct dev_context *fx2lafw_dev_new(void)
 {
 	struct dev_context *devc;
 
@@ -268,7 +268,7 @@ SR_PRIV struct dev_context *fx2lafw_dev_new(void)
 	return devc;
 }
 
-SR_PRIV void fx2lafw_abort_acquisition(struct dev_context *devc)
+OTC_PRIV void fx2lafw_abort_acquisition(struct dev_context *devc)
 {
 	int i;
 
@@ -280,7 +280,7 @@ SR_PRIV void fx2lafw_abort_acquisition(struct dev_context *devc)
 	}
 }
 
-static void finish_acquisition(struct sr_dev_inst *sdi)
+static void finish_acquisition(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -307,7 +307,7 @@ static void finish_acquisition(struct sr_dev_inst *sdi)
 
 static void free_transfer(struct libusb_transfer *transfer)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	unsigned int i;
 
@@ -337,20 +337,20 @@ static void resubmit_transfer(struct libusb_transfer *transfer)
 	if ((ret = libusb_submit_transfer(transfer)) == LIBUSB_SUCCESS)
 		return;
 
-	sr_err("%s: %s", __func__, libusb_error_name(ret));
+	otc_err("%s: %s", __func__, libusb_error_name(ret));
 	free_transfer(transfer);
 
 }
 
-static void mso_send_data_proc(struct sr_dev_inst *sdi,
+static void mso_send_data_proc(struct otc_dev_inst *sdi,
 	uint8_t *data, size_t length, size_t sample_width)
 {
 	size_t i;
 	struct dev_context *devc;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
 	(void)sample_width;
 
@@ -365,55 +365,55 @@ static void mso_send_data_proc(struct sr_dev_inst *sdi,
 		devc->analog_buffer[i] = (data[i * 2 + 1] - 128.0f) / 12.8f;
 	};
 
-	const struct sr_datafeed_logic logic = {
+	const struct otc_datafeed_logic logic = {
 		.length = length,
 		.unitsize = 1,
 		.data = devc->logic_buffer
 	};
 
-	const struct sr_datafeed_packet logic_packet = {
-		.type = SR_DF_LOGIC,
+	const struct otc_datafeed_packet logic_packet = {
+		.type = OTC_DF_LOGIC,
 		.payload = &logic
 	};
 
-	sr_session_send(sdi, &logic_packet);
+	otc_session_send(sdi, &logic_packet);
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 2);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 2);
 	analog.meaning->channels = devc->enabled_analog_channels;
-	analog.meaning->mq = SR_MQ_VOLTAGE;
-	analog.meaning->unit = SR_UNIT_VOLT;
-	analog.meaning->mqflags = 0 /* SR_MQFLAG_DC */;
+	analog.meaning->mq = OTC_MQ_VOLTAGE;
+	analog.meaning->unit = OTC_UNIT_VOLT;
+	analog.meaning->mqflags = 0 /* OTC_MQFLAG_DC */;
 	analog.num_samples = length;
 	analog.data = devc->analog_buffer;
 
-	const struct sr_datafeed_packet analog_packet = {
-		.type = SR_DF_ANALOG,
+	const struct otc_datafeed_packet analog_packet = {
+		.type = OTC_DF_ANALOG,
 		.payload = &analog
 	};
 
-	sr_session_send(sdi, &analog_packet);
+	otc_session_send(sdi, &analog_packet);
 }
 
-static void la_send_data_proc(struct sr_dev_inst *sdi,
+static void la_send_data_proc(struct otc_dev_inst *sdi,
 	uint8_t *data, size_t length, size_t sample_width)
 {
-	const struct sr_datafeed_logic logic = {
+	const struct otc_datafeed_logic logic = {
 		.length = length,
 		.unitsize = sample_width,
 		.data = data
 	};
 
-	const struct sr_datafeed_packet packet = {
-		.type = SR_DF_LOGIC,
+	const struct otc_datafeed_packet packet = {
+		.type = OTC_DF_LOGIC,
 		.payload = &logic
 	};
 
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 }
 
 static void LIBUSB_CALL receive_transfer(struct libusb_transfer *transfer)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	gboolean packet_has_error = FALSE;
 	unsigned int num_samples;
@@ -432,7 +432,7 @@ static void LIBUSB_CALL receive_transfer(struct libusb_transfer *transfer)
 		return;
 	}
 
-	sr_dbg("receive_transfer(): status %s received %d bytes.",
+	otc_dbg("receive_transfer(): status %s received %d bytes.",
 		libusb_error_name(transfer->status), transfer->actual_length);
 
 	/* Save incoming transfer before reusing the transfer struct. */
@@ -536,12 +536,12 @@ check_trigger:
 		resubmit_transfer(transfer);
 }
 
-static int configure_channels(const struct sr_dev_inst *sdi)
+static int configure_channels(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	const GSList *l;
 	int p;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	uint32_t channel_mask = 0, num_analog = 0;
 
 	devc = sdi->priv;
@@ -551,7 +551,7 @@ static int configure_channels(const struct sr_dev_inst *sdi)
 
 	for (l = sdi->channels, p = 0; l; l = l->next, p++) {
 		ch = l->data;
-		if ((p <= NUM_CHANNELS) && (ch->type == SR_CHANNEL_ANALOG)
+		if ((p <= NUM_CHANNELS) && (ch->type == OTC_CHANNEL_ANALOG)
 				&& (ch->enabled)) {
 			num_analog++;
 			devc->enabled_analog_channels =
@@ -567,7 +567,7 @@ static int configure_channels(const struct sr_dev_inst *sdi)
 	 */
 	devc->sample_wide = channel_mask > 0xff || num_analog > 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static unsigned int to_bytes_per_ms(unsigned int samplerate)
@@ -623,16 +623,16 @@ static int receive_data(int fd, int revents, void *cb_data)
 	drvc = (struct drv_context *)cb_data;
 
 	tv.tv_sec = tv.tv_usec = 0;
-	libusb_handle_events_timeout(drvc->sr_ctx->libusb_ctx, &tv);
+	libusb_handle_events_timeout(drvc->otc_ctx->libusb_ctx, &tv);
 
 	return TRUE;
 }
 
-static int start_transfers(const struct sr_dev_inst *sdi)
+static int start_transfers(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
-	struct sr_trigger *trigger;
+	struct otc_usb_dev_inst *usb;
+	struct otc_trigger *trigger;
 	struct libusb_transfer *transfer;
 	unsigned int i, num_transfers;
 	int timeout, ret;
@@ -646,13 +646,13 @@ static int start_transfers(const struct sr_dev_inst *sdi)
 	devc->acq_aborted = FALSE;
 	devc->empty_transfer_count = 0;
 
-	if ((trigger = sr_session_trigger_get(sdi->session))) {
+	if ((trigger = otc_session_trigger_get(sdi->session))) {
 		int pre_trigger_samples = 0;
 		if (devc->limit_samples > 0)
 			pre_trigger_samples = (devc->capture_ratio * devc->limit_samples) / 100;
 		devc->stl = soft_trigger_logic_new(sdi, trigger, pre_trigger_samples);
 		if (!devc->stl)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		devc->trigger_fired = FALSE;
 	} else {
 		std_session_send_df_frame_begin(sdi);
@@ -666,29 +666,29 @@ static int start_transfers(const struct sr_dev_inst *sdi)
 
 	devc->transfers = g_try_malloc0(sizeof(*devc->transfers) * num_transfers);
 	if (!devc->transfers) {
-		sr_err("USB transfers malloc failed.");
-		return SR_ERR_MALLOC;
+		otc_err("USB transfers malloc failed.");
+		return OTC_ERR_MALLOC;
 	}
 
 	timeout = get_timeout(devc);
 	devc->num_transfers = num_transfers;
 	for (i = 0; i < num_transfers; i++) {
 		if (!(buf = g_try_malloc(size))) {
-			sr_err("USB transfer buffer malloc failed.");
-			return SR_ERR_MALLOC;
+			otc_err("USB transfer buffer malloc failed.");
+			return OTC_ERR_MALLOC;
 		}
 		transfer = libusb_alloc_transfer(0);
 		libusb_fill_bulk_transfer(transfer, usb->devhdl,
 				2 | LIBUSB_ENDPOINT_IN, buf, size,
 				receive_transfer, (void *)sdi, timeout);
-		sr_info("submitting transfer: %d", i);
+		otc_info("submitting transfer: %d", i);
 		if ((ret = libusb_submit_transfer(transfer)) != 0) {
-			sr_err("Failed to submit transfer: %s.",
+			otc_err("Failed to submit transfer: %s.",
 			       libusb_error_name(ret));
 			libusb_free_transfer(transfer);
 			g_free(buf);
 			fx2lafw_abort_acquisition(devc);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		devc->transfers[i] = transfer;
 		devc->submitted_transfers++;
@@ -706,12 +706,12 @@ static int start_transfers(const struct sr_dev_inst *sdi)
 
 	std_session_send_df_header(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int fx2lafw_start_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int fx2lafw_start_acquisition(const struct otc_dev_inst *sdi)
 {
-	struct sr_dev_driver *di;
+	struct otc_dev_driver *di;
 	struct drv_context *drvc;
 	struct dev_context *devc;
 	int timeout, ret;
@@ -721,15 +721,15 @@ SR_PRIV int fx2lafw_start_acquisition(const struct sr_dev_inst *sdi)
 	drvc = di->context;
 	devc = sdi->priv;
 
-	devc->ctx = drvc->sr_ctx;
+	devc->ctx = drvc->otc_ctx;
 	devc->num_frames = 0;
 	devc->sent_samples = 0;
 	devc->empty_transfer_count = 0;
 	devc->acq_aborted = FALSE;
 
-	if (configure_channels(sdi) != SR_OK) {
-		sr_err("Failed to configure channels.");
-		return SR_ERR;
+	if (configure_channels(sdi) != OTC_OK) {
+		otc_err("Failed to configure channels.");
+		return OTC_ERR;
 	}
 
 	timeout = get_timeout(devc);
@@ -744,10 +744,10 @@ SR_PRIV int fx2lafw_start_acquisition(const struct sr_dev_inst *sdi)
 			sizeof(float) * size / 2);
 	}
 	start_transfers(sdi);
-	if ((ret = command_start_acquisition(sdi)) != SR_OK) {
+	if ((ret = command_start_acquisition(sdi)) != OTC_OK) {
 		fx2lafw_abort_acquisition(devc);
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }

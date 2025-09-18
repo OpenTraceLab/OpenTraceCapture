@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Katherine J. Temkin <k@ktemkin.com>
  * Copyright (C) 2019 Mikaela Szekely <qyriad@gmail.com>
@@ -40,7 +40,7 @@
  * LE format (firmware executes on Cortex-M). Strings are limited to a
  * maximum of 128 bytes.
  *
- * The set of commands used by this sigrok driver is minimal:
+ * The set of commands used by this opentracelab driver is minimal:
  * - Get the GreatFET's firmware version and serial number.
  *   - String queries, a core verb, individual verb codes for the
  *     version and for the serial number.
@@ -51,11 +51,11 @@
  *     version?). Empty/no response.
  *   - Stop has empty/no request and response payloads.
  *
- * Firmware implementation details, observed during sigrok driver
+ * Firmware implementation details, observed during opentracelab driver
  * creation.
  * - Serial number "strings" in responses may carry binary data and
  *   not a text presentation of the serial number. It's uncertain
- *   whether that is by design or an oversight. This sigrok driver
+ *   whether that is by design or an oversight. This opentracelab driver
  *   copes when it happens. (Remainder from another request which
  *   provided the part number as well?)
  * - The GreatFET firmware is designed for exploration by host apps.
@@ -77,7 +77,7 @@
  *   is applied, IOW that there are either 1, 2, 4, or 8 bits per
  *   sample point. Even when say 3 or 5 channels are enabled. The
  *   device firmware may assume that a "dense" list of channels gets
- *   enabled, the sigrok driver supports when some disabled channels
+ *   enabled, the opentracelab driver supports when some disabled channels
  *   preceed other enabled channels. The device is then asked to get
  *   as many channels as are needed to cover all enabled channels,
  *   including potentially disabled channels before them.
@@ -90,7 +90,7 @@
  *   example of 3 enabled channels and a requested 72MHz samplerate,
  *   the firmware will derive that it needs to sample 4 channels at
  *   a 102MHz rate. Which exceeds its capabilities while users may
- *   not be aware of these constraints. This sigrok driver attempts
+ *   not be aware of these constraints. This opentracelab driver attempts
  *   to detect the condition, and not start an acquisition. And also
  *   emits diagnostics (at info level which is silent by default).
  *   It's assumed that users increase verbosity when diagnosing
@@ -135,23 +135,23 @@
 #define TRANSFER_POOL_SIZE	16
 #define TRANSFER_BUFFER_SIZE	(256 * 1024)
 
-static int greatfet_process_receive_data(const struct sr_dev_inst *sdi,
+static int greatfet_process_receive_data(const struct otc_dev_inst *sdi,
 	const uint8_t *data, size_t dlen);
-static int greatfet_cancel_transfers(const struct sr_dev_inst *sdi);
+static int greatfet_cancel_transfers(const struct otc_dev_inst *sdi);
 
 /* Communicate a GreatFET request to EP0, and get its response. */
-static int greatfet_ctrl_out_in(const struct sr_dev_inst *sdi,
+static int greatfet_ctrl_out_in(const struct otc_dev_inst *sdi,
 	const uint8_t *tx_data, size_t tx_size,
 	uint8_t *rx_data, size_t rx_size, unsigned int timeout_ms)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	uint16_t flags;
 	int ret;
 	size_t sent, rcvd;
 
 	usb = sdi->conn;
 	if (!usb)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Caller can request to skip transmission of a response. */
 	flags = 0;
@@ -159,59 +159,59 @@ static int greatfet_ctrl_out_in(const struct sr_dev_inst *sdi,
 		flags |= LIBGREAT_FLAG_SKIP_RSP;
 
 	/* Send USB Control OUT request. */
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
-		GString *dump = sr_hexdump_new(tx_data, tx_size);
-		sr_spew("USB out data: %s", dump->str);
-		sr_hexdump_free(dump);
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
+		GString *dump = otc_hexdump_new(tx_data, tx_size);
+		otc_spew("USB out data: %s", dump->str);
+		otc_hexdump_free(dump);
 	}
 	ret = libusb_control_transfer(usb->devhdl,
 		LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_ENDPOINT |
 		LIBUSB_ENDPOINT_OUT | CONTROL_ENDPOINT,
 		LIBGREAT_REQUEST_NUMBER, LIBGREAT_VALUE_EXECUTE,
 		flags, (void *)tx_data, tx_size, timeout_ms);
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
 		const char *msg;
 		msg = ret < 0 ? libusb_error_name(ret) : "-";
-		sr_spew("USB out, rc %d, %s", ret, msg);
+		otc_spew("USB out, rc %d, %s", ret, msg);
 	}
 	if (ret < 0) {
 		/* Rate limit error messages. Skip "please retry" kinds. */
 		if (ret != LIBUSB_ERROR_BUSY) {
-			sr_err("USB out transfer failed: %s (%d)",
+			otc_err("USB out transfer failed: %s (%d)",
 				libusb_error_name(ret), ret);
 		}
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 	sent = (size_t)ret;
 	if (sent != tx_size) {
-		sr_err("Short USB write: want %zu, got %zu: %s.",
+		otc_err("Short USB write: want %zu, got %zu: %s.",
 			tx_size, sent, libusb_error_name(ret));
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
 	/* Get the USB Control IN response. */
 	if (!rx_size)
-		return SR_OK;
+		return OTC_OK;
 	ret = libusb_control_transfer(usb->devhdl,
 		LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_ENDPOINT |
 		LIBUSB_ENDPOINT_IN | CONTROL_ENDPOINT,
 		LIBGREAT_REQUEST_NUMBER, LIBGREAT_VALUE_EXECUTE,
 		0, rx_data, rx_size, timeout_ms);
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
 		const char *msg;
 		msg = ret < 0 ? libusb_error_name(ret) : "-";
-		sr_spew("USB in, rc %d, %s", ret, msg);
+		otc_spew("USB in, rc %d, %s", ret, msg);
 	}
 	if (ret < 0) {
-		sr_err("USB in transfer failed: %s (%d)",
+		otc_err("USB in transfer failed: %s (%d)",
 			libusb_error_name(ret), ret);
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 	rcvd = (size_t)ret;
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
-		GString *dump = sr_hexdump_new(rx_data, rcvd);
-		sr_spew("USB in data: %s", dump->str);
-		sr_hexdump_free(dump);
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
+		GString *dump = otc_hexdump_new(rx_data, rcvd);
+		otc_spew("USB in data: %s", dump->str);
+		otc_hexdump_free(dump);
 	}
 	/* Short read, including zero length, is not fatal. */
 
@@ -222,7 +222,7 @@ static int greatfet_ctrl_out_in(const struct sr_dev_inst *sdi,
  * Use a string buffer in devc for USB transfers. This simplifies
  * resource management in error paths.
  */
-static int greatfet_prep_usb_buffer(const struct sr_dev_inst *sdi,
+static int greatfet_prep_usb_buffer(const struct otc_dev_inst *sdi,
 	uint8_t **tx_buff, size_t *tx_size, uint8_t **rx_buff, size_t *rx_size)
 {
 	struct dev_context *devc;
@@ -239,10 +239,10 @@ static int greatfet_prep_usb_buffer(const struct sr_dev_inst *sdi,
 		*rx_size = 0;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/*
 	 * Allocate the string buffer unless previously done.
@@ -253,7 +253,7 @@ static int greatfet_prep_usb_buffer(const struct sr_dev_inst *sdi,
 		want_len = 2 * sizeof(uint32_t) + LOGIC_MAX_PAYLOAD_DATA;
 		devc->usb_comm_buffer = g_string_sized_new(want_len);
 		if (!devc->usb_comm_buffer)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 	}
 
 	/* Pass buffer start and size to the caller if requested. */
@@ -267,11 +267,11 @@ static int greatfet_prep_usb_buffer(const struct sr_dev_inst *sdi,
 	if (rx_size)
 		*rx_size = s->allocated_len;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Retrieve a string by executing a core service. */
-static int greatfet_get_string(const struct sr_dev_inst *sdi,
+static int greatfet_get_string(const struct otc_dev_inst *sdi,
 	uint32_t verb, char **value)
 {
 	uint8_t *req, *rsp;
@@ -284,9 +284,9 @@ static int greatfet_get_string(const struct sr_dev_inst *sdi,
 	if (value)
 		*value = NULL;
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	ret = greatfet_prep_usb_buffer(sdi, &req, NULL, &rsp, &rsp_size);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	wrptr = req;
@@ -296,14 +296,14 @@ static int greatfet_get_string(const struct sr_dev_inst *sdi,
 	ret = greatfet_ctrl_out_in(sdi, req, wrlen,
 		rsp, rsp_size, LOGIC_DEFAULT_TIMEOUT);
 	if (ret < 0) {
-		sr_err("Cannot get core string.");
+		otc_err("Cannot get core string.");
 		return ret;
 	}
 	rcvd = (size_t)ret;
 
 	rsp[rcvd] = '\0';
 	text = (const char *)rsp;
-	sr_dbg("got string, verb %u, text (%zu) %s", verb, rcvd, text);
+	otc_dbg("got string, verb %u, text (%zu) %s", verb, rcvd, text);
 	if (value && *text) {
 		*value = g_strndup(text, rcvd);
 	} else if (value) {
@@ -326,7 +326,7 @@ static int greatfet_get_string(const struct sr_dev_inst *sdi,
 	return rcvd;
 }
 
-SR_PRIV int greatfet_get_serial_number(const struct sr_dev_inst *sdi)
+OTC_PRIV int greatfet_get_serial_number(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	char *text;
@@ -337,16 +337,16 @@ SR_PRIV int greatfet_get_serial_number(const struct sr_dev_inst *sdi)
 	uint32_t chunk;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ret = greatfet_get_string(sdi, CORE_VERB_READ_SERIAL, &text);
 	if (ret < 0)
 		return ret;
 	if (!text)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	/*
 	 * The simple case, we got a text string. The 2019 K.Temkin
@@ -355,7 +355,7 @@ SR_PRIV int greatfet_get_serial_number(const struct sr_dev_inst *sdi)
 	 */
 	if (*text) {
 		devc->serial_number = text;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/*
@@ -372,52 +372,52 @@ SR_PRIV int greatfet_get_serial_number(const struct sr_dev_inst *sdi)
 	 */
 	rdptr = (const uint8_t *)text;
 	rdlen = (size_t)ret;
-	sr_dbg("trying to read serial nr \"text\" as binary");
+	otc_dbg("trying to read serial nr \"text\" as binary");
 	if (rdlen != 4 * sizeof(uint32_t)) {
 		g_free(text);
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 	snr = g_string_sized_new(20 + 1);
 	chunk = read_u32le_inc(&rdptr);
 	if (chunk) {
 		g_free(text);
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 	chunk = read_u32le_inc(&rdptr);
 	if (chunk) {
 		g_free(text);
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 	g_string_append_printf(snr, "%04" PRIx32, chunk);
 	chunk = read_u32le_inc(&rdptr);
 	g_string_append_printf(snr, "%08" PRIx32, chunk);
 	chunk = read_u32le_inc(&rdptr);
 	g_string_append_printf(snr, "%08" PRIx32, chunk);
-	sr_dbg("got serial number text %s", snr->str);
+	otc_dbg("got serial number text %s", snr->str);
 	g_free(text);
 	text = g_string_free(snr, FALSE);
 	devc->serial_number = text;
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int greatfet_get_version_number(const struct sr_dev_inst *sdi)
+OTC_PRIV int greatfet_get_version_number(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	char *text;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ret = greatfet_get_string(sdi, CORE_VERB_READ_VERSION, &text);
-	if (ret < SR_OK)
+	if (ret < OTC_OK)
 		return ret;
 
 	devc->firmware_version = text;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -425,7 +425,7 @@ SR_PRIV int greatfet_get_version_number(const struct sr_dev_inst *sdi)
  * request with just a few bytes worth of parameter values, still
  * not expecting a response.
  */
-static int greatfet_trivial_request(const struct sr_dev_inst *sdi,
+static int greatfet_trivial_request(const struct otc_dev_inst *sdi,
 	uint32_t cls, uint32_t verb, const uint8_t *tx_data, size_t tx_dlen)
 {
 	struct dev_context *devc;
@@ -435,13 +435,13 @@ static int greatfet_trivial_request(const struct sr_dev_inst *sdi,
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ret = greatfet_prep_usb_buffer(sdi, &req, NULL, NULL, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	wrptr = req;
@@ -462,11 +462,11 @@ static int greatfet_trivial_request(const struct sr_dev_inst *sdi,
  * for information, while the host assumes a fixed larger buffer size
  * for its own purposes.
  */
-static int greatfet_logic_config(const struct sr_dev_inst *sdi)
+static int greatfet_logic_config(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct dev_acquisition_t *acq;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	uint8_t *req, *rsp;
 	size_t rsp_size;
 	uint8_t *wrptr;
@@ -479,15 +479,15 @@ static int greatfet_logic_config(const struct sr_dev_inst *sdi)
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	usb = sdi->conn;
 	if (!devc || !usb)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	acq = &devc->acquisition;
 
 	ret = greatfet_prep_usb_buffer(sdi, &req, NULL, &rsp, &rsp_size);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -499,7 +499,7 @@ static int greatfet_logic_config(const struct sr_dev_inst *sdi)
 	 * of the SGPIO hardware implementation degrade performance in
 	 * this case. Its use is not desirable for users.
 	 */
-	sr_dbg("about to config first pin, upper %d", acq->use_upper_pins);
+	otc_dbg("about to config first pin, upper %d", acq->use_upper_pins);
 	wrptr = req;
 	write_u32le_inc(&wrptr, GREATFET_CLASS_LA);
 	write_u32le_inc(&wrptr, LA_VERB_FIRST_PIN);
@@ -508,12 +508,12 @@ static int greatfet_logic_config(const struct sr_dev_inst *sdi)
 	ret = greatfet_ctrl_out_in(sdi, req, wrlen,
 		NULL, 0, LOGIC_DEFAULT_TIMEOUT);
 	if (ret < 0) {
-		sr_err("Cannot configure first capture pin.");
+		otc_err("Cannot configure first capture pin.");
 		return ret;
 	}
 
 	/* Disable alt pin mapping, just for good measure. */
-	sr_dbg("about to config alt pin mapping");
+	otc_dbg("about to config alt pin mapping");
 	wrptr = req;
 	write_u32le_inc(&wrptr, GREATFET_CLASS_LA);
 	write_u32le_inc(&wrptr, LA_VERB_ALT_PIN_MAP);
@@ -522,7 +522,7 @@ static int greatfet_logic_config(const struct sr_dev_inst *sdi)
 	ret = greatfet_ctrl_out_in(sdi, req, wrlen,
 		NULL, 0, LOGIC_DEFAULT_TIMEOUT);
 	if (ret < 0) {
-		sr_err("Cannot configure alt pin mapping.");
+		otc_err("Cannot configure alt pin mapping.");
 		return ret;
 	}
 
@@ -533,10 +533,10 @@ static int greatfet_logic_config(const struct sr_dev_inst *sdi)
 	 */
 	want_len = 2 * sizeof(uint32_t) + sizeof(uint8_t);
 	if (rsp_size < want_len)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 	rsp_size = want_len;
 
-	sr_dbg("about to config LA, rate %" PRIu64 ", chans %zu",
+	otc_dbg("about to config LA, rate %" PRIu64 ", chans %zu",
 		devc->samplerate, acq->capture_channels);
 	wrptr = req;
 	write_u32le_inc(&wrptr, GREATFET_CLASS_LA);
@@ -547,23 +547,23 @@ static int greatfet_logic_config(const struct sr_dev_inst *sdi)
 	ret = greatfet_ctrl_out_in(sdi, req, wrlen,
 		rsp, rsp_size, LOGIC_DEFAULT_TIMEOUT);
 	if (ret < 0) {
-		sr_err("Cannot configure logic analyzer mode.");
+		otc_err("Cannot configure logic analyzer mode.");
 		return ret;
 	}
 	rcvd = (size_t)ret;
 	if (rcvd != want_len) {
-		sr_warn("Unexpected LA configuration response length.");
-		return SR_ERR_DATA;
+		otc_warn("Unexpected LA configuration response length.");
+		return OTC_ERR_DATA;
 	}
 
 	rdptr = rsp;
 	rate = read_u32le_inc(&rdptr);
 	bufsize = read_u32le_inc(&rdptr);
 	ep = read_u8_inc(&rdptr);
-	sr_dbg("LA configured, rate %" PRIu64 ", buf %zu, ep %" PRIu8,
+	otc_dbg("LA configured, rate %" PRIu64 ", buf %zu, ep %" PRIu8,
 		rate, bufsize, ep);
 	if (rate != devc->samplerate) {
-		sr_info("Configuration feedback, want rate %" PRIu64 ", got rate %." PRIu64,
+		otc_info("Configuration feedback, want rate %" PRIu64 ", got rate %." PRIu64,
 			devc->samplerate, rate);
 		devc->samplerate = rate;
 	}
@@ -582,40 +582,40 @@ static int greatfet_logic_config(const struct sr_dev_inst *sdi)
 	 * on the host's capability of keeping up with the GreatFET's
 	 * firmware capabilities. :)
 	 */
-	print_bw = sr_samplerate_string(acq->capture_samplerate);
-	sr_info("Capture configuration: %zu channels, samplerate %s.",
+	print_bw = otc_samplerate_string(acq->capture_samplerate);
+	otc_info("Capture configuration: %zu channels, samplerate %s.",
 		acq->capture_channels, print_bw);
 	g_free(print_bw);
 	bw = acq->capture_samplerate * 8 / acq->points_per_byte;
 	if (!acq->use_upper_pins)
 		bw *= acq->wire_unit_size;
-	print_bw = sr_si_string_u64(bw, "bps");
-	sr_info("Resulting USB bandwidth: %s.", print_bw);
+	print_bw = otc_si_string_u64(bw, "bps");
+	otc_info("Resulting USB bandwidth: %s.", print_bw);
 	g_free(print_bw);
 	if (acq->bandwidth_threshold && bw > acq->bandwidth_threshold) {
-		sr_err("Configuration exceeds bandwidth limit. Aborting.");
-		return SR_ERR_SAMPLERATE;
+		otc_err("Configuration exceeds bandwidth limit. Aborting.");
+		return OTC_ERR_SAMPLERATE;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Transmit "start logic capture" request. */
-static int greatfet_logic_start(const struct sr_dev_inst *sdi)
+static int greatfet_logic_start(const struct otc_dev_inst *sdi)
 {
 	int ret;
 
 	ret = greatfet_trivial_request(sdi,
 		GREATFET_CLASS_LA, LA_VERB_START_CAPTURE, NULL, 0);
-	sr_dbg("LA start, USB out, rc %d", ret);
-	if (ret != SR_OK)
-		sr_err("Cannot start logic analyzer capture.");
+	otc_dbg("LA start, USB out, rc %d", ret);
+	if (ret != OTC_OK)
+		otc_err("Cannot start logic analyzer capture.");
 
 	return ret;
 }
 
 /* Transmit "stop logic capture" request. */
-static int greatfet_logic_stop(const struct sr_dev_inst *sdi)
+static int greatfet_logic_stop(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct dev_acquisition_t *acq;
@@ -623,20 +623,20 @@ static int greatfet_logic_stop(const struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	acq = &devc->acquisition;
 
 	/* Only send STOP when START was sent before. */
 	if (!acq->start_req_sent)
-		return SR_OK;
+		return OTC_OK;
 
 	ret = greatfet_trivial_request(sdi,
 		GREATFET_CLASS_LA, LA_VERB_STOP_CAPTURE, NULL, 0);
-	sr_dbg("LA stop, USB out, rc %d", ret);
-	if (ret == SR_OK)
+	otc_dbg("LA stop, USB out, rc %d", ret);
+	if (ret == OTC_OK)
 		acq->start_req_sent = FALSE;
 	else
-		sr_warn("Cannot stop logic analyzer capture in the device.");
+		otc_warn("Cannot stop logic analyzer capture in the device.");
 
 	return ret;
 }
@@ -644,19 +644,19 @@ static int greatfet_logic_stop(const struct sr_dev_inst *sdi)
 /*
  * Determine how many channels the device firmware needs to sample.
  * So that resulting capture data will cover all those logic channels
- * which currently are enabled on the sigrok side. We (have to) accept
+ * which currently are enabled on the opentracelab side. We (have to) accept
  * when the sequence of enabled channels "has gaps" in them. Disabling
  * channels in the middle of the pin groups is a user's choice that we
  * need to obey. The count of enabled channels is not good enough for
  * the purpose of acquisition, it must be "a maximum index" or a total
  * to-get-sampled count.
  */
-static int greatfet_calc_capture_chans(const struct sr_dev_inst *sdi)
+static int greatfet_calc_capture_chans(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct dev_acquisition_t *acq;
 	GSList *l;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	int last_used_idx;
 	uint16_t pin_map;
 	size_t logic_ch_count, en_ch_count, fw_ch_count;
@@ -664,10 +664,10 @@ static int greatfet_calc_capture_chans(const struct sr_dev_inst *sdi)
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	acq = &devc->acquisition;
 
 	last_used_idx = -1;
@@ -675,7 +675,7 @@ static int greatfet_calc_capture_chans(const struct sr_dev_inst *sdi)
 	pin_map = 0;
 	for (l = sdi->channels; l; l = l->next) {
 		ch = l->data;
-		if (ch->type != SR_CHANNEL_LOGIC)
+		if (ch->type != OTC_CHANNEL_LOGIC)
 			continue;
 		logic_ch_count++;
 		if (!ch->enabled)
@@ -685,28 +685,28 @@ static int greatfet_calc_capture_chans(const struct sr_dev_inst *sdi)
 		pin_map |= 1UL << ch->index;
 	}
 	en_ch_count = last_used_idx + 1;
-	sr_dbg("channel count, logic %zu, highest enabled idx %d -> count %zu",
+	otc_dbg("channel count, logic %zu, highest enabled idx %d -> count %zu",
 		logic_ch_count, last_used_idx, en_ch_count);
 	if (!en_ch_count)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	have_upper = pin_map & 0xff00;
 	have_lower = pin_map & 0x00ff;
 	use_upper_pins = have_upper && !have_lower;
 	if (use_upper_pins) {
-		sr_dbg("ch mask 0x%04x -> using upper pins", pin_map);
+		otc_dbg("ch mask 0x%04x -> using upper pins", pin_map);
 		last_used_idx -= 8;
 		en_ch_count -= 8;
 	}
 	if (have_upper && !use_upper_pins)
-		sr_warn("Multi-bank capture, check firmware support!");
+		otc_warn("Multi-bank capture, check firmware support!");
 
 	acq->capture_channels = en_ch_count;
 	acq->use_upper_pins = use_upper_pins;
-	ret = sr_next_power_of_two(last_used_idx, NULL, &fw_ch_count);
-	if (ret != SR_OK)
+	ret = otc_next_power_of_two(last_used_idx, NULL, &fw_ch_count);
+	if (ret != OTC_OK)
 		return ret;
 	if (!fw_ch_count)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (fw_ch_count > 8) {
 		acq->wire_unit_size = sizeof(uint16_t);
 		acq->points_per_byte = 1;
@@ -715,11 +715,11 @@ static int greatfet_calc_capture_chans(const struct sr_dev_inst *sdi)
 		acq->points_per_byte = 8 / fw_ch_count;
 	}
 	acq->channel_shift = fw_ch_count % 8;
-	sr_dbg("unit %zu, dense %d -> shift %zu, points %zu",
+	otc_dbg("unit %zu, dense %d -> shift %zu, points %zu",
 		acq->wire_unit_size, !!acq->channel_shift,
 		acq->channel_shift, acq->points_per_byte);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -746,20 +746,20 @@ static int greatfet_calc_capture_chans(const struct sr_dev_inst *sdi)
  * This implementation assumes that samplerates start at 1MHz, and
  * flushing is not necessary.
  */
-static int greatfet_calc_submit_size(const struct sr_dev_inst *sdi)
+static int greatfet_calc_submit_size(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct dev_transfers_t *dxfer;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	dxfer = &devc->transfers;
 
 	dxfer->capture_bufsize = dxfer->transfer_bufsize;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -769,7 +769,7 @@ static int greatfet_calc_submit_size(const struct sr_dev_inst *sdi)
  * well as periodic timer or data availability callbacks. It is essential
  * to not spend extended periods of time here.
  */
-static void greatfet_abort_acquisition_quick(const struct sr_dev_inst *sdi)
+static void greatfet_abort_acquisition_quick(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct dev_acquisition_t *acq;
@@ -792,7 +792,7 @@ static void greatfet_abort_acquisition_quick(const struct sr_dev_inst *sdi)
 }
 
 /* Allocate USB transfers and associated receive buffers. */
-static int greatfet_allocate_transfers(const struct sr_dev_inst *sdi)
+static int greatfet_allocate_transfers(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct dev_transfers_t *dxfer;
@@ -800,10 +800,10 @@ static int greatfet_allocate_transfers(const struct sr_dev_inst *sdi)
 	struct libusb_transfer *xfer;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	dxfer = &devc->transfers;
 
 	dxfer->transfer_bufsize = TRANSFER_BUFFER_SIZE;
@@ -812,32 +812,32 @@ static int greatfet_allocate_transfers(const struct sr_dev_inst *sdi)
 	alloc_size = dxfer->transfers_count * dxfer->transfer_bufsize;
 	dxfer->transfer_buffer = g_malloc0(alloc_size);
 	if (!dxfer->transfer_buffer)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
 	alloc_size = dxfer->transfers_count;
 	alloc_size *= sizeof(dxfer->transfers[0]);
 	dxfer->transfers = g_malloc0(alloc_size);
 	if (!dxfer->transfers)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
 	for (idx = 0; idx < dxfer->transfers_count; idx++) {
 		xfer = libusb_alloc_transfer(0);
 		if (!xfer)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		dxfer->transfers[idx] = xfer;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Submit USB transfers for reception, registers the data callback. */
-static int greatfet_prepare_transfers(const struct sr_dev_inst *sdi,
+static int greatfet_prepare_transfers(const struct otc_dev_inst *sdi,
 	libusb_transfer_cb_fn callback)
 {
 	struct dev_context *devc;
 	struct dev_acquisition_t *acq;
 	struct dev_transfers_t *dxfer;
-	struct sr_usb_dev_inst *conn;
+	struct otc_usb_dev_inst *conn;
 	uint8_t ep;
 	size_t submit_length;
 	size_t off, idx;
@@ -845,22 +845,22 @@ static int greatfet_prepare_transfers(const struct sr_dev_inst *sdi,
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	conn = sdi->conn;
 	if (!devc || !conn)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	acq = &devc->acquisition;
 	dxfer = &devc->transfers;
 
 	ep = acq->samples_endpoint;
 	ret = greatfet_calc_submit_size(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	submit_length = dxfer->capture_bufsize;
 	if (submit_length > dxfer->transfer_bufsize)
 		submit_length = dxfer->transfer_bufsize;
-	sr_dbg("prep xfer, ep %u (%u), len %zu",
+	otc_dbg("prep xfer, ep %u (%u), len %zu",
 		ep, ep & ~LIBUSB_ENDPOINT_IN, submit_length);
 
 	dxfer->active_transfers = 0;
@@ -871,18 +871,18 @@ static int greatfet_prepare_transfers(const struct sr_dev_inst *sdi,
 			&dxfer->transfer_buffer[off], submit_length,
 			callback, (void *)sdi, 0);
 		if (!xfer->buffer)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		ret = libusb_submit_transfer(xfer);
 		if (ret != 0) {
-			sr_spew("submit bulk xfer failed, idx %zu, %d: %s",
+			otc_spew("submit bulk xfer failed, idx %zu, %d: %s",
 				idx, ret, libusb_error_name(ret));
-			return SR_ERR_IO;
+			return OTC_ERR_IO;
 		}
 		dxfer->active_transfers++;
 		off += submit_length;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -890,7 +890,7 @@ static int greatfet_prepare_transfers(const struct sr_dev_inst *sdi,
  * Their completion will drive further progress including resource
  * release.
  */
-static int greatfet_cancel_transfers(const struct sr_dev_inst *sdi)
+static int greatfet_cancel_transfers(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct dev_transfers_t *dxfer;
@@ -898,13 +898,13 @@ static int greatfet_cancel_transfers(const struct sr_dev_inst *sdi)
 	struct libusb_transfer *xfer;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	dxfer = &devc->transfers;
 	if (!dxfer->transfers)
-		return SR_OK;
+		return OTC_OK;
 
 	for (idx = 0; idx < dxfer->transfers_count; idx++) {
 		xfer = dxfer->transfers[idx];
@@ -917,7 +917,7 @@ static int greatfet_cancel_transfers(const struct sr_dev_inst *sdi)
 		 */
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -925,11 +925,11 @@ static int greatfet_cancel_transfers(const struct sr_dev_inst *sdi)
  * Releasing the last USB transfer also happens to drive more of
  * the shutdown path.
  */
-static void greatfet_free_transfer(const struct sr_dev_inst *sdi,
+static void greatfet_free_transfer(const struct otc_dev_inst *sdi,
 	struct libusb_transfer *xfer)
 {
 	struct drv_context *drvc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct dev_context *devc;
 	struct dev_acquisition_t *acq;
 	struct dev_transfers_t *dxfer;
@@ -970,7 +970,7 @@ static void greatfet_free_transfer(const struct sr_dev_inst *sdi,
 		std_session_send_df_end(sdi);
 		acq->frame_begin_sent = FALSE;
 	}
-	usb_source_remove(sdi->session, drvc->sr_ctx);
+	usb_source_remove(sdi->session, drvc->otc_ctx);
 	if (acq->samples_interface_claimed) {
 		libusb_release_interface(usb->devhdl, acq->samples_interface);
 		acq->samples_interface_claimed = FALSE;
@@ -989,7 +989,7 @@ static void greatfet_free_transfer(const struct sr_dev_inst *sdi,
  */
 static void LIBUSB_CALL xfer_complete_cb(struct libusb_transfer *xfer)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct dev_acquisition_t *acq;
 	const uint8_t *data;
@@ -1004,7 +1004,7 @@ static void LIBUSB_CALL xfer_complete_cb(struct libusb_transfer *xfer)
 	devc = sdi ? sdi->priv : NULL;
 	if (!sdi || !devc) {
 		/* ShouldNotHappen(TM) */
-		sr_warn("Completion of unregistered USB transfer.");
+		otc_warn("Completion of unregistered USB transfer.");
 		libusb_free_transfer(xfer);
 		return;
 	}
@@ -1031,12 +1031,12 @@ static void LIBUSB_CALL xfer_complete_cb(struct libusb_transfer *xfer)
 	was_cancelled = xfer->status == LIBUSB_TRANSFER_CANCELLED;
 	device_gone = xfer->status == LIBUSB_TRANSFER_NO_DEVICE;
 	is_stalled = xfer->status == LIBUSB_TRANSFER_STALL;
-	level = sr_log_loglevel_get();
-	if (level >= SR_LOG_SPEW) {
-		sr_spew("USB transfer, status %s, byte count %zu.",
+	level = otc_log_loglevel_get();
+	if (level >= OTC_LOG_SPEW) {
+		otc_spew("USB transfer, status %s, byte count %zu.",
 			libusb_error_name(xfer->status), dlen);
-	} else if (level >= SR_LOG_DBG && !was_completed) {
-		sr_dbg("USB transfer, status %s, byte count %zu.",
+	} else if (level >= OTC_LOG_DBG && !was_completed) {
+		otc_dbg("USB transfer, status %s, byte count %zu.",
 			libusb_error_name(xfer->status), dlen);
 	}
 
@@ -1049,29 +1049,29 @@ static void LIBUSB_CALL xfer_complete_cb(struct libusb_transfer *xfer)
 	 */
 	shall_abort = FALSE;
 	if (has_timedout)
-		sr_warn("USB transfer timed out. Using available data.");
+		otc_warn("USB transfer timed out. Using available data.");
 	if (was_completed || has_timedout) {
 		ret = greatfet_process_receive_data(sdi, data, dlen);
-		if (ret != SR_OK) {
-			sr_err("Error processing sample data. Aborting.");
+		if (ret != OTC_OK) {
+			otc_err("Error processing sample data. Aborting.");
 			shall_abort = TRUE;
 		}
 		if (acq->acquisition_state != ACQ_RECEIVE) {
-			sr_dbg("Sample data processing ends acquisition.");
+			otc_dbg("Sample data processing ends acquisition.");
 			feed_queue_logic_flush(acq->feed_queue);
 			shall_abort = TRUE;
 		}
 	} else if (device_gone) {
-		sr_err("Device gone during USB transfer. Aborting.");
+		otc_err("Device gone during USB transfer. Aborting.");
 		shall_abort = TRUE;
 	} else if (was_cancelled) {
-		sr_dbg("Cancelled USB transfer. Terminating acquisition.");
+		otc_dbg("Cancelled USB transfer. Terminating acquisition.");
 		shall_abort = TRUE;
 	} else if (is_stalled) {
-		sr_err("Device firmware is stalled on USB transfer. Aborting.");
+		otc_err("Device firmware is stalled on USB transfer. Aborting.");
 		shall_abort = TRUE;
 	} else {
-		sr_err("USB transfer failed (%s). Aborting.",
+		otc_err("USB transfer failed (%s). Aborting.",
 			libusb_error_name(xfer->status));
 		shall_abort = TRUE;
 	}
@@ -1088,7 +1088,7 @@ static void LIBUSB_CALL xfer_complete_cb(struct libusb_transfer *xfer)
 	if (!shall_abort) {
 		ret = libusb_submit_transfer(xfer);
 		if (ret < 0) {
-			sr_err("Cannot resubmit USB transfer. Aborting.");
+			otc_err("Cannot resubmit USB transfer. Aborting.");
 			shall_abort = TRUE;
 		}
 	}
@@ -1100,34 +1100,34 @@ static void LIBUSB_CALL xfer_complete_cb(struct libusb_transfer *xfer)
 
 /* The public protocol.c API to start/stop acquisitions. */
 
-SR_PRIV int greatfet_setup_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int greatfet_setup_acquisition(const struct otc_dev_inst *sdi)
 {
 	int ret;
 
 	ret = greatfet_allocate_transfers(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = greatfet_calc_capture_chans(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int greatfet_start_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int greatfet_start_acquisition(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct dev_acquisition_t *acq;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	usb = sdi->conn;
 	if (!devc || !usb)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	acq = &devc->acquisition;
 
 	/*
@@ -1135,7 +1135,7 @@ SR_PRIV int greatfet_start_acquisition(const struct sr_dev_inst *sdi)
 	 * part of the sequence is not time critical.
 	 */
 	ret = greatfet_logic_config(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = libusb_claim_interface(usb->devhdl, acq->samples_interface);
@@ -1149,21 +1149,21 @@ SR_PRIV int greatfet_start_acquisition(const struct sr_dev_inst *sdi)
 	 * initiating USB data reception.
 	 */
 	ret = greatfet_logic_start(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = greatfet_prepare_transfers(sdi, xfer_complete_cb);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
  * The public acquisition abort routine, invoked by api.c logic. Could
  * optionally spend more time than the _quick() routine.
  */
-SR_PRIV void greatfet_abort_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV void greatfet_abort_acquisition(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -1177,25 +1177,25 @@ SR_PRIV void greatfet_abort_acquisition(const struct sr_dev_inst *sdi)
 	greatfet_abort_acquisition_quick(sdi);
 }
 
-SR_PRIV int greatfet_stop_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int greatfet_stop_acquisition(const struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	usb = sdi->conn;
 	if (!usb)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ret = greatfet_logic_stop(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV void greatfet_release_resources(const struct sr_dev_inst *sdi)
+OTC_PRIV void greatfet_release_resources(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct dev_transfers_t *dxfer;
@@ -1222,20 +1222,20 @@ SR_PRIV void greatfet_release_resources(const struct sr_dev_inst *sdi)
 	 * drop to zero, is more checking involved?
 	 */
 	if (dxfer->active_transfers)
-		sr_warn("Got active USB transfers in release code path.");
+		otc_warn("Got active USB transfers in release code path.");
 }
 
 /*
  * Process received sample date. There are two essential modes:
  * - The straight forward case. The device provides 16 bits per sample
- *   point. Forward raw received data as is to the sigrok session. The
+ *   point. Forward raw received data as is to the opentracelab session. The
  *   device's endianess matches the session's LE expectation. And the
  *   data matches the device's announced total channel count.
  * - The compact presentation where a smaller number of channels is
  *   active, and their data spans only part of a byte per sample point.
  *   Multiple samples' data is sharing bytes, and bytes will carry data
  *   that was taken at different times. This requires some untangling
- *   before forwarding sample data to the sigrok session which is of
+ *   before forwarding sample data to the opentracelab session which is of
  *   the expected width (unit size) and carries one sample per item.
  * - The cases where one sample point's data occupies full bytes, but
  *   the firmware only communicates one byte per sample point, are seen
@@ -1255,10 +1255,10 @@ SR_PRIV void greatfet_release_resources(const struct sr_dev_inst *sdi)
  * - Samples for 16 channels transparently are handled by the simple
  *   8 channel case above. All logic data of an individual samplepoint
  *   occupies full bytes, endianess of sample data as provided by the
- *   device firmware and the sigrok session are the same. No conversion
+ *   device firmware and the opentracelab session are the same. No conversion
  *   is required.
  */
-static int greatfet_process_receive_data(const struct sr_dev_inst *sdi,
+static int greatfet_process_receive_data(const struct otc_dev_inst *sdi,
 	const uint8_t *data, size_t dlen)
 {
 	static int diag_shown;
@@ -1278,10 +1278,10 @@ static int greatfet_process_receive_data(const struct sr_dev_inst *sdi,
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	acq = &devc->acquisition;
 	q = acq->feed_queue;
 
@@ -1291,12 +1291,12 @@ static int greatfet_process_receive_data(const struct sr_dev_inst *sdi,
 	 * of more sample values to what's still within the limits of
 	 * the current acquisition.
 	 */
-	ret = sr_sw_limits_get_remain(&devc->sw_limits,
+	ret = otc_sw_limits_get_remain(&devc->sw_limits,
 		&samples_remain, NULL, NULL, &exceeded);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	if (exceeded)
-		return SR_OK;
+		return OTC_OK;
 
 	/*
 	 * Check for the simple case first. Where the firmware provides
@@ -1305,7 +1305,7 @@ static int greatfet_process_receive_data(const struct sr_dev_inst *sdi,
 	 * form to the session feed.
 	 *
 	 * This happens to work because sample data received from the
-	 * device and logic data in sigrok sessions both are in little
+	 * device and logic data in opentracelab sessions both are in little
 	 * endian format.
 	 */
 	if (acq->wire_unit_size == devc->feed_unit_size) {
@@ -1313,14 +1313,14 @@ static int greatfet_process_receive_data(const struct sr_dev_inst *sdi,
 		if (samples_remain && samples_rcvd > samples_remain)
 			samples_rcvd = samples_remain;
 		ret = feed_queue_logic_submit_many(q, data, samples_rcvd);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
-		sr_sw_limits_update_samples_read(&devc->sw_limits, samples_rcvd);
-		return SR_OK;
+		otc_sw_limits_update_samples_read(&devc->sw_limits, samples_rcvd);
+		return OTC_OK;
 	}
 	if (sizeof(wr_data) != devc->feed_unit_size) {
-		sr_err("Unhandled unit size mismatch. Flawed implementation?");
-		return SR_ERR_BUG;
+		otc_err("Unhandled unit size mismatch. Flawed implementation?");
+		return OTC_ERR_BUG;
 	}
 
 	/*
@@ -1346,7 +1346,7 @@ static int greatfet_process_receive_data(const struct sr_dev_inst *sdi,
 		points_per_byte = 1;
 	}
 	if (!diag_shown++) {
-		sr_dbg("sample mem: ch count %zu, ch shift %zu, mask 0x%x, points %zu, upper %d",
+		otc_dbg("sample mem: ch count %zu, ch shift %zu, mask 0x%x, points %zu, upper %d",
 			acq->capture_channels, acq->channel_shift,
 			raw_mask, points_per_byte, acq->use_upper_pins);
 	}
@@ -1371,17 +1371,17 @@ static int greatfet_process_receive_data(const struct sr_dev_inst *sdi,
 		}
 		points_count = points_per_byte;
 		ret = feed_queue_logic_submit_many(q, accum, points_count);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
-		sr_sw_limits_update_samples_read(&devc->sw_limits, points_count);
+		otc_sw_limits_update_samples_read(&devc->sw_limits, points_count);
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Receive callback, invoked when data is available, or periodically. */
-SR_PRIV int greatfet_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int greatfet_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct drv_context *drvc;
 	libusb_context *ctx;
@@ -1397,9 +1397,9 @@ SR_PRIV int greatfet_receive_data(int fd, int revents, void *cb_data)
 	if (!devc)
 		return TRUE;
 	drvc = sdi->driver->context;
-	if (!drvc || !drvc->sr_ctx)
+	if (!drvc || !drvc->otc_ctx)
 		return TRUE;
-	ctx = drvc->sr_ctx->libusb_ctx;
+	ctx = drvc->otc_ctx->libusb_ctx;
 
 	/*
 	 * Handle those USB transfers which have completed so far
@@ -1414,7 +1414,7 @@ SR_PRIV int greatfet_receive_data(int fd, int revents, void *cb_data)
 	 * acquisition termination will unregister the receive callback,
 	 * and cancel previously submitted transfers. Reap those here.
 	 */
-	if (sr_sw_limits_check(&devc->sw_limits)) {
+	if (otc_sw_limits_check(&devc->sw_limits)) {
 		greatfet_abort_acquisition_quick(sdi);
 		tv.tv_sec = tv.tv_usec = 0;
 		libusb_handle_events_timeout(ctx, &tv);

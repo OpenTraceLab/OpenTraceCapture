@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Lars-Peter Clausen <lars@metafoo.de>
  *
@@ -25,12 +25,12 @@
 #include "config.h"
 
 #include <ctype.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "libsigrok-internal.h"
+#include "libopentracecapture-internal.h"
 
 #define LOG_PREFIX "sw_limits"
 
@@ -38,12 +38,12 @@
  * Initialize a software limit instance
  *
  * Must be called before any other operations are performed on a struct
- * sr_sw_limits and should typically be called after the data structure has been
+ * otc_sw_limits and should typically be called after the data structure has been
  * allocated.
  *
  * @param limits the software limit instance to initialize
  */
-SR_PRIV void sr_sw_limits_init(struct sr_sw_limits *limits)
+OTC_PRIV void otc_sw_limits_init(struct otc_sw_limits *limits)
 {
 	memset(limits, 0, sizeof(*limits));
 }
@@ -58,26 +58,26 @@ SR_PRIV void sr_sw_limits_init(struct sr_sw_limits *limits)
  * @param key config item key
  * @param data config item data
  *
- * @return SR_ERR_NA if @p key is not a supported limit, SR_OK otherwise
+ * @return OTC_ERR_NA if @p key is not a supported limit, OTC_OK otherwise
  */
-SR_PRIV int sr_sw_limits_config_get(const struct sr_sw_limits *limits,
+OTC_PRIV int otc_sw_limits_config_get(const struct otc_sw_limits *limits,
 	uint32_t key, GVariant **data)
 {
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		*data = g_variant_new_uint64(limits->limit_samples);
 		break;
-	case SR_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_FRAMES:
 		*data = g_variant_new_uint64(limits->limit_frames);
 		break;
-	case SR_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_MSEC:
 		*data = g_variant_new_uint64(limits->limit_msec / 1000);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -90,26 +90,26 @@ SR_PRIV int sr_sw_limits_config_get(const struct sr_sw_limits *limits,
  * @param key config item key
  * @param data config item data
  *
- * @return SR_ERR_NA if @p key is not a supported limit, SR_OK otherwise
+ * @return OTC_ERR_NA if @p key is not a supported limit, OTC_OK otherwise
  */
-SR_PRIV int sr_sw_limits_config_set(struct sr_sw_limits *limits,
+OTC_PRIV int otc_sw_limits_config_set(struct otc_sw_limits *limits,
 	uint32_t key, GVariant *data)
 {
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		limits->limit_samples = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_FRAMES:
 		limits->limit_frames = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_MSEC:
 		limits->limit_msec = g_variant_get_uint64(data) * 1000;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -120,7 +120,7 @@ SR_PRIV int sr_sw_limits_config_set(struct sr_sw_limits *limits,
  *
  * @param limits software limits instance
  */
-SR_PRIV void sr_sw_limits_acquisition_start(struct sr_sw_limits *limits)
+OTC_PRIV void otc_sw_limits_acquisition_start(struct otc_sw_limits *limits)
 {
 	limits->samples_read = 0;
 	limits->frames_read = 0;
@@ -138,11 +138,11 @@ SR_PRIV void sr_sw_limits_acquisition_start(struct sr_sw_limits *limits)
  * @returns TRUE if any of the software limits has been reached and the driver
  *               should stop data acquisition, otherwise FALSE.
  */
-SR_PRIV gboolean sr_sw_limits_check(struct sr_sw_limits *limits)
+OTC_PRIV gboolean otc_sw_limits_check(struct otc_sw_limits *limits)
 {
 	if (limits->limit_samples) {
 		if (limits->samples_read >= limits->limit_samples) {
-			sr_dbg("Requested number of samples (%" PRIu64
+			otc_dbg("Requested number of samples (%" PRIu64
 			       ") reached.", limits->limit_samples);
 			return TRUE;
 		}
@@ -150,7 +150,7 @@ SR_PRIV gboolean sr_sw_limits_check(struct sr_sw_limits *limits)
 
 	if (limits->limit_frames) {
 		if (limits->frames_read >= limits->limit_frames) {
-			sr_dbg("Requested number of frames (%" PRIu64
+			otc_dbg("Requested number of frames (%" PRIu64
 			       ") reached.", limits->limit_frames);
 			return TRUE;
 		}
@@ -161,7 +161,7 @@ SR_PRIV gboolean sr_sw_limits_check(struct sr_sw_limits *limits)
 		now = g_get_monotonic_time();
 		if (now > limits->start_time &&
 			now - limits->start_time > limits->limit_msec) {
-			sr_dbg("Requested sampling time (%" PRIu64
+			otc_dbg("Requested sampling time (%" PRIu64
 			       "ms) reached.", limits->limit_msec / 1000);
 			return TRUE;
 		}
@@ -177,10 +177,10 @@ SR_PRIV gboolean sr_sw_limits_check(struct sr_sw_limits *limits)
  * requested, and provides the remaining value until a specified limit
  * would be reached.
  *
- * The @ref sr_sw_limits_config_get() routine is suitable for rare
+ * The @ref otc_sw_limits_config_get() routine is suitable for rare
  * configuration calls and interfaces nicely with Glib data types. The
- * @ref sr_sw_limits_check() routine only provides a weak "exceeded"
- * result. This @ref sr_sw_limits_get_remain() routine is suitable for
+ * @ref otc_sw_limits_check() routine only provides a weak "exceeded"
+ * result. This @ref otc_sw_limits_get_remain() routine is suitable for
  * additional checks and more eager limits enforcement in (potentially
  * tight) acquisition code paths. Hardware compression may result in
  * rather large "overshoots" when checks are done only late.
@@ -191,15 +191,15 @@ SR_PRIV gboolean sr_sw_limits_check(struct sr_sw_limits *limits)
  * @param[out] msecs remaining milliseconds until the limit is reached
  * @param[out] exceeded whether configured limits were reached before
  *
- * @return SR_ERR_* upon error, SR_OK otherwise
+ * @return OTC_ERR_* upon error, OTC_OK otherwise
  */
-SR_PRIV int sr_sw_limits_get_remain(const struct sr_sw_limits *limits,
+OTC_PRIV int otc_sw_limits_get_remain(const struct otc_sw_limits *limits,
 	uint64_t *samples, uint64_t *frames, uint64_t *msecs,
 	gboolean *exceeded)
 {
 
 	if (!limits)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (exceeded)
 		*exceeded = FALSE;
@@ -249,7 +249,7 @@ SR_PRIV int sr_sw_limits_get_remain(const struct sr_sw_limits *limits,
 		*msecs = remain / 1000;
 	} while (0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
@@ -257,13 +257,13 @@ SR_PRIV int sr_sw_limits_get_remain(const struct sr_sw_limits *limits,
  *
  * Update the amount of samples that have been read in the current data
  * acquisition run. For each invocation @p samples_read will be accumulated and
- * once the configured sample limit has been reached sr_sw_limits_check() will
+ * once the configured sample limit has been reached otc_sw_limits_check() will
  * return TRUE.
  *
  * @param limits software limits instance
  * @param samples_read the amount of samples that have been read
  */
-SR_PRIV void sr_sw_limits_update_samples_read(struct sr_sw_limits *limits,
+OTC_PRIV void otc_sw_limits_update_samples_read(struct otc_sw_limits *limits,
 	uint64_t samples_read)
 {
 	limits->samples_read += samples_read;
@@ -274,13 +274,13 @@ SR_PRIV void sr_sw_limits_update_samples_read(struct sr_sw_limits *limits,
  *
  * Update the amount of frames that have been read in the current data
  * acquisition run. For each invocation @p frames_read will be accumulated and
- * once the configured frame limit has been reached sr_sw_limits_check() will
+ * once the configured frame limit has been reached otc_sw_limits_check() will
  * return TRUE.
  *
  * @param limits software limits instance
  * @param frames_read the amount of frames that have been read
  */
-SR_PRIV void sr_sw_limits_update_frames_read(struct sr_sw_limits *limits,
+OTC_PRIV void otc_sw_limits_update_frames_read(struct otc_sw_limits *limits,
 	uint64_t frames_read)
 {
 	limits->frames_read += frames_read;

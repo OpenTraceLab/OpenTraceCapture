@@ -20,26 +20,26 @@
 #ifndef LIBSIGROK_TESTS_LIB_H
 #define LIBSIGROK_TESTS_LIB_H
 
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libsigrok.h>
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
-extern struct sr_context *srtest_ctx;
+extern struct otc_context *srtest_ctx;
 
 void srtest_setup(void);
 void srtest_teardown(void);
 
-struct sr_dev_driver *srtest_driver_get(const char *drivername);
+struct otc_dev_driver *srtest_driver_get(const char *drivername);
 
-void srtest_driver_init(struct sr_context *sr_ctx, struct sr_dev_driver *driver);
-void srtest_driver_init_all(struct sr_context *sr_ctx);
+void srtest_driver_init(struct otc_context *otc_ctx, struct otc_dev_driver *driver);
+void srtest_driver_init_all(struct otc_context *otc_ctx);
 
-void srtest_set_samplerate(struct sr_dev_driver *driver, uint64_t samplerate);
-uint64_t srtest_get_samplerate(struct sr_dev_driver *driver);
-void srtest_check_samplerate(struct sr_context *sr_ctx, const char *drivername,
+void srtest_set_samplerate(struct otc_dev_driver *driver, uint64_t samplerate);
+uint64_t srtest_get_samplerate(struct otc_dev_driver *driver);
+void srtest_check_samplerate(struct otc_context *otc_ctx, const char *drivername,
 			     uint64_t samplerate);
 
-GArray *srtest_get_enabled_logic_channels(const struct sr_dev_inst *sdi);
+GArray *srtest_get_enabled_logic_channels(const struct otc_dev_inst *sdi);
 
 Suite *suite_core(void);
 Suite *suite_driver_all(void);

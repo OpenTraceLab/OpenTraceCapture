@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2013 Marc Schink <sigrok-dev@marcschink.de>
+ * Copyright (C) 2013 Marc Schink <opentracelab-dev@marcschink.de>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,29 +22,29 @@
 
 extern uint64_t sl2_samplerates[NUM_SAMPLERATES];
 
-static void stop_acquisition(struct sr_dev_inst *sdi)
+static void stop_acquisition(struct otc_dev_inst *sdi)
 {
 	struct drv_context *drvc = sdi->driver->context;
 
-	usb_source_remove(sdi->session, drvc->sr_ctx);
+	usb_source_remove(sdi->session, drvc->otc_ctx);
 
 	std_session_send_df_end(sdi);
 
-	sdi->status = SR_ST_ACTIVE;
+	sdi->status = OTC_ST_ACTIVE;
 }
 
-static void abort_acquisition(struct sr_dev_inst *sdi)
+static void abort_acquisition(struct otc_dev_inst *sdi)
 {
 	struct drv_context *drvc = sdi->driver->context;
 
-	usb_source_remove(sdi->session, drvc->sr_ctx);
+	usb_source_remove(sdi->session, drvc->otc_ctx);
 
 	std_session_send_df_end(sdi);
 
-	sr_dev_close(sdi);
+	otc_dev_close(sdi);
 }
 
-static void buffer_sample_data(const struct sr_dev_inst *sdi)
+static void buffer_sample_data(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	unsigned int offset, packet_length;
@@ -70,11 +70,11 @@ static void buffer_sample_data(const struct sr_dev_inst *sdi)
 	}
 }
 
-static void process_sample_data(const struct sr_dev_inst *sdi)
+static void process_sample_data(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 	uint8_t i, j, tmp, buffer[PACKET_NUM_SAMPLES], *ptr[NUM_CHANNELS];
 	uint16_t offset, n = 0;
 	int8_t k;
@@ -114,7 +114,7 @@ static void process_sample_data(const struct sr_dev_inst *sdi)
 			k = k - (devc->pre_trigger_bytes * 8) +
 				devc->pre_trigger_samples;
 
-			sr_dbg("Start processing at sample: %d.", 7 - k);
+			otc_dbg("Start processing at sample: %d.", 7 - k);
 
 			/*
 			 * Send the trigger before the first sample is
@@ -155,12 +155,12 @@ static void process_sample_data(const struct sr_dev_inst *sdi)
 			 */
 			if (devc->samples_processed == devc->pre_trigger_samples &&
 					devc->trigger_type != TRIGGER_TYPE_NONE) {
-				packet.type = SR_DF_LOGIC;
+				packet.type = OTC_DF_LOGIC;
 				packet.payload = &logic;
 				logic.length = n;
 				logic.unitsize = 1;
 				logic.data = buffer;
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 
 				std_session_send_df_trigger(sdi);
 
@@ -170,19 +170,19 @@ static void process_sample_data(const struct sr_dev_inst *sdi)
 	}
 
 	if (n > 0) {
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		logic.length = n;
 		logic.unitsize = 1;
 		logic.data = buffer;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 	}
 }
 
-SR_PRIV int ikalogic_scanalogic2_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int ikalogic_scanalogic2_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
-	struct sr_dev_driver *di;
+	struct otc_dev_inst *sdi;
+	struct otc_dev_driver *di;
 	struct dev_context *devc;
 	struct drv_context *drvc;
 	struct timeval tv;
@@ -211,7 +211,7 @@ SR_PRIV int ikalogic_scanalogic2_receive_data(int fd, int revents, void *cb_data
 		 * callback functions to avoid waiting until the
 		 * WAIT_DATA_READY_INTERVAL has expired.
 		 */
-		if (sdi->status == SR_ST_STOPPING) {
+		if (sdi->status == OTC_ST_STOPPING) {
 			if (!devc->stopping_in_progress) {
 				devc->next_state = STATE_RESET_AND_IDLE;
 				devc->stopping_in_progress = TRUE;
@@ -224,7 +224,7 @@ SR_PRIV int ikalogic_scanalogic2_receive_data(int fd, int revents, void *cb_data
 	}
 
 	if (ret != 0) {
-		sr_err("Submit transfer failed: %s.", libusb_error_name(ret));
+		otc_err("Submit transfer failed: %s.", libusb_error_name(ret));
 		abort_acquisition(sdi);
 		return TRUE;
 	}
@@ -232,7 +232,7 @@ SR_PRIV int ikalogic_scanalogic2_receive_data(int fd, int revents, void *cb_data
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 
-	libusb_handle_events_timeout_completed(drvc->sr_ctx->libusb_ctx, &tv,
+	libusb_handle_events_timeout_completed(drvc->otc_ctx->libusb_ctx, &tv,
 		NULL);
 
 	/* Check if an error occurred on a transfer. */
@@ -242,9 +242,9 @@ SR_PRIV int ikalogic_scanalogic2_receive_data(int fd, int revents, void *cb_data
 	return TRUE;
 }
 
-SR_PRIV void LIBUSB_CALL sl2_receive_transfer_in( struct libusb_transfer *transfer)
+OTC_PRIV void LIBUSB_CALL sl2_receive_transfer_in( struct libusb_transfer *transfer)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	uint8_t last_channel;
 	int ret = 0;
@@ -253,18 +253,18 @@ SR_PRIV void LIBUSB_CALL sl2_receive_transfer_in( struct libusb_transfer *transf
 	devc = sdi->priv;
 
 	if (transfer->status != LIBUSB_TRANSFER_COMPLETED) {
-		sr_err("Transfer to device failed: %s.",
+		otc_err("Transfer to device failed: %s.",
 			libusb_error_name(transfer->status));
 		devc->transfer_error = TRUE;
 		return;
 	}
 
-	if (sdi->status == SR_ST_STOPPING && !devc->stopping_in_progress) {
+	if (sdi->status == OTC_ST_STOPPING && !devc->stopping_in_progress) {
 		devc->next_state = STATE_RESET_AND_IDLE;
 		devc->stopping_in_progress = TRUE;
 
 		if (libusb_submit_transfer(devc->xfer_in) != 0) {
-			sr_err("Submit transfer failed: %s.",
+			otc_err("Submit transfer failed: %s.",
 				libusb_error_name(ret));
 			devc->transfer_error = TRUE;
 		}
@@ -273,7 +273,7 @@ SR_PRIV void LIBUSB_CALL sl2_receive_transfer_in( struct libusb_transfer *transf
 	}
 
 	if (devc->state != devc->next_state)
-		sr_spew("State changed from %i to %i.",
+		otc_spew("State changed from %i to %i.",
 			devc->state, devc->next_state);
 	devc->state = devc->next_state;
 
@@ -281,9 +281,9 @@ SR_PRIV void LIBUSB_CALL sl2_receive_transfer_in( struct libusb_transfer *transf
 		/* Check if the received data are a valid device status. */
 		if (devc->xfer_data_in[0] == 0x05) {
 			if (devc->xfer_data_in[1] == STATUS_WAITING_FOR_TRIGGER)
-				sr_dbg("Waiting for trigger.");
+				otc_dbg("Waiting for trigger.");
 			else if (devc->xfer_data_in[1] == STATUS_SAMPLING)
-				sr_dbg("Sampling in progress.");
+				otc_dbg("Sampling in progress.");
 		}
 
 		/*
@@ -369,14 +369,14 @@ SR_PRIV void LIBUSB_CALL sl2_receive_transfer_in( struct libusb_transfer *transf
 	}
 
 	if (ret != 0) {
-		sr_err("Submit transfer failed: %s.", libusb_error_name(ret));
+		otc_err("Submit transfer failed: %s.", libusb_error_name(ret));
 		devc->transfer_error = TRUE;
 	}
 }
 
-SR_PRIV void LIBUSB_CALL sl2_receive_transfer_out( struct libusb_transfer *transfer)
+OTC_PRIV void LIBUSB_CALL sl2_receive_transfer_out( struct libusb_transfer *transfer)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	int ret = 0;
 
@@ -384,18 +384,18 @@ SR_PRIV void LIBUSB_CALL sl2_receive_transfer_out( struct libusb_transfer *trans
 	devc = sdi->priv;
 
 	if (transfer->status != LIBUSB_TRANSFER_COMPLETED) {
-		sr_err("Transfer to device failed: %s.",
+		otc_err("Transfer to device failed: %s.",
 			libusb_error_name(transfer->status));
 		devc->transfer_error = TRUE;
 		return;
 	}
 
-	if (sdi->status == SR_ST_STOPPING && !devc->stopping_in_progress) {
+	if (sdi->status == OTC_ST_STOPPING && !devc->stopping_in_progress) {
 		devc->next_state = STATE_RESET_AND_IDLE;
 		devc->stopping_in_progress = TRUE;
 
 		if (libusb_submit_transfer(devc->xfer_in) != 0) {
-			sr_err("Submit transfer failed: %s.",
+			otc_err("Submit transfer failed: %s.",
 				libusb_error_name(ret));
 
 			devc->transfer_error = TRUE;
@@ -405,7 +405,7 @@ SR_PRIV void LIBUSB_CALL sl2_receive_transfer_out( struct libusb_transfer *trans
 	}
 
 	if (devc->state != devc->next_state)
-		sr_spew("State changed from %i to %i.",
+		otc_spew("State changed from %i to %i.",
 			devc->state, devc->next_state);
 	devc->state = devc->next_state;
 
@@ -419,12 +419,12 @@ SR_PRIV void LIBUSB_CALL sl2_receive_transfer_out( struct libusb_transfer *trans
 	}
 
 	if (ret != 0) {
-		sr_err("Submit transfer failed: %s.", libusb_error_name(ret));
+		otc_err("Submit transfer failed: %s.", libusb_error_name(ret));
 		devc->transfer_error = TRUE;
 	}
 }
 
-SR_PRIV int sl2_set_samplerate(const struct sr_dev_inst *sdi,
+OTC_PRIV int sl2_set_samplerate(const struct otc_dev_inst *sdi,
 		uint64_t samplerate)
 {
 	struct dev_context *devc;
@@ -436,14 +436,14 @@ SR_PRIV int sl2_set_samplerate(const struct sr_dev_inst *sdi,
 		if (sl2_samplerates[i] == samplerate) {
 			devc->samplerate = samplerate;
 			devc->samplerate_id = NUM_SAMPLERATES - i - 1;
-			return SR_OK;
+			return OTC_OK;
 		}
 	}
 
-	return SR_ERR_ARG;
+	return OTC_ERR_ARG;
 }
 
-SR_PRIV int sl2_set_limit_samples(const struct sr_dev_inst *sdi,
+OTC_PRIV int sl2_set_limit_samples(const struct otc_dev_inst *sdi,
 				  uint64_t limit_samples)
 {
 	struct dev_context *devc;
@@ -451,27 +451,27 @@ SR_PRIV int sl2_set_limit_samples(const struct sr_dev_inst *sdi,
 	devc = sdi->priv;
 
 	if (limit_samples == 0) {
-		sr_err("Invalid number of limit samples: %" PRIu64 ".",
+		otc_err("Invalid number of limit samples: %" PRIu64 ".",
 			limit_samples);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
 	if (limit_samples > MAX_SAMPLES)
 		limit_samples = MAX_SAMPLES;
 
-	sr_dbg("Limit samples set to %" PRIu64 ".", limit_samples);
+	otc_dbg("Limit samples set to %" PRIu64 ".", limit_samples);
 
 	devc->limit_samples = limit_samples;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int sl2_convert_trigger(const struct sr_dev_inst *sdi)
+OTC_PRIV int sl2_convert_trigger(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_trigger *trigger;
-	struct sr_trigger_stage *stage;
-	struct sr_trigger_match *match;
+	struct otc_trigger *trigger;
+	struct otc_trigger_stage *stage;
+	struct otc_trigger_match *match;
 	const GSList *l, *m;
 	int num_triggers_anyedge;
 
@@ -481,12 +481,12 @@ SR_PRIV int sl2_convert_trigger(const struct sr_dev_inst *sdi)
 	devc->trigger_channel = TRIGGER_CHANNEL_0;
 	devc->trigger_type = TRIGGER_TYPE_NONE;
 
-	if (!(trigger = sr_session_trigger_get(sdi->session)))
-		return SR_OK;
+	if (!(trigger = otc_session_trigger_get(sdi->session)))
+		return OTC_OK;
 
 	if (g_slist_length(trigger->stages) > 1) {
-		sr_err("This device only supports 1 trigger stage.");
-		return SR_ERR;
+		otc_err("This device only supports 1 trigger stage.");
+		return OTC_ERR;
 	}
 
 	num_triggers_anyedge = 0;
@@ -499,13 +499,13 @@ SR_PRIV int sl2_convert_trigger(const struct sr_dev_inst *sdi)
 				continue;
 			devc->trigger_channel = match->channel->index + 1;
 			switch (match->match) {
-			case SR_TRIGGER_RISING:
+			case OTC_TRIGGER_RISING:
 				devc->trigger_type = TRIGGER_TYPE_POSEDGE;
 				break;
-			case SR_TRIGGER_FALLING:
+			case OTC_TRIGGER_FALLING:
 				devc->trigger_type = TRIGGER_TYPE_NEGEDGE;
 				break;
-			case SR_TRIGGER_EDGE:
+			case OTC_TRIGGER_EDGE:
 				devc->trigger_type = TRIGGER_TYPE_ANYEDGE;
 				num_triggers_anyedge++;
 				break;
@@ -522,13 +522,13 @@ SR_PRIV int sl2_convert_trigger(const struct sr_dev_inst *sdi)
 		devc->trigger_type = TRIGGER_TYPE_ANYEDGE;
 	}
 
-	sr_dbg("Trigger set to channel 0x%02x and type 0x%02x.",
+	otc_dbg("Trigger set to channel 0x%02x and type 0x%02x.",
 		devc->trigger_channel, devc->trigger_type);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int sl2_set_after_trigger_delay(const struct sr_dev_inst *sdi,
+OTC_PRIV int sl2_set_after_trigger_delay(const struct otc_dev_inst *sdi,
 					uint64_t after_trigger_delay)
 {
 	struct dev_context *devc;
@@ -536,20 +536,20 @@ SR_PRIV int sl2_set_after_trigger_delay(const struct sr_dev_inst *sdi,
 	devc = sdi->priv;
 
 	if (after_trigger_delay > MAX_AFTER_TRIGGER_DELAY) {
-		sr_err("Invalid after trigger delay: %" PRIu64 " ms.",
+		otc_err("Invalid after trigger delay: %" PRIu64 " ms.",
 			after_trigger_delay);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
-	sr_info("After trigger delay set to %" PRIu64 " ms.",
+	otc_info("After trigger delay set to %" PRIu64 " ms.",
 		after_trigger_delay);
 
 	devc->after_trigger_delay = after_trigger_delay;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV void sl2_calculate_trigger_samples(const struct sr_dev_inst *sdi)
+OTC_PRIV void sl2_calculate_trigger_samples(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint64_t pre_trigger_samples, post_trigger_samples;
@@ -593,18 +593,18 @@ SR_PRIV void sl2_calculate_trigger_samples(const struct sr_dev_inst *sdi)
 	if (post_trigger_samples % 8 != 0)
 		post_trigger_bytes++;
 
-	sr_info("Pre trigger samples: %" PRIu64 ".", pre_trigger_samples);
-	sr_info("Post trigger samples: %" PRIu64 ".", post_trigger_samples);
-	sr_dbg("Pre trigger sample bytes: %" PRIu16 ".", pre_trigger_bytes);
-	sr_dbg("Post trigger sample bytes: %" PRIu16 ".", post_trigger_bytes);
+	otc_info("Pre trigger samples: %" PRIu64 ".", pre_trigger_samples);
+	otc_info("Post trigger samples: %" PRIu64 ".", post_trigger_samples);
+	otc_dbg("Pre trigger sample bytes: %" PRIu16 ".", pre_trigger_bytes);
+	otc_dbg("Post trigger sample bytes: %" PRIu16 ".", post_trigger_bytes);
 
 	devc->pre_trigger_samples = pre_trigger_samples;
 	devc->pre_trigger_bytes = pre_trigger_bytes;
 	devc->post_trigger_bytes = post_trigger_bytes;
 }
 
-SR_PRIV int sl2_get_device_info(struct sr_dev_driver *di,
-		struct sr_usb_dev_inst usb, struct device_info *dev_info)
+OTC_PRIV int sl2_get_device_info(struct otc_dev_driver *di,
+		struct otc_usb_dev_inst usb, struct device_info *dev_info)
 {
 	struct drv_context *drvc;
 	uint8_t buffer[PACKET_LENGTH];
@@ -613,30 +613,30 @@ SR_PRIV int sl2_get_device_info(struct sr_dev_driver *di,
 	drvc = di->context;
 
 	if (!dev_info)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	if (sr_usb_open(drvc->sr_ctx->libusb_ctx, &usb) != SR_OK)
-		return SR_ERR;
+	if (otc_usb_open(drvc->otc_ctx->libusb_ctx, &usb) != OTC_OK)
+		return OTC_ERR;
 
 	if (libusb_kernel_driver_active(usb.devhdl, USB_INTERFACE) == 1) {
 		ret = libusb_detach_kernel_driver(usb.devhdl,
 			USB_INTERFACE);
 
 		if (ret < 0) {
-			sr_err("Failed to detach kernel driver: %s.",
+			otc_err("Failed to detach kernel driver: %s.",
 				libusb_error_name(ret));
 			libusb_close(usb.devhdl);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	}
 
 	ret = libusb_claim_interface(usb.devhdl, USB_INTERFACE);
 
 	if (ret) {
-		sr_err("Failed to claim interface: %s.",
+		otc_err("Failed to claim interface: %s.",
 			libusb_error_name(ret));
 		libusb_close(usb.devhdl);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	memset(buffer, 0, sizeof(buffer));
@@ -647,28 +647,28 @@ SR_PRIV int sl2_get_device_info(struct sr_dev_driver *di,
 	 */
 	buffer[0] = CMD_RESET;
 	if ((ret = sl2_transfer_out(usb.devhdl, buffer)) != PACKET_LENGTH) {
-		sr_err("Resetting of device failed: %s.",
+		otc_err("Resetting of device failed: %s.",
 			libusb_error_name(ret));
 		libusb_release_interface(usb.devhdl, USB_INTERFACE);
 		libusb_close(usb.devhdl);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	buffer[0] = CMD_INFO;
 	if ((ret = sl2_transfer_out(usb.devhdl, buffer)) != PACKET_LENGTH) {
-		sr_err("Requesting of device information failed: %s.",
+		otc_err("Requesting of device information failed: %s.",
 			libusb_error_name(ret));
 		libusb_release_interface(usb.devhdl, USB_INTERFACE);
 		libusb_close(usb.devhdl);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if ((ret = sl2_transfer_in(usb.devhdl, buffer)) != PACKET_LENGTH) {
-		sr_err("Receiving of device information failed: %s.",
+		otc_err("Receiving of device information failed: %s.",
 			libusb_error_name(ret));
 		libusb_release_interface(usb.devhdl, USB_INTERFACE);
 		libusb_close(usb.devhdl);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	memcpy(&(dev_info->serial), buffer + 1, sizeof(uint32_t));
@@ -679,10 +679,10 @@ SR_PRIV int sl2_get_device_info(struct sr_dev_driver *di,
 
 	buffer[0] = CMD_RESET;
 	if ((ret = sl2_transfer_out(usb.devhdl, buffer)) != PACKET_LENGTH) {
-		sr_err("Device reset failed: %s.", libusb_error_name(ret));
+		otc_err("Device reset failed: %s.", libusb_error_name(ret));
 		libusb_release_interface(usb.devhdl, USB_INTERFACE);
 		libusb_close(usb.devhdl);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/*
@@ -692,35 +692,35 @@ SR_PRIV int sl2_get_device_info(struct sr_dev_driver *di,
 	 */
 	buffer[0] = CMD_IDLE;
 	if ((ret = sl2_transfer_out(usb.devhdl, buffer)) != PACKET_LENGTH) {
-		sr_err("Failed to set device in idle state: %s.",
+		otc_err("Failed to set device in idle state: %s.",
 			libusb_error_name(ret));
 		libusb_release_interface(usb.devhdl, USB_INTERFACE);
 		libusb_close(usb.devhdl);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	ret = libusb_release_interface(usb.devhdl, USB_INTERFACE);
 
 	if (ret < 0) {
-		sr_err("Failed to release interface: %s.",
+		otc_err("Failed to release interface: %s.",
 			libusb_error_name(ret));
 		libusb_close(usb.devhdl);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	libusb_close(usb.devhdl);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int sl2_transfer_in(libusb_device_handle *dev_handle, uint8_t *data)
+OTC_PRIV int sl2_transfer_in(libusb_device_handle *dev_handle, uint8_t *data)
 {
 	return libusb_control_transfer(dev_handle, USB_REQUEST_TYPE_IN,
 		USB_HID_GET_REPORT, USB_HID_REPORT_TYPE_FEATURE, USB_INTERFACE,
 		(unsigned char *)data, PACKET_LENGTH, USB_TIMEOUT_MS);
 }
 
-SR_PRIV int sl2_transfer_out(libusb_device_handle *dev_handle, uint8_t *data)
+OTC_PRIV int sl2_transfer_out(libusb_device_handle *dev_handle, uint8_t *data)
 {
 	return libusb_control_transfer(dev_handle, USB_REQUEST_TYPE_OUT,
 		USB_HID_SET_REPORT, USB_HID_REPORT_TYPE_FEATURE, USB_INTERFACE,

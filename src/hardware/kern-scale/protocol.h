@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -23,8 +23,8 @@
 #define LOG_PREFIX "kern-scale"
 
 struct scale_info {
-	/** libsigrok driver info struct. */
-	struct sr_dev_driver di;
+	/** libopentracecapture driver info struct. */
+	struct otc_dev_driver di;
 	/** Manufacturer/brand. */
 	const char *vendor;
 	/** Model. */
@@ -37,7 +37,7 @@ struct scale_info {
 	gboolean (*packet_valid)(const uint8_t *);
 	/** Packet parsing function. */
 	int (*packet_parse)(const uint8_t *, float *,
-			    struct sr_datafeed_analog *, void *);
+			    struct otc_datafeed_analog *, void *);
 	/** Size of chipset info struct. */
 	gsize info_size;
 };
@@ -45,13 +45,13 @@ struct scale_info {
 #define SCALE_BUFSIZE 256
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 
 	uint8_t buf[SCALE_BUFSIZE];
 	int bufoffset;
 	int buflen;
 };
 
-SR_PRIV int kern_scale_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int kern_scale_receive_data(int fd, int revents, void *cb_data);
 
 #endif

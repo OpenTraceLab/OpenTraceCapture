@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Vlad Ivanov <vlad.ivanov@lab-systems.ru>
  *
@@ -18,68 +18,68 @@
  */
 
 #include <config.h>
-#include <scpi.h>
+#include "../../scpi.h"
 #include <string.h>
 
 #include "protocol.h"
 
-static struct sr_dev_driver rohde_schwarz_sme_0x_driver_info;
+static struct otc_dev_driver rohde_schwarz_sme_0x_driver_info;
 
 static const char *manufacturer = "Rohde&Schwarz";
 
 static const struct rs_device_model device_models[] = {
 	{
 		.model_str = "SME02",
-		.freq_max = SR_GHZ(1.5),
-		.freq_min = SR_KHZ(5),
+		.freq_max = OTC_GHZ(1.5),
+		.freq_min = OTC_KHZ(5),
 		.power_max = 16,
 		.power_min = -144,
 	},
 	{
 		.model_str = "SME03E",
-		.freq_max = SR_GHZ(2.2),
-		.freq_min = SR_KHZ(5),
+		.freq_max = OTC_GHZ(2.2),
+		.freq_min = OTC_KHZ(5),
 		.power_max = 16,
 		.power_min = -144,
 	},
 	{
 		.model_str = "SME03A",
-		.freq_max = SR_GHZ(3),
-		.freq_min = SR_KHZ(5),
+		.freq_max = OTC_GHZ(3),
+		.freq_min = OTC_KHZ(5),
 		.power_max = 16,
 		.power_min = -144,
 	},
 	{
 		.model_str = "SME03",
-		.freq_max = SR_GHZ(3),
-		.freq_min = SR_KHZ(5),
+		.freq_max = OTC_GHZ(3),
+		.freq_min = OTC_KHZ(5),
 		.power_max = 16,
 		.power_min = -144,
 	},
 	{
 		.model_str = "SME06",
-		.freq_max = SR_GHZ(1.5),
-		.freq_min = SR_KHZ(5),
+		.freq_max = OTC_GHZ(1.5),
+		.freq_min = OTC_KHZ(5),
 		.power_max = 16,
 		.power_min = -144,
 	}
 };
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-        SR_CONF_SIGNAL_GENERATOR,
+        OTC_CONF_SIGNAL_GENERATOR,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_OUTPUT_FREQUENCY | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_AMPLITUDE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_OUTPUT_FREQUENCY | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_AMPLITUDE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
-static int rs_init_device(struct sr_dev_inst *sdi)
+static int rs_init_device(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint8_t model_found;
@@ -96,19 +96,19 @@ static int rs_init_device(struct sr_dev_inst *sdi)
 	}
 
 	if (!model_found) {
-		sr_dbg("Device %s %s is not supported by this driver.",
+		otc_dbg("Device %s %s is not supported by this driver.",
 			manufacturer, sdi->model);
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
+static struct otc_dev_inst *probe_device(struct otc_scpi_dev_inst *scpi)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_scpi_hw_info *hw_info;
+	struct otc_scpi_hw_info *hw_info;
 
 	sdi = NULL;
 	devc = NULL;
@@ -116,110 +116,110 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi)
 
 	rs_sme0x_mode_remote(scpi);
 
-	if (sr_scpi_get_hw_id(scpi, &hw_info) != SR_OK)
+	if (otc_scpi_get_hw_id(scpi, &hw_info) != OTC_OK)
 		goto fail;
 
 	if (strcmp(hw_info->manufacturer, manufacturer) != 0)
 		goto fail;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
 	sdi->vendor = g_strdup(hw_info->manufacturer);
 	sdi->model = g_strdup(hw_info->model);
 	sdi->version = g_strdup(hw_info->firmware_version);
 	sdi->serial_num = g_strdup(hw_info->serial_number);
 	sdi->driver = &rohde_schwarz_sme_0x_driver_info;
-	sdi->inst_type = SR_INST_SCPI;
+	sdi->inst_type = OTC_INST_SCPI;
 	sdi->conn = scpi;
 
-	sr_scpi_hw_info_free(hw_info);
+	otc_scpi_hw_info_free(hw_info);
 	hw_info = NULL;
 
 	devc = g_malloc0(sizeof(struct dev_context));
 	sdi->priv = devc;
 
-	if (rs_init_device(sdi) != SR_OK)
+	if (rs_init_device(sdi) != OTC_OK)
 		goto fail;
 
 	return sdi;
 
 fail:
-	sr_scpi_hw_info_free(hw_info);
-	sr_dev_inst_free(sdi);
+	otc_scpi_hw_info_free(hw_info);
+	otc_dev_inst_free(sdi);
 	g_free(devc);
 	return NULL;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
-	return sr_scpi_scan(di->context, options, probe_device);
+	return otc_scpi_scan(di->context, options, probe_device);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	return sr_scpi_open(sdi->conn);
+	return otc_scpi_open(sdi->conn);
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	return sr_scpi_close(sdi->conn);
+	return otc_scpi_close(sdi->conn);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	double value_f;
 
 	(void) cg;
 
 	switch (key) {
-	case SR_CONF_OUTPUT_FREQUENCY:
+	case OTC_CONF_OUTPUT_FREQUENCY:
 		rs_sme0x_get_freq(sdi, &value_f);
 		*data = g_variant_new_double(value_f);
 		break;
-	case SR_CONF_AMPLITUDE:
+	case OTC_CONF_AMPLITUDE:
 		rs_sme0x_get_power(sdi, &value_f);
 		*data = g_variant_new_double(value_f);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	double value_f;
 
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	switch (key) {
-	case SR_CONF_OUTPUT_FREQUENCY:
+	case OTC_CONF_OUTPUT_FREQUENCY:
 		value_f = g_variant_get_double(data);
 		rs_sme0x_set_freq(sdi, value_f);
 		break;
-	case SR_CONF_AMPLITUDE:
+	case OTC_CONF_AMPLITUDE:
 		value_f = g_variant_get_double(data);
 		rs_sme0x_set_power(sdi, value_f);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
 }
 
-static struct sr_dev_driver rohde_schwarz_sme_0x_driver_info = {
+static struct otc_dev_driver rohde_schwarz_sme_0x_driver_info = {
 	.name = "rohde-schwarz-sme-0x",
 	.longname = "Rohde&Schwarz SME-0x",
 	.api_version = 1,
@@ -237,4 +237,4 @@ static struct sr_dev_driver rohde_schwarz_sme_0x_driver_info = {
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(rohde_schwarz_sme_0x_driver_info);
+OTC_REGISTER_DEV_DRIVER(rohde_schwarz_sme_0x_driver_info);

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019-2020, 2024 Andreas Sandberg <andreas@sandberg.uk>
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
@@ -22,8 +22,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 enum measurement_state {
@@ -83,32 +83,32 @@ static struct attribute_mapping attribute_map[] = {
 
 struct unit_mapping {
 	const char *name;
-	enum sr_mq mq;
-	enum sr_unit unit;
-	enum sr_mqflag mqflags;
+	enum otc_mq mq;
+	enum otc_unit unit;
+	enum otc_mqflag mqflags;
 };
 
 static struct unit_mapping unit_map[] = {
-	{ "VDC", SR_MQ_VOLTAGE, SR_UNIT_VOLT, SR_MQFLAG_DC },
-	{ "VAC", SR_MQ_VOLTAGE, SR_UNIT_VOLT, SR_MQFLAG_AC | SR_MQFLAG_RMS },
-	{ "ADC", SR_MQ_CURRENT, SR_UNIT_AMPERE, SR_MQFLAG_DC },
-	{ "AAC", SR_MQ_CURRENT, SR_UNIT_AMPERE, SR_MQFLAG_AC | SR_MQFLAG_RMS },
-	{ "VAC_PLUS_DC", SR_MQ_VOLTAGE, SR_UNIT_VOLT, 0 },
-	{ "AAC_PLUS_DC", SR_MQ_VOLTAGE, SR_UNIT_VOLT, 0 },
+	{ "VDC", OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, OTC_MQFLAG_DC },
+	{ "VAC", OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, OTC_MQFLAG_AC | OTC_MQFLAG_RMS },
+	{ "ADC", OTC_MQ_CURRENT, OTC_UNIT_AMPERE, OTC_MQFLAG_DC },
+	{ "AAC", OTC_MQ_CURRENT, OTC_UNIT_AMPERE, OTC_MQFLAG_AC | OTC_MQFLAG_RMS },
+	{ "VAC_PLUS_DC", OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, 0 },
+	{ "AAC_PLUS_DC", OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, 0 },
 	/* Used in peak */
-	{ "V", SR_MQ_VOLTAGE, SR_UNIT_VOLT, 0 },
+	{ "V", OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, 0 },
 	/* Used in peak */
-	{ "A", SR_MQ_VOLTAGE, SR_UNIT_AMPERE, 0 },
-	{ "OHM", SR_MQ_RESISTANCE, SR_UNIT_OHM, 0 },
-	{ "SIE", SR_MQ_CONDUCTANCE, SR_UNIT_SIEMENS, 0 },
-	{ "Hz", SR_MQ_FREQUENCY, SR_UNIT_HERTZ, 0 },
-	{ "S", SR_MQ_PULSE_WIDTH, SR_UNIT_SECOND, 0 },
-	{ "F", SR_MQ_CAPACITANCE, SR_UNIT_FARAD, 0 },
-	{ "CEL", SR_MQ_TEMPERATURE, SR_UNIT_CELSIUS, 0 },
-	{ "FAR", SR_MQ_TEMPERATURE, SR_UNIT_FAHRENHEIT, 0 },
-	{ "PCT", SR_MQ_DUTY_CYCLE, SR_UNIT_PERCENTAGE, 0 },
-	{ "dBm", SR_MQ_VOLTAGE, SR_UNIT_DECIBEL_MW, SR_MQFLAG_AC | SR_MQFLAG_RMS },
-	{ "dBV", SR_MQ_VOLTAGE, SR_UNIT_DECIBEL_VOLT, SR_MQFLAG_AC | SR_MQFLAG_RMS },
+	{ "A", OTC_MQ_VOLTAGE, OTC_UNIT_AMPERE, 0 },
+	{ "OHM", OTC_MQ_RESISTANCE, OTC_UNIT_OHM, 0 },
+	{ "SIE", OTC_MQ_CONDUCTANCE, OTC_UNIT_SIEMENS, 0 },
+	{ "Hz", OTC_MQ_FREQUENCY, OTC_UNIT_HERTZ, 0 },
+	{ "S", OTC_MQ_PULSE_WIDTH, OTC_UNIT_SECOND, 0 },
+	{ "F", OTC_MQ_CAPACITANCE, OTC_UNIT_FARAD, 0 },
+	{ "CEL", OTC_MQ_TEMPERATURE, OTC_UNIT_CELSIUS, 0 },
+	{ "FAR", OTC_MQ_TEMPERATURE, OTC_UNIT_FAHRENHEIT, 0 },
+	{ "PCT", OTC_MQ_DUTY_CYCLE, OTC_UNIT_PERCENTAGE, 0 },
+	{ "dBm", OTC_MQ_VOLTAGE, OTC_UNIT_DECIBEL_MW, OTC_MQFLAG_AC | OTC_MQFLAG_RMS },
+	{ "dBV", OTC_MQ_VOLTAGE, OTC_UNIT_DECIBEL_VOLT, OTC_MQFLAG_AC | OTC_MQFLAG_RMS },
 };
 
 static const struct unit_mapping *parse_unit(const char *name)
@@ -123,7 +123,7 @@ static const struct unit_mapping *parse_unit(const char *name)
 			return &unit_map[i];
 	}
 
-	sr_warn("Unknown unit '%s'", name);
+	otc_warn("Unknown unit '%s'", name);
 	return NULL;
 }
 
@@ -139,7 +139,7 @@ static enum measurement_state parse_measurement_state(const char *name)
 			return state_map[i].state;
 	}
 
-	sr_warn("Unknown measurement state '%s'", name);
+	otc_warn("Unknown measurement state '%s'", name);
 	return MEAS_S_INVALID;
 }
 
@@ -155,18 +155,18 @@ static enum measurement_attribute parse_attribute(const char *name)
 			return attribute_map[i].attribute;
 	}
 
-	sr_warn("Unknown measurement attribute '%s'", name);
+	otc_warn("Unknown measurement attribute '%s'", name);
 	return MEAS_A_INVALID;
 }
 
-SR_PRIV void fluke_handle_qm_28x(const struct sr_dev_inst *sdi, char **tokens)
+OTC_PRIV void fluke_handle_qm_28x(const struct otc_dev_inst *sdi, char **tokens)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
 	float fvalue;
 	int digits;
@@ -179,21 +179,21 @@ SR_PRIV void fluke_handle_qm_28x(const struct sr_dev_inst *sdi, char **tokens)
 	/* We should have received four values:
 	 * value, unit, state, attribute
 	 */
-	if (sr_atof_ascii_digits(tokens[0], &fvalue, &digits) != SR_OK) {
-		sr_err("Invalid float '%s'.", tokens[0]);
+	if (otc_atof_ascii_digits(tokens[0], &fvalue, &digits) != OTC_OK) {
+		otc_err("Invalid float '%s'.", tokens[0]);
 		return;
 	}
 
 	unit = parse_unit(tokens[1]);
 	if (!unit) {
-		sr_err("Invalid unit '%s'.", tokens[1]);
+		otc_err("Invalid unit '%s'.", tokens[1]);
 		return;
 	}
 
 	state = parse_measurement_state(tokens[2]);
 	attr = parse_attribute(tokens[3]);
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, digits);
 	analog.data = &fvalue;
 	analog.meaning->channels = sdi->channels;
 	analog.num_samples = 1;
@@ -201,7 +201,7 @@ SR_PRIV void fluke_handle_qm_28x(const struct sr_dev_inst *sdi, char **tokens)
 	analog.meaning->mqflags = unit->mqflags;
 	analog.meaning->unit = unit->unit;
 
-	if (unit->mq == SR_MQ_RESISTANCE) {
+	if (unit->mq == OTC_MQ_RESISTANCE) {
 		switch (attr) {
 		case MEAS_A_NONE:
 			/* Normal reading */
@@ -209,8 +209,8 @@ SR_PRIV void fluke_handle_qm_28x(const struct sr_dev_inst *sdi, char **tokens)
 		case MEAS_A_OPEN_CIRCUIT:
 		case MEAS_A_SHORT_CIRCUIT:
 			/* Continuity measurement */
-			analog.meaning->mq = SR_MQ_CONTINUITY;
-			analog.meaning->unit = SR_UNIT_BOOLEAN;
+			analog.meaning->mq = OTC_MQ_CONTINUITY;
+			analog.meaning->unit = OTC_UNIT_BOOLEAN;
 			fvalue = attr == MEAS_A_OPEN_CIRCUIT ? 0.0 : 1.0;
 			break;
 		default:
@@ -242,9 +242,9 @@ SR_PRIV void fluke_handle_qm_28x(const struct sr_dev_inst *sdi, char **tokens)
 
 	if (analog.meaning->mq) {
 		/* Got a measurement. */
-		packet.type = SR_DF_ANALOG;
+		packet.type = OTC_DF_ANALOG;
 		packet.payload = &analog;
-		sr_session_send(sdi, &packet);
-		sr_sw_limits_update_samples_read(&devc->limits, 1);
+		otc_session_send(sdi, &packet);
+		otc_sw_limits_update_samples_read(&devc->limits, 1);
 	}
 }

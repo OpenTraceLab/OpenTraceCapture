@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Soeren Apel <soeren@apelpie.net>
  * Copyright (C) 2015 Bert Vermeulen <bert@biot.com>
@@ -40,8 +40,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/time.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "input/trace32_ad"
 
@@ -94,7 +94,7 @@ struct context {
 	enum ad_mode record_mode;
 	enum ad_compr compression;
 	char pod_status[MAX_POD_COUNT];
-	struct sr_channel *channels[MAX_POD_COUNT][17]; /* 16 + CLK */
+	struct otc_channel *channels[MAX_POD_COUNT][17]; /* 16 + CLK */
 	uint64_t trigger_timestamp;
 	uint32_t header_size, record_size, record_count, cur_record;
 	int32_t last_record;
@@ -104,7 +104,7 @@ struct context {
 };
 
 static int process_header(GString *buf, struct context *inc);
-static void create_channels(struct sr_input *in);
+static void create_channels(struct otc_input *in);
 
 /* Transform non-printable chars to '\xNN' presentation. */
 static char *printable_name(const char *name)
@@ -145,18 +145,18 @@ static char get_pod_name_from_id(int id)
 	case 10: return 'N';
 	case 11: return 'O';
 	default:
-		sr_err("get_pod_name_from_id() called with invalid ID %d!", id);
+		otc_err("get_pod_name_from_id() called with invalid ID %d!", id);
 	}
 	return 'X';
 }
 
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	struct context *inc;
 	int pod;
 	char id[17];
 
-	in->sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	in->sdi = g_malloc0(sizeof(struct otc_dev_inst));
 	in->priv = g_malloc0(sizeof(struct context));
 
 	inc = in->priv;
@@ -176,15 +176,15 @@ static int init(struct sr_input *in, GHashTable *options)
 
 	create_channels(in);
 	if (g_slist_length(in->sdi->channels) == 0) {
-		sr_err("No pods were selected and thus no channels created, aborting.");
+		otc_err("No pods were selected and thus no channels created, aborting.");
 		g_free(in->priv);
 		g_free(in->sdi);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	inc->out_buf = g_string_sized_new(CHUNK_SIZE);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int format_match(GHashTable *metadata, unsigned int *confidence)
@@ -192,14 +192,14 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	GString *buf;
 	int rc;
 
-	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(SR_INPUT_META_HEADER));
+	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(OTC_INPUT_META_HEADER));
 	rc = process_header(buf, NULL);
 
-	if (rc != SR_OK)
+	if (rc != OTC_OK)
 		return rc;
 	*confidence = 10;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int process_header(GString *buf, struct context *inc)
@@ -296,17 +296,17 @@ static int process_header(GString *buf, struct context *inc)
 		format = AD_FORMAT_TXTHDR;
 		g_free(format_name);
 		if (inc)
-			sr_err("This format isn't implemented yet, aborting.");
-		return SR_ERR;
+			otc_err("This format isn't implemented yet, aborting.");
+		return OTC_ERR;
 	} else {
 		/* Unknown kind of format name. Unsupported. */
 		g_free(format_name);
 		if (inc)
-			sr_err("Don't know this file format, aborting.");
-		return SR_ERR;
+			otc_err("Don't know this file format, aborting.");
+		return OTC_ERR;
 	}
 	if (!format)
-		return SR_ERR;
+		return OTC_ERR;
 
 	/* If the device id is 0x00, we have a v2 format file. */
 	if (R8(buf->str + 0x36) == 0x00)
@@ -314,7 +314,7 @@ static int process_header(GString *buf, struct context *inc)
 
 	p = printable_name(format_name);
 	if (inc)
-		sr_dbg("File says it's \"%s\" -> format type %u.", p, format);
+		otc_dbg("File says it's \"%s\" -> format type %u.", p, format);
 	g_free(p);
 
 	record_size = (format == AD_FORMAT_BINHDR1) ?
@@ -332,16 +332,16 @@ static int process_header(GString *buf, struct context *inc)
 	if (!device_id) {
 		g_free(format_name);
 		if (inc)
-			sr_err("Cannot handle file with record size %zu.",
+			otc_err("Cannot handle file with record size %zu.",
 				record_size);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	g_free(format_name);
 
 	/* Stop processing the header if we just want to identify the file. */
 	if (!inc)
-		return SR_OK;
+		return OTC_OK;
 
 	inc->format       = format;
 	inc->device       = device_id;
@@ -360,25 +360,25 @@ static int process_header(GString *buf, struct context *inc)
 		inc->last_record  = inc->record_count;
 	}
 
-	sr_dbg("Trigger occured at %lf s.",
+	otc_dbg("Trigger occured at %lf s.",
 		inc->trigger_timestamp * TIMESTAMP_RESOLUTION);
-	sr_dbg("File contains %d records: first one is %d, last one is %d.",
+	otc_dbg("File contains %d records: first one is %d, last one is %d.",
 		inc->record_count, (inc->last_record - inc->record_count + 1),
 		inc->last_record);
 
 	/* Check if we can work with this compression. */
 	if (inc->compression) {
-		sr_err("File uses unsupported compression (0x%02X), can't continue.",
+		otc_err("File uses unsupported compression (0x%02X), can't continue.",
 			inc->compression);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	inc->header_read = TRUE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void create_channels(struct sr_input *in)
+static void create_channels(struct otc_input *in)
 {
 	struct context *inc;
 	int pod, channel, chan_id;
@@ -394,48 +394,48 @@ static void create_channels(struct sr_input *in)
 		for (channel = 0; channel < 16; channel++) {
 			snprintf(name, sizeof(name), "%c%d", get_pod_name_from_id(pod), channel);
 			inc->channels[pod][channel] =
-				sr_channel_new(in->sdi, chan_id, SR_CHANNEL_LOGIC, TRUE, name);
+				otc_channel_new(in->sdi, chan_id, OTC_CHANNEL_LOGIC, TRUE, name);
 			chan_id++;
 		}
 
 		snprintf(name, sizeof(name), "CLK%c", get_pod_name_from_id(pod));
 		inc->channels[pod][16] =
-			sr_channel_new(in->sdi, chan_id, SR_CHANNEL_LOGIC, TRUE, name);
+			otc_channel_new(in->sdi, chan_id, OTC_CHANNEL_LOGIC, TRUE, name);
 		chan_id++;
 	}
 }
 
-static void send_metadata(struct sr_input *in)
+static void send_metadata(struct otc_input *in)
 {
 	struct context *inc;
 
 	inc = in->priv;
-	(void)sr_session_send_meta(in->sdi, SR_CONF_SAMPLERATE,
+	(void)otc_session_send_meta(in->sdi, OTC_CONF_SAMPLERATE,
 		g_variant_new_uint64(inc->samplerate));
 	inc->meta_sent = TRUE;
 }
 
-static void flush_output_buffer(struct sr_input *in)
+static void flush_output_buffer(struct otc_input *in)
 {
 	struct context *inc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 
 	inc = in->priv;
 
 	if (inc->out_buf->len) {
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		logic.unitsize = (g_slist_length(in->sdi->channels) + 7) / 8;
 		logic.data = inc->out_buf->str;
 		logic.length = inc->out_buf->len;
-		sr_session_send(in->sdi, &packet);
+		otc_session_send(in->sdi, &packet);
 
 		g_string_truncate(inc->out_buf, 0);
 	}
 }
 
-static void process_record_pi(struct sr_input *in, gsize start)
+static void process_record_pi(struct otc_input *in, gsize start)
 {
 	struct context *inc;
 	uint64_t timestamp, next_timestamp;
@@ -540,7 +540,7 @@ static void process_record_pi(struct sr_input *in, gsize start)
 			break;
 		default:
 			pod_data = 0;
-			sr_err("Don't know how to obtain data for pod %d.", pod);
+			otc_err("Don't know how to obtain data for pod %d.", pod);
 		}
 
 		for (i = 0; i < 17; i++) {
@@ -562,12 +562,12 @@ static void process_record_pi(struct sr_input *in, gsize start)
 
 	i = (g_slist_length(in->sdi->channels) + 7) / 8;
 	if (payload_len != i) {
-		sr_err("Payload unit size is %d but should be %d!", payload_len, i);
+		otc_err("Payload unit size is %d but should be %d!", payload_len, i);
 		return;
 	}
 
 	if (timestamp == inc->trigger_timestamp && !inc->trigger_sent) {
-		sr_dbg("Trigger @%lf s, record #%d.",
+		otc_dbg("Trigger @%lf s, record #%d.",
 			timestamp * TIMESTAMP_RESOLUTION, inc->cur_record);
 		std_session_send_df_trigger(in->sdi);
 		inc->trigger_sent = TRUE;
@@ -594,7 +594,7 @@ static void process_record_pi(struct sr_input *in, gsize start)
 		flush_output_buffer(in);
 }
 
-static void process_record_iprobe(struct sr_input *in, gsize start)
+static void process_record_iprobe(struct otc_input *in, gsize start)
 {
 	struct context *inc;
 	uint64_t timestamp, next_timestamp;
@@ -616,7 +616,7 @@ static void process_record_iprobe(struct sr_input *in, gsize start)
 	payload_len = 3;
 
 	if (timestamp == inc->trigger_timestamp && !inc->trigger_sent) {
-		sr_dbg("Trigger @%lf s, record #%d.",
+		otc_dbg("Trigger @%lf s, record #%d.",
 			timestamp * TIMESTAMP_RESOLUTION, inc->cur_record);
 		std_session_send_df_trigger(in->sdi);
 		inc->trigger_sent = TRUE;
@@ -643,14 +643,14 @@ static void process_record_iprobe(struct sr_input *in, gsize start)
 		flush_output_buffer(in);
 }
 
-static void process_practice_token(struct sr_input *in, char *cmd_token)
+static void process_practice_token(struct otc_input *in, char *cmd_token)
 {
 	struct context *inc;
 	char **tokens;
 	char chan_suffix[2], chan_name[33];
 	char *s1, *s2;
 	int pod, ch;
-	struct sr_channel *channel;
+	struct otc_channel *channel;
 
 	inc = in->priv;
 
@@ -714,14 +714,14 @@ static void process_practice_token(struct sr_input *in, char *cmd_token)
 		channel = inc->channels[pod][ch];
 		g_snprintf(chan_name, sizeof(chan_name), "%s%s", s2, chan_suffix);
 
-		sr_dbg("Changing channel name for %s to %s.", s1, chan_name);
-		sr_dev_channel_name_set(channel, chan_name);
+		otc_dbg("Changing channel name for %s to %s.", s1, chan_name);
+		otc_dev_channel_name_set(channel, chan_name);
 	}
 
 	g_strfreev(tokens);
 }
 
-static void process_practice(struct sr_input *in)
+static void process_practice(struct otc_input *in)
 {
 	char delimiter[3];
 	char **tokens, *token;
@@ -752,7 +752,7 @@ static void process_practice(struct sr_input *in)
 	g_string_erase(in->buf, 0, in->buf->len);
 }
 
-static int process_buffer(struct sr_input *in)
+static int process_buffer(struct otc_input *in)
 {
 	struct context *inc;
 	int i, chunk_size, res;
@@ -762,7 +762,7 @@ static int process_buffer(struct sr_input *in)
 	if (!inc->header_read) {
 		res = process_header(in->buf, inc);
 		g_string_erase(in->buf, 0, inc->header_size);
-		if (res != SR_OK)
+		if (res != OTC_OK)
 			return res;
 	}
 
@@ -787,8 +787,8 @@ static int process_buffer(struct sr_input *in)
 				process_record_iprobe(in, i);
 				break;
 			default:
-				sr_err("Trying to process records for unknown device!");
-				return SR_ERR;
+				otc_err("Trying to process records for unknown device!");
+				return OTC_ERR;
 			}
 
 			inc->cur_record++;
@@ -804,23 +804,23 @@ static int process_buffer(struct sr_input *in)
 		process_practice(in);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 	g_string_append_len(in->buf, buf->str, buf->len);
 
 	if (!in->sdi_ready) {
 		/* sdi is ready, notify frontend. */
 		in->sdi_ready = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	return process_buffer(in);
 }
 
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	struct context *inc;
 	int ret;
@@ -830,7 +830,7 @@ static int end(struct sr_input *in)
 	if (in->sdi_ready)
 		ret = process_buffer(in);
 	else
-		ret = SR_OK;
+		ret = OTC_OK;
 
 	flush_output_buffer(in);
 
@@ -840,7 +840,7 @@ static int end(struct sr_input *in)
 	return ret;
 }
 
-static int reset(struct sr_input *in)
+static int reset(struct otc_input *in)
 {
 	struct context *inc = in->priv;
 
@@ -852,10 +852,10 @@ static int reset(struct sr_input *in)
 
 	g_string_truncate(in->buf, 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	{ "podA", "Import pod A / iprobe",
 		"Create channels and data for pod A / iprobe", NULL, NULL },
 
@@ -876,7 +876,7 @@ static struct sr_option options[] = {
 	ALL_ZERO
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	if (!options[0].def) {
 		options[0].def = g_variant_ref_sink(g_variant_new_boolean(TRUE));
@@ -897,13 +897,13 @@ static const struct sr_option *get_options(void)
 	return options;
 }
 
-SR_PRIV struct sr_input_module input_trace32_ad = {
+OTC_PRIV struct otc_input_module input_trace32_ad = {
 	.id = "trace32_ad",
 	.name = "Trace32_ad",
 	.desc = "Lauterbach Trace32 logic analyzer data",
 	.exts = (const char*[]){"ad", NULL},
 	.options = get_options,
-	.metadata = { SR_INPUT_META_HEADER | SR_INPUT_META_REQUIRED },
+	.metadata = { OTC_INPUT_META_HEADER | OTC_INPUT_META_REQUIRED },
 	.format_match = format_match,
 	.init = init,
 	.receive = receive,

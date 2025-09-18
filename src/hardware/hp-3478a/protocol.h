@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017-2021 Frank Stettner <frank-stettner@gmx.net>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "hp-3478a"
 
@@ -134,21 +134,21 @@ enum line_freq {
 };
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 
 	double measurement;
-	enum sr_mq measurement_mq;
+	enum otc_mq measurement_mq;
 	/**
 	 * The measurement mq flag can contain none or one of the
 	 * following flags: AC, DC, or 4-wire.
 	 */
-	enum sr_mqflag measurement_mq_flag;
+	enum otc_mqflag measurement_mq_flag;
 	/**
 	 * The acquisition mq flags can contain multiple flags,
 	 * for example autoranging, RMS, etc.
 	 */
-	enum sr_mqflag acquisition_mq_flags;
-	enum sr_unit measurement_unit;
+	enum otc_mqflag acquisition_mq_flags;
+	enum otc_unit measurement_unit;
 	int range_exp;
 	/**
 	 * The total number of digits. Rounded up from the resoultion of
@@ -159,7 +159,7 @@ struct dev_context {
 	 * The digits used for encoding.digits and spec.spec_digits in
 	 * the analog payload.
 	 */
-	uint8_t sr_digits;
+	uint8_t otc_digits;
 
 	enum terminal_connector terminal;
 	enum trigger_state trigger;
@@ -173,11 +173,11 @@ struct channel_context {
 	enum terminal_connector location;
 };
 
-SR_PRIV int hp_3478a_set_mq(const struct sr_dev_inst *sdi, enum sr_mq mq,
-				enum sr_mqflag mq_flags);
-SR_PRIV int hp_3478a_set_range(const struct sr_dev_inst *sdi, int range_exp);
-SR_PRIV int hp_3478a_set_digits(const struct sr_dev_inst *sdi, uint8_t digits);
-SR_PRIV int hp_3478a_get_status_bytes(const struct sr_dev_inst *sdi);
-SR_PRIV int hp_3478a_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int hp_3478a_set_mq(const struct otc_dev_inst *sdi, enum otc_mq mq,
+				enum otc_mqflag mq_flags);
+OTC_PRIV int hp_3478a_set_range(const struct otc_dev_inst *sdi, int range_exp);
+OTC_PRIV int hp_3478a_set_digits(const struct otc_dev_inst *sdi, uint8_t digits);
+OTC_PRIV int hp_3478a_get_status_bytes(const struct otc_dev_inst *sdi);
+OTC_PRIV int hp_3478a_receive_data(int fd, int revents, void *cb_data);
 
 #endif

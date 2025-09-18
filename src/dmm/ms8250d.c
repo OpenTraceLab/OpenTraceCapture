@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2012 Alexandru Gagniuc <mr.nuke.me@gmail.com>
@@ -34,8 +34,8 @@
 #include <ctype.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "ms8250d"
 
@@ -71,7 +71,7 @@ static int parse_digit(uint16_t b)
 	case 0x713:
 		return 9;
 	default:
-		sr_dbg("Invalid digit word: 0x%04x.", b);
+		otc_dbg("Invalid digit word: 0x%04x.", b);
 		return -1;
 	}
 }
@@ -103,7 +103,7 @@ static int parse_digit2(uint16_t b)
 	case 0x3F:
 		return 9;
 	default:
-		sr_dbg("Invalid second display digit word: 0x%04x.", b);
+		otc_dbg("Invalid second display digit word: 0x%04x.", b);
 		return -1;
 	}
 }
@@ -154,7 +154,7 @@ static gboolean flags_valid(const struct ms8250d_info *info)
 	count += (info->is_kilo) ? 1 : 0;
 	count += (info->is_mega) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one multiplier detected in packet.");
+		otc_dbg("More than one multiplier detected in packet.");
 		return FALSE;
 	}
 
@@ -166,26 +166,26 @@ static gboolean flags_valid(const struct ms8250d_info *info)
 	count += (info->is_ampere) ? 1 : 0;
 	count += (info->is_volt) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one measurement type detected in packet.");
+		otc_dbg("More than one measurement type detected in packet.");
 		return FALSE;
 	}
 
 	/* Both AC and DC set? */
 	if (info->is_ac && info->is_dc) {
-		sr_dbg("Both AC and DC flags detected in packet.");
+		otc_dbg("Both AC and DC flags detected in packet.");
 		return FALSE;
 	}
 
 	/* RS232 flag set? */
 	if (!info->is_rs232) {
-		sr_dbg("No RS232 flag detected in packet.");
+		otc_dbg("No RS232 flag detected in packet.");
 		return FALSE;
 	}
 
 	return TRUE;
 }
 
-static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
+static void handle_flags(struct otc_datafeed_analog *analog, float *floatval,
 		int *exponent, const struct ms8250d_info *info)
 {
 	/* Factors */
@@ -203,67 +203,67 @@ static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
 
 	/* Measurement modes */
 	if (info->is_volt) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_ampere) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 	}
 	if (info->is_ohm) {
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 	if (info->is_hz) {
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 	}
 	if (info->is_farad) {
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 	}
 	if (info->is_beep) {
-		analog->meaning->mq = SR_MQ_CONTINUITY;
-		analog->meaning->unit = SR_UNIT_BOOLEAN;
+		analog->meaning->mq = OTC_MQ_CONTINUITY;
+		analog->meaning->unit = OTC_UNIT_BOOLEAN;
 		*floatval = (*floatval == INFINITY) ? 0.0 : 1.0;
 	}
 	if (info->is_diode) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_percent) {
-		analog->meaning->mq = SR_MQ_DUTY_CYCLE;
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 	}
 
 	/* Measurement related flags */
 	if (info->is_ac)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (info->is_dc)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	if (info->is_auto)
-		analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 	if (info->is_diode)
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 	if (info->is_hold)
-		analog->meaning->mqflags |= SR_MQFLAG_HOLD;
+		analog->meaning->mqflags |= OTC_MQFLAG_HOLD;
 	if (info->is_rel)
-		analog->meaning->mqflags |= SR_MQFLAG_RELATIVE;
+		analog->meaning->mqflags |= OTC_MQFLAG_RELATIVE;
 
 	/* Other flags */
 	if (info->is_rs232)
-		sr_spew("RS232 enabled.");
+		otc_spew("RS232 enabled.");
 	if (info->is_bat)
-		sr_spew("Battery is low.");
+		otc_spew("Battery is low.");
 	if (info->is_beep)
-		sr_spew("Beep is active");
+		otc_spew("Beep is active");
 }
 
-SR_PRIV gboolean sr_ms8250d_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_ms8250d_packet_valid(const uint8_t *buf)
 {
 	struct ms8250d_info info;
 
-	sr_dbg("DMM packet: %02x %02x %02x %02x %02x %02x %02x "
+	otc_dbg("DMM packet: %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
 		buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6],
 		buf[7], buf[8], buf[9], buf[10], buf[11], buf[12], buf[13],
@@ -283,17 +283,17 @@ SR_PRIV gboolean sr_ms8250d_packet_valid(const uint8_t *buf)
  * @param buf Buffer containing the 18-byte protocol packet. Must not be NULL.
  * @param floatval Pointer to a float variable. That variable will contain the
  *                 result value upon parsing success. Must not be NULL.
- * @param analog Pointer to a struct sr_datafeed_analog. The struct will be
+ * @param analog Pointer to a struct otc_datafeed_analog. The struct will be
  *               filled with data according to the protocol packet.
  *               Must not be NULL.
  * @param info Pointer to a struct ms8250d_info. The struct will be filled
  *             with data according to the protocol packet. Must not be NULL.
  *
- * @return SR_OK upon success, SR_ERR upon failure. Upon errors, the
+ * @return OTC_OK upon success, OTC_ERR upon failure. Upon errors, the
  *         'analog' variable contents are undefined and should not be used.
  */
-SR_PRIV int sr_ms8250d_parse(const uint8_t *buf, float *floatval,
-		struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_ms8250d_parse(const uint8_t *buf, float *floatval,
+		struct otc_datafeed_analog *analog, void *info)
 {
 	int exponent = 0, sec_exponent = 0, sign;
 	float sec_floatval;
@@ -312,21 +312,21 @@ SR_PRIV int sr_ms8250d_parse(const uint8_t *buf, float *floatval,
 	int16_t digit1 = parse_digit(((buf[3] & 0x07) << 8) | (buf[2] & 0x30) \
 					| ((buf[3] & 0x30) >> 4));
 
-	sr_dbg("Digits: %d %d %d %d.", digit1, digit2, digit3, digit4);
+	otc_dbg("Digits: %d %d %d %d.", digit1, digit2, digit3, digit4);
 
 	/* Decimal point position. */
 	if ((buf[3] & (1 << 6)) != 0) {
 		exponent = -3;
-		sr_spew("Decimal point after first digit.");
+		otc_spew("Decimal point after first digit.");
 	} else if ((buf[5] & (1 << 6)) != 0) {
 		exponent = -2;
-		sr_spew("Decimal point after second digit.");
+		otc_spew("Decimal point after second digit.");
 	} else if ((buf[7] & (1 << 2)) != 0) {
 		exponent = -1;
-		sr_spew("Decimal point after third digit.");
+		otc_spew("Decimal point after third digit.");
 	} else {
 		exponent = 0;
-		sr_spew("No decimal point in the number.");
+		otc_spew("No decimal point in the number.");
 	}
 
 	struct ms8250d_info *info_local;
@@ -344,22 +344,22 @@ SR_PRIV int sr_ms8250d_parse(const uint8_t *buf, float *floatval,
 	int16_t sec_digit2 = parse_digit2(buf[14] & 0x7F);
 	int16_t sec_digit1 = parse_digit2(buf[15] & 0x7F);
 
-	sr_dbg("Digits (2nd display): %d %d %d %d.",
+	otc_dbg("Digits (2nd display): %d %d %d %d.",
 		sec_digit1, sec_digit2, sec_digit3, sec_digit4);
 
 	/* Second display decimal point position. */
 	if ((buf[14] & (1 << 7)) != 0) {
 		sec_exponent = -3;
-		sr_spew("Sec decimal point after first digit.");
+		otc_spew("Sec decimal point after first digit.");
 	} else if ((buf[13] & (1 << 7)) != 0) {
 		sec_exponent = -2;
-		sr_spew("Sec decimal point after second digit.");
+		otc_spew("Sec decimal point after second digit.");
 	} else if ((buf[12] & (1 << 7)) != 0) {
 		sec_exponent = -1;
-		sr_spew("Sec decimal point after third digit.");
+		otc_spew("Sec decimal point after third digit.");
 	} else {
 		sec_exponent = 0;
-		sr_spew("Sec no decimal point in the number.");
+		otc_spew("Sec no decimal point in the number.");
 	}
 
 	*floatval = (double)((digit1 * 1000) + (digit2 * 100) + (digit3 * 10) + digit4);
@@ -374,16 +374,16 @@ SR_PRIV int sr_ms8250d_parse(const uint8_t *buf, float *floatval,
 
 	/* Check for "OL". */
 	if (digit3 == 0x0F) {
-		sr_spew("Over limit.");
+		otc_spew("Over limit.");
 		*floatval = INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	}
 
-	sr_spew("The display value is %f.", (double)*floatval);
-	sr_spew("The 2nd display value is %f.", sec_floatval);
+	otc_spew("The display value is %f.", (double)*floatval);
+	otc_spew("The 2nd display value is %f.", sec_floatval);
 
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 }

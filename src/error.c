@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -18,69 +18,69 @@
  */
 
 #include <config.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 
 /**
  * @file
  *
- * Error handling in libsigrok.
+ * Error handling in libopentracecapture.
  */
 
 /**
  * @defgroup grp_error Error handling
  *
- * Error handling in libsigrok.
+ * Error handling in libopentracecapture.
  *
- * libsigrok functions usually return @ref SR_OK upon success, or a negative
+ * libopentracecapture functions usually return @ref OTC_OK upon success, or a negative
  * error code on failure.
  *
  * @{
  */
 
 /**
- * Return a human-readable error string for the given libsigrok error code.
+ * Return a human-readable error string for the given libopentracecapture error code.
  *
- * @param error_code A libsigrok error code number, such as SR_ERR_MALLOC.
+ * @param error_code A libopentracecapture error code number, such as OTC_ERR_MALLOC.
  *
  * @return A const string containing a short, human-readable (English)
  *         description of the error, such as "memory allocation error".
  *         The string must NOT be free'd by the caller!
  *
- * @see sr_strerror_name
+ * @see otc_strerror_name
  *
  * @since 0.2.0
  */
-SR_API const char *sr_strerror(int error_code)
+OTC_API const char *otc_strerror(int error_code)
 {
 	/*
-	 * Note: All defined SR_* error macros from libsigrok.h must have
-	 * an entry in this function, as well as in sr_strerror_name().
+	 * Note: All defined OTC_* error macros from libopentracecapture.h must have
+	 * an entry in this function, as well as in otc_strerror_name().
 	 */
 
 	switch (error_code) {
-	case SR_OK:
+	case OTC_OK:
 		return "no error";
-	case SR_ERR:
+	case OTC_ERR:
 		return "generic/unspecified error";
-	case SR_ERR_MALLOC:
+	case OTC_ERR_MALLOC:
 		return "memory allocation error";
-	case SR_ERR_ARG:
+	case OTC_ERR_ARG:
 		return "invalid argument";
-	case SR_ERR_BUG:
+	case OTC_ERR_BUG:
 		return "internal error";
-	case SR_ERR_SAMPLERATE:
+	case OTC_ERR_SAMPLERATE:
 		return "invalid samplerate";
-	case SR_ERR_NA:
+	case OTC_ERR_NA:
 		return "not applicable";
-	case SR_ERR_DEV_CLOSED:
+	case OTC_ERR_DEV_CLOSED:
 		return "device closed but should be open";
-	case SR_ERR_TIMEOUT:
+	case OTC_ERR_TIMEOUT:
 		return "timeout occurred";
-	case SR_ERR_CHANNEL_GROUP:
+	case OTC_ERR_CHANNEL_GROUP:
 		return "no channel group specified";
-	case SR_ERR_DATA:
+	case OTC_ERR_DATA:
 		return "data is invalid";
-	case SR_ERR_IO:
+	case OTC_ERR_IO:
 		return "input/output error";
 	default:
 		return "unknown error";
@@ -88,55 +88,55 @@ SR_API const char *sr_strerror(int error_code)
 }
 
 /**
- * Return the "name" string of the given libsigrok error code.
+ * Return the "name" string of the given libopentracecapture error code.
  *
- * For example, the "name" of the SR_ERR_MALLOC error code is "SR_ERR_MALLOC",
- * the name of the SR_OK code is "SR_OK", and so on.
+ * For example, the "name" of the OTC_ERR_MALLOC error code is "OTC_ERR_MALLOC",
+ * the name of the OTC_OK code is "OTC_OK", and so on.
  *
  * This function can be used for various purposes where the "name" string of
- * a libsigrok error code is useful.
+ * a libopentracecapture error code is useful.
  *
- * @param error_code A libsigrok error code number, such as SR_ERR_MALLOC.
+ * @param error_code A libopentracecapture error code number, such as OTC_ERR_MALLOC.
  *
  * @return A const string containing the "name" of the error code as string.
  *         The string must NOT be free'd by the caller!
  *
- * @see sr_strerror
+ * @see otc_strerror
  *
  * @since 0.2.0
  */
-SR_API const char *sr_strerror_name(int error_code)
+OTC_API const char *otc_strerror_name(int error_code)
 {
 	/*
-	 * Note: All defined SR_* error macros from libsigrok.h must have
-	 * an entry in this function, as well as in sr_strerror().
+	 * Note: All defined OTC_* error macros from libopentracecapture.h must have
+	 * an entry in this function, as well as in otc_strerror().
 	 */
 
 	switch (error_code) {
-	case SR_OK:
-		return "SR_OK";
-	case SR_ERR:
-		return "SR_ERR";
-	case SR_ERR_MALLOC:
-		return "SR_ERR_MALLOC";
-	case SR_ERR_ARG:
-		return "SR_ERR_ARG";
-	case SR_ERR_BUG:
-		return "SR_ERR_BUG";
-	case SR_ERR_SAMPLERATE:
-		return "SR_ERR_SAMPLERATE";
-	case SR_ERR_NA:
-		return "SR_ERR_NA";
-	case SR_ERR_DEV_CLOSED:
-		return "SR_ERR_DEV_CLOSED";
-	case SR_ERR_TIMEOUT:
-		return "SR_ERR_TIMEOUT";
-	case SR_ERR_CHANNEL_GROUP:
-		return "SR_ERR_CHANNEL_GROUP";
-	case SR_ERR_DATA:
-		return "SR_ERR_DATA";
-	case SR_ERR_IO:
-		return "SR_ERR_IO";
+	case OTC_OK:
+		return "OTC_OK";
+	case OTC_ERR:
+		return "OTC_ERR";
+	case OTC_ERR_MALLOC:
+		return "OTC_ERR_MALLOC";
+	case OTC_ERR_ARG:
+		return "OTC_ERR_ARG";
+	case OTC_ERR_BUG:
+		return "OTC_ERR_BUG";
+	case OTC_ERR_SAMPLERATE:
+		return "OTC_ERR_SAMPLERATE";
+	case OTC_ERR_NA:
+		return "OTC_ERR_NA";
+	case OTC_ERR_DEV_CLOSED:
+		return "OTC_ERR_DEV_CLOSED";
+	case OTC_ERR_TIMEOUT:
+		return "OTC_ERR_TIMEOUT";
+	case OTC_ERR_CHANNEL_GROUP:
+		return "OTC_ERR_CHANNEL_GROUP";
+	case OTC_ERR_DATA:
+		return "OTC_ERR_DATA";
+	case OTC_ERR_IO:
+		return "OTC_ERR_IO";
 	default:
 		return "unknown error code";
 	}

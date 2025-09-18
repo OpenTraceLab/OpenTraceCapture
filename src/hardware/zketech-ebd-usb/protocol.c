@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Sven Bursch-Osewold <sb_git@bursch.com>
  * Copyright (C) 2019 King Kévin <kingkevin@cuvoodoo.info>
@@ -32,11 +32,11 @@ static void log_buf(const char *message, uint8_t buf[], size_t count)
 
 	buffer[count * 2] = 0;
 
-	sr_dbg("%s: %s [%zu bytes]", message, buffer, count);
+	otc_dbg("%s: %s [%zu bytes]", message, buffer, count);
 }
 
 /* Send a command to the device. */
-static int send_cmd(struct sr_serial_dev_inst *serial, uint8_t buf[],
+static int send_cmd(struct otc_serial_dev_inst *serial, uint8_t buf[],
 	size_t count)
 {
 	int ret;
@@ -45,7 +45,7 @@ static int send_cmd(struct sr_serial_dev_inst *serial, uint8_t buf[],
 	for (size_t byte = 0; byte < count; byte++) {
 		ret = serial_write_blocking(serial, &buf[byte], 1, 0);
 		if (ret < 0) {
-			sr_err("Error sending command: %d.", ret);
+			otc_err("Error sending command: %d.", ret);
 			return ret;
 		}
 		/*
@@ -55,7 +55,7 @@ static int send_cmd(struct sr_serial_dev_inst *serial, uint8_t buf[],
 		g_usleep(10000);
 	}
 
-	return (ret == (int)count) ? SR_OK : SR_ERR;
+	return (ret == (int)count) ? OTC_OK : OTC_ERR;
 }
 
 /* Decode high byte and low byte into a float. */
@@ -70,13 +70,13 @@ static void encode_value(float current, uint8_t *hi, uint8_t *lo, float divisor)
 	int value;
 
 	value = (int)(current * divisor);
-	sr_dbg("Value %d %d %d", value, value / 240, value % 240);
+	otc_dbg("Value %d %d %d", value, value / 240, value % 240);
 	*hi = value / 240;
 	*lo = value % 240;
 }
 
 /* Send updated configuration values to the load. */
-static int send_cfg(struct sr_serial_dev_inst *serial, struct dev_context *devc)
+static int send_cfg(struct otc_serial_dev_inst *serial, struct dev_context *devc)
 {
 	uint8_t send[] = {0xfa, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf8};
 
@@ -89,7 +89,7 @@ static int send_cfg(struct sr_serial_dev_inst *serial, struct dev_context *devc)
 }
 
 /* Send the init/connect sequence; drive starts sending voltage and current. */
-SR_PRIV int ebd_init(struct sr_serial_dev_inst *serial, struct dev_context *devc)
+OTC_PRIV int ebd_init(struct otc_serial_dev_inst *serial, struct dev_context *devc)
 {
 	uint8_t init[] = { 0xfa, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0xf8 };
 
@@ -99,7 +99,7 @@ SR_PRIV int ebd_init(struct sr_serial_dev_inst *serial, struct dev_context *devc
 }
 
 /* Start the load functionality. */
-SR_PRIV int ebd_loadstart(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ebd_loadstart(struct otc_serial_dev_inst *serial,
 	struct dev_context *devc)
 {
 	int ret;
@@ -110,33 +110,33 @@ SR_PRIV int ebd_loadstart(struct sr_serial_dev_inst *serial,
 
 	start[8] = start[1] ^ start[2] ^ start[3] ^ start[4] ^ start[5] ^ start[6] ^ start[7];
 
-	sr_info("Activating load");
+	otc_info("Activating load");
 	ret = send_cmd(serial, start, 10);
 	if (ret)
 		return ret;
 
-	sr_dbg("current limit: %.03f", devc->current_limit);
-	sr_dbg("under-voltage threshold: %.02f", devc->uvc_threshold);
+	otc_dbg("current limit: %.03f", devc->current_limit);
+	otc_dbg("under-voltage threshold: %.02f", devc->uvc_threshold);
 	if (ebd_current_is0(devc))
-		return SR_OK;
+		return OTC_OK;
 
 	return ret;
 }
 
 /* Toggle the load functionality. */
-SR_PRIV int ebd_loadtoggle(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ebd_loadtoggle(struct otc_serial_dev_inst *serial,
 	struct dev_context *devc)
 {
 	uint8_t toggle[] = { 0xfa, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xF8 };
 
 	(void)devc;
 
-	sr_info("Toggling load");
+	otc_info("Toggling load");
 	return send_cmd(serial, toggle, 10);
 }
 
 /* Stop the drive. */
-SR_PRIV int ebd_stop(struct sr_serial_dev_inst *serial, struct dev_context *devc)
+OTC_PRIV int ebd_stop(struct otc_serial_dev_inst *serial, struct dev_context *devc)
 {
 	uint8_t stop[] = { 0xfa, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0xF8 };
 
@@ -154,7 +154,7 @@ SR_PRIV int ebd_stop(struct sr_serial_dev_inst *serial, struct dev_context *devc
  *
  * @return packet length (0 = timeout, -1 = error)
  */
-SR_PRIV int ebd_read_message(struct sr_serial_dev_inst *serial, size_t length,
+OTC_PRIV int ebd_read_message(struct otc_serial_dev_inst *serial, size_t length,
 	uint8_t *buf)
 {
 	int ret;
@@ -164,15 +164,15 @@ SR_PRIV int ebd_read_message(struct sr_serial_dev_inst *serial, size_t length,
 
 	/* Check parameters. */
 	if (serial == NULL) {
-		sr_err("Serial device to receive packet missing.");
+		otc_err("Serial device to receive packet missing.");
 		return -1;
 	}
 	if (length < 3) {
-		sr_err("Packet buffer not large enough.");
+		otc_err("Packet buffer not large enough.");
 		return -1;
 	}
 	if (buf == NULL) {
-		sr_err("Packet buffer missing.");
+		otc_err("Packet buffer missing.");
 		return -1;
 	}
 
@@ -189,14 +189,14 @@ SR_PRIV int ebd_read_message(struct sr_serial_dev_inst *serial, size_t length,
 		while ((buf[0] != MSG_FRAME_BEGIN) && (turn < max_turns)) {
 			ret = serial_read_blocking(serial, &buf[0], 1, serial_timeout(serial, 1));
 			if (ret < 0) {
-				sr_err("Error %d reading byte.", ret);
+				otc_err("Error %d reading byte.", ret);
 				return ret;
 			} else if (ret == 1) {
 				if (buf[message_length] != MSG_FRAME_BEGIN) {
-					sr_warn("Not frame begin byte %02x received",
+					otc_warn("Not frame begin byte %02x received",
 						buf[message_length]);
 				} else {
-					sr_dbg("Message header received: %02x",
+					otc_dbg("Message header received: %02x",
 						buf[message_length]);
 					message_length += ret;
 				}
@@ -209,14 +209,14 @@ SR_PRIV int ebd_read_message(struct sr_serial_dev_inst *serial, size_t length,
 
 			ret = serial_read_blocking(serial, &buf[message_length], 1, serial_timeout(serial, 1));
 			if (ret < 0) {
-				sr_err("Error %d reading byte.", ret);
+				otc_err("Error %d reading byte.", ret);
 				return ret;
 			} else if (ret == 1) {
 				if (buf[message_length] == MSG_FRAME_BEGIN) {
-					sr_warn("Frame begin before end received");
+					otc_warn("Frame begin before end received");
 					message_length = 1;
 				} else {
-					sr_dbg("Message data received: %02x",
+					otc_dbg("Message data received: %02x",
 						buf[message_length]);
 					message_length += ret;
 				}
@@ -227,12 +227,12 @@ SR_PRIV int ebd_read_message(struct sr_serial_dev_inst *serial, size_t length,
 		if (turn < max_turns) {
 			if (buf[message_length - 1] == MSG_FRAME_END) {
 				message_complete = TRUE;
-				sr_dbg("Message end received");
+				otc_dbg("Message end received");
 			} else {
-				sr_warn("Frame end not received");
+				otc_warn("Frame end not received");
 			}
 		} else {
-			sr_warn("Invalid data and timeout");
+			otc_warn("Invalid data and timeout");
 		}
 	}
 
@@ -246,34 +246,34 @@ SR_PRIV int ebd_read_message(struct sr_serial_dev_inst *serial, size_t length,
 	return ret;
 }
 
-static void ebd_send_value(const struct sr_dev_inst *sdi, struct sr_channel *ch,
-	float value, enum sr_mq mq, enum sr_unit unit, int digits)
+static void ebd_send_value(const struct otc_dev_inst *sdi, struct otc_channel *ch,
+	float value, enum otc_mq mq, enum otc_unit unit, int digits)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, digits);
 	analog.meaning->channels = g_slist_append(NULL, ch);
 	analog.num_samples = 1;
 	analog.data = &value;
 	analog.meaning->mq = mq;
 	analog.meaning->unit = unit;
-	analog.meaning->mqflags = SR_MQFLAG_DC;
+	analog.meaning->mqflags = OTC_MQFLAG_DC;
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 	g_slist_free(analog.meaning->channels);
 }
 
-SR_PRIV int ebd_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int ebd_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	float current, current_limit;
 	float voltage, voltage_dp, voltage_dm, uvc_threshold;
 	uint8_t reply[MSG_MAX_LEN];
@@ -297,16 +297,16 @@ SR_PRIV int ebd_receive_data(int fd, int revents, void *cb_data)
 
 	/* Tests for correct message. */
 	if (ret == -1) {
-		sr_err("Can't receive messages");
-		return SR_ERR;
+		otc_err("Can't receive messages");
+		return OTC_ERR;
 	} else if (ret == 0) {
-		sr_err("No messages received");
+		otc_err("No messages received");
 		devc->running = FALSE;
 		return 0;
 	} else if ((ret != 19) ||
 		((reply[1] != 0x00) && (reply[1] != 0x0a) && (reply[1] != 0x64) && (reply[1] != 0x6e))) {
 
-		sr_info("Not measurement message received");
+		otc_info("Not measurement message received");
 		return ret;
 	}
 
@@ -316,7 +316,7 @@ SR_PRIV int ebd_receive_data(int fd, int revents, void *cb_data)
 		checksum ^= reply[i];
 	}
 	if (checksum != 0) {
-		sr_warn("Invalid checksum");
+		otc_warn("Invalid checksum");
 		/* Don't exit on wrong checksum, the device can recover */
 		return ret;
 	}
@@ -337,13 +337,13 @@ SR_PRIV int ebd_receive_data(int fd, int revents, void *cb_data)
 		uvc_threshold = decode_value(reply[12], reply[13], 100.0);
 	}
 
-	sr_dbg("VBUS current %.04f A", current);
-	sr_dbg("VBUS voltage %.03f V", voltage);
-	sr_dbg("D+ voltage %.03f V", voltage_dp);
-	sr_dbg("D- voltage %.03f V", voltage_dm);
+	otc_dbg("VBUS current %.04f A", current);
+	otc_dbg("VBUS voltage %.03f V", voltage);
+	otc_dbg("D+ voltage %.03f V", voltage_dp);
+	otc_dbg("D- voltage %.03f V", voltage_dm);
 	if (reply[1] == 0x0a) {
-		sr_dbg("Current limit %.03f A", current_limit);
-		sr_dbg("UVC threshold %.03f V", uvc_threshold);
+		otc_dbg("Current limit %.03f A", current_limit);
+		otc_dbg("UVC threshold %.03f V", uvc_threshold);
 	}
 
 	/* Update load state. */
@@ -354,7 +354,7 @@ SR_PRIV int ebd_receive_data(int fd, int revents, void *cb_data)
 	} else if (devc->load_activated &&
 		((current_limit != devc->current_limit) || (uvc_threshold != devc->uvc_threshold))) {
 
-		sr_dbg("Adjusting limit from %.03f A %.03f V to %.03f A %.03f V",
+		otc_dbg("Adjusting limit from %.03f A %.03f V to %.03f A %.03f V",
 			current_limit, uvc_threshold, devc->current_limit,
 			devc->uvc_threshold);
 		send_cfg(serial, devc);
@@ -365,56 +365,56 @@ SR_PRIV int ebd_receive_data(int fd, int revents, void *cb_data)
 
 	/* Values */
 	ebd_send_value(sdi, sdi->channels->data, voltage,
-		SR_MQ_VOLTAGE, SR_UNIT_VOLT, 3);
+		OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, 3);
 	ebd_send_value(sdi, sdi->channels->next->data, current,
-		SR_MQ_CURRENT, SR_UNIT_AMPERE, 4);
+		OTC_MQ_CURRENT, OTC_UNIT_AMPERE, 4);
 	ebd_send_value(sdi, sdi->channels->next->next->data, voltage_dp,
-		SR_MQ_VOLTAGE, SR_UNIT_VOLT, 3);
+		OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, 3);
 	ebd_send_value(sdi, sdi->channels->next->next->next->data, voltage_dm,
-		SR_MQ_VOLTAGE, SR_UNIT_VOLT, 3);
+		OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, 3);
 
 	/* End frame. */
 	std_session_send_df_frame_end(sdi);
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 
 	return TRUE;
 }
 
-SR_PRIV int ebd_get_current_limit(const struct sr_dev_inst *sdi, float *current)
+OTC_PRIV int ebd_get_current_limit(const struct otc_dev_inst *sdi, float *current)
 {
 	struct dev_context *devc;
 
 	if (!(devc = sdi->priv))
-		return SR_ERR;
+		return OTC_ERR;
 
 	g_mutex_lock(&devc->rw_mutex);
 	*current = devc->current_limit;
 	g_mutex_unlock(&devc->rw_mutex);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int ebd_set_current_limit(const struct sr_dev_inst *sdi, float current)
+OTC_PRIV int ebd_set_current_limit(const struct otc_dev_inst *sdi, float current)
 {
 	struct dev_context *devc;
 	int ret;
 
 	if (!(devc = sdi->priv))
-		return SR_ERR;
+		return OTC_ERR;
 
 	g_mutex_lock(&devc->rw_mutex);
 	devc->current_limit = current;
 
 	if (!devc->running) {
-		sr_dbg("Setting current limit later.");
+		otc_dbg("Setting current limit later.");
 		g_mutex_unlock(&devc->rw_mutex);
-		return SR_OK;
+		return OTC_OK;
 	}
 
-	sr_dbg("Setting current limit to %fV.", current);
+	otc_dbg("Setting current limit to %fV.", current);
 
 	if (devc->load_activated) {
 		if (ebd_current_is0(devc)) {
@@ -427,7 +427,7 @@ SR_PRIV int ebd_set_current_limit(const struct sr_dev_inst *sdi, float current)
 	} else {
 		if (ebd_current_is0(devc)) {
 			/* Nothing to do. */
-			ret = SR_OK;
+			ret = OTC_OK;
 		} else {
 			/* Start load. */
 			ret = ebd_loadstart(sdi->conn, devc);
@@ -439,38 +439,38 @@ SR_PRIV int ebd_set_current_limit(const struct sr_dev_inst *sdi, float current)
 	return ret;
 }
 
-SR_PRIV int ebd_get_uvc_threshold(const struct sr_dev_inst *sdi, float *voltage)
+OTC_PRIV int ebd_get_uvc_threshold(const struct otc_dev_inst *sdi, float *voltage)
 {
 	struct dev_context *devc;
 
 	if (!(devc = sdi->priv))
-		return SR_ERR;
+		return OTC_ERR;
 
 	g_mutex_lock(&devc->rw_mutex);
 	*voltage = devc->uvc_threshold;
 	g_mutex_unlock(&devc->rw_mutex);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int ebd_set_uvc_threshold(const struct sr_dev_inst *sdi, float voltage)
+OTC_PRIV int ebd_set_uvc_threshold(const struct otc_dev_inst *sdi, float voltage)
 {
 	struct dev_context *devc;
 	int ret;
 
 	if (!(devc = sdi->priv))
-		return SR_ERR;
+		return OTC_ERR;
 
 	g_mutex_lock(&devc->rw_mutex);
 	devc->uvc_threshold = voltage;
 
 	if (!devc->running) {
-		sr_dbg("Setting uvc threshold later.");
+		otc_dbg("Setting uvc threshold later.");
 		g_mutex_unlock(&devc->rw_mutex);
-		return SR_OK;
+		return OTC_OK;
 	}
 
-	sr_dbg("Setting uvc threshold to %fV.", voltage);
+	otc_dbg("Setting uvc threshold to %fV.", voltage);
 
 	if (devc->load_activated) {
 		if (ebd_current_is0(devc)) {
@@ -483,7 +483,7 @@ SR_PRIV int ebd_set_uvc_threshold(const struct sr_dev_inst *sdi, float voltage)
 	} else {
 		if (ebd_current_is0(devc)) {
 			/* Nothing to do. */
-			ret = SR_OK;
+			ret = OTC_OK;
 		} else {
 			/* Start load. */
 			ret = ebd_loadstart(sdi->conn, devc);
@@ -495,7 +495,7 @@ SR_PRIV int ebd_set_uvc_threshold(const struct sr_dev_inst *sdi, float voltage)
 	return ret;
 }
 
-SR_PRIV gboolean ebd_current_is0(struct dev_context *devc)
+OTC_PRIV gboolean ebd_current_is0(struct dev_context *devc)
 {
 	return devc->current_limit < 0.001;
 }

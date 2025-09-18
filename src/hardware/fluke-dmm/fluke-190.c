@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  *
@@ -21,11 +21,11 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
-static void handle_qm_19x_meta(const struct sr_dev_inst *sdi, char **tokens)
+static void handle_qm_19x_meta(const struct otc_dev_inst *sdi, char **tokens)
 {
 	struct dev_context *devc;
 	int meas_type, meas_unit, meas_char, i;
@@ -68,46 +68,46 @@ static void handle_qm_19x_meta(const struct sr_dev_inst *sdi, char **tokens)
 
 	switch (meas_unit) {
 	case 1:
-		devc->mq = SR_MQ_VOLTAGE;
-		devc->unit = SR_UNIT_VOLT;
+		devc->mq = OTC_MQ_VOLTAGE;
+		devc->unit = OTC_UNIT_VOLT;
 		if (meas_char == 1)
-			devc->mqflags |= SR_MQFLAG_DC;
+			devc->mqflags |= OTC_MQFLAG_DC;
 		else if (meas_char == 2)
-			devc->mqflags |= SR_MQFLAG_AC;
+			devc->mqflags |= OTC_MQFLAG_AC;
 		else if (meas_char == 3)
-			devc->mqflags |= SR_MQFLAG_DC | SR_MQFLAG_AC;
+			devc->mqflags |= OTC_MQFLAG_DC | OTC_MQFLAG_AC;
 		else if (meas_char == 15)
-			devc->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+			devc->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 		break;
 	case 2:
-		devc->mq = SR_MQ_CURRENT;
-		devc->unit = SR_UNIT_AMPERE;
+		devc->mq = OTC_MQ_CURRENT;
+		devc->unit = OTC_UNIT_AMPERE;
 		if (meas_char == 1)
-			devc->mqflags |= SR_MQFLAG_DC;
+			devc->mqflags |= OTC_MQFLAG_DC;
 		else if (meas_char == 2)
-			devc->mqflags |= SR_MQFLAG_AC;
+			devc->mqflags |= OTC_MQFLAG_AC;
 		else if (meas_char == 3)
-			devc->mqflags |= SR_MQFLAG_DC | SR_MQFLAG_AC;
+			devc->mqflags |= OTC_MQFLAG_DC | OTC_MQFLAG_AC;
 		break;
 	case 3:
 		if (meas_char == 1) {
-			devc->mq = SR_MQ_RESISTANCE;
-			devc->unit = SR_UNIT_OHM;
+			devc->mq = OTC_MQ_RESISTANCE;
+			devc->unit = OTC_UNIT_OHM;
 		} else if (meas_char == 16) {
-			devc->mq = SR_MQ_CONTINUITY;
-			devc->unit = SR_UNIT_BOOLEAN;
+			devc->mq = OTC_MQ_CONTINUITY;
+			devc->unit = OTC_UNIT_BOOLEAN;
 		}
 		break;
 	case 12:
-		devc->mq = SR_MQ_TEMPERATURE;
-		devc->unit = SR_UNIT_CELSIUS;
+		devc->mq = OTC_MQ_TEMPERATURE;
+		devc->unit = OTC_UNIT_CELSIUS;
 		break;
 	case 13:
-		devc->mq = SR_MQ_TEMPERATURE;
-		devc->unit = SR_UNIT_FAHRENHEIT;
+		devc->mq = OTC_MQ_TEMPERATURE;
+		devc->unit = OTC_UNIT_FAHRENHEIT;
 		break;
 	default:
-		sr_dbg("unknown unit: %d", meas_unit);
+		otc_dbg("unknown unit: %d", meas_unit);
 	}
 	if (devc->mq == 0 && devc->unit == 0)
 		return;
@@ -123,14 +123,14 @@ static void handle_qm_19x_meta(const struct sr_dev_inst *sdi, char **tokens)
 
 }
 
-static void handle_qm_19x_data(const struct sr_dev_inst *sdi, char **tokens)
+static void handle_qm_19x_data(const struct otc_dev_inst *sdi, char **tokens)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	float fvalue;
 	int digits;
 
@@ -141,9 +141,9 @@ static void handle_qm_19x_data(const struct sr_dev_inst *sdi, char **tokens)
 		 * is rather problematic, we'll cut through this here. */
 		fvalue = NAN;
 	} else {
-		if (sr_atof_ascii_digits(tokens[0], &fvalue, &digits) != SR_OK ||
+		if (otc_atof_ascii_digits(tokens[0], &fvalue, &digits) != OTC_OK ||
 		    fvalue == 0.0) {
-			sr_err("Invalid float '%s'.", tokens[0]);
+			otc_err("Invalid float '%s'.", tokens[0]);
 			return;
 		}
 	}
@@ -153,30 +153,30 @@ static void handle_qm_19x_data(const struct sr_dev_inst *sdi, char **tokens)
 		/* Don't have valid metadata yet. */
 		return;
 
-	if (devc->mq == SR_MQ_RESISTANCE && isnan(fvalue))
+	if (devc->mq == OTC_MQ_RESISTANCE && isnan(fvalue))
 		fvalue = INFINITY;
-	else if (devc->mq == SR_MQ_CONTINUITY) {
+	else if (devc->mq == OTC_MQ_CONTINUITY) {
 		if (isnan(fvalue))
 			fvalue = 0.0;
 		else
 			fvalue = 1.0;
 	}
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, digits);
 	analog.meaning->channels = sdi->channels;
 	analog.num_samples = 1;
 	analog.data = &fvalue;
 	analog.meaning->mq = devc->mq;
 	analog.meaning->unit = devc->unit;
 	analog.meaning->mqflags = 0;
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 }
 
-SR_PRIV void fluke_handle_qm_190(const struct sr_dev_inst *sdi, char **tokens)
+OTC_PRIV void fluke_handle_qm_190(const struct otc_dev_inst *sdi, char **tokens)
 {
 	struct dev_context *devc = sdi->priv;
 	int num_tokens, i;

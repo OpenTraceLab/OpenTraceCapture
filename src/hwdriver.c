@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -24,8 +24,8 @@
 #include <dirent.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "hwdriver"
@@ -34,339 +34,339 @@
 /**
  * @file
  *
- * Hardware driver handling in libsigrok.
+ * Hardware driver handling in libopentracecapture.
  */
 
 /**
  * @defgroup grp_driver Hardware drivers
  *
- * Hardware driver handling in libsigrok.
+ * Hardware driver handling in libopentracecapture.
  *
  * @{
  */
 
-/* Please use the same order/grouping as in enum sr_configkey (libsigrok.h). */
-static struct sr_key_info sr_key_info_config[] = {
+/* Please use the same order/grouping as in enum otc_configkey (libopentracecapture.h). */
+static struct otc_key_info otc_key_info_config[] = {
 	/* Device classes */
-	{SR_CONF_LOGIC_ANALYZER, SR_T_STRING, NULL, "Logic analyzer", NULL},
-	{SR_CONF_OSCILLOSCOPE, SR_T_STRING, NULL, "Oscilloscope", NULL},
-	{SR_CONF_MULTIMETER, SR_T_STRING, NULL, "Multimeter", NULL},
-	{SR_CONF_DEMO_DEV, SR_T_STRING, NULL, "Demo device", NULL},
-	{SR_CONF_SOUNDLEVELMETER, SR_T_STRING, NULL, "Sound level meter", NULL},
-	{SR_CONF_THERMOMETER, SR_T_STRING, NULL, "Thermometer", NULL},
-	{SR_CONF_HYGROMETER, SR_T_STRING, NULL, "Hygrometer", NULL},
-	{SR_CONF_ENERGYMETER, SR_T_STRING, NULL, "Energy meter", NULL},
-	{SR_CONF_DEMODULATOR, SR_T_STRING, NULL, "Demodulator", NULL},
-	{SR_CONF_POWER_SUPPLY, SR_T_STRING, NULL, "Power supply", NULL},
-	{SR_CONF_LCRMETER, SR_T_STRING, NULL, "LCR meter", NULL},
-	{SR_CONF_ELECTRONIC_LOAD, SR_T_STRING, NULL, "Electronic load", NULL},
-	{SR_CONF_SCALE, SR_T_STRING, NULL, "Scale", NULL},
-	{SR_CONF_SIGNAL_GENERATOR, SR_T_STRING, NULL, "Signal generator", NULL},
-	{SR_CONF_POWERMETER, SR_T_STRING, NULL, "Power meter", NULL},
-	{SR_CONF_MULTIPLEXER, SR_T_STRING, NULL, "Multiplexer", NULL},
-	{SR_CONF_DELAY_GENERATOR, SR_T_STRING, NULL, "Delay generator", NULL},
-	{SR_CONF_FREQUENCY_COUNTER, SR_T_STRING, NULL, "Frequency counter", NULL},
+	{OTC_CONF_LOGIC_ANALYZER, OTC_T_STRING, NULL, "Logic analyzer", NULL},
+	{OTC_CONF_OSCILLOSCOPE, OTC_T_STRING, NULL, "Oscilloscope", NULL},
+	{OTC_CONF_MULTIMETER, OTC_T_STRING, NULL, "Multimeter", NULL},
+	{OTC_CONF_DEMO_DEV, OTC_T_STRING, NULL, "Demo device", NULL},
+	{OTC_CONF_SOUNDLEVELMETER, OTC_T_STRING, NULL, "Sound level meter", NULL},
+	{OTC_CONF_THERMOMETER, OTC_T_STRING, NULL, "Thermometer", NULL},
+	{OTC_CONF_HYGROMETER, OTC_T_STRING, NULL, "Hygrometer", NULL},
+	{OTC_CONF_ENERGYMETER, OTC_T_STRING, NULL, "Energy meter", NULL},
+	{OTC_CONF_DEMODULATOR, OTC_T_STRING, NULL, "Demodulator", NULL},
+	{OTC_CONF_POWER_SUPPLY, OTC_T_STRING, NULL, "Power supply", NULL},
+	{OTC_CONF_LCRMETER, OTC_T_STRING, NULL, "LCR meter", NULL},
+	{OTC_CONF_ELECTRONIC_LOAD, OTC_T_STRING, NULL, "Electronic load", NULL},
+	{OTC_CONF_SCALE, OTC_T_STRING, NULL, "Scale", NULL},
+	{OTC_CONF_SIGNAL_GENERATOR, OTC_T_STRING, NULL, "Signal generator", NULL},
+	{OTC_CONF_POWERMETER, OTC_T_STRING, NULL, "Power meter", NULL},
+	{OTC_CONF_MULTIPLEXER, OTC_T_STRING, NULL, "Multiplexer", NULL},
+	{OTC_CONF_DELAY_GENERATOR, OTC_T_STRING, NULL, "Delay generator", NULL},
+	{OTC_CONF_FREQUENCY_COUNTER, OTC_T_STRING, NULL, "Frequency counter", NULL},
 
 	/* Driver scan options */
-	{SR_CONF_CONN, SR_T_STRING, "conn",
+	{OTC_CONF_CONN, OTC_T_STRING, "conn",
 		"Connection", NULL},
-	{SR_CONF_SERIALCOMM, SR_T_STRING, "serialcomm",
+	{OTC_CONF_SERIALCOMM, OTC_T_STRING, "serialcomm",
 		"Serial communication", NULL},
-	{SR_CONF_MODBUSADDR, SR_T_UINT64, "modbusaddr",
+	{OTC_CONF_MODBUSADDR, OTC_T_UINT64, "modbusaddr",
 		"Modbus slave address", NULL},
-	{SR_CONF_FORCE_DETECT, SR_T_STRING, "force_detect",
+	{OTC_CONF_FORCE_DETECT, OTC_T_STRING, "force_detect",
 		"Forced detection", NULL},
-	{SR_CONF_PROBE_NAMES, SR_T_STRING, "probe_names",
+	{OTC_CONF_PROBE_NAMES, OTC_T_STRING, "probe_names",
 		"Names of device's probes", NULL},
 
 	/* Device (or channel group) configuration */
-	{SR_CONF_SAMPLERATE, SR_T_UINT64, "samplerate",
+	{OTC_CONF_SAMPLERATE, OTC_T_UINT64, "samplerate",
 		"Sample rate", NULL},
-	{SR_CONF_CAPTURE_RATIO, SR_T_UINT64, "captureratio",
+	{OTC_CONF_CAPTURE_RATIO, OTC_T_UINT64, "captureratio",
 		"Pre-trigger capture ratio", NULL},
-	{SR_CONF_PATTERN_MODE, SR_T_STRING, "pattern",
+	{OTC_CONF_PATTERN_MODE, OTC_T_STRING, "pattern",
 		"Pattern", NULL},
-	{SR_CONF_RLE, SR_T_BOOL, "rle",
+	{OTC_CONF_RLE, OTC_T_BOOL, "rle",
 		"Run length encoding", NULL},
-	{SR_CONF_TRIGGER_SLOPE, SR_T_STRING, "triggerslope",
+	{OTC_CONF_TRIGGER_SLOPE, OTC_T_STRING, "triggerslope",
 		"Trigger slope", NULL},
-	{SR_CONF_AVERAGING, SR_T_BOOL, "averaging",
+	{OTC_CONF_AVERAGING, OTC_T_BOOL, "averaging",
 		"Averaging", NULL},
-	{SR_CONF_AVG_SAMPLES, SR_T_UINT64, "avg_samples",
+	{OTC_CONF_AVG_SAMPLES, OTC_T_UINT64, "avg_samples",
 		"Number of samples to average over", NULL},
-	{SR_CONF_TRIGGER_SOURCE, SR_T_STRING, "triggersource",
+	{OTC_CONF_TRIGGER_SOURCE, OTC_T_STRING, "triggersource",
 		"Trigger source", NULL},
-	{SR_CONF_HORIZ_TRIGGERPOS, SR_T_FLOAT, "horiz_triggerpos",
+	{OTC_CONF_HORIZ_TRIGGERPOS, OTC_T_FLOAT, "horiz_triggerpos",
 		"Horizontal trigger position", NULL},
-	{SR_CONF_BUFFERSIZE, SR_T_UINT64, "buffersize",
+	{OTC_CONF_BUFFERSIZE, OTC_T_UINT64, "buffersize",
 		"Buffer size", NULL},
-	{SR_CONF_TIMEBASE, SR_T_RATIONAL_PERIOD, "timebase",
+	{OTC_CONF_TIMEBASE, OTC_T_RATIONAL_PERIOD, "timebase",
 		"Time base", NULL},
-	{SR_CONF_FILTER, SR_T_BOOL, "filter",
+	{OTC_CONF_FILTER, OTC_T_BOOL, "filter",
 		"Filter", NULL},
-	{SR_CONF_VDIV, SR_T_RATIONAL_VOLT, "vdiv",
+	{OTC_CONF_VDIV, OTC_T_RATIONAL_VOLT, "vdiv",
 		"Volts/div", NULL},
-	{SR_CONF_COUPLING, SR_T_STRING, "coupling",
+	{OTC_CONF_COUPLING, OTC_T_STRING, "coupling",
 		"Coupling", NULL},
-	{SR_CONF_TRIGGER_MATCH, SR_T_INT32, "triggermatch",
+	{OTC_CONF_TRIGGER_MATCH, OTC_T_INT32, "triggermatch",
 		"Trigger matches", NULL},
-	{SR_CONF_SAMPLE_INTERVAL, SR_T_UINT64, "sample_interval",
+	{OTC_CONF_SAMPLE_INTERVAL, OTC_T_UINT64, "sample_interval",
 		"Sample interval", NULL},
-	{SR_CONF_NUM_HDIV, SR_T_INT32, "num_hdiv",
+	{OTC_CONF_NUM_HDIV, OTC_T_INT32, "num_hdiv",
 		"Number of horizontal divisions", NULL},
-	{SR_CONF_NUM_VDIV, SR_T_INT32, "num_vdiv",
+	{OTC_CONF_NUM_VDIV, OTC_T_INT32, "num_vdiv",
 		"Number of vertical divisions", NULL},
-	{SR_CONF_SPL_WEIGHT_FREQ, SR_T_STRING, "spl_weight_freq",
+	{OTC_CONF_SPL_WEIGHT_FREQ, OTC_T_STRING, "spl_weight_freq",
 		"Sound pressure level frequency weighting", NULL},
-	{SR_CONF_SPL_WEIGHT_TIME, SR_T_STRING, "spl_weight_time",
+	{OTC_CONF_SPL_WEIGHT_TIME, OTC_T_STRING, "spl_weight_time",
 		"Sound pressure level time weighting", NULL},
-	{SR_CONF_SPL_MEASUREMENT_RANGE, SR_T_UINT64_RANGE, "spl_meas_range",
+	{OTC_CONF_SPL_MEASUREMENT_RANGE, OTC_T_UINT64_RANGE, "spl_meas_range",
 		"Sound pressure level measurement range", NULL},
-	{SR_CONF_HOLD_MAX, SR_T_BOOL, "hold_max",
+	{OTC_CONF_HOLD_MAX, OTC_T_BOOL, "hold_max",
 		"Hold max", NULL},
-	{SR_CONF_HOLD_MIN, SR_T_BOOL, "hold_min",
+	{OTC_CONF_HOLD_MIN, OTC_T_BOOL, "hold_min",
 		"Hold min", NULL},
-	{SR_CONF_VOLTAGE_THRESHOLD, SR_T_DOUBLE_RANGE, "voltage_threshold",
+	{OTC_CONF_VOLTAGE_THRESHOLD, OTC_T_DOUBLE_RANGE, "voltage_threshold",
 		"Voltage threshold", NULL },
-	{SR_CONF_EXTERNAL_CLOCK, SR_T_BOOL, "external_clock",
+	{OTC_CONF_EXTERNAL_CLOCK, OTC_T_BOOL, "external_clock",
 		"External clock mode", NULL},
-	{SR_CONF_SWAP, SR_T_BOOL, "swap",
+	{OTC_CONF_SWAP, OTC_T_BOOL, "swap",
 		"Swap channel order", NULL},
-	{SR_CONF_CENTER_FREQUENCY, SR_T_UINT64, "center_frequency",
+	{OTC_CONF_CENTER_FREQUENCY, OTC_T_UINT64, "center_frequency",
 		"Center frequency", NULL},
-	{SR_CONF_NUM_LOGIC_CHANNELS, SR_T_INT32, "logic_channels",
+	{OTC_CONF_NUM_LOGIC_CHANNELS, OTC_T_INT32, "logic_channels",
 		"Number of logic channels", NULL},
-	{SR_CONF_NUM_ANALOG_CHANNELS, SR_T_INT32, "analog_channels",
+	{OTC_CONF_NUM_ANALOG_CHANNELS, OTC_T_INT32, "analog_channels",
 		"Number of analog channels", NULL},
-	{SR_CONF_VOLTAGE, SR_T_FLOAT, "voltage",
+	{OTC_CONF_VOLTAGE, OTC_T_FLOAT, "voltage",
 		"Current voltage", NULL},
-	{SR_CONF_VOLTAGE_TARGET, SR_T_FLOAT, "voltage_target",
+	{OTC_CONF_VOLTAGE_TARGET, OTC_T_FLOAT, "voltage_target",
 		"Voltage target", NULL},
-	{SR_CONF_CURRENT, SR_T_FLOAT, "current",
+	{OTC_CONF_CURRENT, OTC_T_FLOAT, "current",
 		"Current current", NULL},
-	{SR_CONF_CURRENT_LIMIT, SR_T_FLOAT, "current_limit",
+	{OTC_CONF_CURRENT_LIMIT, OTC_T_FLOAT, "current_limit",
 		"Current limit", NULL},
-	{SR_CONF_ENABLED, SR_T_BOOL, "enabled",
+	{OTC_CONF_ENABLED, OTC_T_BOOL, "enabled",
 		"Channel enabled", NULL},
-	{SR_CONF_CHANNEL_CONFIG, SR_T_STRING, "channel_config",
+	{OTC_CONF_CHANNEL_CONFIG, OTC_T_STRING, "channel_config",
 		"Channel modes", NULL},
-	{SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED, SR_T_BOOL, "ovp_enabled",
+	{OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED, OTC_T_BOOL, "ovp_enabled",
 		"Over-voltage protection enabled", NULL},
-	{SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE, SR_T_BOOL, "ovp_active",
+	{OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE, OTC_T_BOOL, "ovp_active",
 		"Over-voltage protection active", NULL},
-	{SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD, SR_T_FLOAT, "ovp_threshold",
+	{OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD, OTC_T_FLOAT, "ovp_threshold",
 		"Over-voltage protection threshold", NULL},
-	{SR_CONF_OVER_CURRENT_PROTECTION_ENABLED, SR_T_BOOL, "ocp_enabled",
+	{OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED, OTC_T_BOOL, "ocp_enabled",
 		"Over-current protection enabled", NULL},
-	{SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE, SR_T_BOOL, "ocp_active",
+	{OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE, OTC_T_BOOL, "ocp_active",
 		"Over-current protection active", NULL},
-	{SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD, SR_T_FLOAT, "ocp_threshold",
+	{OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD, OTC_T_FLOAT, "ocp_threshold",
 		"Over-current protection threshold", NULL},
-	{SR_CONF_CLOCK_EDGE, SR_T_STRING, "clock_edge",
+	{OTC_CONF_CLOCK_EDGE, OTC_T_STRING, "clock_edge",
 		"Clock edge", NULL},
-	{SR_CONF_AMPLITUDE, SR_T_FLOAT, "amplitude",
+	{OTC_CONF_AMPLITUDE, OTC_T_FLOAT, "amplitude",
 		"Amplitude", NULL},
-	{SR_CONF_REGULATION, SR_T_STRING, "regulation",
+	{OTC_CONF_REGULATION, OTC_T_STRING, "regulation",
 		"Channel regulation", NULL},
-	{SR_CONF_OVER_TEMPERATURE_PROTECTION, SR_T_BOOL, "otp",
+	{OTC_CONF_OVER_TEMPERATURE_PROTECTION, OTC_T_BOOL, "otp",
 		"Over-temperature protection", NULL},
-	{SR_CONF_OUTPUT_FREQUENCY, SR_T_FLOAT, "output_frequency",
+	{OTC_CONF_OUTPUT_FREQUENCY, OTC_T_FLOAT, "output_frequency",
 		"Output frequency", NULL},
-	{SR_CONF_OUTPUT_FREQUENCY_TARGET, SR_T_FLOAT, "output_frequency_target",
+	{OTC_CONF_OUTPUT_FREQUENCY_TARGET, OTC_T_FLOAT, "output_frequency_target",
 		"Output frequency target", NULL},
-	{SR_CONF_MEASURED_QUANTITY, SR_T_MQ, "measured_quantity",
+	{OTC_CONF_MEASURED_QUANTITY, OTC_T_MQ, "measured_quantity",
 		"Measured quantity", NULL},
-	{SR_CONF_EQUIV_CIRCUIT_MODEL, SR_T_STRING, "equiv_circuit_model",
+	{OTC_CONF_EQUIV_CIRCUIT_MODEL, OTC_T_STRING, "equiv_circuit_model",
 		"Equivalent circuit model", NULL},
-	{SR_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE, SR_T_BOOL, "otp_active",
+	{OTC_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE, OTC_T_BOOL, "otp_active",
 		"Over-temperature protection active", NULL},
-	{SR_CONF_UNDER_VOLTAGE_CONDITION, SR_T_BOOL, "uvc",
+	{OTC_CONF_UNDER_VOLTAGE_CONDITION, OTC_T_BOOL, "uvc",
 		"Under-voltage condition", NULL},
-	{SR_CONF_UNDER_VOLTAGE_CONDITION_ACTIVE, SR_T_BOOL, "uvc_active",
+	{OTC_CONF_UNDER_VOLTAGE_CONDITION_ACTIVE, OTC_T_BOOL, "uvc_active",
 		"Under-voltage condition active", NULL},
-	{SR_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD, SR_T_FLOAT, "uvc_threshold",
+	{OTC_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD, OTC_T_FLOAT, "uvc_threshold",
 		"Under-voltage condition threshold", NULL},
-	{SR_CONF_TRIGGER_LEVEL, SR_T_FLOAT, "triggerlevel",
+	{OTC_CONF_TRIGGER_LEVEL, OTC_T_FLOAT, "triggerlevel",
 		"Trigger level", NULL},
-	{SR_CONF_EXTERNAL_CLOCK_SOURCE, SR_T_STRING, "external_clock_source",
+	{OTC_CONF_EXTERNAL_CLOCK_SOURCE, OTC_T_STRING, "external_clock_source",
 		"External clock source", NULL},
-	{SR_CONF_OFFSET, SR_T_FLOAT, "offset",
+	{OTC_CONF_OFFSET, OTC_T_FLOAT, "offset",
 		"Offset", NULL},
-	{SR_CONF_TRIGGER_PATTERN, SR_T_STRING, "triggerpattern",
+	{OTC_CONF_TRIGGER_PATTERN, OTC_T_STRING, "triggerpattern",
 		"Trigger pattern", NULL},
-	{SR_CONF_HIGH_RESOLUTION, SR_T_BOOL, "highresolution",
+	{OTC_CONF_HIGH_RESOLUTION, OTC_T_BOOL, "highresolution",
 		"High resolution", NULL},
-	{SR_CONF_PEAK_DETECTION, SR_T_BOOL, "peakdetection",
+	{OTC_CONF_PEAK_DETECTION, OTC_T_BOOL, "peakdetection",
 		"Peak detection", NULL},
-	{SR_CONF_LOGIC_THRESHOLD, SR_T_STRING, "logic_threshold",
+	{OTC_CONF_LOGIC_THRESHOLD, OTC_T_STRING, "logic_threshold",
 		"Logic threshold (predefined)", NULL},
-	{SR_CONF_LOGIC_THRESHOLD_CUSTOM, SR_T_FLOAT, "logic_threshold_custom",
+	{OTC_CONF_LOGIC_THRESHOLD_CUSTOM, OTC_T_FLOAT, "logic_threshold_custom",
 		"Logic threshold (custom)", NULL},
-	{SR_CONF_RANGE, SR_T_STRING, "range",
+	{OTC_CONF_RANGE, OTC_T_STRING, "range",
 		"Range", NULL},
-	{SR_CONF_DIGITS, SR_T_STRING, "digits",
+	{OTC_CONF_DIGITS, OTC_T_STRING, "digits",
 		"Digits", NULL},
-	{SR_CONF_PHASE, SR_T_FLOAT, "phase",
+	{OTC_CONF_PHASE, OTC_T_FLOAT, "phase",
 		"Phase", NULL},
-	{SR_CONF_DUTY_CYCLE, SR_T_FLOAT, "output_duty_cycle",
+	{OTC_CONF_DUTY_CYCLE, OTC_T_FLOAT, "output_duty_cycle",
 		"Duty Cycle", NULL},
-	{SR_CONF_POWER, SR_T_FLOAT, "power",
+	{OTC_CONF_POWER, OTC_T_FLOAT, "power",
 		"Power", NULL},
-	{SR_CONF_POWER_TARGET, SR_T_FLOAT, "power_target",
+	{OTC_CONF_POWER_TARGET, OTC_T_FLOAT, "power_target",
 		"Power Target", NULL},
-	{SR_CONF_RESISTANCE_TARGET, SR_T_FLOAT, "resistance_target",
+	{OTC_CONF_RESISTANCE_TARGET, OTC_T_FLOAT, "resistance_target",
 		"Resistance Target", NULL},
-	{SR_CONF_OVER_CURRENT_PROTECTION_DELAY, SR_T_FLOAT, "ocp_delay",
+	{OTC_CONF_OVER_CURRENT_PROTECTION_DELAY, OTC_T_FLOAT, "ocp_delay",
 		"Over-current protection delay", NULL},
-	{SR_CONF_INVERTED, SR_T_BOOL, "inverted",
+	{OTC_CONF_INVERTED, OTC_T_BOOL, "inverted",
 		"Signal inverted", NULL},
 
 	/* Special stuff */
-	{SR_CONF_SESSIONFILE, SR_T_STRING, "sessionfile",
+	{OTC_CONF_SESSIONFILE, OTC_T_STRING, "sessionfile",
 		"Session file", NULL},
-	{SR_CONF_CAPTUREFILE, SR_T_STRING, "capturefile",
+	{OTC_CONF_CAPTUREFILE, OTC_T_STRING, "capturefile",
 		"Capture file", NULL},
-	{SR_CONF_CAPTURE_UNITSIZE, SR_T_UINT64, "capture_unitsize",
+	{OTC_CONF_CAPTURE_UNITSIZE, OTC_T_UINT64, "capture_unitsize",
 		"Capture unitsize", NULL},
-	{SR_CONF_POWER_OFF, SR_T_BOOL, "power_off",
+	{OTC_CONF_POWER_OFF, OTC_T_BOOL, "power_off",
 		"Power off", NULL},
-	{SR_CONF_DATA_SOURCE, SR_T_STRING, "data_source",
+	{OTC_CONF_DATA_SOURCE, OTC_T_STRING, "data_source",
 		"Data source", NULL},
-	{SR_CONF_PROBE_FACTOR, SR_T_UINT64, "probe_factor",
+	{OTC_CONF_PROBE_FACTOR, OTC_T_UINT64, "probe_factor",
 		"Probe factor", NULL},
-	{SR_CONF_ADC_POWERLINE_CYCLES, SR_T_FLOAT, "nplc",
+	{OTC_CONF_ADC_POWERLINE_CYCLES, OTC_T_FLOAT, "nplc",
 		"Number of ADC powerline cycles", NULL},
 
 	/* Acquisition modes, sample limiting */
-	{SR_CONF_LIMIT_MSEC, SR_T_UINT64, "limit_time",
+	{OTC_CONF_LIMIT_MSEC, OTC_T_UINT64, "limit_time",
 		"Time limit", NULL},
-	{SR_CONF_LIMIT_SAMPLES, SR_T_UINT64, "limit_samples",
+	{OTC_CONF_LIMIT_SAMPLES, OTC_T_UINT64, "limit_samples",
 		"Sample limit", NULL},
-	{SR_CONF_LIMIT_FRAMES, SR_T_UINT64, "limit_frames",
+	{OTC_CONF_LIMIT_FRAMES, OTC_T_UINT64, "limit_frames",
 		"Frame limit", NULL},
-	{SR_CONF_CONTINUOUS, SR_T_BOOL, "continuous",
+	{OTC_CONF_CONTINUOUS, OTC_T_BOOL, "continuous",
 		"Continuous sampling", NULL},
-	{SR_CONF_DATALOG, SR_T_BOOL, "datalog",
+	{OTC_CONF_DATALOG, OTC_T_BOOL, "datalog",
 		"Datalog", NULL},
-	{SR_CONF_DEVICE_MODE, SR_T_STRING, "device_mode",
+	{OTC_CONF_DEVICE_MODE, OTC_T_STRING, "device_mode",
 		"Device mode", NULL},
-	{SR_CONF_TEST_MODE, SR_T_STRING, "test_mode",
+	{OTC_CONF_TEST_MODE, OTC_T_STRING, "test_mode",
 		"Test mode", NULL},
 
-	{SR_CONF_OVER_POWER_PROTECTION_ENABLED, SR_T_BOOL, "opp_enabled",
+	{OTC_CONF_OVER_POWER_PROTECTION_ENABLED, OTC_T_BOOL, "opp_enabled",
 		"Over-power protection enabled", NULL},
-	{SR_CONF_OVER_POWER_PROTECTION_ACTIVE, SR_T_BOOL, "opp_active",
+	{OTC_CONF_OVER_POWER_PROTECTION_ACTIVE, OTC_T_BOOL, "opp_active",
 		"Over-power protection active", NULL},
-	{SR_CONF_OVER_POWER_PROTECTION_THRESHOLD, SR_T_FLOAT, "opp_threshold",
+	{OTC_CONF_OVER_POWER_PROTECTION_THRESHOLD, OTC_T_FLOAT, "opp_threshold",
 		"Over-power protection threshold", NULL},
 
-	{SR_CONF_RESISTANCE, SR_T_FLOAT, "resistance",
+	{OTC_CONF_RESISTANCE, OTC_T_FLOAT, "resistance",
 		"Resistance", NULL},
 
-	{SR_CONF_GATE_TIME, SR_T_RATIONAL_PERIOD, "gate_time",
+	{OTC_CONF_GATE_TIME, OTC_T_RATIONAL_PERIOD, "gate_time",
 		"Gate time", NULL},
 	ALL_ZERO
 };
 
-/* Please use the same order as in enum sr_mq (libsigrok.h). */
-static struct sr_key_info sr_key_info_mq[] = {
-	{SR_MQ_VOLTAGE, 0, "voltage", "Voltage", NULL},
-	{SR_MQ_CURRENT, 0, "current", "Current", NULL},
-	{SR_MQ_RESISTANCE, 0, "resistance", "Resistance", NULL},
-	{SR_MQ_CAPACITANCE, 0, "capacitance", "Capacitance", NULL},
-	{SR_MQ_TEMPERATURE, 0, "temperature", "Temperature", NULL},
-	{SR_MQ_FREQUENCY, 0, "frequency", "Frequency", NULL},
-	{SR_MQ_DUTY_CYCLE, 0, "duty_cycle", "Duty cycle", NULL},
-	{SR_MQ_CONTINUITY, 0, "continuity", "Continuity", NULL},
-	{SR_MQ_PULSE_WIDTH, 0, "pulse_width", "Pulse width", NULL},
-	{SR_MQ_CONDUCTANCE, 0, "conductance", "Conductance", NULL},
-	{SR_MQ_POWER, 0, "power", "Power", NULL},
-	{SR_MQ_GAIN, 0, "gain", "Gain", NULL},
-	{SR_MQ_SOUND_PRESSURE_LEVEL, 0, "spl", "Sound pressure level", NULL},
-	{SR_MQ_CARBON_MONOXIDE, 0, "co", "Carbon monoxide", NULL},
-	{SR_MQ_RELATIVE_HUMIDITY, 0, "rh", "Relative humidity", NULL},
-	{SR_MQ_TIME, 0, "time", "Time", NULL},
-	{SR_MQ_WIND_SPEED, 0, "wind_speed", "Wind speed", NULL},
-	{SR_MQ_PRESSURE, 0, "pressure", "Pressure", NULL},
-	{SR_MQ_PARALLEL_INDUCTANCE, 0, "parallel_inductance", "Parallel inductance", NULL},
-	{SR_MQ_PARALLEL_CAPACITANCE, 0, "parallel_capacitance", "Parallel capacitance", NULL},
-	{SR_MQ_PARALLEL_RESISTANCE, 0, "parallel_resistance", "Parallel resistance", NULL},
-	{SR_MQ_SERIES_INDUCTANCE, 0, "series_inductance", "Series inductance", NULL},
-	{SR_MQ_SERIES_CAPACITANCE, 0, "series_capacitance", "Series capacitance", NULL},
-	{SR_MQ_SERIES_RESISTANCE, 0, "series_resistance", "Series resistance", NULL},
-	{SR_MQ_DISSIPATION_FACTOR, 0, "dissipation_factor", "Dissipation factor", NULL},
-	{SR_MQ_QUALITY_FACTOR, 0, "quality_factor", "Quality factor", NULL},
-	{SR_MQ_PHASE_ANGLE, 0, "phase_angle", "Phase angle", NULL},
-	{SR_MQ_DIFFERENCE, 0, "difference", "Difference", NULL},
-	{SR_MQ_COUNT, 0, "count", "Count", NULL},
-	{SR_MQ_POWER_FACTOR, 0, "power_factor", "Power factor", NULL},
-	{SR_MQ_APPARENT_POWER, 0, "apparent_power", "Apparent power", NULL},
-	{SR_MQ_MASS, 0, "mass", "Mass", NULL},
-	{SR_MQ_HARMONIC_RATIO, 0, "harmonic_ratio", "Harmonic ratio", NULL},
-	{SR_MQ_ENERGY, 0, "energy", "Energy", NULL},
-	{SR_MQ_ELECTRIC_CHARGE, 0, "electric_charge", "Electric charge", NULL},
+/* Please use the same order as in enum otc_mq (libopentracecapture.h). */
+static struct otc_key_info otc_key_info_mq[] = {
+	{OTC_MQ_VOLTAGE, 0, "voltage", "Voltage", NULL},
+	{OTC_MQ_CURRENT, 0, "current", "Current", NULL},
+	{OTC_MQ_RESISTANCE, 0, "resistance", "Resistance", NULL},
+	{OTC_MQ_CAPACITANCE, 0, "capacitance", "Capacitance", NULL},
+	{OTC_MQ_TEMPERATURE, 0, "temperature", "Temperature", NULL},
+	{OTC_MQ_FREQUENCY, 0, "frequency", "Frequency", NULL},
+	{OTC_MQ_DUTY_CYCLE, 0, "duty_cycle", "Duty cycle", NULL},
+	{OTC_MQ_CONTINUITY, 0, "continuity", "Continuity", NULL},
+	{OTC_MQ_PULSE_WIDTH, 0, "pulse_width", "Pulse width", NULL},
+	{OTC_MQ_CONDUCTANCE, 0, "conductance", "Conductance", NULL},
+	{OTC_MQ_POWER, 0, "power", "Power", NULL},
+	{OTC_MQ_GAIN, 0, "gain", "Gain", NULL},
+	{OTC_MQ_SOUND_PRESSURE_LEVEL, 0, "spl", "Sound pressure level", NULL},
+	{OTC_MQ_CARBON_MONOXIDE, 0, "co", "Carbon monoxide", NULL},
+	{OTC_MQ_RELATIVE_HUMIDITY, 0, "rh", "Relative humidity", NULL},
+	{OTC_MQ_TIME, 0, "time", "Time", NULL},
+	{OTC_MQ_WIND_SPEED, 0, "wind_speed", "Wind speed", NULL},
+	{OTC_MQ_PRESSURE, 0, "pressure", "Pressure", NULL},
+	{OTC_MQ_PARALLEL_INDUCTANCE, 0, "parallel_inductance", "Parallel inductance", NULL},
+	{OTC_MQ_PARALLEL_CAPACITANCE, 0, "parallel_capacitance", "Parallel capacitance", NULL},
+	{OTC_MQ_PARALLEL_RESISTANCE, 0, "parallel_resistance", "Parallel resistance", NULL},
+	{OTC_MQ_SERIES_INDUCTANCE, 0, "series_inductance", "Series inductance", NULL},
+	{OTC_MQ_SERIES_CAPACITANCE, 0, "series_capacitance", "Series capacitance", NULL},
+	{OTC_MQ_SERIES_RESISTANCE, 0, "series_resistance", "Series resistance", NULL},
+	{OTC_MQ_DISSIPATION_FACTOR, 0, "dissipation_factor", "Dissipation factor", NULL},
+	{OTC_MQ_QUALITY_FACTOR, 0, "quality_factor", "Quality factor", NULL},
+	{OTC_MQ_PHASE_ANGLE, 0, "phase_angle", "Phase angle", NULL},
+	{OTC_MQ_DIFFERENCE, 0, "difference", "Difference", NULL},
+	{OTC_MQ_COUNT, 0, "count", "Count", NULL},
+	{OTC_MQ_POWER_FACTOR, 0, "power_factor", "Power factor", NULL},
+	{OTC_MQ_APPARENT_POWER, 0, "apparent_power", "Apparent power", NULL},
+	{OTC_MQ_MASS, 0, "mass", "Mass", NULL},
+	{OTC_MQ_HARMONIC_RATIO, 0, "harmonic_ratio", "Harmonic ratio", NULL},
+	{OTC_MQ_ENERGY, 0, "energy", "Energy", NULL},
+	{OTC_MQ_ELECTRIC_CHARGE, 0, "electric_charge", "Electric charge", NULL},
 	ALL_ZERO
 };
 
-/* Please use the same order as in enum sr_mqflag (libsigrok.h). */
-static struct sr_key_info sr_key_info_mqflag[] = {
-	{SR_MQFLAG_AC, 0, "ac", "AC", NULL},
-	{SR_MQFLAG_DC, 0, "dc", "DC", NULL},
-	{SR_MQFLAG_RMS, 0, "rms", "RMS", NULL},
-	{SR_MQFLAG_DIODE, 0, "diode", "Diode", NULL},
-	{SR_MQFLAG_HOLD, 0, "hold", "Hold", NULL},
-	{SR_MQFLAG_MAX, 0, "max", "Max", NULL},
-	{SR_MQFLAG_MIN, 0, "min", "Min", NULL},
-	{SR_MQFLAG_AUTORANGE, 0, "auto_range", "Auto range", NULL},
-	{SR_MQFLAG_RELATIVE, 0, "relative", "Relative", NULL},
-	{SR_MQFLAG_SPL_FREQ_WEIGHT_A, 0, "spl_freq_weight_a",
+/* Please use the same order as in enum otc_mqflag (libopentracecapture.h). */
+static struct otc_key_info otc_key_info_mqflag[] = {
+	{OTC_MQFLAG_AC, 0, "ac", "AC", NULL},
+	{OTC_MQFLAG_DC, 0, "dc", "DC", NULL},
+	{OTC_MQFLAG_RMS, 0, "rms", "RMS", NULL},
+	{OTC_MQFLAG_DIODE, 0, "diode", "Diode", NULL},
+	{OTC_MQFLAG_HOLD, 0, "hold", "Hold", NULL},
+	{OTC_MQFLAG_MAX, 0, "max", "Max", NULL},
+	{OTC_MQFLAG_MIN, 0, "min", "Min", NULL},
+	{OTC_MQFLAG_AUTORANGE, 0, "auto_range", "Auto range", NULL},
+	{OTC_MQFLAG_RELATIVE, 0, "relative", "Relative", NULL},
+	{OTC_MQFLAG_SPL_FREQ_WEIGHT_A, 0, "spl_freq_weight_a",
 		"Frequency weighted (A)", NULL},
-	{SR_MQFLAG_SPL_FREQ_WEIGHT_C, 0, "spl_freq_weight_c",
+	{OTC_MQFLAG_SPL_FREQ_WEIGHT_C, 0, "spl_freq_weight_c",
 		"Frequency weighted (C)", NULL},
-	{SR_MQFLAG_SPL_FREQ_WEIGHT_Z, 0, "spl_freq_weight_z",
+	{OTC_MQFLAG_SPL_FREQ_WEIGHT_Z, 0, "spl_freq_weight_z",
 		"Frequency weighted (Z)", NULL},
-	{SR_MQFLAG_SPL_FREQ_WEIGHT_FLAT, 0, "spl_freq_weight_flat",
+	{OTC_MQFLAG_SPL_FREQ_WEIGHT_FLAT, 0, "spl_freq_weight_flat",
 		"Frequency weighted (flat)", NULL},
-	{SR_MQFLAG_SPL_TIME_WEIGHT_S, 0, "spl_time_weight_s",
+	{OTC_MQFLAG_SPL_TIME_WEIGHT_S, 0, "spl_time_weight_s",
 		"Time weighted (S)", NULL},
-	{SR_MQFLAG_SPL_TIME_WEIGHT_F, 0, "spl_time_weight_f",
+	{OTC_MQFLAG_SPL_TIME_WEIGHT_F, 0, "spl_time_weight_f",
 		"Time weighted (F)", NULL},
-	{SR_MQFLAG_SPL_LAT, 0, "spl_time_average", "Time-averaged (LEQ)", NULL},
-	{SR_MQFLAG_SPL_PCT_OVER_ALARM, 0, "spl_pct_over_alarm",
+	{OTC_MQFLAG_SPL_LAT, 0, "spl_time_average", "Time-averaged (LEQ)", NULL},
+	{OTC_MQFLAG_SPL_PCT_OVER_ALARM, 0, "spl_pct_over_alarm",
 		"Percentage over alarm", NULL},
-	{SR_MQFLAG_DURATION, 0, "duration", "Duration", NULL},
-	{SR_MQFLAG_AVG, 0, "average", "Average", NULL},
-	{SR_MQFLAG_REFERENCE, 0, "reference", "Reference", NULL},
-	{SR_MQFLAG_UNSTABLE, 0, "unstable", "Unstable", NULL},
-	{SR_MQFLAG_FOUR_WIRE, 0, "four_wire", "4-Wire", NULL},
+	{OTC_MQFLAG_DURATION, 0, "duration", "Duration", NULL},
+	{OTC_MQFLAG_AVG, 0, "average", "Average", NULL},
+	{OTC_MQFLAG_REFERENCE, 0, "reference", "Reference", NULL},
+	{OTC_MQFLAG_UNSTABLE, 0, "unstable", "Unstable", NULL},
+	{OTC_MQFLAG_FOUR_WIRE, 0, "four_wire", "4-Wire", NULL},
 	ALL_ZERO
 };
 
-/* This must handle all the keys from enum sr_datatype (libsigrok.h). */
+/* This must handle all the keys from enum otc_datatype (libopentracecapture.h). */
 /** @private */
-SR_PRIV const GVariantType *sr_variant_type_get(int datatype)
+OTC_PRIV const GVariantType *otc_variant_type_get(int datatype)
 {
 	switch (datatype) {
-	case SR_T_INT32:
+	case OTC_T_INT32:
 		return G_VARIANT_TYPE_INT32;
-	case SR_T_UINT32:
+	case OTC_T_UINT32:
 		return G_VARIANT_TYPE_UINT32;
-	case SR_T_UINT64:
+	case OTC_T_UINT64:
 		return G_VARIANT_TYPE_UINT64;
-	case SR_T_STRING:
+	case OTC_T_STRING:
 		return G_VARIANT_TYPE_STRING;
-	case SR_T_BOOL:
+	case OTC_T_BOOL:
 		return G_VARIANT_TYPE_BOOLEAN;
-	case SR_T_FLOAT:
+	case OTC_T_FLOAT:
 		return G_VARIANT_TYPE_DOUBLE;
-	case SR_T_RATIONAL_PERIOD:
-	case SR_T_RATIONAL_VOLT:
-	case SR_T_UINT64_RANGE:
-	case SR_T_DOUBLE_RANGE:
+	case OTC_T_RATIONAL_PERIOD:
+	case OTC_T_RATIONAL_VOLT:
+	case OTC_T_UINT64_RANGE:
+	case OTC_T_DOUBLE_RANGE:
 		return G_VARIANT_TYPE_TUPLE;
-	case SR_T_KEYVALUE:
+	case OTC_T_KEYVALUE:
 		return G_VARIANT_TYPE_DICTIONARY;
-	case SR_T_MQ:
+	case OTC_T_MQ:
 		return G_VARIANT_TYPE_TUPLE;
 	default:
 		return NULL;
@@ -374,44 +374,44 @@ SR_PRIV const GVariantType *sr_variant_type_get(int datatype)
 }
 
 /** @private */
-SR_PRIV int sr_variant_type_check(uint32_t key, GVariant *value)
+OTC_PRIV int otc_variant_type_check(uint32_t key, GVariant *value)
 {
-	const struct sr_key_info *info;
+	const struct otc_key_info *info;
 	const GVariantType *type, *expected;
 	char *expected_string, *type_string;
 
-	info = sr_key_info_get(SR_KEY_CONFIG, key);
+	info = otc_key_info_get(OTC_KEY_CONFIG, key);
 	if (!info)
-		return SR_OK;
+		return OTC_OK;
 
-	expected = sr_variant_type_get(info->datatype);
+	expected = otc_variant_type_get(info->datatype);
 	type = g_variant_get_type(value);
 	if (!g_variant_type_equal(type, expected)
 			&& !g_variant_type_is_subtype_of(type, expected)) {
 		expected_string = g_variant_type_dup_string(expected);
 		type_string = g_variant_type_dup_string(type);
-		sr_err("Wrong variant type for key '%s': expected '%s', got '%s'",
+		otc_err("Wrong variant type for key '%s': expected '%s', got '%s'",
 			info->name, expected_string, type_string);
 		g_free(expected_string);
 		g_free(type_string);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
  * Return the list of supported hardware drivers.
  *
- * @param[in] ctx Pointer to a libsigrok context struct. Must not be NULL.
+ * @param[in] ctx Pointer to a libopentracecapture context struct. Must not be NULL.
  *
  * @retval NULL The ctx argument was NULL, or there are no supported drivers.
  * @retval Other Pointer to the NULL-terminated list of hardware drivers.
- *               The user should NOT g_free() this list, sr_exit() will do that.
+ *               The user should NOT g_free() this list, otc_exit() will do that.
  *
  * @since 0.4.0
  */
-SR_API struct sr_dev_driver **sr_driver_list(const struct sr_context *ctx)
+OTC_API struct otc_dev_driver **otc_driver_list(const struct otc_context *ctx)
 {
 	if (!ctx)
 		return NULL;
@@ -424,38 +424,38 @@ SR_API struct sr_dev_driver **sr_driver_list(const struct sr_context *ctx)
  *
  * This usually involves memory allocations and variable initializations
  * within the driver, but _not_ scanning for attached devices.
- * The API call sr_driver_scan() is used for that.
+ * The API call otc_driver_scan() is used for that.
  *
- * @param ctx A libsigrok context object allocated by a previous call to
- *            sr_init(). Must not be NULL.
+ * @param ctx A libopentracecapture context object allocated by a previous call to
+ *            otc_init(). Must not be NULL.
  * @param driver The driver to initialize. This must be a pointer to one of
- *               the entries returned by sr_driver_list(). Must not be NULL.
+ *               the entries returned by otc_driver_list(). Must not be NULL.
  *
- * @retval SR_OK Success
- * @retval SR_ERR_ARG Invalid parameter(s).
- * @retval SR_ERR_BUG Internal errors.
+ * @retval OTC_OK Success
+ * @retval OTC_ERR_ARG Invalid parameter(s).
+ * @retval OTC_ERR_BUG Internal errors.
  * @retval other Another negative error code upon other errors.
  *
  * @since 0.2.0
  */
-SR_API int sr_driver_init(struct sr_context *ctx, struct sr_dev_driver *driver)
+OTC_API int otc_driver_init(struct otc_context *ctx, struct otc_dev_driver *driver)
 {
 	int ret;
 
 	if (!ctx) {
-		sr_err("Invalid libsigrok context, can't initialize.");
-		return SR_ERR_ARG;
+		otc_err("Invalid libopentracecapture context, can't initialize.");
+		return OTC_ERR_ARG;
 	}
 
 	if (!driver) {
-		sr_err("Invalid driver, can't initialize.");
-		return SR_ERR_ARG;
+		otc_err("Invalid driver, can't initialize.");
+		return OTC_ERR_ARG;
 	}
 
 	/* No log message here, too verbose and not very useful. */
 
 	if ((ret = driver->init(driver, ctx)) < 0)
-		sr_err("Failed to initialize the driver: %d.", ret);
+		otc_err("Failed to initialize the driver: %d.", ret);
 
 	return ret;
 }
@@ -463,11 +463,11 @@ SR_API int sr_driver_init(struct sr_context *ctx, struct sr_dev_driver *driver)
 /**
  * Enumerate scan options supported by this driver.
  *
- * Before calling sr_driver_scan_options_list(), the user must have previously
- * initialized the driver by calling sr_driver_init().
+ * Before calling otc_driver_scan_options_list(), the user must have previously
+ * initialized the driver by calling otc_driver_init().
  *
  * @param driver The driver to enumerate options for. This must be a pointer
- *               to one of the entries returned by sr_driver_list(). Must not
+ *               to one of the entries returned by otc_driver_list(). Must not
  *               be NULL.
  *
  * @return A GArray * of uint32_t entries, or NULL on invalid arguments. Each
@@ -476,14 +476,14 @@ SR_API int sr_driver_init(struct sr_context *ctx, struct sr_dev_driver *driver)
  *
  * @since 0.4.0
  */
-SR_API GArray *sr_driver_scan_options_list(const struct sr_dev_driver *driver)
+OTC_API GArray *otc_driver_scan_options_list(const struct otc_dev_driver *driver)
 {
 	GVariant *gvar;
 	const uint32_t *opts;
 	gsize num_opts;
 	GArray *result;
 
-	if (sr_config_list(driver, NULL, NULL, SR_CONF_SCAN_OPTIONS, &gvar) != SR_OK)
+	if (otc_config_list(driver, NULL, NULL, OTC_CONF_SCAN_OPTIONS, &gvar) != OTC_OK)
 		return NULL;
 
 	opts = g_variant_get_fixed_array(gvar, &num_opts, sizeof(uint32_t));
@@ -497,24 +497,24 @@ SR_API GArray *sr_driver_scan_options_list(const struct sr_dev_driver *driver)
 	return result;
 }
 
-static int check_options(struct sr_dev_driver *driver, GSList *options,
-		uint32_t optlist_key, struct sr_dev_inst *sdi,
-		struct sr_channel_group *cg)
+static int check_options(struct otc_dev_driver *driver, GSList *options,
+		uint32_t optlist_key, struct otc_dev_inst *sdi,
+		struct otc_channel_group *cg)
 {
-	struct sr_config *src;
-	const struct sr_key_info *srci;
+	struct otc_config *src;
+	const struct otc_key_info *srci;
 	GVariant *gvar_opts;
 	GSList *l;
 	const uint32_t *opts;
 	gsize num_opts, i;
 	int ret;
 
-	if (sr_config_list(driver, sdi, cg, optlist_key, &gvar_opts) != SR_OK) {
+	if (otc_config_list(driver, sdi, cg, optlist_key, &gvar_opts) != OTC_OK) {
 		/* Driver publishes no options for this optlist. */
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	opts = g_variant_get_fixed_array(gvar_opts, &num_opts, sizeof(uint32_t));
 	for (l = options; l; l = l->next) {
 		src = l->data;
@@ -523,16 +523,16 @@ static int check_options(struct sr_dev_driver *driver, GSList *options,
 				break;
 		}
 		if (i == num_opts) {
-			if (!(srci = sr_key_info_get(SR_KEY_CONFIG, src->key)))
+			if (!(srci = otc_key_info_get(OTC_KEY_CONFIG, src->key)))
 				/* Shouldn't happen. */
-				sr_err("Invalid option %d.", src->key);
+				otc_err("Invalid option %d.", src->key);
 			else
-				sr_err("Invalid option '%s'.", srci->id);
-			ret = SR_ERR_ARG;
+				otc_err("Invalid option '%s'.", srci->id);
+			ret = OTC_ERR_ARG;
 			break;
 		}
-		if (sr_variant_type_check(src->key, src->data) != SR_OK) {
-			ret = SR_ERR_ARG;
+		if (otc_variant_type_check(src->key, src->data) != OTC_OK) {
+			ret = OTC_ERR_ARG;
 			break;
 		}
 	}
@@ -551,43 +551,43 @@ static int check_options(struct sr_dev_driver *driver, GSList *options,
  * The order in which the system is scanned for devices is not specified. The
  * caller should not assume or rely on any specific order.
  *
- * Before calling sr_driver_scan(), the user must have previously initialized
- * the driver by calling sr_driver_init().
+ * Before calling otc_driver_scan(), the user must have previously initialized
+ * the driver by calling otc_driver_init().
  *
  * @param driver The driver that should scan. This must be a pointer to one of
- *               the entries returned by sr_driver_list(). Must not be NULL.
- * @param options A list of 'struct sr_hwopt' options to pass to the driver's
+ *               the entries returned by otc_driver_list(). Must not be NULL.
+ * @param options A list of 'struct otc_hwopt' options to pass to the driver's
  *                scanner. Can be NULL/empty.
  *
- * @return A GSList * of 'struct sr_dev_inst', or NULL if no devices were
+ * @return A GSList * of 'struct otc_dev_inst', or NULL if no devices were
  *         found (or errors were encountered). This list must be freed by the
  *         caller using g_slist_free(), but without freeing the data pointed
  *         to in the list.
  *
  * @since 0.2.0
  */
-SR_API GSList *sr_driver_scan(struct sr_dev_driver *driver, GSList *options)
+OTC_API GSList *otc_driver_scan(struct otc_dev_driver *driver, GSList *options)
 {
 	GSList *l;
 
 	if (!driver) {
-		sr_err("Invalid driver, can't scan for devices.");
+		otc_err("Invalid driver, can't scan for devices.");
 		return NULL;
 	}
 
 	if (!driver->context) {
-		sr_err("Driver not initialized, can't scan for devices.");
+		otc_err("Driver not initialized, can't scan for devices.");
 		return NULL;
 	}
 
 	if (options) {
-		if (check_options(driver, options, SR_CONF_SCAN_OPTIONS, NULL, NULL) != SR_OK)
+		if (check_options(driver, options, OTC_CONF_SCAN_OPTIONS, NULL, NULL) != OTC_OK)
 			return NULL;
 	}
 
 	l = driver->scan(driver, options);
 
-	sr_spew("Scan found %d devices (%s).", g_slist_length(l), driver->name);
+	otc_spew("Scan found %d devices (%s).", g_slist_length(l), driver->name);
 
 	return l;
 }
@@ -595,21 +595,21 @@ SR_API GSList *sr_driver_scan(struct sr_dev_driver *driver, GSList *options)
 /**
  * Call driver cleanup function for all drivers.
  *
- * @param[in] ctx Pointer to a libsigrok context struct. Must not be NULL.
+ * @param[in] ctx Pointer to a libopentracecapture context struct. Must not be NULL.
  *
  * @private
  */
-SR_PRIV void sr_hw_cleanup_all(const struct sr_context *ctx)
+OTC_PRIV void otc_hw_cleanup_all(const struct otc_context *ctx)
 {
 	int i;
-	struct sr_dev_driver **drivers;
+	struct otc_dev_driver **drivers;
 
 	if (!ctx)
 		return;
 
-	sr_dbg("Cleaning up all drivers.");
+	otc_dbg("Cleaning up all drivers.");
 
-	drivers = sr_driver_list(ctx);
+	drivers = otc_driver_list(ctx);
 	for (i = 0; drivers[i]; i++) {
 		if (drivers[i]->cleanup)
 			drivers[i]->cleanup(drivers[i]);
@@ -618,23 +618,23 @@ SR_PRIV void sr_hw_cleanup_all(const struct sr_context *ctx)
 }
 
 /**
- * Allocate struct sr_config.
+ * Allocate struct otc_config.
  *
  * A floating reference can be passed in for data.
  *
  * @param key The config key to use.
  * @param data The GVariant data to use.
  *
- * @return The newly allocated struct sr_config. This function is assumed
+ * @return The newly allocated struct otc_config. This function is assumed
  *         to never fail.
  *
  * @private
  */
-SR_PRIV struct sr_config *sr_config_new(uint32_t key, GVariant *data)
+OTC_PRIV struct otc_config *otc_config_new(uint32_t key, GVariant *data)
 {
-	struct sr_config *src;
+	struct otc_config *src;
 
-	src = g_malloc0(sizeof(struct sr_config));
+	src = g_malloc0(sizeof(struct otc_config));
 	src->key = key;
 	src->data = g_variant_ref_sink(data);
 
@@ -642,14 +642,14 @@ SR_PRIV struct sr_config *sr_config_new(uint32_t key, GVariant *data)
 }
 
 /**
- * Free struct sr_config.
+ * Free struct otc_config.
  *
  * @private
  */
-SR_PRIV void sr_config_free(struct sr_config *src)
+OTC_PRIV void otc_config_free(struct otc_config *src)
 {
 	if (!src || !src->data) {
-		sr_err("%s: invalid data!", __func__);
+		otc_err("%s: invalid data!", __func__);
 		return;
 	}
 
@@ -658,70 +658,70 @@ SR_PRIV void sr_config_free(struct sr_config *src)
 }
 
 /** @private */
-SR_PRIV int sr_dev_acquisition_start(struct sr_dev_inst *sdi)
+OTC_PRIV int otc_dev_acquisition_start(struct otc_dev_inst *sdi)
 {
 	if (!sdi || !sdi->driver) {
-		sr_err("%s: Invalid arguments.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: Invalid arguments.", __func__);
+		return OTC_ERR_ARG;
 	}
 
-	if (sdi->status != SR_ST_ACTIVE) {
-		sr_err("%s: Device instance not active, can't start.",
+	if (sdi->status != OTC_ST_ACTIVE) {
+		otc_err("%s: Device instance not active, can't start.",
 			sdi->driver->name);
-		return SR_ERR_DEV_CLOSED;
+		return OTC_ERR_DEV_CLOSED;
 	}
 
-	sr_dbg("%s: Starting acquisition.", sdi->driver->name);
+	otc_dbg("%s: Starting acquisition.", sdi->driver->name);
 
 	return sdi->driver->dev_acquisition_start(sdi);
 }
 
 /** @private */
-SR_PRIV int sr_dev_acquisition_stop(struct sr_dev_inst *sdi)
+OTC_PRIV int otc_dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	if (!sdi || !sdi->driver) {
-		sr_err("%s: Invalid arguments.", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: Invalid arguments.", __func__);
+		return OTC_ERR_ARG;
 	}
 
-	if (sdi->status != SR_ST_ACTIVE) {
-		sr_err("%s: Device instance not active, can't stop.",
+	if (sdi->status != OTC_ST_ACTIVE) {
+		otc_err("%s: Device instance not active, can't stop.",
 			sdi->driver->name);
-		return SR_ERR_DEV_CLOSED;
+		return OTC_ERR_DEV_CLOSED;
 	}
 
-	sr_dbg("%s: Stopping acquisition.", sdi->driver->name);
+	otc_dbg("%s: Stopping acquisition.", sdi->driver->name);
 
 	return sdi->driver->dev_acquisition_stop(sdi);
 }
 
-static void log_key(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, uint32_t key, unsigned int op,
+static void log_key(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, uint32_t key, unsigned int op,
 	GVariant *data)
 {
 	const char *opstr;
-	const struct sr_key_info *srci;
+	const struct otc_key_info *srci;
 	gchar *tmp_str;
 
-	/* Don't log SR_CONF_DEVICE_OPTIONS, it's verbose and not too useful. */
-	if (key == SR_CONF_DEVICE_OPTIONS)
+	/* Don't log OTC_CONF_DEVICE_OPTIONS, it's verbose and not too useful. */
+	if (key == OTC_CONF_DEVICE_OPTIONS)
 		return;
 
-	opstr = op == SR_CONF_GET ? "get" : op == SR_CONF_SET ? "set" : "list";
-	srci = sr_key_info_get(SR_KEY_CONFIG, key);
+	opstr = op == OTC_CONF_GET ? "get" : op == OTC_CONF_SET ? "set" : "list";
+	srci = otc_key_info_get(OTC_KEY_CONFIG, key);
 
 	tmp_str = g_variant_print(data, TRUE);
-	sr_spew("sr_config_%s(): key %d (%s) sdi %p cg %s -> %s", opstr, key,
+	otc_spew("otc_config_%s(): key %d (%s) sdi %p cg %s -> %s", opstr, key,
 		srci ? srci->id : "NULL", sdi, cg ? cg->name : "NULL",
 		data ? tmp_str : "NULL");
 	g_free(tmp_str);
 }
 
-static int check_key(const struct sr_dev_driver *driver,
-		const struct sr_dev_inst *sdi, const struct sr_channel_group *cg,
+static int check_key(const struct otc_dev_driver *driver,
+		const struct otc_dev_inst *sdi, const struct otc_channel_group *cg,
 		uint32_t key, unsigned int op, GVariant *data)
 {
-	const struct sr_key_info *srci;
+	const struct otc_key_info *srci;
 	gsize num_opts, i;
 	GVariant *gvar_opts;
 	const uint32_t *opts;
@@ -736,117 +736,117 @@ static int check_key(const struct sr_dev_driver *driver,
 	else
 		suffix = "";
 
-	if (!(srci = sr_key_info_get(SR_KEY_CONFIG, key))) {
-		sr_err("Invalid key %d.", key);
-		return SR_ERR_ARG;
+	if (!(srci = otc_key_info_get(OTC_KEY_CONFIG, key))) {
+		otc_err("Invalid key %d.", key);
+		return OTC_ERR_ARG;
 	}
-	opstr = op == SR_CONF_GET ? "get" : op == SR_CONF_SET ? "set" : "list";
+	opstr = op == OTC_CONF_GET ? "get" : op == OTC_CONF_SET ? "set" : "list";
 
 	switch (key) {
-	case SR_CONF_LIMIT_MSEC:
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_SAMPLERATE:
 		/* Setting any of these to 0 is not useful. */
-		if (op != SR_CONF_SET || !data)
+		if (op != OTC_CONF_SET || !data)
 			break;
 		if (g_variant_get_uint64(data) == 0) {
-			sr_err("Cannot set '%s' to 0.", srci->id);
-			return SR_ERR_ARG;
+			otc_err("Cannot set '%s' to 0.", srci->id);
+			return OTC_ERR_ARG;
 		}
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		/* Capture ratio must always be between 0 and 100. */
-		if (op != SR_CONF_SET || !data)
+		if (op != OTC_CONF_SET || !data)
 			break;
 		if (g_variant_get_uint64(data) > 100) {
-			sr_err("Capture ratio must be 0..100.");
-			return SR_ERR_ARG;
+			otc_err("Capture ratio must be 0..100.");
+			return OTC_ERR_ARG;
 		}
 		break;
 	}
 
-	if (sr_config_list(driver, sdi, cg, SR_CONF_DEVICE_OPTIONS, &gvar_opts) != SR_OK) {
+	if (otc_config_list(driver, sdi, cg, OTC_CONF_DEVICE_OPTIONS, &gvar_opts) != OTC_OK) {
 		/* Driver publishes no options. */
-		sr_err("No options available%s.", suffix);
-		return SR_ERR_ARG;
+		otc_err("No options available%s.", suffix);
+		return OTC_ERR_ARG;
 	}
 	opts = g_variant_get_fixed_array(gvar_opts, &num_opts, sizeof(uint32_t));
 	pub_opt = 0;
 	for (i = 0; i < num_opts; i++) {
-		if ((opts[i] & SR_CONF_MASK) == key) {
+		if ((opts[i] & OTC_CONF_MASK) == key) {
 			pub_opt = opts[i];
 			break;
 		}
 	}
 	g_variant_unref(gvar_opts);
 	if (!pub_opt) {
-		sr_err("Option '%s' not available%s.", srci->id, suffix);
-		return SR_ERR_ARG;
+		otc_err("Option '%s' not available%s.", srci->id, suffix);
+		return OTC_ERR_ARG;
 	}
 
 	if (!(pub_opt & op)) {
-		sr_err("Option '%s' not available to %s%s.", srci->id, opstr, suffix);
-		return SR_ERR_ARG;
+		otc_err("Option '%s' not available to %s%s.", srci->id, opstr, suffix);
+		return OTC_ERR_ARG;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
  * Query value of a configuration key at the given driver or device instance.
  *
- * @param[in] driver The sr_dev_driver struct to query. Must not be NULL.
+ * @param[in] driver The otc_dev_driver struct to query. Must not be NULL.
  * @param[in] sdi (optional) If the key is specific to a device, this must
- *            contain a pointer to the struct sr_dev_inst to be checked.
+ *            contain a pointer to the struct otc_dev_inst to be checked.
  *            Otherwise it must be NULL. If sdi is != NULL, sdi->priv must
  *            also be != NULL.
  * @param[in] cg The channel group on the device for which to list the
  *               values, or NULL.
- * @param[in] key The configuration key (SR_CONF_*).
+ * @param[in] key The configuration key (OTC_CONF_*).
  * @param[in,out] data Pointer to a GVariant where the value will be stored.
  *             Must not be NULL. The caller is given ownership of the GVariant
  *             and must thus decrease the refcount after use. However if
  *             this function returns an error code, the field should be
  *             considered unused, and should not be unreferenced.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Error.
- * @retval SR_ERR_ARG The driver doesn't know that key, but this is not to be
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Error.
+ * @retval OTC_ERR_ARG The driver doesn't know that key, but this is not to be
  *         interpreted as an error by the caller; merely as an indication
  *         that it's not applicable.
  *
  * @since 0.3.0
  */
-SR_API int sr_config_get(const struct sr_dev_driver *driver,
-		const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg,
+OTC_API int otc_config_get(const struct otc_dev_driver *driver,
+		const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg,
 		uint32_t key, GVariant **data)
 {
 	int ret;
 
 	if (!driver || !data)
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (!driver->config_get)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	if (check_key(driver, sdi, cg, key, SR_CONF_GET, NULL) != SR_OK)
-		return SR_ERR_ARG;
+	if (check_key(driver, sdi, cg, key, OTC_CONF_GET, NULL) != OTC_OK)
+		return OTC_ERR_ARG;
 
 	if (sdi && !sdi->priv) {
-		sr_err("Can't get config (sdi != NULL, sdi->priv == NULL).");
-		return SR_ERR;
+		otc_err("Can't get config (sdi != NULL, sdi->priv == NULL).");
+		return OTC_ERR;
 	}
 
-	if ((ret = driver->config_get(key, data, sdi, cg)) == SR_OK) {
-		log_key(sdi, cg, key, SR_CONF_GET, *data);
+	if ((ret = driver->config_get(key, data, sdi, cg)) == OTC_OK) {
+		log_key(sdi, cg, key, OTC_CONF_GET, *data);
 		/* Got a floating reference from the driver. Sink it here,
 		 * caller will need to unref when done with it. */
 		g_variant_ref_sink(*data);
 	}
 
-	if (ret == SR_ERR_CHANNEL_GROUP)
-		sr_err("%s: No channel group specified.",
+	if (ret == OTC_ERR_CHANNEL_GROUP)
+		otc_err("%s: No channel group specified.",
 			(sdi) ? sdi->driver->name : "unknown");
 
 	return ret;
@@ -859,21 +859,21 @@ SR_API int sr_config_get(const struct sr_dev_driver *driver,
  *                sdi->priv must not be NULL either.
  * @param[in] cg The channel group on the device for which to list the
  *                    values, or NULL.
- * @param[in] key The configuration key (SR_CONF_*).
+ * @param[in] key The configuration key (OTC_CONF_*).
  * @param data The new value for the key, as a GVariant with GVariantType
  *        appropriate to that key. A floating reference can be passed
  *        in; its refcount will be sunk and unreferenced after use.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Error.
- * @retval SR_ERR_ARG The driver doesn't know that key, but this is not to be
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Error.
+ * @retval OTC_ERR_ARG The driver doesn't know that key, but this is not to be
  *         interpreted as an error by the caller; merely as an indication
  *         that it's not applicable.
  *
  * @since 0.3.0
  */
-SR_API int sr_config_set(const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg,
+OTC_API int otc_config_set(const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg,
 		uint32_t key, GVariant *data)
 {
 	int ret;
@@ -881,24 +881,24 @@ SR_API int sr_config_set(const struct sr_dev_inst *sdi,
 	g_variant_ref_sink(data);
 
 	if (!sdi || !sdi->driver || !sdi->priv || !data)
-		ret = SR_ERR;
+		ret = OTC_ERR;
 	else if (!sdi->driver->config_set)
-		ret = SR_ERR_ARG;
-	else if (sdi->status != SR_ST_ACTIVE) {
-		sr_err("%s: Device instance not active, can't set config.",
+		ret = OTC_ERR_ARG;
+	else if (sdi->status != OTC_ST_ACTIVE) {
+		otc_err("%s: Device instance not active, can't set config.",
 			sdi->driver->name);
-		ret = SR_ERR_DEV_CLOSED;
-	} else if (check_key(sdi->driver, sdi, cg, key, SR_CONF_SET, data) != SR_OK)
-		return SR_ERR_ARG;
-	else if ((ret = sr_variant_type_check(key, data)) == SR_OK) {
-		log_key(sdi, cg, key, SR_CONF_SET, data);
+		ret = OTC_ERR_DEV_CLOSED;
+	} else if (check_key(sdi->driver, sdi, cg, key, OTC_CONF_SET, data) != OTC_OK)
+		return OTC_ERR_ARG;
+	else if ((ret = otc_variant_type_check(key, data)) == OTC_OK) {
+		log_key(sdi, cg, key, OTC_CONF_SET, data);
 		ret = sdi->driver->config_set(key, data, sdi, cg);
 	}
 
 	g_variant_unref(data);
 
-	if (ret == SR_ERR_CHANNEL_GROUP)
-		sr_err("%s: No channel group specified.",
+	if (ret == OTC_ERR_CHANNEL_GROUP)
+		otc_err("%s: No channel group specified.",
 			(sdi) ? sdi->driver->name : "unknown");
 
 	return ret;
@@ -909,22 +909,22 @@ SR_API int sr_config_set(const struct sr_dev_inst *sdi,
  *
  * @param sdi The device instance.
  *
- * @return SR_OK upon success or SR_ERR in case of error.
+ * @return OTC_OK upon success or OTC_ERR in case of error.
  *
  * @since 0.3.0
  */
-SR_API int sr_config_commit(const struct sr_dev_inst *sdi)
+OTC_API int otc_config_commit(const struct otc_dev_inst *sdi)
 {
 	int ret;
 
 	if (!sdi || !sdi->driver)
-		ret = SR_ERR;
+		ret = OTC_ERR;
 	else if (!sdi->driver->config_commit)
-		ret = SR_OK;
-	else if (sdi->status != SR_ST_ACTIVE) {
-		sr_err("%s: Device instance not active, can't commit config.",
+		ret = OTC_OK;
+	else if (sdi->status != OTC_ST_ACTIVE) {
+		otc_err("%s: Device instance not active, can't commit config.",
 			sdi->driver->name);
-		ret = SR_ERR_DEV_CLOSED;
+		ret = OTC_ERR_DEV_CLOSED;
 	} else
 		ret = sdi->driver->config_commit(sdi);
 
@@ -934,9 +934,9 @@ SR_API int sr_config_commit(const struct sr_dev_inst *sdi)
 /**
  * List all possible values for a configuration key.
  *
- * @param[in] driver The sr_dev_driver struct to query. Must not be NULL.
+ * @param[in] driver The otc_dev_driver struct to query. Must not be NULL.
  * @param[in] sdi (optional) If the key is specific to a device instance, this
- *            must contain a pointer to the struct sr_dev_inst to be checked.
+ *            must contain a pointer to the struct otc_dev_inst to be checked.
  *            Otherwise it must be NULL. If sdi is != NULL, sdi->priv must
  *            also be != NULL.
  * @param[in] cg The channel group on the device instance for which to list
@@ -945,93 +945,93 @@ SR_API int sr_config_commit(const struct sr_dev_inst *sdi)
  *            If cg is NULL, this function will return the "common" device
  *            instance options that are channel-group independent. Otherwise
  *            it will return the channel-group specific options.
- * @param[in] key The configuration key (SR_CONF_*).
+ * @param[in] key The configuration key (OTC_CONF_*).
  * @param[in,out] data A pointer to a GVariant where the list will be stored.
  *                The caller is given ownership of the GVariant and must thus
  *                unref the GVariant after use. However if this function
  *                returns an error code, the field should be considered
  *                unused, and should not be unreferenced.
  *
- * @retval SR_OK Success.
- * @retval SR_ERR Error.
- * @retval SR_ERR_ARG The driver doesn't know that key, but this is not to be
+ * @retval OTC_OK Success.
+ * @retval OTC_ERR Error.
+ * @retval OTC_ERR_ARG The driver doesn't know that key, but this is not to be
  *         interpreted as an error by the caller; merely as an indication
  *         that it's not applicable.
  *
  * @since 0.3.0
  */
-SR_API int sr_config_list(const struct sr_dev_driver *driver,
-		const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg,
+OTC_API int otc_config_list(const struct otc_dev_driver *driver,
+		const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg,
 		uint32_t key, GVariant **data)
 {
 	int ret;
 
 	if (!driver || !data)
-		return SR_ERR;
+		return OTC_ERR;
 
 	if (!driver->config_list)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	if (key != SR_CONF_SCAN_OPTIONS && key != SR_CONF_DEVICE_OPTIONS) {
-		if (check_key(driver, sdi, cg, key, SR_CONF_LIST, NULL) != SR_OK)
-			return SR_ERR_ARG;
+	if (key != OTC_CONF_SCAN_OPTIONS && key != OTC_CONF_DEVICE_OPTIONS) {
+		if (check_key(driver, sdi, cg, key, OTC_CONF_LIST, NULL) != OTC_OK)
+			return OTC_ERR_ARG;
 	}
 
 	if (sdi && !sdi->priv) {
-		sr_err("Can't list config (sdi != NULL, sdi->priv == NULL).");
-		return SR_ERR;
+		otc_err("Can't list config (sdi != NULL, sdi->priv == NULL).");
+		return OTC_ERR;
 	}
 
-	if (key != SR_CONF_SCAN_OPTIONS && key != SR_CONF_DEVICE_OPTIONS && !sdi) {
-		sr_err("Config keys other than SR_CONF_SCAN_OPTIONS and "
-		       "SR_CONF_DEVICE_OPTIONS always need an sdi.");
-		return SR_ERR_ARG;
+	if (key != OTC_CONF_SCAN_OPTIONS && key != OTC_CONF_DEVICE_OPTIONS && !sdi) {
+		otc_err("Config keys other than OTC_CONF_SCAN_OPTIONS and "
+		       "OTC_CONF_DEVICE_OPTIONS always need an sdi.");
+		return OTC_ERR_ARG;
 	}
 
 	if (cg && sdi && !sdi->channel_groups) {
-		sr_err("Can't list config for channel group, there are none.");
-		return SR_ERR_ARG;
+		otc_err("Can't list config for channel group, there are none.");
+		return OTC_ERR_ARG;
 	}
 
 	if (cg && sdi && !g_slist_find(sdi->channel_groups, cg)) {
-		sr_err("If a channel group is specified, it must be a valid one.");
-		return SR_ERR_ARG;
+		otc_err("If a channel group is specified, it must be a valid one.");
+		return OTC_ERR_ARG;
 	}
 
 	if (cg && !sdi) {
-		sr_err("Need sdi when a channel group is specified.");
-		return SR_ERR_ARG;
+		otc_err("Need sdi when a channel group is specified.");
+		return OTC_ERR_ARG;
 	}
 
-	if ((ret = driver->config_list(key, data, sdi, cg)) == SR_OK) {
-		log_key(sdi, cg, key, SR_CONF_LIST, *data);
+	if ((ret = driver->config_list(key, data, sdi, cg)) == OTC_OK) {
+		log_key(sdi, cg, key, OTC_CONF_LIST, *data);
 		g_variant_ref_sink(*data);
 	}
 
-	if (ret == SR_ERR_CHANNEL_GROUP)
-		sr_err("%s: No channel group specified.",
+	if (ret == OTC_ERR_CHANNEL_GROUP)
+		otc_err("%s: No channel group specified.",
 			(sdi) ? sdi->driver->name : "unknown");
 
 	return ret;
 }
 
-static struct sr_key_info *get_keytable(int keytype)
+static struct otc_key_info *get_keytable(int keytype)
 {
-	struct sr_key_info *table;
+	struct otc_key_info *table;
 
 	switch (keytype) {
-	case SR_KEY_CONFIG:
-		table = sr_key_info_config;
+	case OTC_KEY_CONFIG:
+		table = otc_key_info_config;
 		break;
-	case SR_KEY_MQ:
-		table = sr_key_info_mq;
+	case OTC_KEY_MQ:
+		table = otc_key_info_mq;
 		break;
-	case SR_KEY_MQFLAGS:
-		table = sr_key_info_mqflag;
+	case OTC_KEY_MQFLAGS:
+		table = otc_key_info_mqflag;
 		break;
 	default:
-		sr_err("Invalid keytype %d", keytype);
+		otc_err("Invalid keytype %d", keytype);
 		return NULL;
 	}
 
@@ -1044,14 +1044,14 @@ static struct sr_key_info *get_keytable(int keytype)
  * @param[in] keytype The namespace the key is in.
  * @param[in] key The key to find.
  *
- * @return A pointer to a struct sr_key_info, or NULL if the key
+ * @return A pointer to a struct otc_key_info, or NULL if the key
  *         was not found.
  *
  * @since 0.3.0
  */
-SR_API const struct sr_key_info *sr_key_info_get(int keytype, uint32_t key)
+OTC_API const struct otc_key_info *otc_key_info_get(int keytype, uint32_t key)
 {
-	struct sr_key_info *table;
+	struct otc_key_info *table;
 	int i;
 
 	if (!(table = get_keytable(keytype)))
@@ -1071,14 +1071,14 @@ SR_API const struct sr_key_info *sr_key_info_get(int keytype, uint32_t key)
  * @param[in] keytype The namespace the key is in.
  * @param[in] keyid The key id string.
  *
- * @return A pointer to a struct sr_key_info, or NULL if the key
+ * @return A pointer to a struct otc_key_info, or NULL if the key
  *         was not found.
  *
  * @since 0.2.0
  */
-SR_API const struct sr_key_info *sr_key_info_name_get(int keytype, const char *keyid)
+OTC_API const struct otc_key_info *otc_key_info_name_get(int keytype, const char *keyid)
 {
-	struct sr_key_info *table;
+	struct otc_key_info *table;
 	int i;
 
 	if (!(table = get_keytable(keytype)))

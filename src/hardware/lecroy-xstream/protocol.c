@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017 Sven Schnelle <svens@stackframe.org>
  *
@@ -20,7 +20,7 @@
 #include <config.h>
 #include <math.h>
 #include <stdlib.h>
-#include "scpi.h"
+#include "../../scpi.h"
 #include "protocol.h"
 
 struct lecroy_wavedesc_2_x {
@@ -199,24 +199,24 @@ static void scope_state_dump(const struct scope_config *config,
 	char *tmp;
 
 	for (i = 0; i < config->analog_channels; i++) {
-		tmp = sr_voltage_string((*config->vdivs)[state->analog_channels[i].vdiv][0],
+		tmp = otc_voltage_string((*config->vdivs)[state->analog_channels[i].vdiv][0],
 				(*config->vdivs)[state->analog_channels[i].vdiv][1]);
-		sr_info("State of analog channel %d -> %s : %s (coupling) %s (vdiv) %2.2e (offset)",
+		otc_info("State of analog channel %d -> %s : %s (coupling) %s (vdiv) %2.2e (offset)",
 				i + 1, state->analog_channels[i].state ? "On" : "Off",
 				(*config->coupling_options)[state->analog_channels[i].coupling],
 				tmp, state->analog_channels[i].vertical_offset);
 	}
 
-	tmp = sr_period_string((*config->timebases)[state->timebase][0],
+	tmp = otc_period_string((*config->timebases)[state->timebase][0],
 			(*config->timebases)[state->timebase][1]);
-	sr_info("Current timebase: %s", tmp);
+	otc_info("Current timebase: %s", tmp);
 	g_free(tmp);
 
-	tmp = sr_samplerate_string(state->sample_rate);
-	sr_info("Current samplerate: %s", tmp);
+	tmp = otc_samplerate_string(state->sample_rate);
+	otc_info("Current samplerate: %s", tmp);
 	g_free(tmp);
 
-	sr_info("Current trigger: %s (source), %s (slope) %.2f (offset)",
+	otc_info("Current trigger: %s (source), %s (slope) %.2f (offset)",
 			(*config->trigger_sources)[state->trigger_source],
 			(*config->trigger_slopes)[state->trigger_slope],
 			state->horiz_triggerpos);
@@ -230,11 +230,11 @@ static int scope_state_get_array_option(const char *resp,
 	for (i = 0; i < n; i++) {
 		if (!g_strcmp0(resp, (*array)[i])) {
 			*result = i;
-			return SR_OK;
+			return OTC_OK;
 		}
 	}
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
 /**
@@ -246,29 +246,29 @@ static int scope_state_get_array_option(const char *resp,
  * @param array_len The number of pairs in the array.
  * @param result The index at which a matching pair was found.
  *
- * @return SR_ERR on any parsing error, SR_OK otherwise.
+ * @return OTC_ERR on any parsing error, OTC_OK otherwise.
  */
 static int array_float_get(gchar *value, const uint64_t array[][2],
 		int array_len, unsigned int *result)
 {
-	struct sr_rational rval;
-	struct sr_rational aval;
+	struct otc_rational rval;
+	struct otc_rational aval;
 
-	if (sr_parse_rational(value, &rval) != SR_OK)
-		return SR_ERR;
+	if (otc_parse_rational(value, &rval) != OTC_OK)
+		return OTC_ERR;
 
 	for (int i = 0; i < array_len; i++) {
-		sr_rational_set(&aval, array[i][0], array[i][1]);
-		if (sr_rational_eq(&rval, &aval)) {
+		otc_rational_set(&aval, array[i][0], array[i][1]);
+		if (otc_rational_eq(&rval, &aval)) {
 			*result = i;
-			return SR_OK;
+			return OTC_OK;
 		}
 	}
 
-	return SR_ERR;
+	return OTC_ERR;
 }
 
-static int analog_channel_state_get(struct sr_scpi_dev_inst *scpi,
+static int analog_channel_state_get(struct otc_scpi_dev_inst *scpi,
 		const struct scope_config *config, struct scope_state *state)
 {
 	unsigned int i, j;
@@ -279,58 +279,58 @@ static int analog_channel_state_get(struct sr_scpi_dev_inst *scpi,
 	for (i = 0; i < config->analog_channels; i++) {
 		g_snprintf(command, sizeof(command), "C%d:TRACE?", i + 1);
 
-		if (sr_scpi_get_bool(scpi, command,
-				&state->analog_channels[i].state) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_get_bool(scpi, command,
+				&state->analog_channels[i].state) != OTC_OK)
+			return OTC_ERR;
 
 		g_snprintf(command, sizeof(command), "C%d:VDIV?", i + 1);
 
-		if (sr_scpi_get_string(scpi, command, &tmp_str) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_get_string(scpi, command, &tmp_str) != OTC_OK)
+			return OTC_ERR;
 
 		ret = array_float_get(tmp_str, ARRAY_AND_SIZE(vdivs), &j);
 		g_free(tmp_str);
-		if (ret != SR_OK) {
-			sr_err("Could not determine array index for vertical div scale.");
-			return SR_ERR;
+		if (ret != OTC_OK) {
+			otc_err("Could not determine array index for vertical div scale.");
+			return OTC_ERR;
 		}
 
 		state->analog_channels[i].vdiv = j;
 
 		g_snprintf(command, sizeof(command), "C%d:OFFSET?", i + 1);
 
-		if (sr_scpi_get_float(scpi, command, &state->analog_channels[i].vertical_offset) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_get_float(scpi, command, &state->analog_channels[i].vertical_offset) != OTC_OK)
+			return OTC_ERR;
 
 		g_snprintf(command, sizeof(command), "C%d:COUPLING?", i + 1);
 
-		if (sr_scpi_get_string(scpi, command, &tmp_str) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_get_string(scpi, command, &tmp_str) != OTC_OK)
+			return OTC_ERR;
 
 		ret = scope_state_get_array_option(tmp_str, config->coupling_options,
 				config->num_coupling_options,
 				&state->analog_channels[i].coupling);
 		g_free(tmp_str);
-		if (ret != SR_OK)
-			return SR_ERR;
+		if (ret != OTC_OK)
+			return OTC_ERR;
 
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int lecroy_xstream_channel_state_set(const struct sr_dev_inst *sdi,
+OTC_PRIV int lecroy_xstream_channel_state_set(const struct otc_dev_inst *sdi,
 		const int ch_index, gboolean ch_state)
 {
 	GSList *l;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	struct dev_context *devc = NULL;
 	struct scope_state *state;
 	char command[MAX_COMMAND_SIZE];
 	gboolean chan_found;
 	int result;
 
-	result = SR_OK;
+	result = OTC_OK;
 
 	devc = sdi->priv;
 	state = devc->model_state;
@@ -340,13 +340,13 @@ SR_PRIV int lecroy_xstream_channel_state_set(const struct sr_dev_inst *sdi,
 		ch = l->data;
 
 		switch (ch->type) {
-		case SR_CHANNEL_ANALOG:
+		case OTC_CHANNEL_ANALOG:
 			if (ch->index == ch_index) {
 				g_snprintf(command, sizeof(command), "C%d:TRACE %s", ch_index + 1,
 						(ch_state ? "ON" : "OFF"));
-				if ((sr_scpi_send(sdi->conn, command) != SR_OK ||
-						sr_scpi_get_opc(sdi->conn) != SR_OK)) {
-					result = SR_ERR;
+				if ((otc_scpi_send(sdi->conn, command) != OTC_OK ||
+						otc_scpi_get_opc(sdi->conn) != OTC_OK)) {
+					result = OTC_ERR;
 					break;
 				}
 
@@ -357,17 +357,17 @@ SR_PRIV int lecroy_xstream_channel_state_set(const struct sr_dev_inst *sdi,
 			}
 			break;
 		default:
-			result = SR_ERR_NA;
+			result = OTC_ERR_NA;
 		}
 	}
 
-	if ((result == SR_OK) && !chan_found)
-		result = SR_ERR_BUG;
+	if ((result == OTC_OK) && !chan_found)
+		result = OTC_ERR_BUG;
 
 	return result;
 }
 
-SR_PRIV int lecroy_xstream_update_sample_rate(const struct sr_dev_inst *sdi,
+OTC_PRIV int lecroy_xstream_update_sample_rate(const struct otc_dev_inst *sdi,
 		int num_of_samples)
 {
 	struct dev_context *devc;
@@ -379,15 +379,15 @@ SR_PRIV int lecroy_xstream_update_sample_rate(const struct sr_dev_inst *sdi,
 	config = devc->model_config;
 	state = devc->model_state;
 
-	if (sr_scpi_get_double(sdi->conn, "TIME_DIV?", &time_div) != SR_OK)
-		return SR_ERR;
+	if (otc_scpi_get_double(sdi->conn, "TIME_DIV?", &time_div) != OTC_OK)
+		return OTC_ERR;
 
 	state->sample_rate = num_of_samples / (time_div * config->num_xdivs);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int lecroy_xstream_state_get(struct sr_dev_inst *sdi)
+OTC_PRIV int lecroy_xstream_state_get(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct scope_state *state;
@@ -401,24 +401,24 @@ SR_PRIV int lecroy_xstream_state_get(struct sr_dev_inst *sdi)
 	config = devc->model_config;
 	state = devc->model_state;
 
-	sr_info("Fetching scope state");
+	otc_info("Fetching scope state");
 
-	if (analog_channel_state_get(sdi->conn, config, state) != SR_OK)
-		return SR_ERR;
+	if (analog_channel_state_get(sdi->conn, config, state) != OTC_OK)
+		return OTC_ERR;
 
-	if (sr_scpi_get_string(sdi->conn, "TIME_DIV?", &tmp_str) != SR_OK)
-		return SR_ERR;
+	if (otc_scpi_get_string(sdi->conn, "TIME_DIV?", &tmp_str) != OTC_OK)
+		return OTC_ERR;
 
-	if (array_float_get(tmp_str, ARRAY_AND_SIZE(timebases), &i) != SR_OK) {
+	if (array_float_get(tmp_str, ARRAY_AND_SIZE(timebases), &i) != OTC_OK) {
 		g_free(tmp_str);
-		sr_err("Could not determine array index for timbase scale.");
-		return SR_ERR;
+		otc_err("Could not determine array index for timbase scale.");
+		return OTC_ERR;
 	}
 	g_free(tmp_str);
 	state->timebase = i;
 
-	if (sr_scpi_get_string(sdi->conn, "TRIG_SELECT?", &tmp_str) != SR_OK)
-		return SR_ERR;
+	if (otc_scpi_get_string(sdi->conn, "TRIG_SELECT?", &tmp_str) != OTC_OK)
+		return OTC_ERR;
 
 	key = tmpp = NULL;
 	tmp_str2 = tmp_str;
@@ -440,26 +440,26 @@ SR_PRIV int lecroy_xstream_state_get(struct sr_dev_inst *sdi)
 
 	if (!trig_source || scope_state_get_array_option(trig_source,
 			config->trigger_sources, config->num_trigger_sources,
-			&state->trigger_source) != SR_OK)
-		return SR_ERR;
+			&state->trigger_source) != OTC_OK)
+		return OTC_ERR;
 
 	g_snprintf(command, sizeof(command), "%s:TRIG_SLOPE?", trig_source);
-	if (sr_scpi_get_string(sdi->conn, command, &tmp_str) != SR_OK)
-		return SR_ERR;
+	if (otc_scpi_get_string(sdi->conn, command, &tmp_str) != OTC_OK)
+		return OTC_ERR;
 
 	if (scope_state_get_array_option(tmp_str, config->trigger_slopes,
-			config->num_trigger_slopes, &state->trigger_slope) != SR_OK)
-		return SR_ERR;
+			config->num_trigger_slopes, &state->trigger_slope) != OTC_OK)
+		return OTC_ERR;
 	g_free(tmp_str);
 
-	if (sr_scpi_get_float(sdi->conn, "TRIG_DELAY?", &state->horiz_triggerpos) != SR_OK)
-		return SR_ERR;
+	if (otc_scpi_get_float(sdi->conn, "TRIG_DELAY?", &state->horiz_triggerpos) != OTC_OK)
+		return OTC_ERR;
 
-	sr_info("Fetching finished.");
+	otc_info("Fetching finished.");
 
 	scope_state_dump(config, state);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static struct scope_state *scope_state_new(const struct scope_config *config)
@@ -472,18 +472,18 @@ static struct scope_state *scope_state_new(const struct scope_config *config)
 	return state;
 }
 
-SR_PRIV void lecroy_xstream_state_free(struct scope_state *state)
+OTC_PRIV void lecroy_xstream_state_free(struct scope_state *state)
 {
 	g_free(state->analog_channels);
 	g_free(state);
 }
 
-SR_PRIV int lecroy_xstream_init_device(struct sr_dev_inst *sdi)
+OTC_PRIV int lecroy_xstream_init_device(struct otc_dev_inst *sdi)
 {
 	char command[MAX_COMMAND_SIZE];
 	int model_index;
 	unsigned int i, j;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	struct dev_context *devc;
 	gboolean channel_enabled;
 
@@ -503,32 +503,32 @@ SR_PRIV int lecroy_xstream_init_device(struct sr_dev_inst *sdi)
 	}
 
 	if (model_index == -1) {
-		sr_dbg("Unknown LeCroy device, using default config.");
+		otc_dbg("Unknown LeCroy device, using default config.");
 		for (i = 0; i < ARRAY_SIZE(scope_models); i++)
 			if (scope_models[i].name[0] == NULL)
 				model_index = i;
 	}
 
 	/* Set the desired response and format modes. */
-	sr_scpi_send(sdi->conn, "COMM_HEADER OFF");
-	sr_scpi_send(sdi->conn, "COMM_FORMAT DEF9,WORD,BIN");
+	otc_scpi_send(sdi->conn, "COMM_HEADER OFF");
+	otc_scpi_send(sdi->conn, "COMM_FORMAT DEF9,WORD,BIN");
 
-	devc->analog_groups = g_malloc0(sizeof(struct sr_channel_group*) *
+	devc->analog_groups = g_malloc0(sizeof(struct otc_channel_group*) *
 				scope_models[model_index].analog_channels);
 
 	/* Add analog channels. */
 	for (i = 0; i < scope_models[model_index].analog_channels; i++) {
 		g_snprintf(command, sizeof(command), "C%d:TRACE?", i + 1);
 
-		if (sr_scpi_get_bool(sdi->conn, command, &channel_enabled) != SR_OK)
-			return SR_ERR;
+		if (otc_scpi_get_bool(sdi->conn, command, &channel_enabled) != OTC_OK)
+			return OTC_ERR;
 
 		g_snprintf(command, sizeof(command), "C%d:VDIV?", i + 1);
 
-		ch = sr_channel_new(sdi, i, SR_CHANNEL_ANALOG, channel_enabled,
+		ch = otc_channel_new(sdi, i, OTC_CHANNEL_ANALOG, channel_enabled,
 			(*scope_models[model_index].analog_names)[i]);
 
-		devc->analog_groups[i] = sr_channel_group_new(sdi,
+		devc->analog_groups[i] = otc_channel_group_new(sdi,
 			(*scope_models[model_index].analog_names)[i], NULL);
 		devc->analog_groups[i]->channels = g_slist_append(NULL, ch);
 	}
@@ -537,15 +537,15 @@ SR_PRIV int lecroy_xstream_init_device(struct sr_dev_inst *sdi)
 	devc->frame_limit = 0;
 	devc->model_state = scope_state_new(devc->model_config);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int lecroy_waveform_2_x_to_analog(GByteArray *data,
-		struct lecroy_wavedesc *desc, struct sr_datafeed_analog *analog)
+		struct lecroy_wavedesc *desc, struct otc_datafeed_analog *analog)
 {
-	struct sr_analog_encoding *encoding = analog->encoding;
-	struct sr_analog_meaning *meaning = analog->meaning;
-	struct sr_analog_spec *spec = analog->spec;
+	struct otc_analog_encoding *encoding = analog->encoding;
+	struct otc_analog_meaning *meaning = analog->meaning;
+	struct otc_analog_spec *spec = analog->spec;
 	float *data_float;
 	int16_t *waveform_data;
 	unsigned int i, num_samples;
@@ -578,27 +578,27 @@ static int lecroy_waveform_2_x_to_analog(GByteArray *data,
 	encoding->is_digits_decimal = FALSE;
 
 	if (strcmp(desc->version_2_x.vertunit, "A")) {
-		meaning->mq = SR_MQ_CURRENT;
-		meaning->unit = SR_UNIT_AMPERE;
+		meaning->mq = OTC_MQ_CURRENT;
+		meaning->unit = OTC_UNIT_AMPERE;
 	} else {
 		/* Default to voltage. */
-		meaning->mq = SR_MQ_VOLTAGE;
-		meaning->unit = SR_UNIT_VOLT;
+		meaning->mq = OTC_MQ_VOLTAGE;
+		meaning->unit = OTC_UNIT_VOLT;
 	}
 
 	meaning->mqflags = 0;
 	spec->spec_digits = 3;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int lecroy_waveform_to_analog(GByteArray *data,
-		struct sr_datafeed_analog *analog)
+		struct otc_datafeed_analog *analog)
 {
 	struct lecroy_wavedesc *desc;
 
 	if (data->len < sizeof(struct lecroy_wavedesc))
-		return SR_ERR;
+		return OTC_ERR;
 
 	desc = (struct lecroy_wavedesc*)data->data;
 
@@ -607,23 +607,23 @@ static int lecroy_waveform_to_analog(GByteArray *data,
 		return lecroy_waveform_2_x_to_analog(data, desc, analog);
 	}
 
-	sr_err("Waveformat template '%.16s' not supported.", desc->template_name);
-	return SR_ERR;
+	otc_err("Waveformat template '%.16s' not supported.", desc->template_name);
+	return OTC_ERR;
 }
 
-SR_PRIV int lecroy_xstream_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int lecroy_xstream_receive_data(int fd, int revents, void *cb_data)
 {
 	char command[MAX_COMMAND_SIZE];
-	struct sr_channel *ch;
-	struct sr_dev_inst *sdi;
+	struct otc_channel *ch;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct scope_state *state;
-	struct sr_datafeed_packet packet;
+	struct otc_datafeed_packet packet;
 	GByteArray *data;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
 	(void)fd;
 	(void)revents;
@@ -637,11 +637,11 @@ SR_PRIV int lecroy_xstream_receive_data(int fd, int revents, void *cb_data)
 	ch = devc->current_channel->data;
 	state = devc->model_state;
 
-	if (ch->type != SR_CHANNEL_ANALOG)
-		return SR_ERR;
+	if (ch->type != OTC_CHANNEL_ANALOG)
+		return OTC_ERR;
 
 	data = NULL;
-	if (sr_scpi_get_block(sdi->conn, NULL, &data) != SR_OK) {
+	if (otc_scpi_get_block(sdi->conn, NULL, &data) != OTC_OK) {
 		if (data)
 			g_byte_array_free(data, TRUE);
 		return TRUE;
@@ -651,8 +651,8 @@ SR_PRIV int lecroy_xstream_receive_data(int fd, int revents, void *cb_data)
 	analog.meaning = &meaning;
 	analog.spec = &spec;
 
-	if (lecroy_waveform_to_analog(data, &analog) != SR_OK)
-		return SR_ERR;
+	if (lecroy_waveform_to_analog(data, &analog) != OTC_OK)
+		return OTC_ERR;
 
 	if (analog.num_samples == 0) {
 		g_free(analog.data);
@@ -660,17 +660,17 @@ SR_PRIV int lecroy_xstream_receive_data(int fd, int revents, void *cb_data)
 
 		/* No data available, we have to acquire data first. */
 		g_snprintf(command, sizeof(command), "ARM;WAIT;*OPC;C%d:WAVEFORM?", ch->index + 1);
-		sr_scpi_send(sdi->conn, command);
+		otc_scpi_send(sdi->conn, command);
 
 		state->sample_rate = 0;
 		return TRUE;
 	} else {
 		/* Update sample rate if needed. */
 		if (state->sample_rate == 0)
-			if (lecroy_xstream_update_sample_rate(sdi, analog.num_samples) != SR_OK) {
+			if (lecroy_xstream_update_sample_rate(sdi, analog.num_samples) != OTC_OK) {
 				g_free(analog.data);
 				g_byte_array_free(data, TRUE);
-				return SR_ERR;
+				return OTC_ERR;
 			}
 	}
 
@@ -683,8 +683,8 @@ SR_PRIV int lecroy_xstream_receive_data(int fd, int revents, void *cb_data)
 
 	meaning.channels = g_slist_append(NULL, ch);
 	packet.payload = &analog;
-	packet.type = SR_DF_ANALOG;
-	sr_session_send(sdi, &packet);
+	packet.type = OTC_DF_ANALOG;
+	otc_session_send(sdi, &packet);
 
 	g_byte_array_free(data, TRUE);
 	data = NULL;
@@ -712,13 +712,13 @@ SR_PRIV int lecroy_xstream_receive_data(int fd, int revents, void *cb_data)
 	 */
 	devc->num_frames++;
 	if (devc->frame_limit && (devc->num_frames == devc->frame_limit)) {
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 	} else {
 		devc->current_channel = devc->enabled_channels;
 
 		/* Wait for trigger, then begin fetching data. */
 		g_snprintf(command, sizeof(command), "ARM;WAIT;*OPC");
-		sr_scpi_send(sdi->conn, command);
+		otc_scpi_send(sdi->conn, command);
 
 		lecroy_xstream_request_data(sdi);
 	}

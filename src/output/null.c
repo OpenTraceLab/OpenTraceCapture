@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -19,12 +19,12 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "output/null"
 
-static int receive(const struct sr_output *o, const struct sr_datafeed_packet *packet,
+static int receive(const struct otc_output *o, const struct otc_datafeed_packet *packet,
 		GString **out)
 {
 	(void)o;
@@ -32,10 +32,10 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 
 	*out = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_output_module output_null = {
+OTC_PRIV struct otc_output_module output_null = {
 	.id = "null",
 	.name = "Null output",
 	.desc = "Null output (discards all data)",

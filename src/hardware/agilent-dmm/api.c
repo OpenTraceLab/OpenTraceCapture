@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  *
@@ -23,31 +23,31 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_MULTIMETER,
+	OTC_CONF_MULTIMETER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_DATA_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_DATA_SOURCE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const uint64_t samplerates[] = {
-	SR_HZ(1),
-	SR_HZ(20),
-	SR_HZ(1),
+	OTC_HZ(1),
+	OTC_HZ(20),
+	OTC_HZ(1),
 };
 
 static const char *data_sources[] = {
@@ -97,12 +97,12 @@ static const struct agdmm_profile supported_agdmm[] = {
 	ALL_ZERO
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_config *src;
-	struct sr_serial_dev_inst *serial;
+	struct otc_config *src;
+	struct otc_serial_dev_inst *serial;
 	GSList *l, *devices;
 	int len, i;
 	const char *conn, *serialcomm;
@@ -113,10 +113,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -126,13 +126,13 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	if (!serialcomm)
 		serialcomm = SERIALCOMM;
 
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
 
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
 		return NULL;
 
 	if (serial_write_blocking(serial, "*IDN?\r\n", 7, SERIAL_WRITE_TIMEOUT_MS) < 7) {
-		sr_err("Unable to send identification string.");
+		otc_err("Unable to send identification string.");
 		return NULL;
 	}
 
@@ -149,31 +149,31 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		for (i = 0; supported_agdmm[i].model; i++) {
 			if (strcmp(supported_agdmm[i].modelname, tokens[1]))
 				continue;
-			sdi = g_malloc0(sizeof(struct sr_dev_inst));
-			sdi->status = SR_ST_INACTIVE;
+			sdi = g_malloc0(sizeof(struct otc_dev_inst));
+			sdi->status = OTC_ST_INACTIVE;
 			sdi->vendor = g_strdup(tokens[0][0] == 'A' ? "Agilent" : "Keysight");
 			sdi->model = g_strdup(tokens[1]);
 			sdi->version = g_strdup(tokens[3]);
 			devc = g_malloc0(sizeof(struct dev_context));
-			sr_sw_limits_init(&devc->limits);
+			otc_sw_limits_init(&devc->limits);
 			devc->profile = &supported_agdmm[i];
 			devc->data_source = DEFAULT_DATA_SOURCE;
 			devc->cur_samplerate = 5;
 			if (supported_agdmm[i].nb_channels > 1) {
 				int temp_chan = supported_agdmm[i].nb_channels - 1;
-				devc->cur_mq[temp_chan] = SR_MQ_TEMPERATURE;
-				devc->cur_unit[temp_chan] = SR_UNIT_CELSIUS;
+				devc->cur_mq[temp_chan] = OTC_MQ_TEMPERATURE;
+				devc->cur_unit[temp_chan] = OTC_UNIT_CELSIUS;
 				devc->cur_digits[temp_chan] = 1;
 				devc->cur_encoding[temp_chan] = 2;
 			}
-			sdi->inst_type = SR_INST_SERIAL;
+			sdi->inst_type = OTC_INST_SERIAL;
 			sdi->conn = serial;
 			sdi->priv = devc;
-			sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "P1");
+			otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, "P1");
 			if (supported_agdmm[i].nb_channels > 1)
-				sr_channel_new(sdi, 1, SR_CHANNEL_ANALOG, TRUE, "P2");
+				otc_channel_new(sdi, 1, OTC_CHANNEL_ANALOG, TRUE, "P2");
 			if (supported_agdmm[i].nb_channels > 2)
-				sr_channel_new(sdi, 2, SR_CHANNEL_ANALOG, TRUE, "P3");
+				otc_channel_new(sdi, 2, OTC_CHANNEL_ANALOG, TRUE, "P3");
 			devices = g_slist_append(devices, sdi);
 			break;
 		}
@@ -183,13 +183,13 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	serial_close(serial);
 	if (!devices)
-		sr_serial_dev_inst_free(serial);
+		otc_serial_dev_inst_free(serial);
 
 	return std_scan_complete(di, devices);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
@@ -198,24 +198,24 @@ static int config_get(uint32_t key, GVariant **data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(devc->cur_samplerate);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_get(&devc->limits, key, data);
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_get(&devc->limits, key, data);
+	case OTC_CONF_DATA_SOURCE:
 		*data = g_variant_new_string(data_sources[devc->data_source]);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	uint64_t samplerate;
@@ -226,54 +226,54 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		samplerate = g_variant_get_uint64(data);
 		if (samplerate < samplerates[0] || samplerate > samplerates[1])
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->cur_samplerate = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_set(&devc->limits, key, data);
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_set(&devc->limits, key, data);
+	case OTC_CONF_DATA_SOURCE:
 		if ((idx = std_str_idx(data, ARRAY_AND_SIZE(data_sources))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->data_source = idx;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
 		break;
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_DATA_SOURCE:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(data_sources));
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
-	devc->cur_channel = sr_next_enabled_channel(sdi, NULL);
-	devc->cur_conf = sr_next_enabled_channel(sdi, NULL);
+	devc->cur_channel = otc_next_enabled_channel(sdi, NULL);
+	devc->cur_conf = otc_next_enabled_channel(sdi, NULL);
 	devc->cur_sample = 1;
 	devc->cur_mq[0] = -1;
 	if (devc->profile->nb_channels > 2)
@@ -284,26 +284,26 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	} else {
 		devc->jobs = devc->profile->jobs_log;
 		if (!devc->jobs) {
-			sr_err("Log data source is not implemented for this model.");
-			return SR_ERR_NA;
+			otc_err("Log data source is not implemented for this model.");
+			return OTC_ERR_NA;
 		}
-		if (!((struct sr_channel *)sdi->channels->data)->enabled) {
-			sr_err("Log data is only available for channel P1.");
-			return SR_ERR_NA;
+		if (!((struct otc_channel *)sdi->channels->data)->enabled) {
+			otc_err("Log data is only available for channel P1.");
+			return OTC_ERR_NA;
 		}
 	}
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	std_session_send_df_header(sdi);
 
 	serial = sdi->conn;
 	serial_source_add(sdi->session, serial, G_IO_IN, 10,
 			agdmm_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver agdmm_driver_info = {
+static struct otc_dev_driver agdmm_driver_info = {
 	.name = "agilent-dmm",
 	.longname = "Agilent U12xx series DMMs",
 	.api_version = 1,
@@ -321,4 +321,4 @@ static struct sr_dev_driver agdmm_driver_info = {
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(agdmm_driver_info);
+OTC_REGISTER_DEV_DRIVER(agdmm_driver_info);

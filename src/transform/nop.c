@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -19,26 +19,26 @@
 
 #include <config.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "transform/nop"
 
-static int receive(const struct sr_transform *t,
-		struct sr_datafeed_packet *packet_in,
-		struct sr_datafeed_packet **packet_out)
+static int receive(const struct otc_transform *t,
+		struct otc_datafeed_packet *packet_in,
+		struct otc_datafeed_packet **packet_out)
 {
 	if (!t || !t->sdi || !packet_in || !packet_out)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Do nothing, just pass on packets unmodified. */
-	sr_spew("Received packet of type %d, passing on unmodified.", packet_in->type);
+	otc_spew("Received packet of type %d, passing on unmodified.", packet_in->type);
 	*packet_out = packet_in;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_transform_module transform_nop = {
+OTC_PRIV struct otc_transform_module transform_nop = {
 	.id = "nop",
 	.name = "NOP",
 	.desc = "Do nothing",

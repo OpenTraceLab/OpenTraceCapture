@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2020 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -32,11 +32,11 @@
  * exports are handled by other input modules.
  *
  * Saleae Logic applications typically export one file per channel. The
- * sigrok input modules exclusively handle an individual file, existing
+ * opentracelab input modules exclusively handle an individual file, existing
  * applications may not be prepared to handle a set of files, or handle
  * "special" file types like directories. Some of them will even actively
  * reject such input specs. Merging multiple exported channels into either
- * another input file or a sigrok session is supposed to be done outside
+ * another input file or a opentracelab session is supposed to be done outside
  * of this input module. Support for ZIP archives is currently missing.
  *
  * TODO
@@ -55,7 +55,7 @@
  *   files, which may be of different types (mixed signal), and/or may
  *   even differ in their samplerate (which becomes complex, similar to
  *   VCD or CSV input). Given the .sal archive's layout this format may
- *   even only become attractive when common sigrok infrastructure has
+ *   even only become attractive when common opentracelab infrastructure has
  *   support for per-channel compression and rate(?).
  */
 
@@ -64,8 +64,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "input/saleae"
 
@@ -194,45 +194,45 @@ static const char *get_format_text(enum logic_format fmt)
 	return text;
 }
 
-static int create_channels(struct sr_input *in)
+static int create_channels(struct otc_input *in)
 {
 	struct context *inc;
 	int type;
 	size_t count, idx;
 	char name[24];
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 
 	inc = in->priv;
 
 	if (in->sdi->channels)
-		return SR_OK;
+		return OTC_OK;
 
 	count = inc->logic_state.channel_count;
 	switch (inc->logic_state.format) {
 	case FMT_LOGIC1_DIGITAL:
 	case FMT_LOGIC2_DIGITAL:
-		type = SR_CHANNEL_LOGIC;
+		type = OTC_CHANNEL_LOGIC;
 		break;
 	case FMT_LOGIC1_ANALOG:
 	case FMT_LOGIC2_ANALOG:
-		type = SR_CHANNEL_ANALOG;
+		type = OTC_CHANNEL_ANALOG;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
 	/* TODO Need to create a channel group? */
 	for (idx = 0; idx < count; idx++) {
 		snprintf(name, sizeof(name), "%zu", idx);
-		ch = sr_channel_new(in->sdi, idx, type, TRUE, name);
+		ch = otc_channel_new(in->sdi, idx, type, TRUE, name);
 		if (!ch)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int alloc_feed_buffer(struct sr_input *in)
+static int alloc_feed_buffer(struct otc_input *in)
 {
 	struct context *inc;
 	size_t alloc_size;
@@ -250,7 +250,7 @@ static int alloc_feed_buffer(struct sr_input *in)
 		alloc_size *= inc->feed.unit_size;
 		inc->feed.buffer_digital = g_try_malloc(alloc_size);
 		if (!inc->feed.buffer_digital)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		inc->feed.write_pos = inc->feed.buffer_digital;
 		break;
 	case FMT_LOGIC1_ANALOG:
@@ -261,18 +261,18 @@ static int alloc_feed_buffer(struct sr_input *in)
 		alloc_size *= sizeof(inc->feed.last.analog);
 		inc->feed.buffer_analog = g_try_malloc(alloc_size);
 		if (!inc->feed.buffer_analog)
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		inc->feed.write_pos = (void *)inc->feed.buffer_analog;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 	inc->feed.samples_in_buffer = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int relse_feed_buffer(struct sr_input *in)
+static int relse_feed_buffer(struct otc_input *in)
 {
 	struct context *inc;
 
@@ -288,43 +288,43 @@ static int relse_feed_buffer(struct sr_input *in)
 	inc->feed.buffer_analog = NULL;
 	inc->feed.write_pos = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int setup_feed_buffer_channel(struct sr_input *in, size_t ch_idx)
+static int setup_feed_buffer_channel(struct otc_input *in, size_t ch_idx)
 {
 	struct context *inc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 
 	inc = in->priv;
 
 	g_slist_free(inc->feed.channels);
 	inc->feed.channels = NULL;
 	if (ch_idx >= inc->logic_state.channel_count)
-		return SR_OK;
+		return OTC_OK;
 
 	ch = g_slist_nth_data(in->sdi->channels, ch_idx);
 	if (!ch)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	inc->feed.channels = g_slist_append(NULL, ch);
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int flush_feed_buffer(struct sr_input *in)
+static int flush_feed_buffer(struct otc_input *in)
 {
 	struct context *inc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	int rc;
 
 	inc = in->priv;
 
 	if (!inc->feed.samples_in_buffer)
-		return SR_OK;
+		return OTC_OK;
 
 	/* Automatically send a datafeed header before meta and samples. */
 	if (!inc->module_state.header_sent) {
@@ -336,7 +336,7 @@ static int flush_feed_buffer(struct sr_input *in)
 
 	/* Automatically send the samplerate (when available). */
 	if (inc->logic_state.sample_rate && !inc->module_state.rate_sent) {
-		rc = sr_session_send_meta(in->sdi, SR_CONF_SAMPLERATE,
+		rc = otc_session_send_meta(in->sdi, OTC_CONF_SAMPLERATE,
 			g_variant_new_uint64(inc->logic_state.sample_rate));
 		inc->module_state.rate_sent = TRUE;
 	}
@@ -348,14 +348,14 @@ static int flush_feed_buffer(struct sr_input *in)
 	memset(&packet, 0, sizeof(packet));
 	if (inc->feed.is_analog) {
 		/* TODO: Use proper 'digits' value for this input module. */
-		sr_analog_init(&analog, &encoding, &meaning, &spec, 3);
+		otc_analog_init(&analog, &encoding, &meaning, &spec, 3);
 		analog.data = inc->feed.buffer_analog;
 		analog.num_samples = inc->feed.samples_in_buffer;
 		analog.meaning->channels = inc->feed.channels;
-		analog.meaning->mq = SR_MQ_VOLTAGE;
-		analog.meaning->mqflags |= SR_MQFLAG_DC;
-		analog.meaning->unit = SR_UNIT_VOLT;
-		packet.type = SR_DF_ANALOG;
+		analog.meaning->mq = OTC_MQ_VOLTAGE;
+		analog.meaning->mqflags |= OTC_MQFLAG_DC;
+		analog.meaning->unit = OTC_UNIT_VOLT;
+		packet.type = OTC_DF_ANALOG;
 		packet.payload = &analog;
 		inc->feed.write_pos = (void *)inc->feed.buffer_analog;
 	} else {
@@ -364,17 +364,17 @@ static int flush_feed_buffer(struct sr_input *in)
 		logic.length *= inc->feed.unit_size;
 		logic.unitsize = inc->feed.unit_size;
 		logic.data = inc->feed.buffer_digital;
-		packet.type = SR_DF_LOGIC;
+		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
 		inc->feed.write_pos = inc->feed.buffer_digital;
 	}
 	inc->feed.samples_in_buffer = 0;
 
 	/* Send the packet to the session feed. */
-	return sr_session_send(in->sdi, &packet);
+	return otc_session_send(in->sdi, &packet);
 }
 
-static int addto_feed_buffer_logic(struct sr_input *in,
+static int addto_feed_buffer_logic(struct otc_input *in,
 	uint64_t data, size_t count)
 {
 	struct context *inc;
@@ -382,7 +382,7 @@ static int addto_feed_buffer_logic(struct sr_input *in,
 	inc = in->priv;
 
 	if (inc->feed.is_analog)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	while (count--) {
 		if (inc->feed.unit_size == sizeof(uint64_t))
@@ -394,16 +394,16 @@ static int addto_feed_buffer_logic(struct sr_input *in,
 		else if (inc->feed.unit_size == sizeof(uint8_t))
 			write_u8_inc(&inc->feed.write_pos, data);
 		else
-			return SR_ERR_BUG;
+			return OTC_ERR_BUG;
 		inc->feed.samples_in_buffer++;
 		if (inc->feed.samples_in_buffer == inc->feed.samples_per_chunk)
 			flush_feed_buffer(in);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int addto_feed_buffer_analog(struct sr_input *in,
+static int addto_feed_buffer_analog(struct otc_input *in,
 	float data, size_t count)
 {
 	struct context *inc;
@@ -411,7 +411,7 @@ static int addto_feed_buffer_analog(struct sr_input *in,
 	inc = in->priv;
 
 	if (!inc->feed.is_analog)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	while (count--) {
 		if (sizeof(inc->feed.buffer_analog[0]) == sizeof(float))
@@ -419,13 +419,13 @@ static int addto_feed_buffer_analog(struct sr_input *in,
 		else if (sizeof(inc->feed.buffer_analog[0]) == sizeof(double))
 			write_dblle_inc(&inc->feed.write_pos, data);
 		else
-			return SR_ERR_BUG;
+			return OTC_ERR_BUG;
 		inc->feed.samples_in_buffer++;
 		if (inc->feed.samples_in_buffer == inc->feed.samples_per_chunk)
 			flush_feed_buffer(in);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static enum logic_format check_format(const uint8_t *data, size_t dlen)
@@ -493,7 +493,7 @@ static gboolean have_header(struct context *inc, GString *buf)
 }
 
 /* Process/inspect previously received input data. Get header parameters. */
-static int parse_header(struct sr_input *in)
+static int parse_header(struct otc_input *in)
 {
 	struct context *inc;
 	const uint8_t *read_pos, *start_pos;
@@ -516,14 +516,14 @@ static int parse_header(struct sr_input *in)
 	inc->logic_state.when_changed = inc->options.when_changed;
 	inc->logic_state.word_size = inc->options.word_size;
 	if (!inc->logic_state.word_size) {
-		sr_err("Need a word size.");
-		return SR_ERR_ARG;
+		otc_err("Need a word size.");
+		return OTC_ERR_ARG;
 	}
 	inc->logic_state.word_size += 8 - 1;
 	inc->logic_state.word_size /= 8; /* Sample width in bytes. */
 	if (inc->logic_state.word_size > sizeof(inc->feed.last.digital)) {
-		sr_err("Excessive word size %zu.", inc->logic_state.word_size);
-		return SR_ERR_ARG;
+		otc_err("Excessive word size %zu.", inc->logic_state.word_size);
+		return OTC_ERR_ARG;
 	}
 	inc->logic_state.channel_count = inc->options.channel_count;
 	inc->logic_state.sample_rate = inc->options.sample_rate;
@@ -541,10 +541,10 @@ static int parse_header(struct sr_input *in)
 	if (inc->logic_state.stage == STAGE_ALL_DETECT_TYPE) {
 		inc->logic_state.format = check_format(read_pos, read_len);
 		if (inc->logic_state.format == FMT_UNKNOWN) {
-			sr_err("Unknown or unsupported file format.");
-			return SR_ERR_DATA;
+			otc_err("Unknown or unsupported file format.");
+			return OTC_ERR_DATA;
 		}
-		sr_info("Detected file format: '%s'.",
+		otc_info("Detected file format: '%s'.",
 			get_format_text(inc->logic_state.format));
 		inc->logic_state.stage = STAGE_ALL_READ_HEADER;
 	}
@@ -563,7 +563,7 @@ static int parse_header(struct sr_input *in)
 			inc->logic_state.channel_count = channel_count;
 		}
 		/* EMPTY */ /* No header fields to read here. */
-		sr_dbg("L1D, empty header, changed %d.",
+		otc_dbg("L1D, empty header, changed %d.",
 			inc->logic_state.when_changed ? 1 : 0);
 		if (inc->logic_state.when_changed)
 			inc->logic_state.stage = STAGE_L1D_CHANGE_INIT;
@@ -573,7 +573,7 @@ static int parse_header(struct sr_input *in)
 	case FMT_LOGIC1_ANALOG:
 		want_len = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(double);
 		if (read_len < want_len)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		samples_per_channel = read_u64le_inc(&read_pos);
 		channel_count = read_u32le_inc(&read_pos);
 		sample_period = read_dblle_inc(&read_pos);
@@ -586,7 +586,7 @@ static int parse_header(struct sr_input *in)
 			sample_rate = (uint64_t)sample_period;
 			inc->logic_state.sample_rate = sample_rate;
 		}
-		sr_dbg("L1A header, smpls %zu, chans %zu, per %lf, rate %zu.",
+		otc_dbg("L1A header, smpls %zu, chans %zu, per %lf, rate %zu.",
 			(size_t)samples_per_channel, (size_t)channel_count,
 			sample_period, (size_t)sample_rate);
 		inc->logic_state.stage = STAGE_L1A_NEW_CHANNEL;
@@ -601,9 +601,9 @@ static int parse_header(struct sr_input *in)
 		want_len += 2 * sizeof(double); /* begin time, end time */
 		want_len += sizeof(uint64_t); /* transition count */
 		if (read_len < want_len)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		if (check_format(read_pos, read_len) != FMT_LOGIC2_DIGITAL)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		(void)read_u64le_inc(&read_pos);
 		(void)read_u32le_inc(&read_pos);
 		(void)read_u32le_inc(&read_pos);
@@ -611,14 +611,14 @@ static int parse_header(struct sr_input *in)
 		inc->logic_state.l2d.begin_time = read_dblle_inc(&read_pos);
 		inc->logic_state.l2d.end_time = read_dblle_inc(&read_pos);
 		inc->logic_state.l2d.transition_count = read_u64le_inc(&read_pos);
-		sr_dbg("L2D header, init %u, begin %lf, end %lf, transitions %" PRIu64 ".",
+		otc_dbg("L2D header, init %u, begin %lf, end %lf, transitions %" PRIu64 ".",
 			(unsigned)inc->logic_state.l2d.init_state,
 			inc->logic_state.l2d.begin_time,
 			inc->logic_state.l2d.end_time,
 			inc->logic_state.l2d.transition_count);
 		if (!inc->logic_state.sample_rate) {
-			sr_err("Need a samplerate.");
-			return SR_ERR_ARG;
+			otc_err("Need a samplerate.");
+			return OTC_ERR_ARG;
 		}
 		inc->feed.last.time = inc->logic_state.l2d.begin_time;
 		inc->feed.last.digital = inc->logic_state.l2d.init_state ? 1 : 0;
@@ -636,9 +636,9 @@ static int parse_header(struct sr_input *in)
 		want_len += 2 * sizeof(uint64_t); /* sample rate, down sample */
 		want_len += sizeof(uint64_t); /* sample count */
 		if (read_len < want_len)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		if (check_format(read_pos, read_len) != FMT_LOGIC2_ANALOG)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		(void)read_u64le_inc(&read_pos);
 		(void)read_u32le_inc(&read_pos);
 		(void)read_u32le_inc(&read_pos);
@@ -648,7 +648,7 @@ static int parse_header(struct sr_input *in)
 		inc->logic_state.l2a.sample_count = read_u64le_inc(&read_pos);
 		if (!inc->logic_state.sample_rate)
 			inc->logic_state.sample_rate = inc->logic_state.l2a.sample_rate;
-		sr_dbg("L2A header, begin %lf, rate %" PRIu64 ", down %" PRIu64 ", samples %" PRIu64 ".",
+		otc_dbg("L2A header, begin %lf, rate %" PRIu64 ", down %" PRIu64 ", samples %" PRIu64 ".",
 			inc->logic_state.l2a.begin_time,
 			inc->logic_state.l2a.sample_rate,
 			inc->logic_state.l2a.down_sample,
@@ -657,22 +657,22 @@ static int parse_header(struct sr_input *in)
 		inc->logic_state.stage = STAGE_L2A_FIRST_VALUE;
 		break;
 	case FMT_LOGIC2_ARCHIVE:
-		sr_err("Support for .sal archives not implemented yet.");
-		return SR_ERR_NA;
+		otc_err("Support for .sal archives not implemented yet.");
+		return OTC_ERR_NA;
 	default:
-		sr_err("Unknown or unsupported file format.");
-		return SR_ERR_NA;
+		otc_err("Unknown or unsupported file format.");
+		return OTC_ERR_NA;
 	}
 
 	/* Remove the consumed header fields from the receive buffer. */
 	read_len = read_pos - start_pos;
 	g_string_erase(in->buf, 0, read_len);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Check availablity of the next sample data item. */
-static gboolean have_next_item(struct sr_input *in,
+static gboolean have_next_item(struct otc_input *in,
 	const uint8_t *buff, size_t blen,
 	const uint8_t **curr, const uint8_t **next)
 {
@@ -731,7 +731,7 @@ static gboolean have_next_item(struct sr_input *in,
 }
 
 /* Process the next sample data item after it became available. */
-static int parse_next_item(struct sr_input *in,
+static int parse_next_item(struct otc_input *in,
 	const uint8_t *curr, size_t len)
 {
 	struct context *inc;
@@ -774,19 +774,19 @@ static int parse_next_item(struct sr_input *in,
 			digital = read_u64le_inc(&curr);
 		} else {
 			/*
-			 * In theory the sigrok input module could support
+			 * In theory the opentracelab input module could support
 			 * arbitrary word sizes, but the Saleae exporter
 			 * only provides the 8/16/32/64 choices anyway.
 			 */
-			sr_err("Unsupported word size %zu.", inc->logic_state.word_size);
-			return SR_ERR_ARG;
+			otc_err("Unsupported word size %zu.", inc->logic_state.word_size);
+			return OTC_ERR_ARG;
 		}
 		rc = addto_feed_buffer_logic(in, digital, 1);
 		if (rc)
 			return rc;
 		inc->feed.last.digital = digital;
 		inc->feed.last.stamp++;
-		return SR_OK;
+		return OTC_OK;
 	case STAGE_L1A_NEW_CHANNEL:
 		/* Just select the channel. Don't consume any data. */
 		rc = setup_feed_buffer_channel(in, inc->logic_state.l1a.current_channel_idx);
@@ -795,7 +795,7 @@ static int parse_next_item(struct sr_input *in,
 		inc->logic_state.l1a.current_channel_idx++;
 		inc->logic_state.l1a.current_per_channel = 0;
 		inc->logic_state.stage = STAGE_L1A_SAMPLE;
-		return SR_OK;
+		return OTC_OK;
 	case STAGE_L1A_SAMPLE:
 		analog = read_fltle_inc(&curr);
 		rc = addto_feed_buffer_analog(in, analog, 1);
@@ -804,7 +804,7 @@ static int parse_next_item(struct sr_input *in,
 		inc->logic_state.l1a.current_per_channel++;
 		if (inc->logic_state.l1a.current_channel_idx == inc->logic_state.l1a.samples_per_channel)
 			inc->logic_state.stage = STAGE_L1A_NEW_CHANNEL;
-		return SR_OK;
+		return OTC_OK;
 	case STAGE_L2D_CHANGE_VALUE:
 		next_time = read_dblle_inc(&curr);
 		diff_time = next_time - inc->feed.last.time;
@@ -821,7 +821,7 @@ static int parse_next_item(struct sr_input *in,
 			inc->feed.last.time = next_time;
 		}
 		inc->feed.last.digital = 1 - inc->feed.last.digital;
-		return SR_OK;
+		return OTC_OK;
 	case STAGE_L2A_FIRST_VALUE:
 	case STAGE_L2A_EVERY_VALUE:
 		analog = read_fltle_inc(&curr);
@@ -836,16 +836,16 @@ static int parse_next_item(struct sr_input *in,
 		rc = addto_feed_buffer_analog(in, analog, 1);
 		if (rc)
 			return rc;
-		return SR_OK;
+		return OTC_OK;
 
 	default:
 		(void)analog;
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 	/* UNREACH */
 }
 
-static int parse_samples(struct sr_input *in)
+static int parse_samples(struct otc_input *in)
 {
 	const uint8_t *buff, *start;
 	size_t blen;
@@ -868,7 +868,7 @@ static int parse_samples(struct sr_input *in)
 	len = buff - start;
 	g_string_erase(in->buf, 0, len);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -894,7 +894,7 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	matched = FALSE;
 
 	/* Weak match on the filename (when available). */
-	fn = g_hash_table_lookup(metadata, GINT_TO_POINTER(SR_INPUT_META_FILENAME));
+	fn = g_hash_table_lookup(metadata, GINT_TO_POINTER(OTC_INPUT_META_FILENAME));
 	if (fn && *fn) {
 		fn_len = strlen(fn);
 		ext_len = strlen(zip_ext);
@@ -914,9 +914,9 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 	}
 
 	/* Stronger match when magic literals are found in file content. */
-	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(SR_INPUT_META_HEADER));
+	buf = g_hash_table_lookup(metadata, GINT_TO_POINTER(OTC_INPUT_META_HEADER));
 	if (!buf || !buf->len || !buf->str)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	switch (check_format((const uint8_t *)buf->str, buf->len)) {
 	case FMT_LOGIC2_DIGITAL:
 	case FMT_LOGIC2_ANALOG:
@@ -928,10 +928,10 @@ static int format_match(GHashTable *metadata, unsigned int *confidence)
 		break;
 	}
 
-	return matched ? SR_OK : SR_ERR_DATA;
+	return matched ? OTC_OK : OTC_ERR_DATA;
 }
 
-static int init(struct sr_input *in, GHashTable *options)
+static int init(struct otc_input *in, GHashTable *options)
 {
 	struct context *inc;
 	const char *type, *fmt_text;
@@ -951,7 +951,7 @@ static int init(struct sr_input *in, GHashTable *options)
 	size = g_variant_get_uint32(g_hash_table_lookup(options, "wordsize"));
 	count = g_variant_get_uint32(g_hash_table_lookup(options, "logic_channels"));
 	rate = g_variant_get_uint64(g_hash_table_lookup(options, "samplerate"));
-	sr_dbg("Caller options: type '%s', changed %d, wordsize %zu, channels %zu, rate %" PRIu64 ".",
+	otc_dbg("Caller options: type '%s', changed %d, wordsize %zu, channels %zu, rate %" PRIu64 ".",
 		type, changed ? 1 : 0, size, count, rate);
 
 	/* Run a few simple checks. Normalization is done in .init(). */
@@ -966,12 +966,12 @@ static int init(struct sr_input *in, GHashTable *options)
 		break;
 	}
 	if (format == FMT_UNKNOWN) {
-		sr_err("Unknown file type name: '%s'.", type);
-		return SR_ERR_ARG;
+		otc_err("Unknown file type name: '%s'.", type);
+		return OTC_ERR_ARG;
 	}
 	if (!size) {
-		sr_err("Need a word size.");
-		return SR_ERR_ARG;
+		otc_err("Need a word size.");
+		return OTC_ERR_ARG;
 	}
 
 	/*
@@ -983,13 +983,13 @@ static int init(struct sr_input *in, GHashTable *options)
 	inc->options.word_size = size;
 	inc->options.channel_count = count;
 	inc->options.sample_rate = rate;
-	sr_dbg("Resulting options: type '%s', changed %d",
+	otc_dbg("Resulting options: type '%s', changed %d",
 		get_format_text(format), changed ? 1 : 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int receive(struct sr_input *in, GString *buf)
+static int receive(struct otc_input *in, GString *buf)
 {
 	struct context *inc;
 	int rc;
@@ -1008,13 +1008,13 @@ static int receive(struct sr_input *in, GString *buf)
 	 */
 	if (!inc->module_state.got_header) {
 		if (!have_header(inc, in->buf))
-			return SR_OK;
+			return OTC_OK;
 		rc = parse_header(in);
 		if (rc)
 			return rc;
 		inc->module_state.got_header = TRUE;
 		text = get_format_text(inc->logic_state.format) ? : "<unknown>";
-		sr_info("Using file format: '%s'.", text);
+		otc_info("Using file format: '%s'.", text);
 		rc = create_channels(in);
 		if (rc)
 			return rc;
@@ -1022,21 +1022,21 @@ static int receive(struct sr_input *in, GString *buf)
 		if (rc)
 			return rc;
 		in->sdi_ready = TRUE;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* Process sample data, after the header got processed. */
 	return parse_samples(in);
 }
 
-static int end(struct sr_input *in)
+static int end(struct otc_input *in)
 {
 	struct context *inc;
 	int rc;
 
 	/* Nothing to do here if we never started feeding the session. */
 	if (!in->sdi_ready)
-		return SR_OK;
+		return OTC_OK;
 
 	/*
 	 * Process input data which may not have been inspected before.
@@ -1060,12 +1060,12 @@ static int end(struct sr_input *in)
 
 	/* Input data shall be exhausted by now. Non-fatal condition. */
 	if (in->buf->len)
-		sr_warn("Unprocessed remaining input: %zu bytes.", in->buf->len);
+		otc_warn("Unprocessed remaining input: %zu bytes.", in->buf->len);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void cleanup(struct sr_input *in)
+static void cleanup(struct otc_input *in)
 {
 	struct context *inc;
 	struct context_options save_opts;
@@ -1078,7 +1078,7 @@ static void cleanup(struct sr_input *in)
 		return;
 
 	/* Keep references to previously created channels. */
-	g_slist_free_full(inc->module_state.prev_channels, sr_channel_free_cb);
+	g_slist_free_full(inc->module_state.prev_channels, otc_channel_free_cb);
 	inc->module_state.prev_channels = in->sdi->channels;
 	in->sdi->channels = NULL;
 
@@ -1093,7 +1093,7 @@ static void cleanup(struct sr_input *in)
 	inc->module_state.prev_channels = save_channels;
 }
 
-static int reset(struct sr_input *in)
+static int reset(struct otc_input *in)
 {
 	struct context *inc;
 
@@ -1116,7 +1116,7 @@ static int reset(struct sr_input *in)
 	inc->module_state.rate_sent = FALSE;
 	g_string_truncate(in->buf, 0);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 enum option_index {
@@ -1128,7 +1128,7 @@ enum option_index {
 	OPT_MAX,
 };
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	[OPT_FMT_TYPE] = {
 		"format", "File format.",
 		"Type of input file format. Not all types can get auto-detected.",
@@ -1157,7 +1157,7 @@ static struct sr_option options[] = {
 	[OPT_MAX] = ALL_ZERO,
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	enum logic_format fmt_idx;
 	const char *fmt_text;
@@ -1191,7 +1191,7 @@ static const struct sr_option *get_options(void)
 	return options;
 }
 
-SR_PRIV struct sr_input_module input_saleae = {
+OTC_PRIV struct otc_input_module input_saleae = {
 	.id = "saleae",
 	.name = "Saleae",
 #if SALEAE_WITH_SAL_SUPPORT
@@ -1202,8 +1202,8 @@ SR_PRIV struct sr_input_module input_saleae = {
 	.exts = (const char *[]){"bin", NULL},
 #endif
 	.metadata = {
-		SR_INPUT_META_FILENAME,
-		SR_INPUT_META_HEADER | SR_INPUT_META_REQUIRED
+		OTC_INPUT_META_FILENAME,
+		OTC_INPUT_META_HEADER | OTC_INPUT_META_REQUIRED
 	},
 	.options = get_options,
 	.format_match = format_match,

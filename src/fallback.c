@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Aurelien Jacobs <aurel@gnuage.org>
  *
@@ -19,19 +19,19 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 #ifndef HAVE_SERIAL_COMM
 
-SR_API GSList *sr_serial_list(const struct sr_dev_driver *driver)
+OTC_API GSList *otc_serial_list(const struct otc_dev_driver *driver)
 {
 	(void)driver;
 
 	return NULL;
 }
 
-SR_API void sr_serial_free(struct sr_serial_port *serial)
+OTC_API void otc_serial_free(struct otc_serial_port *serial)
 {
 	(void)serial;
 }

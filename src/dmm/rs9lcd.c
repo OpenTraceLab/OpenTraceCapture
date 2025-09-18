@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Alexandru Gagniuc <mr.nuke.me@gmail.com>
  *
@@ -33,8 +33,8 @@
 #include <ctype.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "rs9lcd"
 
@@ -168,7 +168,7 @@ static gboolean selection_good(const struct rs9lcd_packet *rs_packet)
 	count += (rs_packet->indicatrix2 & IND2_MICRO) ? 1 : 0;
 	count += (rs_packet->indicatrix2 & IND2_NANO)  ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one multiplier detected in packet.");
+		otc_dbg("More than one multiplier detected in packet.");
 		return FALSE;
 	}
 
@@ -184,7 +184,7 @@ static gboolean selection_good(const struct rs9lcd_packet *rs_packet)
 	count += (rs_packet->indicatrix2 & IND2_DUTY)  ? 1 : 0;
 	count += (rs_packet->indicatrix2 & IND2_HFE)   ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one measurement type detected in packet.");
+		otc_dbg("More than one measurement type detected in packet.");
 		return FALSE;
 	}
 
@@ -197,7 +197,7 @@ static gboolean selection_good(const struct rs9lcd_packet *rs_packet)
  * possible check to filter out bad packets, especially since detection of the
  * 22-812 depends on how well we can filter the packets.
  */
-SR_PRIV gboolean sr_rs9lcd_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_rs9lcd_packet_valid(const uint8_t *buf)
 {
 	const struct rs9lcd_packet *rs_packet = (void *)buf;
 
@@ -209,12 +209,12 @@ SR_PRIV gboolean sr_rs9lcd_packet_valid(const uint8_t *buf)
 		return FALSE;
 
 	if (!checksum_valid(rs_packet)) {
-		sr_spew("Packet with invalid checksum. Discarding.");
+		otc_spew("Packet with invalid checksum. Discarding.");
 		return FALSE;
 	}
 
 	if (!selection_good(rs_packet)) {
-		sr_spew("Packet with invalid selection bits. Discarding.");
+		otc_spew("Packet with invalid selection bits. Discarding.");
 		return FALSE;
 	}
 
@@ -249,7 +249,7 @@ static uint8_t decode_digit(uint8_t raw_digit)
 	case LCD_9:
 		return 9;
 	default:
-		sr_dbg("Invalid digit byte: 0x%02x.", raw_digit);
+		otc_dbg("Invalid digit byte: 0x%02x.", raw_digit);
 		return 0xff;
 	}
 }
@@ -315,12 +315,12 @@ static gboolean is_shortcirc(const struct rs9lcd_packet *rs_packet)
 
 static gboolean is_logic_high(const struct rs9lcd_packet *rs_packet)
 {
-	sr_spew("Digit 2: 0x%02x.", rs_packet->digit2 & ~DP_MASK);
+	otc_spew("Digit 2: 0x%02x.", rs_packet->digit2 & ~DP_MASK);
 	return ((rs_packet->digit2 & ~DP_MASK) == LCD_H);
 }
 
-SR_PRIV int sr_rs9lcd_parse(const uint8_t *buf, float *floatval,
-			    struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_rs9lcd_parse(const uint8_t *buf, float *floatval,
+			    struct otc_datafeed_analog *analog, void *info)
 {
 	const struct rs9lcd_packet *rs_packet = (void *)buf;
 	int exponent;
@@ -332,114 +332,114 @@ SR_PRIV int sr_rs9lcd_parse(const uint8_t *buf, float *floatval,
 
 	switch (rs_packet->mode) {
 	case MODE_DC_V:
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 		break;
 	case MODE_AC_V:
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 		break;
 	case MODE_DC_UA:	/* Fall through */
 	case MODE_DC_MA:	/* Fall through */
 	case MODE_DC_A:
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 		break;
 	case MODE_AC_UA:	/* Fall through */
 	case MODE_AC_MA:	/* Fall through */
 	case MODE_AC_A:
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 		break;
 	case MODE_OHM:
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 		break;
 	case MODE_FARAD:
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 		break;
 	case MODE_CONT:
-		analog->meaning->mq = SR_MQ_CONTINUITY;
-		analog->meaning->unit = SR_UNIT_BOOLEAN;
+		analog->meaning->mq = OTC_MQ_CONTINUITY;
+		analog->meaning->unit = OTC_UNIT_BOOLEAN;
 		rawval = is_shortcirc(rs_packet);
 		break;
 	case MODE_DIODE:
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 		break;
 	case MODE_HZ:		/* Fall through */
 	case MODE_VOLT_HZ:	/* Fall through */
 	case MODE_AMP_HZ:
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 		break;
 	case MODE_LOGIC:
 		/*
 		 * No matter whether or not we have an actual voltage reading,
 		 * we are measuring voltage, so we set our MQ as VOLTAGE.
 		 */
-		analog->meaning->mq = SR_MQ_VOLTAGE;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
 		if (!isnan(rawval)) {
 			/* We have an actual voltage. */
-			analog->meaning->unit = SR_UNIT_VOLT;
+			analog->meaning->unit = OTC_UNIT_VOLT;
 		} else {
 			/* We have either HI or LOW. */
-			analog->meaning->unit = SR_UNIT_BOOLEAN;
+			analog->meaning->unit = OTC_UNIT_BOOLEAN;
 			rawval = is_logic_high(rs_packet);
 		}
 		break;
 	case MODE_HFE:
-		analog->meaning->mq = SR_MQ_GAIN;
-		analog->meaning->unit = SR_UNIT_UNITLESS;
+		analog->meaning->mq = OTC_MQ_GAIN;
+		analog->meaning->unit = OTC_UNIT_UNITLESS;
 		break;
 	case MODE_DUTY:		/* Fall through */
 	case MODE_VOLT_DUTY:	/* Fall through */
 	case MODE_AMP_DUTY:
-		analog->meaning->mq = SR_MQ_DUTY_CYCLE;
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 		break;
 	case MODE_WIDTH:	/* Fall through */
 	case MODE_VOLT_WIDTH:	/* Fall through */
 	case MODE_AMP_WIDTH:
-		analog->meaning->mq = SR_MQ_PULSE_WIDTH;
-		analog->meaning->unit = SR_UNIT_SECOND;
+		analog->meaning->mq = OTC_MQ_PULSE_WIDTH;
+		analog->meaning->unit = OTC_UNIT_SECOND;
 		break;
 	case MODE_TEMP:
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
 		/* We need to reparse. */
 		rawval = lcd_to_double(rs_packet, READ_TEMP, &exponent);
 		analog->meaning->unit = is_celsius(rs_packet) ?
-				SR_UNIT_CELSIUS : SR_UNIT_FAHRENHEIT;
+				OTC_UNIT_CELSIUS : OTC_UNIT_FAHRENHEIT;
 		break;
 	case MODE_DBM:
-		analog->meaning->mq = SR_MQ_POWER;
-		analog->meaning->unit = SR_UNIT_DECIBEL_MW;
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mq = OTC_MQ_POWER;
+		analog->meaning->unit = OTC_UNIT_DECIBEL_MW;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 		break;
 	default:
-		sr_dbg("Unknown mode: %d.", rs_packet->mode);
+		otc_dbg("Unknown mode: %d.", rs_packet->mode);
 		break;
 	}
 
 	if (rs_packet->info & INFO_HOLD)
-		analog->meaning->mqflags |= SR_MQFLAG_HOLD;
+		analog->meaning->mqflags |= OTC_MQFLAG_HOLD;
 	if (rs_packet->digit4 & DIG4_MAX)
-		analog->meaning->mqflags |= SR_MQFLAG_MAX;
+		analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 	if (rs_packet->indicatrix2 & IND2_MIN)
-		analog->meaning->mqflags |= SR_MQFLAG_MIN;
+		analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 	if (rs_packet->info & INFO_AUTO)
-		analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 
 	*floatval = rawval;
 
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 }

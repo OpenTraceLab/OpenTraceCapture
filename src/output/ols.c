@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2011 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
@@ -28,8 +28,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "output/ols"
 
@@ -38,7 +38,7 @@ struct context {
 	uint64_t num_samples;
 };
 
-static int init(struct sr_output *o, GHashTable *options)
+static int init(struct otc_output *o, GHashTable *options)
 {
 	struct context *ctx;
 
@@ -49,19 +49,19 @@ static int init(struct sr_output *o, GHashTable *options)
 	ctx->samplerate = 0;
 	ctx->num_samples = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static GString *gen_header(const struct sr_dev_inst *sdi, struct context *ctx)
+static GString *gen_header(const struct otc_dev_inst *sdi, struct context *ctx)
 {
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	GSList *l;
 	GString *s;
 	GVariant *gvar;
 	int num_enabled_channels;
 
-	if (!ctx->samplerate && sr_config_get(sdi->driver, sdi, NULL,
-			SR_CONF_SAMPLERATE, &gvar) == SR_OK) {
+	if (!ctx->samplerate && otc_config_get(sdi->driver, sdi, NULL,
+			OTC_CONF_SAMPLERATE, &gvar) == OTC_OK) {
 		ctx->samplerate = g_variant_get_uint64(gvar);
 		g_variant_unref(gvar);
 	}
@@ -69,7 +69,7 @@ static GString *gen_header(const struct sr_dev_inst *sdi, struct context *ctx)
 	num_enabled_channels = 0;
 	for (l = sdi->channels; l; l = l->next) {
 		ch = l->data;
-		if (ch->type != SR_CHANNEL_LOGIC)
+		if (ch->type != OTC_CHANNEL_LOGIC)
 			continue;
 		if (!ch->enabled)
 			continue;
@@ -86,32 +86,32 @@ static GString *gen_header(const struct sr_dev_inst *sdi, struct context *ctx)
 	return s;
 }
 
-static int receive(const struct sr_output *o, const struct sr_datafeed_packet *packet,
+static int receive(const struct otc_output *o, const struct otc_datafeed_packet *packet,
 		GString **out)
 {
 	struct context *ctx;
-	const struct sr_datafeed_meta *meta;
-	const struct sr_datafeed_logic *logic;
-	const struct sr_config *src;
+	const struct otc_datafeed_meta *meta;
+	const struct otc_datafeed_logic *logic;
+	const struct otc_config *src;
 	GSList *l;
 	unsigned int i, j;
 	uint8_t c;
 
 	*out = NULL;
 	if (!o || !o->sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	ctx = o->priv;
 
 	switch (packet->type) {
-	case SR_DF_META:
+	case OTC_DF_META:
 		meta = packet->payload;
 		for (l = meta->config; l; l = l->next) {
 			src = l->data;
-			if (src->key == SR_CONF_SAMPLERATE)
+			if (src->key == OTC_CONF_SAMPLERATE)
 				ctx->samplerate = g_variant_get_uint64(src->data);
 		}
 		break;
-	case SR_DF_LOGIC:
+	case OTC_DF_LOGIC:
 		logic = packet->payload;
 		if (ctx->num_samples == 0) {
 			/* First logic packet in the feed. */
@@ -129,24 +129,24 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 		break;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int cleanup(struct sr_output *o)
+static int cleanup(struct otc_output *o)
 {
 	struct context *ctx;
 
 	if (!o || !o->sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ctx = o->priv;
 	g_free(ctx);
 	o->priv = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_output_module output_ols = {
+OTC_PRIV struct otc_output_module output_ols = {
 	.id = "ols",
 	.name = "OLS",
 	.desc = "OpenBench Logic Sniffer data",

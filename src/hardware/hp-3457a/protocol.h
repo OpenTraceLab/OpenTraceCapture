@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Alexandru Gagniuc <mr.nuke.me@gmail.com>
  *
@@ -21,7 +21,7 @@
 #define LIBSIGROK_HARDWARE_HP_3457A_PROTOCOL_H
 
 #include <stdint.h>
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "hp-3457a"
 
@@ -61,14 +61,14 @@ struct dev_context {
 	/* Information about rear card option, or NULL if unknown */
 	const struct rear_card_info *rear_card;
 
-	enum sr_mq measurement_mq;
-	enum sr_mqflag measurement_mq_flags;
-	enum sr_unit measurement_unit;
+	enum otc_mq measurement_mq;
+	enum otc_mqflag measurement_mq_flags;
+	enum otc_unit measurement_unit;
 	uint64_t limit_samples;
 	float nplc;
 	GSList *active_channels;
 	unsigned int num_active_channels;
-	struct sr_channel *current_channel;
+	struct otc_channel *current_channel;
 
 	enum acquisition_state acq_state;
 	enum channel_conn input_loc;
@@ -84,14 +84,14 @@ struct channel_context {
 	int index;
 };
 
-SR_PRIV const struct rear_card_info *hp_3457a_probe_rear_card(struct sr_scpi_dev_inst *scpi);
-SR_PRIV int hp_3457a_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV int hp_3457a_set_mq(const struct sr_dev_inst *sdi, enum sr_mq mq,
-			    enum sr_mqflag mq_flags);
-SR_PRIV int hp_3457a_set_nplc(const struct sr_dev_inst *sdi, float nplc);
-SR_PRIV int hp_3457a_select_input(const struct sr_dev_inst *sdi,
+OTC_PRIV const struct rear_card_info *hp_3457a_probe_rear_card(struct otc_scpi_dev_inst *scpi);
+OTC_PRIV int hp_3457a_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int hp_3457a_set_mq(const struct otc_dev_inst *sdi, enum otc_mq mq,
+			    enum otc_mqflag mq_flags);
+OTC_PRIV int hp_3457a_set_nplc(const struct otc_dev_inst *sdi, float nplc);
+OTC_PRIV int hp_3457a_select_input(const struct otc_dev_inst *sdi,
 				  enum channel_conn loc);
-SR_PRIV int hp_3457a_send_scan_list(const struct sr_dev_inst *sdi,
+OTC_PRIV int hp_3457a_send_scan_list(const struct otc_dev_inst *sdi,
 				    unsigned int *channels, size_t len);
 
 #endif

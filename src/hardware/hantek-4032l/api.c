@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Andreas Zschunke <andreas.zschunke@gmx.net>
  * Copyright (C) 2017 Andrej Valek <andy@skyrain.eu>
@@ -26,34 +26,34 @@
 #define NUM_CHANNELS 32
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_EXTERNAL_CLOCK | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_EXTERNAL_CLOCK_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CLOCK_EDGE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CAPTURE_RATIO | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_EXTERNAL_CLOCK | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_EXTERNAL_CLOCK_SOURCE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CLOCK_EDGE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const uint32_t devopts_fpga_zero[] = {
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-	SR_CONF_CONN | SR_CONF_GET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CAPTURE_RATIO | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
+	OTC_CONF_CONN | OTC_CONF_GET,
 };
 
 static const uint32_t devopts_cg[] = {
-	SR_CONF_VOLTAGE_THRESHOLD | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_VOLTAGE_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const char *cg_names[] = {
@@ -85,91 +85,91 @@ static const uint8_t ext_clock_edges[2][3] = {
 };
 
 static const int32_t trigger_matches[] = {
-	SR_TRIGGER_ZERO,
-	SR_TRIGGER_ONE,
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
-	SR_TRIGGER_EDGE,
+	OTC_TRIGGER_ZERO,
+	OTC_TRIGGER_ONE,
+	OTC_TRIGGER_RISING,
+	OTC_TRIGGER_FALLING,
+	OTC_TRIGGER_EDGE,
 };
 
 static const uint64_t samplerates[] = {
-	SR_KHZ(1),
-	SR_KHZ(2),
-	SR_KHZ(4),
-	SR_KHZ(8),
-	SR_KHZ(16),
-	SR_HZ(31250),
-	SR_HZ(62500),
-	SR_KHZ(125),
-	SR_KHZ(250),
-	SR_KHZ(500),
-	SR_KHZ(625),
-	SR_HZ(781250),
-	SR_MHZ(1),
-	SR_KHZ(1250),
-	SR_HZ(1562500),
-	SR_MHZ(2),
-	SR_KHZ(2500),
-	SR_KHZ(3125),
-	SR_MHZ(4),
-	SR_MHZ(5),
-	SR_KHZ(6250),
-	SR_MHZ(10),
-	SR_KHZ(12500),
-	SR_MHZ(20),
-	SR_MHZ(25),
-	SR_MHZ(40),
-	SR_MHZ(50),
-	SR_MHZ(80),
-	SR_MHZ(100),
-	SR_MHZ(160),
-	SR_MHZ(200),
-	SR_MHZ(320),
-	SR_MHZ(400),
+	OTC_KHZ(1),
+	OTC_KHZ(2),
+	OTC_KHZ(4),
+	OTC_KHZ(8),
+	OTC_KHZ(16),
+	OTC_HZ(31250),
+	OTC_HZ(62500),
+	OTC_KHZ(125),
+	OTC_KHZ(250),
+	OTC_KHZ(500),
+	OTC_KHZ(625),
+	OTC_HZ(781250),
+	OTC_MHZ(1),
+	OTC_KHZ(1250),
+	OTC_HZ(1562500),
+	OTC_MHZ(2),
+	OTC_KHZ(2500),
+	OTC_KHZ(3125),
+	OTC_MHZ(4),
+	OTC_MHZ(5),
+	OTC_KHZ(6250),
+	OTC_MHZ(10),
+	OTC_KHZ(12500),
+	OTC_MHZ(20),
+	OTC_MHZ(25),
+	OTC_MHZ(40),
+	OTC_MHZ(50),
+	OTC_MHZ(80),
+	OTC_MHZ(100),
+	OTC_MHZ(160),
+	OTC_MHZ(200),
+	OTC_MHZ(320),
+	OTC_MHZ(400),
 };
 
 static const uint64_t samplerates_hw[] = {
-	SR_MHZ(100),
-	SR_MHZ(50),
-	SR_MHZ(25),
-	SR_KHZ(12500),
-	SR_KHZ(6250),
-	SR_KHZ(3125),
-	SR_HZ(1562500),
-	SR_HZ(781250),
-	SR_MHZ(80),
-	SR_MHZ(40),
-	SR_MHZ(20),
-	SR_MHZ(10),
-	SR_MHZ(5),
-	SR_KHZ(2500),
-	SR_KHZ(1250),
-	SR_KHZ(625),
-	SR_MHZ(4),
-	SR_MHZ(2),
-	SR_MHZ(1),
-	SR_KHZ(500),
-	SR_KHZ(250),
-	SR_KHZ(125),
-	SR_HZ(62500),
-	SR_HZ(31250),
-	SR_KHZ(16),
-	SR_KHZ(8),
-	SR_KHZ(4),
-	SR_KHZ(2),
-	SR_KHZ(1),
+	OTC_MHZ(100),
+	OTC_MHZ(50),
+	OTC_MHZ(25),
+	OTC_KHZ(12500),
+	OTC_KHZ(6250),
+	OTC_KHZ(3125),
+	OTC_HZ(1562500),
+	OTC_HZ(781250),
+	OTC_MHZ(80),
+	OTC_MHZ(40),
+	OTC_MHZ(20),
+	OTC_MHZ(10),
+	OTC_MHZ(5),
+	OTC_KHZ(2500),
+	OTC_KHZ(1250),
+	OTC_KHZ(625),
+	OTC_MHZ(4),
+	OTC_MHZ(2),
+	OTC_MHZ(1),
+	OTC_KHZ(500),
+	OTC_KHZ(250),
+	OTC_KHZ(125),
+	OTC_HZ(62500),
+	OTC_HZ(31250),
+	OTC_KHZ(16),
+	OTC_KHZ(8),
+	OTC_KHZ(4),
+	OTC_KHZ(2),
+	OTC_KHZ(1),
 	0,
 	0,
 	0,
-	SR_MHZ(200),
-	SR_MHZ(160),
-	SR_MHZ(400),
-	SR_MHZ(320),
+	OTC_MHZ(200),
+	OTC_MHZ(160),
+	OTC_MHZ(400),
+	OTC_MHZ(320),
 };
 
-static struct sr_dev_driver hantek_4032l_driver_info;
+static struct otc_dev_driver hantek_4032l_driver_info;
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct drv_context *drvc = di->context;
 	GSList *l, *devices, *conn_devices;
@@ -178,9 +178,9 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	const char *conn;
 	int i;
 	char connection_id[64];
-	struct sr_channel_group *cg;
-	struct sr_dev_inst *sdi;
-	struct sr_channel *ch;
+	struct otc_channel_group *cg;
+	struct otc_dev_inst *sdi;
+	struct otc_channel *ch;
 
 	devices = NULL;
 	conn_devices = NULL;
@@ -188,22 +188,22 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	conn = NULL;
 
 	for (l = options; l; l = l->next) {
-		struct sr_config *src = l->data;
-		if (src->key == SR_CONF_CONN) {
+		struct otc_config *src = l->data;
+		if (src->key == OTC_CONF_CONN) {
 			conn = g_variant_get_string(src->data, NULL);
 			break;
 		}
 	}
 
 	if (conn)
-		conn_devices = sr_usb_find(drvc->sr_ctx->libusb_ctx, conn);
+		conn_devices = otc_usb_find(drvc->otc_ctx->libusb_ctx, conn);
 	else
 		conn_devices = NULL;
 
-	libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+	libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 	for (i = 0; devlist[i]; i++) {
 		if (conn) {
-			struct sr_usb_dev_inst *usb = NULL;
+			struct otc_usb_dev_inst *usb = NULL;
 			for (l = conn_devices; l; l = l->next) {
 				usb = l->data;
 				if (usb->bus == libusb_get_bus_number(devlist[i]) &&
@@ -225,15 +225,15 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		if (usb_get_port_path(devlist[i], connection_id, sizeof(connection_id)) < 0)
 			continue;
 
-		sdi = g_malloc0(sizeof(struct sr_dev_inst));
+		sdi = g_malloc0(sizeof(struct otc_dev_inst));
 		sdi->driver = &hantek_4032l_driver_info;
 		sdi->vendor = g_strdup("Hantek");
 		sdi->model = g_strdup("4032L");
 		sdi->connection_id = g_strdup(connection_id);
 
-		struct sr_channel_group *channel_groups[2];
+		struct otc_channel_group *channel_groups[2];
 		for (int j = 0; j < 2; j++) {
-			cg = sr_channel_group_new(sdi, NULL, NULL);
+			cg = otc_channel_group_new(sdi, NULL, NULL);
 			cg->name = g_strdup_printf("%c", 'A' + j);
 			channel_groups[j] = cg;
 		}
@@ -242,7 +242,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		for (int j = 0; j < NUM_CHANNELS; j++) {
 			char channel_name[4];
 			sprintf(channel_name, "%c%d", 'A' + (j & 1), j / 2);
-			ch = sr_channel_new(sdi, j, SR_CHANNEL_LOGIC, TRUE, channel_name);
+			ch = otc_channel_new(sdi, j, OTC_CHANNEL_LOGIC, TRUE, channel_name);
 			cg = channel_groups[j & 1];
 			cg->channels = g_slist_append(cg->channels, ch);
 		}
@@ -271,122 +271,122 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		sdi->priv = devc;
 		devices = g_slist_append(devices, sdi);
 
-		sdi->status = SR_ST_INACTIVE;
-		sdi->inst_type = SR_INST_USB;
-		sdi->conn = sr_usb_dev_inst_new(
+		sdi->status = OTC_ST_INACTIVE;
+		sdi->inst_type = OTC_INST_USB;
+		sdi->conn = otc_usb_dev_inst_new(
 			libusb_get_bus_number(devlist[i]),
 			libusb_get_device_address(devlist[i]), NULL);
 	}
 
-	g_slist_free_full(conn_devices, (GDestroyNotify)sr_usb_dev_inst_free);
+	g_slist_free_full(conn_devices, (GDestroyNotify)otc_usb_dev_inst_free);
 	libusb_free_device_list(devlist, 1);
 
 	return std_scan_complete(di, devices);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb = sdi->conn;
+	struct otc_usb_dev_inst *usb = sdi->conn;
 	int ret;
 
 	ret = h4032l_dev_open(sdi);
-	if (ret != SR_OK) {
-		sr_err("Unable to open device.");
-		return SR_ERR;
+	if (ret != OTC_OK) {
+		otc_err("Unable to open device.");
+		return OTC_ERR;
 	}
 
 	ret = libusb_claim_interface(usb->devhdl, USB_INTERFACE);
 	if (ret != 0) {
 		switch (ret) {
 		case LIBUSB_ERROR_BUSY:
-			sr_err("Unable to claim USB interface. Another "
+			otc_err("Unable to claim USB interface. Another "
 			       "program or driver has already claimed it.");
 			break;
 		case LIBUSB_ERROR_NO_DEVICE:
-			sr_err("Device has been disconnected.");
+			otc_err("Device has been disconnected.");
 			break;
 		default:
-			sr_err("Unable to claim interface: %s.",
+			otc_err("Unable to claim interface: %s.",
 			       libusb_error_name(ret));
 			break;
 		}
 
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* Get FPGA version. */
-	if ((ret = h4032l_get_fpga_version(sdi)) != SR_OK)
+	if ((ret = h4032l_get_fpga_version(sdi)) != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 
 	usb = sdi->conn;
 
 	if (!usb->devhdl)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
-	sr_info("Closing device on %d.%d (logical) / %s (physical) interface %d.",
+	otc_info("Closing device on %d.%d (logical) / %s (physical) interface %d.",
 		usb->bus, usb->address, sdi->connection_id, USB_INTERFACE);
 	libusb_release_interface(usb->devhdl, USB_INTERFACE);
 	libusb_close(usb->devhdl);
 	usb->devhdl = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc = sdi->priv;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	int idx;
 
 	switch (key) {
-	case SR_CONF_VOLTAGE_THRESHOLD:
+	case OTC_CONF_VOLTAGE_THRESHOLD:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if ((idx = std_str_idx_s(cg->name, ARRAY_AND_SIZE(cg_names))) < 0)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		*data = std_gvar_tuple_double(
 			devc->cur_threshold[idx], devc->cur_threshold[idx]);
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(samplerates_hw[devc->sample_rate]);
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		*data = g_variant_new_uint64(devc->capture_ratio);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		*data = g_variant_new_uint64(devc->cmd_pkt.sample_size);
 		break;
-	case SR_CONF_EXTERNAL_CLOCK:
+	case OTC_CONF_EXTERNAL_CLOCK:
 		*data = g_variant_new_boolean(devc->external_clock);
 		break;
-	case SR_CONF_EXTERNAL_CLOCK_SOURCE:
+	case OTC_CONF_EXTERNAL_CLOCK_SOURCE:
 		*data = g_variant_new_string(ext_clock_sources[devc->external_clock_source]);
 		break;
-	case SR_CONF_CONN:
+	case OTC_CONF_CONN:
 		if (!sdi || !(usb = sdi->conn))
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_printf("%d.%d", usb->bus, usb->address);
 		break;
-	case SR_CONF_CLOCK_EDGE:
+	case OTC_CONF_CLOCK_EDGE:
 		*data = g_variant_new_string(signal_edges[devc->clock_edge]);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int idx;
 	struct dev_context *devc = sdi->priv;
@@ -395,68 +395,68 @@ static int config_set(uint32_t key, GVariant *data,
 	double low, high;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		idx = 0;
 		sample_rate = g_variant_get_uint64(data);
 		while (idx < (int)ARRAY_SIZE(samplerates_hw) && samplerates_hw[idx] != sample_rate)
 			idx++;
 		if (idx == ARRAY_SIZE(samplerates_hw) || sample_rate == 0) {
-			sr_err("Invalid sample rate.");
-			return SR_ERR_SAMPLERATE;
+			otc_err("Invalid sample rate.");
+			return OTC_ERR_SAMPLERATE;
 		}
 		devc->sample_rate = idx;
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		devc->capture_ratio = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		num_samples = g_variant_get_uint64(data);
 		num_samples += 511;
 		num_samples &= 0xfffffe00;
 		if (num_samples < H4043L_NUM_SAMPLES_MIN ||
 		    num_samples > H4032L_NUM_SAMPLES_MAX) {
-			sr_err("Invalid sample range 2k...64M: %"
+			otc_err("Invalid sample range 2k...64M: %"
 			       PRIu64 ".", num_samples);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		cmd_pkt->sample_size = num_samples;
 		break;
-	case SR_CONF_VOLTAGE_THRESHOLD:
+	case OTC_CONF_VOLTAGE_THRESHOLD:
 		if (!cg)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		if ((idx = std_str_idx_s(cg->name, ARRAY_AND_SIZE(cg_names))) < 0)
-			return SR_ERR_CHANNEL_GROUP;
+			return OTC_ERR_CHANNEL_GROUP;
 		g_variant_get(data, "(dd)", &low, &high);
 		devc->cur_threshold[idx] = (low + high) / 2.0;
 		break;
-	case SR_CONF_EXTERNAL_CLOCK:
+	case OTC_CONF_EXTERNAL_CLOCK:
 		devc->external_clock = g_variant_get_boolean(data);
 		break;
-	case SR_CONF_EXTERNAL_CLOCK_SOURCE:
+	case OTC_CONF_EXTERNAL_CLOCK_SOURCE:
 		if ((idx = std_str_idx(data, ARRAY_AND_SIZE(ext_clock_sources))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->external_clock_source = idx;
 		break;
-	case SR_CONF_CLOCK_EDGE:
+	case OTC_CONF_CLOCK_EDGE:
 		if ((idx = std_str_idx(data, ARRAY_AND_SIZE(signal_edges))) < 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc->clock_edge = idx;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc = (sdi) ? sdi->priv : NULL;
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		if (cg) {
 			*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg));
 			break;
@@ -465,38 +465,38 @@ static int config_list(uint32_t key, GVariant **data,
 		if (devc && (!devc->fpga_version))
 			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts_fpga_zero);
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = std_gvar_samplerates(ARRAY_AND_SIZE(samplerates));
 		break;
-	case SR_CONF_TRIGGER_MATCH:
+	case OTC_CONF_TRIGGER_MATCH:
 		*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
 		break;
-	case SR_CONF_VOLTAGE_THRESHOLD:
+	case OTC_CONF_VOLTAGE_THRESHOLD:
 		*data = std_gvar_min_max_step_thresholds(H4032L_THR_VOLTAGE_MIN,
 			H4032L_THR_VOLTAGE_MAX, H4032L_THR_VOLTAGE_STEP);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		*data = std_gvar_tuple_u64(H4043L_NUM_SAMPLES_MIN, H4032L_NUM_SAMPLES_MAX);
 		break;
-	case SR_CONF_CLOCK_EDGE:
+	case OTC_CONF_CLOCK_EDGE:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(signal_edges));
 		break;
-	case SR_CONF_EXTERNAL_CLOCK_SOURCE:
+	case OTC_CONF_EXTERNAL_CLOCK_SOURCE:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(ext_clock_sources));
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
-	struct sr_dev_driver *di = sdi->driver;
+	struct otc_dev_driver *di = sdi->driver;
 	struct drv_context *drvc = di->context;
 	struct dev_context *devc = sdi->priv;
-	struct sr_trigger *trigger = sr_session_trigger_get(sdi->session);
+	struct otc_trigger *trigger = otc_session_trigger_get(sdi->session);
 	struct h4032l_cmd_pkt *cmd_pkt = &devc->cmd_pkt;
 
 	/* Initialize variables. */
@@ -524,10 +524,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 	if (trigger && trigger->stages) {
 		GSList *stages = trigger->stages;
-		struct sr_trigger_stage *stage1 = stages->data;
+		struct otc_trigger_stage *stage1 = stages->data;
 		if (stages->next) {
-			sr_err("Only one trigger stage supported for now.");
-			return SR_ERR;
+			otc_err("Only one trigger stage supported for now.");
+			return OTC_ERR;
 		}
 		cmd_pkt->trig_flags.enable_trigger1 = 1;
 		cmd_pkt->trigger[0].flags.edge_type = H4032L_TRIGGER_EDGE_TYPE_DISABLED;
@@ -544,43 +544,43 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 		GSList *channel = stage1->matches;
 		while (channel) {
-			struct sr_trigger_match *match = channel->data;
+			struct otc_trigger_match *match = channel->data;
 
 			switch (match->match) {
-			case SR_TRIGGER_ZERO:
+			case OTC_TRIGGER_ZERO:
 				range_mask |= (1 << match->channel->index);
 				break;
-			case SR_TRIGGER_ONE:
+			case OTC_TRIGGER_ONE:
 				range_mask |= (1 << match->channel->index);
 				range_value |= (1 << match->channel->index);
 				break;
-			case SR_TRIGGER_RISING:
+			case OTC_TRIGGER_RISING:
 				if (cmd_pkt->trigger[0].flags.edge_type != H4032L_TRIGGER_EDGE_TYPE_DISABLED) {
-					sr_err("Only one trigger signal with fall/rising/edge allowed.");
-					return SR_ERR;
+					otc_err("Only one trigger signal with fall/rising/edge allowed.");
+					return OTC_ERR;
 				}
 				cmd_pkt->trigger[0].flags.edge_type = H4032L_TRIGGER_EDGE_TYPE_RISE;
 				cmd_pkt->trigger[0].flags.edge_signal = match->channel->index;
 				break;
-			case SR_TRIGGER_FALLING:
+			case OTC_TRIGGER_FALLING:
 				if (cmd_pkt->trigger[0].flags.edge_type != H4032L_TRIGGER_EDGE_TYPE_DISABLED) {
-					sr_err("Only one trigger signal with fall/rising/edge allowed.");
-					return SR_ERR;
+					otc_err("Only one trigger signal with fall/rising/edge allowed.");
+					return OTC_ERR;
 				}
 				cmd_pkt->trigger[0].flags.edge_type = H4032L_TRIGGER_EDGE_TYPE_FALL;
 				cmd_pkt->trigger[0].flags.edge_signal = match->channel->index;
 				break;
-			case SR_TRIGGER_EDGE:
+			case OTC_TRIGGER_EDGE:
 				if (cmd_pkt->trigger[0].flags.edge_type != H4032L_TRIGGER_EDGE_TYPE_DISABLED) {
-					sr_err("Only one trigger signal with fall/rising/edge allowed.");
-					return SR_ERR;
+					otc_err("Only one trigger signal with fall/rising/edge allowed.");
+					return OTC_ERR;
 				}
 				cmd_pkt->trigger[0].flags.edge_type = H4032L_TRIGGER_EDGE_TYPE_TOGGLE;
 				cmd_pkt->trigger[0].flags.edge_signal = match->channel->index;
 				break;
 			default:
-				sr_err("Unknown trigger value.");
-				return SR_ERR;
+				otc_err("Unknown trigger value.");
+				return OTC_ERR;
 			}
 
 			channel = channel->next;
@@ -591,20 +591,20 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		cmd_pkt->trigger[0].data_range_max = range_value;
 	}
 
-	usb_source_add(sdi->session, drvc->sr_ctx, 1000,
+	usb_source_add(sdi->session, drvc->otc_ctx, 1000,
 		h4032l_receive_data, sdi->driver->context);
 
 	/* Start capturing. */
 	return h4032l_start(sdi);
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	/* Stop capturing. */
 	return h4032l_stop(sdi);
 }
 
-static struct sr_dev_driver hantek_4032l_driver_info = {
+static struct otc_dev_driver hantek_4032l_driver_info = {
 	.name = "hantek-4032l",
 	.longname = "Hantek 4032L",
 	.api_version = 1,
@@ -622,4 +622,4 @@ static struct sr_dev_driver hantek_4032l_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(hantek_4032l_driver_info);
+OTC_REGISTER_DEV_DRIVER(hantek_4032l_driver_info);

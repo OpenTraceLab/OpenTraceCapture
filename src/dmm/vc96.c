@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012-2013 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2018 Matthias Schulz <matthschulz@arcor.de>
@@ -31,8 +31,8 @@
 #include <ctype.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "vc96"
 
@@ -63,13 +63,13 @@ static int parse_value(const uint8_t *buf, struct vc96_info *info,
 	is_ol += (!g_ascii_strcasecmp((const char *)&valstr, "-OL.")) ? 1 : 0;
 	is_ol += (!g_ascii_strcasecmp((const char *)&valstr, "-OL")) ? 1 : 0;
 	if (is_ol != 0) {
-		sr_spew("Over limit.");
+		otc_spew("Over limit.");
 		*result = INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* Bytes 3-10: Sign, value (up to 5 digits) and decimal point */
-	sr_atof_ascii((const char *)&valstr, result);
+	otc_atof_ascii((const char *)&valstr, result);
 
 	dot_pos = strcspn(valstr, ".");
 	if (dot_pos < cnt)
@@ -77,9 +77,9 @@ static int parse_value(const uint8_t *buf, struct vc96_info *info,
 	else
 		*exponent = 0;
 
-	sr_spew("The display value is %f.", *result);
+	otc_spew("The display value is %f.", *result);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void parse_flags(const char *buf, struct vc96_info *info)
@@ -105,7 +105,7 @@ static void parse_flags(const char *buf, struct vc96_info *info)
 		if (buf[9 + i] != ' ')
 			unit[cnt++] = buf[9 + i];
 	}
-	sr_spew("Bytes 9..10 without spaces \"%.4s\".", unit);
+	otc_spew("Bytes 9..10 without spaces \"%.4s\".", unit);
 
 	/* Bytes 9-10: Unit */
 	u = (const char *)&unit;
@@ -144,7 +144,7 @@ static void parse_flags(const char *buf, struct vc96_info *info)
 	/* Byte 13: Always '\n' (carriage return, 0x0a, 13) */
 }
 
-static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
+static void handle_flags(struct otc_datafeed_analog *analog, float *floatval,
 			 int *exponent, const struct vc96_info *info)
 {
 	int factor;
@@ -165,33 +165,33 @@ static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
 
 	/* Measurement modes */
 	if (info->is_volt) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_ampere) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 	}
 	if (info->is_ohm) {
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 	if (info->is_diode) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_hfe) {
-		analog->meaning->mq = SR_MQ_GAIN;
-		analog->meaning->unit = SR_UNIT_UNITLESS;
+		analog->meaning->mq = OTC_MQ_GAIN;
+		analog->meaning->unit = OTC_UNIT_UNITLESS;
 	}
 
 	/* Measurement related flags */
 	if (info->is_ac)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (info->is_dc)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	if (info->is_diode)
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 }
 
 static gboolean flags_valid(const struct vc96_info *info)
@@ -205,7 +205,7 @@ static gboolean flags_valid(const struct vc96_info *info)
 	count += (info->is_kilo) ? 1 : 0;
 	count += (info->is_mega) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one multiplier detected in packet.");
+		otc_dbg("More than one multiplier detected in packet.");
 		return FALSE;
 	}
 
@@ -216,20 +216,20 @@ static gboolean flags_valid(const struct vc96_info *info)
 	count += (info->is_resistance) ? 1 : 0;
 	count += (info->is_diode) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one measurement type detected in packet.");
+		otc_dbg("More than one measurement type detected in packet.");
 		return FALSE;
 	}
 
 	/* Both AC and DC set? */
 	if (info->is_ac && info->is_dc) {
-		sr_dbg("Both AC and DC flags detected in packet.");
+		otc_dbg("Both AC and DC flags detected in packet.");
 		return FALSE;
 	}
 
 	return TRUE;
 }
 
-SR_PRIV gboolean sr_vc96_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_vc96_packet_valid(const uint8_t *buf)
 {
 	struct vc96_info info;
 
@@ -251,17 +251,17 @@ SR_PRIV gboolean sr_vc96_packet_valid(const uint8_t *buf)
  * @param buf Buffer containing the protocol packet. Must not be NULL.
  * @param floatval Pointer to a float variable. That variable will be modified
  *                 in-place depending on the protocol packet. Must not be NULL.
- * @param analog Pointer to a struct sr_datafeed_analog. The struct will be
+ * @param analog Pointer to a struct otc_datafeed_analog. The struct will be
  *               filled with data according to the protocol packet.
  *               Must not be NULL.
  * @param info Pointer to a struct vc96_info. The struct will be filled
  *             with data according to the protocol packet. Must not be NULL.
  *
- * @return SR_OK upon success, SR_ERR upon failure. Upon errors, the
+ * @return OTC_OK upon success, OTC_ERR upon failure. Upon errors, the
  *         'analog' variable contents are undefined and should not be used.
  */
-SR_PRIV int sr_vc96_parse(const uint8_t *buf, float *floatval,
-			struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_vc96_parse(const uint8_t *buf, float *floatval,
+			struct otc_datafeed_analog *analog, void *info)
 {
 	int ret, exponent = 0;
 	struct vc96_info *info_local;
@@ -269,12 +269,12 @@ SR_PRIV int sr_vc96_parse(const uint8_t *buf, float *floatval,
 	info_local = info;
 
 	/* Don't print byte 12 + 13. Those contain the CR LF. */
-	sr_dbg("DMM packet: \"%.11s\".", buf);
+	otc_dbg("DMM packet: \"%.11s\".", buf);
 
 	memset(info_local, 0x00, sizeof(struct vc96_info));
 
 	if ((ret = parse_value(buf, info_local, floatval, &exponent)) < 0) {
-		sr_dbg("Error parsing value: %d.", ret);
+		otc_dbg("Error parsing value: %d.", ret);
 		return ret;
 	}
 
@@ -284,5 +284,5 @@ SR_PRIV int sr_vc96_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 }

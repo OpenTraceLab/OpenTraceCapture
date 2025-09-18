@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010-2012 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2012 Peter Stuge <peter@stuge.se>
@@ -23,8 +23,8 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #endif
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 #include "minilzo/minilzo.h"
 
 /** @cond PRIVATE */
@@ -32,25 +32,25 @@
 /** @endcond */
 
 /**
- * @mainpage libsigrok API
+ * @mainpage libopentracecapture API
  *
  * @section sec_intro Introduction
  *
- * The <a href="http://sigrok.org">sigrok</a> project aims at creating a
+ * The <a href="http://opentracelab.org">opentracelab</a> project aims at creating a
  * portable, cross-platform, Free/Libre/Open-Source signal analysis software
  * suite that supports various device types (such as logic analyzers,
  * oscilloscopes, multimeters, and more).
  *
- * <a href="http://sigrok.org/wiki/Libsigrok">libsigrok</a> is a shared
+ * <a href="http://opentracelab.org/wiki/Libopentracelab">libopentracecapture</a> is a shared
  * library written in C which provides the basic API for talking to
- * <a href="http://sigrok.org/wiki/Supported_hardware">supported hardware</a>
+ * <a href="http://opentracelab.org/wiki/Supported_hardware">supported hardware</a>
  * and reading/writing the acquired data into various
- * <a href="http://sigrok.org/wiki/Input_output_formats">input/output
+ * <a href="http://opentracelab.org/wiki/Input_output_formats">input/output
  * file formats</a>.
  *
  * @section sec_api API reference
  *
- * See the "Modules" page for an introduction to various libsigrok
+ * See the "Modules" page for an introduction to various libopentracecapture
  * related topics and the detailed API documentation of the respective
  * functions.
  *
@@ -59,60 +59,60 @@
  *
  * @section sec_mailinglists Mailing lists
  *
- * There is one mailing list for sigrok/libsigrok: <a href="https://lists.sourceforge.net/lists/listinfo/sigrok-devel">sigrok-devel</a>.
+ * There is one mailing list for opentracelab/libopentracecapture: <a href="https://lists.sourceforge.net/lists/listinfo/opentracelab-devel">opentracelab-devel</a>.
  *
  * @section sec_irc IRC
  *
- * You can find the sigrok developers in the
- * <a href="ircs://irc.libera.chat/#sigrok">\#sigrok</a>
+ * You can find the opentracelab developers in the
+ * <a href="ircs://irc.libera.chat/#opentracelab">\#opentracelab</a>
  * IRC channel on Libera.Chat.
  *
  * @section sec_website Website
  *
- * <a href="http://sigrok.org/wiki/Libsigrok">sigrok.org/wiki/Libsigrok</a>
+ * <a href="http://opentracelab.org/wiki/Libopentracelab">opentracelab.org/wiki/Libopentracelab</a>
  */
 
 /**
  * @file
  *
- * Initializing and shutting down libsigrok.
+ * Initializing and shutting down libopentracecapture.
  */
 
 /**
  * @defgroup grp_init Initialization
  *
- * Initializing and shutting down libsigrok.
+ * Initializing and shutting down libopentracecapture.
  *
- * Before using any of the libsigrok functionality (except for
- * sr_log_loglevel_set()), sr_init() must be called to initialize the
- * library, which will return a struct sr_context when the initialization
+ * Before using any of the libopentracecapture functionality (except for
+ * otc_log_loglevel_set()), otc_init() must be called to initialize the
+ * library, which will return a struct otc_context when the initialization
  * was successful.
  *
- * When libsigrok functionality is no longer needed, sr_exit() should be
- * called, which will (among other things) free the struct sr_context.
+ * When libopentracecapture functionality is no longer needed, otc_exit() should be
+ * called, which will (among other things) free the struct otc_context.
  *
- * Example for a minimal program using libsigrok:
+ * Example for a minimal program using libopentracecapture:
  *
  * @code{.c}
  *   #include <stdio.h>
- *   #include <libsigrok/libsigrok.h>
+ *   #include <opentracecapture/libopentracecapture.h>
  *
  *   int main(int argc, char **argv)
  *   {
  *   	int ret;
- *   	struct sr_context *sr_ctx;
+ *   	struct otc_context *otc_ctx;
  *
- *   	if ((ret = sr_init(&sr_ctx)) != SR_OK) {
- *   		printf("Error initializing libsigrok (%s): %s.\n",
- *   		       sr_strerror_name(ret), sr_strerror(ret));
+ *   	if ((ret = otc_init(&otc_ctx)) != OTC_OK) {
+ *   		printf("Error initializing libopentracecapture (%s): %s.\n",
+ *   		       otc_strerror_name(ret), otc_strerror(ret));
  *   		return 1;
  *   	}
  *
- *   	// Use libsigrok functions here...
+ *   	// Use libopentracecapture functions here...
  *
- *   	if ((ret = sr_exit(sr_ctx)) != SR_OK) {
- *   		printf("Error shutting down libsigrok (%s): %s.\n",
- *   		       sr_strerror_name(ret), sr_strerror(ret));
+ *   	if ((ret = otc_exit(otc_ctx)) != OTC_OK) {
+ *   		printf("Error shutting down libopentracecapture (%s): %s.\n",
+ *   		       otc_strerror_name(ret), otc_strerror(ret));
  *   		return 1;
  *   	}
  *
@@ -123,7 +123,7 @@
  * @{
  */
 
-SR_API GSList *sr_buildinfo_libs_get(void)
+OTC_API GSList *otc_buildinfo_libs_get(void)
 {
 	GSList *l = NULL, *m = NULL;
 #if defined(HAVE_LIBUSB_1_0) && !defined(__FreeBSD__)
@@ -204,7 +204,7 @@ SR_API GSList *sr_buildinfo_libs_get(void)
 	return l;
 }
 
-SR_API char *sr_buildinfo_host_get(void)
+OTC_API char *otc_buildinfo_host_get(void)
 {
 	return g_strdup_printf("%s, %s-endian", CONF_HOST,
 #ifdef WORDS_BIGENDIAN
@@ -215,7 +215,7 @@ SR_API char *sr_buildinfo_host_get(void)
 	);
 }
 
-SR_API char *sr_buildinfo_scpi_backends_get(void)
+OTC_API char *otc_buildinfo_scpi_backends_get(void)
 {
 	GString *s;
 	char *str;
@@ -253,12 +253,12 @@ static void print_versions(void)
 	char *str;
 	const char *lib, *version;
 
-	sr_dbg("libsigrok %s/%s.",
-		sr_package_version_string_get(), sr_lib_version_string_get());
+	otc_dbg("libopentracecapture %s/%s.",
+		otc_package_version_string_get(), otc_lib_version_string_get());
 
 	s = g_string_sized_new(200);
 	g_string_append(s, "Libs: ");
-	l_orig = sr_buildinfo_libs_get();
+	l_orig = otc_buildinfo_libs_get();
 	for (l = l_orig; l; l = l->next) {
 		m = l->data;
 		lib = m->data;
@@ -269,15 +269,15 @@ static void print_versions(void)
 	g_slist_free(l_orig);
 	s->str[s->len - 2] = '.';
 	s->str[s->len - 1] = '\0';
-	sr_dbg("%s", s->str);
+	otc_dbg("%s", s->str);
 	g_string_free(s, TRUE);
 
-	str = sr_buildinfo_host_get();
-	sr_dbg("Host: %s.", str);
+	str = otc_buildinfo_host_get();
+	otc_dbg("Host: %s.", str);
 	g_free(str);
 
-	str = sr_buildinfo_scpi_backends_get();
-	sr_dbg("SCPI backends: %s.", str);
+	str = otc_buildinfo_scpi_backends_get();
+	otc_dbg("SCPI backends: %s.", str);
 	g_free(str);
 }
 
@@ -285,97 +285,97 @@ static void print_resourcepaths(void)
 {
 	GSList *l, *l_orig;
 
-	sr_dbg("Firmware search paths:");
-	l_orig = sr_resourcepaths_get(SR_RESOURCE_FIRMWARE);
+	otc_dbg("Firmware search paths:");
+	l_orig = otc_resourcepaths_get(OTC_RESOURCE_FIRMWARE);
 	for (l = l_orig; l; l = l->next)
-		sr_dbg(" - %s", (const char *)l->data);
+		otc_dbg(" - %s", (const char *)l->data);
 	g_slist_free_full(l_orig, g_free);
 }
 
 /**
- * Sanity-check all libsigrok drivers.
+ * Sanity-check all libopentracecapture drivers.
  *
- * @param[in] ctx Pointer to a libsigrok context struct. Must not be NULL.
+ * @param[in] ctx Pointer to a libopentracecapture context struct. Must not be NULL.
  *
- * @retval SR_OK All drivers are OK
- * @retval SR_ERR One or more drivers have issues.
- * @retval SR_ERR_ARG Invalid argument.
+ * @retval OTC_OK All drivers are OK
+ * @retval OTC_ERR One or more drivers have issues.
+ * @retval OTC_ERR_ARG Invalid argument.
  */
-static int sanity_check_all_drivers(const struct sr_context *ctx)
+static int sanity_check_all_drivers(const struct otc_context *ctx)
 {
-	int i, errors, ret = SR_OK;
-	struct sr_dev_driver **drivers;
+	int i, errors, ret = OTC_OK;
+	struct otc_dev_driver **drivers;
 	const char *d;
 
 	if (!ctx)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	sr_spew("Sanity-checking all drivers.");
+	otc_spew("Sanity-checking all drivers.");
 
-	drivers = sr_driver_list(ctx);
+	drivers = otc_driver_list(ctx);
 	for (i = 0; drivers[i]; i++) {
 		errors = 0;
 
 		d = (drivers[i]->name) ? drivers[i]->name : "NULL";
 
 		if (!drivers[i]->name) {
-			sr_err("No name in driver %d ('%s').", i, d);
+			otc_err("No name in driver %d ('%s').", i, d);
 			errors++;
 		}
 		if (!drivers[i]->longname) {
-			sr_err("No longname in driver %d ('%s').", i, d);
+			otc_err("No longname in driver %d ('%s').", i, d);
 			errors++;
 		}
 		if (drivers[i]->api_version < 1) {
-			sr_err("API version in driver %d ('%s') < 1.", i, d);
+			otc_err("API version in driver %d ('%s') < 1.", i, d);
 			errors++;
 		}
 		if (!drivers[i]->init) {
-			sr_err("No init in driver %d ('%s').", i, d);
+			otc_err("No init in driver %d ('%s').", i, d);
 			errors++;
 		}
 		if (!drivers[i]->cleanup) {
-			sr_err("No cleanup in driver %d ('%s').", i, d);
+			otc_err("No cleanup in driver %d ('%s').", i, d);
 			errors++;
 		}
 		if (!drivers[i]->scan) {
-			sr_err("No scan in driver %d ('%s').", i, d);
+			otc_err("No scan in driver %d ('%s').", i, d);
 			errors++;
 		}
 		if (!drivers[i]->dev_list) {
-			sr_err("No dev_list in driver %d ('%s').", i, d);
+			otc_err("No dev_list in driver %d ('%s').", i, d);
 			errors++;
 		}
 		if (!drivers[i]->dev_clear) {
-			sr_err("No dev_clear in driver %d ('%s').", i, d);
+			otc_err("No dev_clear in driver %d ('%s').", i, d);
 			errors++;
 		}
 		/* Note: config_get() is optional. */
 		if (!drivers[i]->config_set) {
-			sr_err("No config_set in driver %d ('%s').", i, d);
+			otc_err("No config_set in driver %d ('%s').", i, d);
 			errors++;
 		}
 		/* Note: config_channel_set() is optional. */
 		/* Note: config_commit() is optional. */
 		if (!drivers[i]->config_list) {
-			sr_err("No config_list in driver %d ('%s').", i, d);
+			otc_err("No config_list in driver %d ('%s').", i, d);
 			errors++;
 		}
 		if (!drivers[i]->dev_open) {
-			sr_err("No dev_open in driver %d ('%s').", i, d);
+			otc_err("No dev_open in driver %d ('%s').", i, d);
 			errors++;
 		}
 		if (!drivers[i]->dev_close) {
-			sr_err("No dev_close in driver %d ('%s').", i, d);
+			otc_err("No dev_close in driver %d ('%s').", i, d);
 			errors++;
 		}
 		if (!drivers[i]->dev_acquisition_start) {
-			sr_err("No dev_acquisition_start in driver %d ('%s').",
+			otc_err("No dev_acquisition_start in driver %d ('%s').",
 			       i, d);
 			errors++;
 		}
 		if (!drivers[i]->dev_acquisition_stop) {
-			sr_err("No dev_acquisition_stop in driver %d ('%s').",
+			otc_err("No dev_acquisition_stop in driver %d ('%s').",
 			       i, d);
 			errors++;
 		}
@@ -385,148 +385,148 @@ static int sanity_check_all_drivers(const struct sr_context *ctx)
 		if (errors == 0)
 			continue;
 
-		ret = SR_ERR;
+		ret = OTC_ERR;
 	}
 
 	return ret;
 }
 
 /**
- * Sanity-check all libsigrok input modules.
+ * Sanity-check all libopentracecapture input modules.
  *
- * @retval SR_OK All modules are OK
- * @retval SR_ERR One or more modules have issues.
+ * @retval OTC_OK All modules are OK
+ * @retval OTC_ERR One or more modules have issues.
  */
 static int sanity_check_all_input_modules(void)
 {
-	int i, errors, ret = SR_OK;
-	const struct sr_input_module **inputs;
+	int i, errors, ret = OTC_OK;
+	const struct otc_input_module **inputs;
 	const char *d;
 
-	sr_spew("Sanity-checking all input modules.");
+	otc_spew("Sanity-checking all input modules.");
 
-	inputs = sr_input_list();
+	inputs = otc_input_list();
 	for (i = 0; inputs[i]; i++) {
 		errors = 0;
 
 		d = (inputs[i]->id) ? inputs[i]->id : "NULL";
 
 		if (!inputs[i]->id) {
-			sr_err("No ID in module %d ('%s').", i, d);
+			otc_err("No ID in module %d ('%s').", i, d);
 			errors++;
 		}
 		if (!inputs[i]->name) {
-			sr_err("No name in module %d ('%s').", i, d);
+			otc_err("No name in module %d ('%s').", i, d);
 			errors++;
 		}
 		if (!inputs[i]->desc) {
-			sr_err("No description in module %d ('%s').", i, d);
+			otc_err("No description in module %d ('%s').", i, d);
 			errors++;
 		}
 		if (!inputs[i]->init) {
-			sr_err("No init in module %d ('%s').", i, d);
+			otc_err("No init in module %d ('%s').", i, d);
 			errors++;
 		}
 		if (!inputs[i]->receive) {
-			sr_err("No receive in module %d ('%s').", i, d);
+			otc_err("No receive in module %d ('%s').", i, d);
 			errors++;
 		}
 		if (!inputs[i]->end) {
-			sr_err("No end in module %d ('%s').", i, d);
+			otc_err("No end in module %d ('%s').", i, d);
 			errors++;
 		}
 
 		if (errors == 0)
 			continue;
 
-		ret = SR_ERR;
+		ret = OTC_ERR;
 	}
 
 	return ret;
 }
 
 /**
- * Sanity-check all libsigrok output modules.
+ * Sanity-check all libopentracecapture output modules.
  *
- * @retval SR_OK All modules are OK
- * @retval SR_ERR One or more modules have issues.
+ * @retval OTC_OK All modules are OK
+ * @retval OTC_ERR One or more modules have issues.
  */
 static int sanity_check_all_output_modules(void)
 {
-	int i, errors, ret = SR_OK;
-	const struct sr_output_module **outputs;
+	int i, errors, ret = OTC_OK;
+	const struct otc_output_module **outputs;
 	const char *d;
 
-	sr_spew("Sanity-checking all output modules.");
+	otc_spew("Sanity-checking all output modules.");
 
-	outputs = sr_output_list();
+	outputs = otc_output_list();
 	for (i = 0; outputs[i]; i++) {
 		errors = 0;
 
 		d = (outputs[i]->id) ? outputs[i]->id : "NULL";
 
 		if (!outputs[i]->id) {
-			sr_err("No ID in module %d ('%s').", i, d);
+			otc_err("No ID in module %d ('%s').", i, d);
 			errors++;
 		}
 		if (!outputs[i]->name) {
-			sr_err("No name in module %d ('%s').", i, d);
+			otc_err("No name in module %d ('%s').", i, d);
 			errors++;
 		}
 		if (!outputs[i]->desc) {
-			sr_err("No description in module '%s'.", d);
+			otc_err("No description in module '%s'.", d);
 			errors++;
 		}
 		if (!outputs[i]->receive) {
-			sr_err("No receive in module '%s'.", d);
+			otc_err("No receive in module '%s'.", d);
 			errors++;
 		}
 
 		if (errors == 0)
 			continue;
 
-		ret = SR_ERR;
+		ret = OTC_ERR;
 	}
 
 	return ret;
 }
 
 /**
- * Sanity-check all libsigrok transform modules.
+ * Sanity-check all libopentracecapture transform modules.
  *
- * @retval SR_OK All modules are OK
- * @retval SR_ERR One or more modules have issues.
+ * @retval OTC_OK All modules are OK
+ * @retval OTC_ERR One or more modules have issues.
  */
 static int sanity_check_all_transform_modules(void)
 {
-	int i, errors, ret = SR_OK;
-	const struct sr_transform_module **transforms;
+	int i, errors, ret = OTC_OK;
+	const struct otc_transform_module **transforms;
 	const char *d;
 
-	sr_spew("Sanity-checking all transform modules.");
+	otc_spew("Sanity-checking all transform modules.");
 
-	transforms = sr_transform_list();
+	transforms = otc_transform_list();
 	for (i = 0; transforms[i]; i++) {
 		errors = 0;
 
 		d = (transforms[i]->id) ? transforms[i]->id : "NULL";
 
 		if (!transforms[i]->id) {
-			sr_err("No ID in module %d ('%s').", i, d);
+			otc_err("No ID in module %d ('%s').", i, d);
 			errors++;
 		}
 		if (!transforms[i]->name) {
-			sr_err("No name in module %d ('%s').", i, d);
+			otc_err("No name in module %d ('%s').", i, d);
 			errors++;
 		}
 		if (!transforms[i]->desc) {
-			sr_err("No description in module '%s'.", d);
+			otc_err("No description in module '%s'.", d);
 			errors++;
 		}
 		/* Note: options() is optional. */
 		/* Note: init() is optional. */
 		if (!transforms[i]->receive) {
-			sr_err("No receive in module '%s'.", d);
+			otc_err("No receive in module '%s'.", d);
 			errors++;
 		}
 		/* Note: cleanup() is optional. */
@@ -534,32 +534,32 @@ static int sanity_check_all_transform_modules(void)
 		if (errors == 0)
 			continue;
 
-		ret = SR_ERR;
+		ret = OTC_ERR;
 	}
 
 	return ret;
 }
 
 /**
- * Initialize libsigrok.
+ * Initialize libopentracecapture.
  *
- * This function must be called before any other libsigrok function.
+ * This function must be called before any other libopentracecapture function.
  *
- * @param ctx Pointer to a libsigrok context struct pointer. Must not be NULL.
- *            This will be a pointer to a newly allocated libsigrok context
+ * @param ctx Pointer to a libopentracecapture context struct pointer. Must not be NULL.
+ *            This will be a pointer to a newly allocated libopentracecapture context
  *            object upon success, and is undefined upon errors.
  *
- * @return SR_OK upon success, a (negative) error code otherwise. Upon errors
+ * @return OTC_OK upon success, a (negative) error code otherwise. Upon errors
  *         the 'ctx' pointer is undefined and should not be used. Upon success,
- *         the context will be free'd by sr_exit() as part of the libsigrok
+ *         the context will be free'd by otc_exit() as part of the libopentracecapture
  *         shutdown.
  *
  * @since 0.2.0
  */
-SR_API int sr_init(struct sr_context **ctx)
+OTC_API int otc_init(struct otc_context **ctx)
 {
-	int ret = SR_ERR;
-	struct sr_context *context;
+	int ret = OTC_ERR;
+	struct otc_context *context;
 #ifdef _WIN32
 	WSADATA wsadata;
 #endif
@@ -569,55 +569,55 @@ SR_API int sr_init(struct sr_context **ctx)
 	print_resourcepaths();
 
 	if (!ctx) {
-		sr_err("%s(): libsigrok context was NULL.", __func__);
-		return SR_ERR;
+		otc_err("%s(): libopentracecapture context was NULL.", __func__);
+		return OTC_ERR;
 	}
 
-	context = g_malloc0(sizeof(struct sr_context));
+	context = g_malloc0(sizeof(struct otc_context));
 
-	sr_drivers_init(context);
+	otc_drivers_init(context);
 
 	if (sanity_check_all_drivers(context) < 0) {
-		sr_err("Internal driver error(s), aborting.");
+		otc_err("Internal driver error(s), aborting.");
 		goto done;
 	}
 
 	if (sanity_check_all_input_modules() < 0) {
-		sr_err("Internal input module error(s), aborting.");
+		otc_err("Internal input module error(s), aborting.");
 		goto done;
 	}
 
 	if (sanity_check_all_output_modules() < 0) {
-		sr_err("Internal output module error(s), aborting.");
+		otc_err("Internal output module error(s), aborting.");
 		goto done;
 	}
 
 	if (sanity_check_all_transform_modules() < 0) {
-		sr_err("Internal transform module error(s), aborting.");
+		otc_err("Internal transform module error(s), aborting.");
 		goto done;
 	}
 
 #ifdef _WIN32
 	if ((ret = WSAStartup(MAKEWORD(2, 2), &wsadata)) != 0) {
-		sr_err("WSAStartup failed with error code %d.", ret);
-		ret = SR_ERR;
+		otc_err("WSAStartup failed with error code %d.", ret);
+		ret = OTC_ERR;
 		goto done;
 	}
 #endif
 
 	if ((ret = lzo_init()) != LZO_E_OK) {
-		sr_err("lzo_init() failed with return code %d.", ret);
-		sr_err("This usually indicates a compiler bug. Recompile without");
-		sr_err("optimizations, and enable '-DLZO_DEBUG' for diagnostics.");
-		ret = SR_ERR;
+		otc_err("lzo_init() failed with return code %d.", ret);
+		otc_err("This usually indicates a compiler bug. Recompile without");
+		otc_err("optimizations, and enable '-DLZO_DEBUG' for diagnostics.");
+		ret = OTC_ERR;
 		goto done;
 	}
 
 #ifdef HAVE_LIBUSB_1_0
 	ret = libusb_init(&context->libusb_ctx);
 	if (LIBUSB_SUCCESS != ret) {
-		sr_err("libusb_init() returned %s.", libusb_error_name(ret));
-		ret = SR_ERR;
+		otc_err("libusb_init() returned %s.", libusb_error_name(ret));
+		ret = OTC_ERR;
 		goto done;
 	}
 #endif
@@ -630,16 +630,16 @@ SR_API int sr_init(struct sr_context **ctx)
 	 * at this point in time.
 	 */
 	if (hid_init() != 0) {
-		sr_err("HIDAPI hid_init() failed.");
-		ret = SR_ERR;
+		otc_err("HIDAPI hid_init() failed.");
+		ret = OTC_ERR;
 		goto done;
 	}
 #endif
-	sr_resource_set_hooks(context, NULL, NULL, NULL, NULL);
+	otc_resource_set_hooks(context, NULL, NULL, NULL, NULL);
 
 	*ctx = context;
 	context = NULL;
-	ret = SR_OK;
+	ret = OTC_OK;
 
 done:
 	g_free(context);
@@ -647,23 +647,23 @@ done:
 }
 
 /**
- * Shutdown libsigrok.
+ * Shutdown libopentracecapture.
  *
- * @param ctx Pointer to a libsigrok context struct. Must not be NULL.
+ * @param ctx Pointer to a libopentracecapture context struct. Must not be NULL.
  *
- * @retval SR_OK Success
- * @retval other Error code SR_ERR, ...
+ * @retval OTC_OK Success
+ * @retval other Error code OTC_ERR, ...
  *
  * @since 0.2.0
  */
-SR_API int sr_exit(struct sr_context *ctx)
+OTC_API int otc_exit(struct otc_context *ctx)
 {
 	if (!ctx) {
-		sr_err("%s(): libsigrok context was NULL.", __func__);
-		return SR_ERR;
+		otc_err("%s(): libopentracecapture context was NULL.", __func__);
+		return OTC_ERR;
 	}
 
-	sr_hw_cleanup_all(ctx);
+	otc_hw_cleanup_all(ctx);
 
 #ifdef _WIN32
 	WSACleanup();
@@ -676,10 +676,10 @@ SR_API int sr_exit(struct sr_context *ctx)
 	libusb_exit(ctx->libusb_ctx);
 #endif
 
-	g_free(sr_driver_list(ctx));
+	g_free(otc_driver_list(ctx));
 	g_free(ctx);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** @} */

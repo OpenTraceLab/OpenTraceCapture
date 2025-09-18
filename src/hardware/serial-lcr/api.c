@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Janne Huttunen <jahuttun@gmail.com>
  * Copyright (C) 2019 Gerhard Sittig <gerhard.sittig@gmx.net>
@@ -20,40 +20,40 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include <math.h>
 #include "protocol.h"
 #include <stdint.h>
 #include <string.h>
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LCRMETER,
+	OTC_CONF_LCRMETER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_FRAMES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_SET,
-	SR_CONF_OUTPUT_FREQUENCY | SR_CONF_GET | SR_CONF_LIST,
-	SR_CONF_EQUIV_CIRCUIT_MODEL | SR_CONF_GET | SR_CONF_LIST,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_FRAMES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_SET,
+	OTC_CONF_OUTPUT_FREQUENCY | OTC_CONF_GET | OTC_CONF_LIST,
+	OTC_CONF_EQUIV_CIRCUIT_MODEL | OTC_CONF_GET | OTC_CONF_LIST,
 };
 
-static struct sr_dev_inst *scan_packet_check_devinst;
+static struct otc_dev_inst *scan_packet_check_devinst;
 
-static void scan_packet_check_setup(struct sr_dev_inst *sdi)
+static void scan_packet_check_setup(struct otc_dev_inst *sdi)
 {
 	scan_packet_check_devinst = sdi;
 }
 
 static gboolean scan_packet_check_func(const uint8_t *buf)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	const struct lcr_info *lcr;
 	struct lcr_parse_info *info;
@@ -76,7 +76,7 @@ static gboolean scan_packet_check_func(const uint8_t *buf)
 	/* Have LCR packets _processed_, gather current configuration. */
 	info = &devc->parse_info;
 	memset(info, 0, sizeof(*info));
-	if (lcr->packet_parse(buf, NULL, NULL, info) == SR_OK) {
+	if (lcr->packet_parse(buf, NULL, NULL, info) == OTC_OK) {
                 devc->output_freq = info->output_freq;
                 if (info->circuit_model)
                         devc->circuit_model = info->circuit_model;
@@ -86,16 +86,16 @@ static gboolean scan_packet_check_func(const uint8_t *buf)
 }
 
 static int scan_lcr_port(const struct lcr_info *lcr,
-	const char *conn, struct sr_serial_dev_inst *serial)
+	const char *conn, struct otc_serial_dev_inst *serial)
 {
 	size_t len;
 	uint8_t buf[128];
 	int ret;
 	size_t dropped;
 
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
-		return SR_ERR_IO;
-	sr_info("Probing serial port %s.", conn);
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
+		return OTC_ERR_IO;
+	otc_info("Probing serial port %s.", conn);
 
 	/*
 	 * See if we can detect a device of specified type.
@@ -108,14 +108,14 @@ static int scan_lcr_port(const struct lcr_info *lcr,
 	if (lcr->packet_request) {
 		ret = lcr->packet_request(serial);
 		if (ret < 0) {
-			sr_err("Failed to request packet: %d.", ret);
+			otc_err("Failed to request packet: %d.", ret);
 			goto scan_port_cleanup;
 		}
 	}
 	len = sizeof(buf);
 	ret = serial_stream_detect(serial, buf, &len,
 		lcr->packet_size, lcr->packet_valid, NULL, NULL, 3000);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		goto scan_port_cleanup;
 
 	/*
@@ -126,23 +126,23 @@ static int scan_lcr_port(const struct lcr_info *lcr,
 	 */
 	dropped = len - lcr->packet_size;
 	if (dropped > 2 * lcr->packet_size)
-		sr_warn("Had to drop unexpected amounts of data.");
+		otc_warn("Had to drop unexpected amounts of data.");
 
 	/* Create a device instance for the found device. */
-	sr_info("Found %s %s device on port %s.", lcr->vendor, lcr->model, conn);
+	otc_info("Found %s %s device on port %s.", lcr->vendor, lcr->model, conn);
 
 scan_port_cleanup:
 	/* Keep serial port open if probe succeeded. */
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		serial_close(serial);
 
 	return ret;
 }
 
-static struct sr_dev_inst *create_lcr_sdi(struct lcr_info *lcr,
-	struct sr_serial_dev_inst *serial)
+static struct otc_dev_inst *create_lcr_sdi(struct lcr_info *lcr,
+	struct otc_serial_dev_inst *serial)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	size_t ch_idx;
 	const char **ch_fmts;
@@ -150,27 +150,27 @@ static struct sr_dev_inst *create_lcr_sdi(struct lcr_info *lcr,
 	char ch_name[8];
 
 	sdi = g_malloc0(sizeof(*sdi));
-	sdi->status = SR_ST_INACTIVE;
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup(lcr->vendor);
 	sdi->model = g_strdup(lcr->model);
-	sdi->inst_type = SR_INST_SERIAL;
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->conn = serial;
 	devc = g_malloc0(sizeof(*devc));
 	sdi->priv = devc;
 	devc->lcr_info = lcr;
-	sr_sw_limits_init(&devc->limits);
+	otc_sw_limits_init(&devc->limits);
 	ch_fmts = lcr->channel_formats;
 	for (ch_idx = 0; ch_idx < lcr->channel_count; ch_idx++) {
 		fmt = (ch_fmts && ch_fmts[ch_idx]) ? ch_fmts[ch_idx] : "P%zu";
 		snprintf(ch_name, sizeof(ch_name), fmt, ch_idx + 1);
-		sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, ch_name);
+		otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, ch_name);
 	}
 
 	return sdi;
 }
 
-static int read_lcr_port(struct sr_dev_inst *sdi,
-	const struct lcr_info *lcr, struct sr_serial_dev_inst *serial)
+static int read_lcr_port(struct otc_dev_inst *sdi,
+	const struct lcr_info *lcr, struct otc_serial_dev_inst *serial)
 {
 	size_t len;
 	uint8_t buf[128];
@@ -180,7 +180,7 @@ static int read_lcr_port(struct sr_dev_inst *sdi,
 	if (lcr->packet_request) {
 		ret = lcr->packet_request(serial);
 		if (ret < 0) {
-			sr_err("Failed to request packet: %d.", ret);
+			otc_err("Failed to request packet: %d.", ret);
 			return ret;
 		}
 	}
@@ -194,7 +194,7 @@ static int read_lcr_port(struct sr_dev_inst *sdi,
 	 * routine which also extracts details from LCR packets after
 	 * the device got detected and parameter storage was prepared.
 	 */
-	sr_info("Retrieving current acquisition parameters.");
+	otc_info("Retrieving current acquisition parameters.");
 	len = sizeof(buf);
 	scan_packet_check_setup(sdi);
 	ret = serial_stream_detect(serial, buf, &len,
@@ -204,15 +204,15 @@ static int read_lcr_port(struct sr_dev_inst *sdi,
 	return ret;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct lcr_info *lcr;
-	struct sr_config *src;
+	struct otc_config *src;
 	GSList *l, *devices;
 	const char *conn, *serialcomm;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int ret;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 
 	lcr = (struct lcr_info *)di;
 
@@ -222,10 +222,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -237,11 +237,11 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	/* TODO Handle ambiguous conn= specs, see serial-dmm. */
 
 	/* Open the serial port, check data packets. */
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
 	ret = scan_lcr_port(lcr, conn, serial);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		/* Probe failed, release 'serial'. */
-		sr_serial_dev_inst_free(serial);
+		otc_serial_dev_inst_free(serial);
 	} else {
 		/* Create and return device instance, keep 'serial' alive. */
 		sdi = create_lcr_sdi(lcr, serial);
@@ -254,72 +254,72 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	const struct lcr_info *lcr;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_FRAMES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_get(&devc->limits, key, data);
-	case SR_CONF_OUTPUT_FREQUENCY:
+	case OTC_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_get(&devc->limits, key, data);
+	case OTC_CONF_OUTPUT_FREQUENCY:
 		*data = g_variant_new_double(devc->output_freq);
-		return SR_OK;
-	case SR_CONF_EQUIV_CIRCUIT_MODEL:
+		return OTC_OK;
+	case OTC_CONF_EQUIV_CIRCUIT_MODEL:
 		if (!devc->circuit_model)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		*data = g_variant_new_string(devc->circuit_model);
-		return SR_OK;
+		return OTC_OK;
 	default:
 		lcr = devc->lcr_info;
 		if (!lcr)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if (!lcr->config_get)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		return lcr->config_get(key, data, sdi, cg);
 	}
 	/* UNREACH */
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	const struct lcr_info *lcr;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_FRAMES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_set(&devc->limits, key, data);
+	case OTC_CONF_LIMIT_FRAMES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_set(&devc->limits, key, data);
 	default:
 		lcr = devc->lcr_info;
 		if (!lcr)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if (!lcr->config_set)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		return lcr->config_set(key, data, sdi, cg);
 	}
 	/* UNREACH */
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	const struct lcr_info *lcr;
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg,
 			scanopts, drvopts, devopts);
 	default:
@@ -327,22 +327,22 @@ static int config_list(uint32_t key, GVariant **data,
 	}
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	switch (key) {
 	default:
 		lcr = devc->lcr_info;
 		if (!lcr || !lcr->config_list)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		return lcr->config_list(key, data, sdi, cg);
 	}
 	/* UNREACH */
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 
@@ -355,14 +355,14 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	devc->output_freq = 0;
 	devc->circuit_model = NULL;
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	std_session_send_df_header(sdi);
 
 	serial = sdi->conn;
 	serial_source_add(sdi->session, serial, G_IO_IN, 50,
 		lcr_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 #define LCR_ES51919(id, vendor, model) \
@@ -392,7 +392,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		NULL, NULL, es51919_config_list, \
 	}).di
 
-SR_REGISTER_DEV_DRIVER_LIST(lcr_es51919_drivers,
+OTC_REGISTER_DEV_DRIVER_LIST(lcr_es51919_drivers,
 	LCR_ES51919("deree-de5000", "DER EE", "DE-5000"),
 	LCR_ES51919("mastech-ms5308", "MASTECH", "MS5308"),
 	LCR_ES51919("peaktech-2170", "PeakTech", "2170"),
@@ -427,7 +427,7 @@ SR_REGISTER_DEV_DRIVER_LIST(lcr_es51919_drivers,
 		NULL, NULL, vc4080_config_list, \
 	}).di
 
-SR_REGISTER_DEV_DRIVER_LIST(lcr_vc4080_drivers,
+OTC_REGISTER_DEV_DRIVER_LIST(lcr_vc4080_drivers,
 	LCR_VC4080("peaktech-2165", "PeakTech", "2165"),
 	LCR_VC4080("voltcraft-4080", "Voltcraft", "4080"),
 );

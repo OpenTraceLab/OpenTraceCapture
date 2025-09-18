@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Bastian Schmitz <bastian.schmitz@udo.edu>
  *
@@ -24,27 +24,27 @@
 #define IDN_RETRIES 3 /* at least 2 */
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_POWER_SUPPLY,
+	OTC_CONF_POWER_SUPPLY,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_CHANNEL_CONFIG | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_CHANNEL_CONFIG | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const uint32_t devopts_cg[] = {
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 static const char *channel_modes[] = {
@@ -80,16 +80,16 @@ static const struct gpd_model models[] = {
 	},
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	const char *conn, *serialcomm, **serialcomms;
 	const struct gpd_model *model;
-	const struct sr_config *src;
-	struct sr_channel *ch;
-	struct sr_channel_group *cg;
+	const struct otc_config *src;
+	struct otc_channel *ch;
+	struct otc_channel_group *cg;
 	GSList *l;
-	struct sr_serial_dev_inst *serial;
-	struct sr_dev_inst *sdi;
+	struct otc_serial_dev_inst *serial;
+	struct otc_dev_inst *sdi;
 	char reply[100];
 	unsigned int i, b, serialcomms_count;
 	struct dev_context *devc;
@@ -107,10 +107,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -128,9 +128,9 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 
 	for( b = 0; b < serialcomms_count; b++) {
 		serialcomm = serialcomms[b];
-		sr_info("Probing serial port %s @ %s", conn, serialcomm);
-		serial = sr_serial_dev_inst_new(conn, serialcomm);
-		if (serial_open(serial, SERIAL_RDWR) != SR_OK)
+		otc_info("Probing serial port %s @ %s", conn, serialcomm);
+		serial = otc_serial_dev_inst_new(conn, serialcomm);
+		if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
 			continue;
 
 		/*
@@ -148,14 +148,14 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		for (i = 0; i < IDN_RETRIES; i++) {
 			/* Request the GPD to identify itself */
 			gpd_send_cmd(serial, "*IDN?\n");
-			if (gpd_receive_reply(serial, reply, sizeof(reply)) == SR_OK) {
+			if (gpd_receive_reply(serial, reply, sizeof(reply)) == OTC_OK) {
 				if (0 == strncmp(reply, "GW INSTEK", 9)) {
 					break;
 				}
 			}
 		}
 		if (i == IDN_RETRIES) {
-			sr_err("Device did not reply to identification request.");
+			otc_err("Device did not reply to identification request.");
 			serial_flush(serial);
 			goto error;
 		}
@@ -166,7 +166,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		 */
 		regex = g_regex_new("GW INSTEK,(.+),SN:(.+),(V.+)", 0, 0, NULL);
 		if (!g_regex_match(regex, reply, 0, &match_info)) {
-			sr_err("Unsupported model '%s'.", reply);
+			otc_err("Unsupported model '%s'.", reply);
 			goto error;
 		}
 
@@ -178,28 +178,28 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			}
 		}
 		if (!model) {
-			sr_err("Unsupported model '%s'.", reply);
+			otc_err("Unsupported model '%s'.", reply);
 			goto error;
 		}
 
-		sr_info("Detected model '%s'.", model->name);
+		otc_info("Detected model '%s'.", model->name);
 
-		sdi = g_malloc0(sizeof(struct sr_dev_inst));
-		sdi->status = SR_ST_INACTIVE;
+		sdi = g_malloc0(sizeof(struct otc_dev_inst));
+		sdi->status = OTC_ST_INACTIVE;
 		sdi->vendor = g_strdup("GW Instek");
 		sdi->model = g_strdup(model->name);
-		sdi->inst_type = SR_INST_SERIAL;
+		sdi->inst_type = OTC_INST_SERIAL;
 		sdi->conn = serial;
 
 		for (i = 0; i < model->num_channels; i++) {
 			snprintf(channel, sizeof(channel), "CH%d", i + 1);
-			ch = sr_channel_new(sdi, i, SR_CHANNEL_ANALOG, TRUE, channel);
-			cg = sr_channel_group_new(sdi, channel, NULL);
+			ch = otc_channel_new(sdi, i, OTC_CHANNEL_ANALOG, TRUE, channel);
+			cg = otc_channel_group_new(sdi, channel, NULL);
 			cg->channels = g_slist_append(NULL, ch);
 		}
 
 		devc = g_malloc0(sizeof(struct dev_context));
-		sr_sw_limits_init(&devc->limits);
+		otc_sw_limits_init(&devc->limits);
 		devc->model = model;
 		devc->config = g_malloc0(sizeof(struct per_channel_config)
 					 * model->num_channels);
@@ -216,7 +216,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			if (sscanf(reply, "%1u %1u %1u %1u %1u X %1u X", &cc_cv_ch1,
 				   &cc_cv_ch2, &track1, &track2, &beep,
 				   &devc->output_enabled) != 6) {
-				sr_err("Invalid reply to STATUS: '%s'.", reply);
+				otc_err("Invalid reply to STATUS: '%s'.", reply);
 				goto error;
 			}
 			/* ignore remaining two lines of status message */
@@ -228,26 +228,26 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			gpd_send_cmd(serial, "ISET%d?\n", i + 1);
 			gpd_receive_reply(serial, reply, sizeof(reply));
 			if (sscanf(reply, "%f", &devc->config[i].output_current_max) != 1) {
-				sr_err("Invalid reply to ISETn?: '%s'.", reply);
+				otc_err("Invalid reply to ISETn?: '%s'.", reply);
 				goto error;
 			}
 
 			gpd_send_cmd(serial, "VSET%d?\n", i + 1);
 			gpd_receive_reply(serial, reply, sizeof(reply));
 			if (sscanf(reply, "%f", &devc->config[i].output_voltage_max) != 1) {
-				sr_err("Invalid reply to VSETn?: '%s'.", reply);
+				otc_err("Invalid reply to VSETn?: '%s'.", reply);
 				goto error;
 			}
 			gpd_send_cmd(serial, "IOUT%d?\n", i + 1);
 			gpd_receive_reply(serial, reply, sizeof(reply));
 			if (sscanf(reply, "%f", &devc->config[i].output_current_last) != 1) {
-				sr_err("Invalid reply to IOUTn?: '%s'.", reply);
+				otc_err("Invalid reply to IOUTn?: '%s'.", reply);
 				goto error;
 			}
 			gpd_send_cmd(serial, "VOUT%d?\n", i + 1);
 			gpd_receive_reply(serial, reply, sizeof(reply));
 			if (sscanf(reply, "%f", &devc->config[i].output_voltage_last) != 1) {
-				sr_err("Invalid reply to VOUTn?: '%s'.", reply);
+				otc_err("Invalid reply to VOUTn?: '%s'.", reply);
 				goto error;
 			}
 		}
@@ -267,104 +267,104 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int channel;
 	const struct dev_context *devc;
-	const struct sr_channel *ch;
+	const struct otc_channel *ch;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_LIMIT_SAMPLES:
-		case SR_CONF_LIMIT_MSEC:
-			return sr_sw_limits_config_get(&devc->limits, key, data);
-		case SR_CONF_CHANNEL_CONFIG:
+		case OTC_CONF_LIMIT_SAMPLES:
+		case OTC_CONF_LIMIT_MSEC:
+			return otc_sw_limits_config_get(&devc->limits, key, data);
+		case OTC_CONF_CHANNEL_CONFIG:
 			*data = g_variant_new_string(
 				channel_modes[devc->channel_mode]);
 			break;
-		case SR_CONF_ENABLED:
+		case OTC_CONF_ENABLED:
 			*data = g_variant_new_boolean(devc->output_enabled);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		ch = cg->channels->data;
 		channel = ch->index;
 		switch (key) {
-		case SR_CONF_VOLTAGE:
+		case OTC_CONF_VOLTAGE:
 			*data = g_variant_new_double(
 				devc->config[channel].output_voltage_last);
 			break;
-		case SR_CONF_VOLTAGE_TARGET:
+		case OTC_CONF_VOLTAGE_TARGET:
 			*data = g_variant_new_double(
 				devc->config[channel].output_voltage_max);
 			break;
-		case SR_CONF_CURRENT:
+		case OTC_CONF_CURRENT:
 			*data = g_variant_new_double(
 				devc->config[channel].output_current_last);
 			break;
-		case SR_CONF_CURRENT_LIMIT:
+		case OTC_CONF_CURRENT_LIMIT:
 			*data = g_variant_new_double(
 				devc->config[channel].output_current_max);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int ret, channel;
-	const struct sr_channel *ch;
+	const struct otc_channel *ch;
 	double dval;
 	gboolean bval;
 	struct dev_context *devc;
 
 	devc = sdi->priv;
 
-	ret = SR_OK;
+	ret = OTC_OK;
 
 	switch (key) {
-	case SR_CONF_LIMIT_MSEC:
-	case SR_CONF_LIMIT_SAMPLES:
-		return sr_sw_limits_config_set(&devc->limits, key, data);
-	case SR_CONF_ENABLED:
+	case OTC_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_SAMPLES:
+		return otc_sw_limits_config_set(&devc->limits, key, data);
+	case OTC_CONF_ENABLED:
 		bval = g_variant_get_boolean(data);
 		gpd_send_cmd(sdi->conn, "OUT%c\n", bval ? '1' : '0');
 		devc->output_enabled = bval;
 		break;
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		ch = cg->channels->data;
 		channel = ch->index;
 		dval = g_variant_get_double(data);
 		if (dval < devc->model->channels[channel].voltage[0]
 		    || dval > devc->model->channels[channel].voltage[1])
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		gpd_send_cmd(sdi->conn, "VSET%d:%05.3lf\n", channel + 1, dval);
 		devc->config[channel].output_voltage_max = dval;
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		ch = cg->channels->data;
 		channel = ch->index;
 		dval = g_variant_get_double(data);
 		if (dval < devc->model->channels[channel].current[0]
 		    || dval > devc->model->channels[channel].current[1])
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		gpd_send_cmd(sdi->conn, "ISET%d:%05.3lf\n", channel + 1, dval);
 		devc->config[channel].output_current_max = dval;
 		break;
 	default:
-		ret = SR_ERR_NA;
+		ret = OTC_ERR_NA;
 		break;
 	}
 
@@ -372,58 +372,58 @@ static int config_set(uint32_t key, GVariant *data,
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	const struct dev_context *devc;
-	const struct sr_channel *ch;
+	const struct otc_channel *ch;
 	int channel;
 
 	devc = (sdi) ? sdi->priv : NULL;
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_SCAN_OPTIONS:
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_SCAN_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts,
 					       drvopts, devopts);
-		case SR_CONF_CHANNEL_CONFIG:
+		case OTC_CONF_CHANNEL_CONFIG:
 			*data = g_variant_new_strv(ARRAY_AND_SIZE(channel_modes));
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		ch = cg->channels->data;
 		channel = ch->index;
 
 		switch (key) {
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			*data = std_gvar_array_u32(ARRAY_AND_SIZE(devopts_cg));
 			break;
-		case SR_CONF_VOLTAGE_TARGET:
+		case OTC_CONF_VOLTAGE_TARGET:
 			*data = std_gvar_min_max_step_array(
 				devc->model->channels[channel].voltage);
 			break;
-		case SR_CONF_CURRENT_LIMIT:
+		case OTC_CONF_CURRENT_LIMIT:
 			*data = std_gvar_min_max_step_array(
 				devc->model->channels[channel].current);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	std_session_send_df_header(sdi);
 
 	devc->reply_pending = FALSE;
@@ -432,10 +432,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	serial_source_add(sdi->session, serial, G_IO_IN, 100,
 			  gpd_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver gwinstek_gpd_driver_info = {
+static struct otc_dev_driver gwinstek_gpd_driver_info = {
 	.name = "gwinstek-gpd",
 	.longname = "GW Instek GPD",
 	.api_version = 1,
@@ -453,4 +453,4 @@ static struct sr_dev_driver gwinstek_gpd_driver_info = {
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(gwinstek_gpd_driver_info);
+OTC_REGISTER_DEV_DRIVER(gwinstek_gpd_driver_info);

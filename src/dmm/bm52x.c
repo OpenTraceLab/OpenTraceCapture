@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Aurelien Jacobs <aurel@gnuage.org>
  * Copyright (C) 2019-2020 Gerhard Sittig <gerhard.sittig@gmx.net>
@@ -50,13 +50,13 @@
 /*
  * TODO
  * - Some of the meter's functions and indications cannot get expressed
- *   by means of sigrok MQ and flags terms. Some indicator's meaning is
+ *   by means of opentracelab MQ and flags terms. Some indicator's meaning is
  *   unknown or uncertain, and thus their state is not evaluated.
  *   - MAX-MIN, the span between extreme values, referred to as Vp-p.
  *   - AVG is not available in BM525s and BM521s.
  *   - LoZ, eliminating ghost voltages.
  *   - LPF, low pass filter.
- *   - low battery, emits sr_warn() but isn't seen in the feed.
+ *   - low battery, emits otc_warn() but isn't seen in the feed.
  *   - @, 4-20mA loop, % (main display, left hand side), Hi/Lo. Some of
  *     these are in the vendor's documentation for the DMM packet but not
  *     supported by the BM525s device which motivated the creation of the
@@ -77,8 +77,8 @@
  */
 
 #include <config.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 #include <math.h>
 #include <string.h>
 #include <strings.h>
@@ -92,10 +92,10 @@
  */
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_SET,
-	SR_CONF_DATA_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_SET,
+	OTC_CONF_DATA_SOURCE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
 struct brymen_bm52x_state {
@@ -106,7 +106,7 @@ struct brymen_bm52x_state {
 		size_t read_pos;
 		size_t remain;
 	} rsp;
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 };
 
 enum bm52x_reqtype {
@@ -118,7 +118,7 @@ enum bm52x_reqtype {
 };
 
 #ifdef HAVE_SERIAL_COMM
-static int bm52x_send_req(struct sr_serial_dev_inst *serial, enum bm52x_reqtype t)
+static int bm52x_send_req(struct otc_serial_dev_inst *serial, enum bm52x_reqtype t)
 {
 	static const uint8_t req_live_520[] = { 0x00, 0x00, 0x52, 0x66, };
 	static const uint8_t req_live_820[] = { 0x00, 0x00, 0x82, 0x66, };
@@ -139,24 +139,24 @@ static int bm52x_send_req(struct sr_serial_dev_inst *serial, enum bm52x_reqtype 
 	int ret;
 
 	if (t >= ARRAY_SIZE(req_bytes))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	p = req_bytes[t];
 	l = req_len;
 	ret = serial_write_nonblocking(serial, p, l);
 	if (ret < 0)
 		return ret;
 	if ((size_t)ret != l)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int sr_brymen_bm52x_packet_request(struct sr_serial_dev_inst *serial)
+OTC_PRIV int otc_brymen_bm52x_packet_request(struct otc_serial_dev_inst *serial)
 {
 	return bm52x_send_req(serial, REQ_LIVE_READ_520);
 }
 
-SR_PRIV int sr_brymen_bm82x_packet_request(struct sr_serial_dev_inst *serial)
+OTC_PRIV int otc_brymen_bm82x_packet_request(struct otc_serial_dev_inst *serial)
 {
 	return bm52x_send_req(serial, REQ_LIVE_READ_820);
 }
@@ -169,7 +169,7 @@ SR_PRIV int sr_brymen_bm82x_packet_request(struct sr_serial_dev_inst *serial)
  * and is handled in other code paths.
  */
 
-SR_PRIV gboolean sr_brymen_bm52x_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_brymen_bm52x_packet_valid(const uint8_t *buf)
 {
 	if (buf[16] != 0x52)
 		return FALSE;
@@ -183,7 +183,7 @@ SR_PRIV gboolean sr_brymen_bm52x_packet_valid(const uint8_t *buf)
 	return TRUE;
 }
 
-SR_PRIV gboolean sr_brymen_bm82x_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_brymen_bm82x_packet_valid(const uint8_t *buf)
 {
 	if (buf[16] != 0x82)
 		return FALSE;
@@ -242,7 +242,7 @@ static char brymen_bm52x_parse_digit(uint8_t b)
 	case 0x00: /* ------- */ return '\0';
 	/* Invalid or unknown segment combination. */
 	default:
-		sr_warn("Unknown encoding for digit: 0x%02x.", b);
+		otc_warn("Unknown encoding for digit: 0x%02x.", b);
 		return '\0';
 	}
 }
@@ -283,13 +283,13 @@ static int brymen_bm52x_parse_digits(const uint8_t *pkt, size_t pktlen,
 	if (digits && *digits < 0)
 		*digits = 0;
 
-	ret = value ? sr_atof_ascii(txtbuf, value) : SR_OK;
-	if (ret != SR_OK) {
-		sr_dbg("invalid float string: '%s'", txtbuf);
+	ret = value ? otc_atof_ascii(txtbuf, value) : OTC_OK;
+	if (ret != OTC_OK) {
+		otc_dbg("invalid float string: '%s'", txtbuf);
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -297,7 +297,7 @@ static int brymen_bm52x_parse_digits(const uint8_t *pkt, size_t pktlen,
  * meter's displays from the DMM packet.
  */
 static void brymen_bm52x_parse(const uint8_t *buf, float *floatval,
-	struct sr_datafeed_analog *analog, size_t ch_idx)
+	struct otc_datafeed_analog *analog, size_t ch_idx)
 {
 	char txtbuf[16], temp_unit;
 	int ret, digits, scale;
@@ -321,51 +321,51 @@ static void brymen_bm52x_parse(const uint8_t *buf, float *floatval,
 		is_ol = strstr(txtbuf, "0L") || strstr(txtbuf, "0.L");
 		is_no_temp = strcmp(txtbuf, "---C") == 0;
 		is_no_temp |= strcmp(txtbuf, "---F") == 0;
-		if (ret != SR_OK && !is_ol)
+		if (ret != OTC_OK && !is_ol)
 			return;
 
 		/* SI unit, derived from meter's current function. */
 		is_db = buf[6] & 0x10;
 		is_main_milli = buf[14] & 0x40;
 		if (buf[14] & 0x20) {
-			analog->meaning->mq = SR_MQ_VOLTAGE;
-			analog->meaning->unit = SR_UNIT_VOLT;
+			analog->meaning->mq = OTC_MQ_VOLTAGE;
+			analog->meaning->unit = OTC_UNIT_VOLT;
 			if (is_diode) {
-				analog->meaning->mqflags |= SR_MQFLAG_DIODE;
-				analog->meaning->mqflags |= SR_MQFLAG_DC;
+				analog->meaning->mqflags |= OTC_MQFLAG_DIODE;
+				analog->meaning->mqflags |= OTC_MQFLAG_DC;
 			}
 		} else if (buf[14] & 0x10) {
-			analog->meaning->mq = SR_MQ_CURRENT;
-			analog->meaning->unit = SR_UNIT_AMPERE;
+			analog->meaning->mq = OTC_MQ_CURRENT;
+			analog->meaning->unit = OTC_UNIT_AMPERE;
 		} else if (buf[14] & 0x01) {
-			analog->meaning->mq = SR_MQ_CAPACITANCE;
-			analog->meaning->unit = SR_UNIT_FARAD;
+			analog->meaning->mq = OTC_MQ_CAPACITANCE;
+			analog->meaning->unit = OTC_UNIT_FARAD;
 		} else if (buf[14] & 0x02) {
-			analog->meaning->mq = SR_MQ_CONDUCTANCE;
-			analog->meaning->unit = SR_UNIT_SIEMENS;
+			analog->meaning->mq = OTC_MQ_CONDUCTANCE;
+			analog->meaning->unit = OTC_UNIT_SIEMENS;
 		} else if (buf[13] & 0x10) {
-			analog->meaning->mq = SR_MQ_FREQUENCY;
-			analog->meaning->unit = SR_UNIT_HERTZ;
+			analog->meaning->mq = OTC_MQ_FREQUENCY;
+			analog->meaning->unit = OTC_UNIT_HERTZ;
 		} else if (buf[7] & 0x01) {
-			analog->meaning->mq = SR_MQ_CONTINUITY;
-			analog->meaning->unit = SR_UNIT_OHM;
+			analog->meaning->mq = OTC_MQ_CONTINUITY;
+			analog->meaning->unit = OTC_UNIT_OHM;
 		} else if (buf[13] & 0x20) {
-			analog->meaning->mq = SR_MQ_RESISTANCE;
-			analog->meaning->unit = SR_UNIT_OHM;
+			analog->meaning->mq = OTC_MQ_RESISTANCE;
+			analog->meaning->unit = OTC_UNIT_OHM;
 		} else if (is_db && is_main_milli) {
-			analog->meaning->mq = SR_MQ_POWER;
-			analog->meaning->unit = SR_UNIT_DECIBEL_MW;
+			analog->meaning->mq = OTC_MQ_POWER;
+			analog->meaning->unit = OTC_UNIT_DECIBEL_MW;
 		} else if (buf[14] & 0x04) {
-			analog->meaning->mq = SR_MQ_DUTY_CYCLE;
-			analog->meaning->unit = SR_UNIT_PERCENTAGE;
+			analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
+			analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 		} else if ((buf[2] & 0x09) && temp_unit) {
 			if (is_no_temp)
 				return;
-			analog->meaning->mq = SR_MQ_TEMPERATURE;
+			analog->meaning->mq = OTC_MQ_TEMPERATURE;
 			if (temp_unit == 'F')
-				analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+				analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 			else
-				analog->meaning->unit = SR_UNIT_CELSIUS;
+				analog->meaning->unit = OTC_UNIT_CELSIUS;
 		}
 
 		/*
@@ -373,13 +373,13 @@ static void brymen_bm52x_parse(const uint8_t *buf, float *floatval,
 		 * are shown at the same time (indicating that recording
 		 * is active, but live readings are shown). This also
 		 * removes the MAX-MIN (V p-p) indication which cannot
-		 * get represented by SR_MQFLAG_* means.
+		 * get represented by OTC_MQFLAG_* means.
 		 *
 		 * Keep the check conditions separate to simplify future
 		 * maintenance when Vp-p gets added. Provide the value of
 		 * currently unsupported modes just without flags (show
 		 * the maximum amount of LCD content on screen that we
-		 * can represent in sigrok).
+		 * can represent in opentracelab).
 		 */
 		is_mm_max = buf[1] & 0x01;
 		is_mm_min = buf[1] & 0x08;
@@ -394,21 +394,21 @@ static void brymen_bm52x_parse(const uint8_t *buf, float *floatval,
 
 		/* AC/DC/Auto flags. Hold/Min/Max/Rel etc flags. */
 		if (buf[1] & 0x20)
-			analog->meaning->mqflags |= SR_MQFLAG_DC;
+			analog->meaning->mqflags |= OTC_MQFLAG_DC;
 		if (buf[1] & 0x10)
-			analog->meaning->mqflags |= SR_MQFLAG_AC;
+			analog->meaning->mqflags |= OTC_MQFLAG_AC;
 		if (buf[20] & 0x10)
-			analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+			analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 		if (buf[20] & 0x80)
-			analog->meaning->mqflags |= SR_MQFLAG_HOLD;
+			analog->meaning->mqflags |= OTC_MQFLAG_HOLD;
 		if (is_mm_max)
-			analog->meaning->mqflags |= SR_MQFLAG_MAX;
+			analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 		if (is_mm_min)
-			analog->meaning->mqflags |= SR_MQFLAG_MIN;
+			analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 		if (is_mm_avg)
-			analog->meaning->mqflags |= SR_MQFLAG_AVG;
+			analog->meaning->mqflags |= OTC_MQFLAG_AVG;
 		if (buf[2] & 0x40)
-			analog->meaning->mqflags |= SR_MQFLAG_RELATIVE;
+			analog->meaning->mqflags |= OTC_MQFLAG_RELATIVE;
 
 		/*
 		 * Remove the "dBm" indication's "m" indicator before the
@@ -462,44 +462,44 @@ static void brymen_bm52x_parse(const uint8_t *buf, float *floatval,
 
 		/* SI unit. */
 		if (buf[12] & 0x10) {
-			analog->meaning->mq = SR_MQ_VOLTAGE;
-			analog->meaning->unit = SR_UNIT_VOLT;
+			analog->meaning->mq = OTC_MQ_VOLTAGE;
+			analog->meaning->unit = OTC_UNIT_VOLT;
 		} else if (buf[12] & 0x20) {
-			analog->meaning->mq = SR_MQ_CURRENT;
+			analog->meaning->mq = OTC_MQ_CURRENT;
 			if (buf[11] & 0x10)
-				analog->meaning->unit = SR_UNIT_PERCENTAGE;
+				analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 			else
-				analog->meaning->unit = SR_UNIT_AMPERE;
+				analog->meaning->unit = OTC_UNIT_AMPERE;
 		} else if (buf[13] & 0x02) {
-			analog->meaning->mq = SR_MQ_RESISTANCE;
-			analog->meaning->unit = SR_UNIT_OHM;
+			analog->meaning->mq = OTC_MQ_RESISTANCE;
+			analog->meaning->unit = OTC_UNIT_OHM;
 		} else if (buf[12] & 0x02) {
-			analog->meaning->mq = SR_MQ_CONDUCTANCE;
-			analog->meaning->unit = SR_UNIT_SIEMENS;
+			analog->meaning->mq = OTC_MQ_CONDUCTANCE;
+			analog->meaning->unit = OTC_UNIT_SIEMENS;
 		} else if (buf[12] & 0x01) {
-			analog->meaning->mq = SR_MQ_CAPACITANCE;
-			analog->meaning->unit = SR_UNIT_FARAD;
+			analog->meaning->mq = OTC_MQ_CAPACITANCE;
+			analog->meaning->unit = OTC_UNIT_FARAD;
 		} else if (buf[7] & 0x06) {
 			if (strstr(txtbuf, "---"))
 				return;
-			analog->meaning->mq = SR_MQ_TEMPERATURE;
+			analog->meaning->mq = OTC_MQ_TEMPERATURE;
 			if (temp_unit == 'F')
-				analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+				analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 			else
-				analog->meaning->unit = SR_UNIT_CELSIUS;
+				analog->meaning->unit = OTC_UNIT_CELSIUS;
 		} else if (buf[13] & 0x01) {
-			analog->meaning->mq = SR_MQ_FREQUENCY;
-			analog->meaning->unit = SR_UNIT_HERTZ;
+			analog->meaning->mq = OTC_MQ_FREQUENCY;
+			analog->meaning->unit = OTC_UNIT_HERTZ;
 		} else if (buf[11] & 0x08) {
-			analog->meaning->mq = SR_MQ_DUTY_CYCLE;
-			analog->meaning->unit = SR_UNIT_PERCENTAGE;
+			analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
+			analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 		}
 
 		/* DC/AC flags. */
 		if (buf[7] & 0x80)
-			analog->meaning->mqflags |= SR_MQFLAG_DC;
+			analog->meaning->mqflags |= OTC_MQFLAG_DC;
 		if (buf[7] & 0x40)
-			analog->meaning->mqflags |= SR_MQFLAG_AC;
+			analog->meaning->mqflags |= OTC_MQFLAG_AC;
 
 		/* SI prefix. */
 		scale = 0;
@@ -523,11 +523,11 @@ static void brymen_bm52x_parse(const uint8_t *buf, float *floatval,
 	}
 
 	if (buf[7] & 0x08)
-		sr_warn("Battery is low.");
+		otc_warn("Battery is low.");
 }
 
-SR_PRIV int sr_brymen_bm52x_parse(const uint8_t *buf, float *val,
-	struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_brymen_bm52x_parse(const uint8_t *buf, float *val,
+	struct otc_datafeed_analog *analog, void *info)
 {
 	struct brymen_bm52x_info *info_local;
 	size_t ch_idx;
@@ -543,7 +543,7 @@ SR_PRIV int sr_brymen_bm52x_parse(const uint8_t *buf, float *val,
 	brymen_bm52x_parse(buf, val, analog, ch_idx);
 	info_local->ch_idx = ch_idx + 1;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -651,7 +651,7 @@ static uint16_t bm52x_rec_checksum(const uint8_t *b, size_t l)
  * Support for live readings is theoretical, and unused/untested.
  */
 #ifdef HAVE_SERIAL_COMM
-static int bm52x_rec_next_rsp(struct sr_serial_dev_inst *serial,
+static int bm52x_rec_next_rsp(struct otc_serial_dev_inst *serial,
 	enum bm52x_reqtype req, struct brymen_bm52x_state *state)
 {
 	uint8_t *b;
@@ -674,25 +674,25 @@ static int bm52x_rec_next_rsp(struct sr_serial_dev_inst *serial,
 
 	/* Avoid queries for non-existing data. Limit NEXT requests. */
 	if (req == REQ_REC_NEXT && !state->rsp.remain)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
 	/* Add another response chunk to the read buffer. */
 	b = &state->rsp.buff[state->rsp.fill_pos];
 	l = req == REQ_LIVE_READ_520 ? 24 : 32;
 	if (sizeof(state->rsp.buff) - state->rsp.fill_pos < l)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 	ret = bm52x_send_req(serial, req);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	ret = serial_read_blocking(serial, b, l, 1000);
 	if (ret < 0)
 		return ret;
 	if ((size_t)ret != l)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	state->rsp.fill_pos += l;
 
 	/* Devel support: dump the new receive data. */
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
 		GString *text;
 		const char *req_text;
 
@@ -701,9 +701,9 @@ static int bm52x_rec_next_rsp(struct sr_serial_dev_inst *serial,
 			(req == REQ_REC_NEXT) ? "MEM NEXT" :
 			(req == REQ_REC_CURR) ? "MEM CURR" :
 			"<inv>";
-		text = sr_hexdump_new(b, l);
-		sr_spew("%s: %s", req_text, text->str);
-		sr_hexdump_free(text);
+		text = otc_hexdump_new(b, l);
+		otc_spew("%s: %s", req_text, text->str);
+		otc_hexdump_free(text);
 	}
 
 	/* Verify checksum. No CURR repetition is attempted here. */
@@ -713,7 +713,7 @@ static int bm52x_rec_next_rsp(struct sr_serial_dev_inst *serial,
 		calc = bm52x_rec_checksum(b, 24);
 		rcvd = read_u16le(&b[24]);
 		if (calc != rcvd)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		state->rsp.fill_pos -= 32 - 24;
 	}
 
@@ -726,22 +726,22 @@ static int bm52x_rec_next_rsp(struct sr_serial_dev_inst *serial,
 		state->rsp.remain = read_u24le_inc(&rdptr); /* byte count */
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 #else /* have serial comm */
-static int bm52x_rec_next_rsp(struct sr_serial_dev_inst *serial,
+static int bm52x_rec_next_rsp(struct otc_serial_dev_inst *serial,
 	enum bm52x_reqtype req, struct brymen_bm52x_state *state)
 {
 	(void)serial;
 	(void)req;
 	(void)state;
 	(void)bm52x_rec_checksum;
-	return SR_ERR_NA;
+	return OTC_ERR_NA;
 }
 #endif /* have serial comm */
 
 /** Make sure a minimum amount of response data is available. */
-static const uint8_t *bm52x_rec_ensure(struct sr_serial_dev_inst *serial,
+static const uint8_t *bm52x_rec_ensure(struct otc_serial_dev_inst *serial,
 	size_t min_count, struct brymen_bm52x_state *state)
 {
 	size_t got;
@@ -761,7 +761,7 @@ static const uint8_t *bm52x_rec_ensure(struct sr_serial_dev_inst *serial,
 }
 
 /** Get a u8 quantity of response data, with auto-fetch and position increment. */
-static uint8_t bm52x_rec_get_u8(struct sr_serial_dev_inst *serial,
+static uint8_t bm52x_rec_get_u8(struct otc_serial_dev_inst *serial,
 	struct brymen_bm52x_state *state)
 {
 	const uint8_t *read_ptr;
@@ -783,7 +783,7 @@ static uint8_t bm52x_rec_get_u8(struct sr_serial_dev_inst *serial,
 }
 
 /** Get a u16 quantity of response data, with auto-fetch and position increment. */
-static uint16_t bm52x_rec_get_u16(struct sr_serial_dev_inst *serial,
+static uint16_t bm52x_rec_get_u16(struct otc_serial_dev_inst *serial,
 	struct brymen_bm52x_state *state)
 {
 	const uint8_t *read_ptr;
@@ -805,7 +805,7 @@ static uint16_t bm52x_rec_get_u16(struct sr_serial_dev_inst *serial,
 }
 
 /** Get a u24 quantity of response data, with auto-fetch and position increment. */
-static uint32_t bm52x_rec_get_u24(struct sr_serial_dev_inst *serial,
+static uint32_t bm52x_rec_get_u24(struct otc_serial_dev_inst *serial,
 	struct brymen_bm52x_state *state)
 {
 	const uint8_t *read_ptr;
@@ -828,20 +828,20 @@ static uint32_t bm52x_rec_get_u24(struct sr_serial_dev_inst *serial,
 
 /** Get the HEAD chunk of recording data, determine session page count. */
 static int bm52x_rec_get_count(struct brymen_bm52x_state *state,
-	struct sr_serial_dev_inst *serial)
+	struct otc_serial_dev_inst *serial)
 {
 	int ret;
 	size_t byte_count, sess_count;
 
 	memset(&state->rsp, 0, sizeof(state->rsp));
 	ret = bm52x_rec_next_rsp(serial, REQ_REC_HEAD, state);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	(void)bm52x_rec_get_u8(serial, state); /* model ID */
 	byte_count = bm52x_rec_get_u24(serial, state); /* total bytes count */
 	sess_count = bm52x_rec_get_u16(serial, state); /* session count */
-	sr_dbg("bytes %zu, sessions %zu", byte_count, sess_count);
+	otc_dbg("bytes %zu, sessions %zu", byte_count, sess_count);
 
 	return sess_count;
 }
@@ -859,7 +859,7 @@ static double bm52x_rec_get_value(uint32_t raw, const int *ranges, int *digits)
 	is_ol = raw & (1u << 6);
 	low_batt = raw & (1u << 5);
 	range = raw & 0x0f;
-	sr_dbg("item: %s%u, %s %s, range %01x",
+	otc_dbg("item: %s%u, %s %s, range %01x",
 		is_neg ? "-" : "+", val_digs,
 		is_ol ? "OL" : "ol", low_batt ? "BATT" : "batt",
 		range);
@@ -885,22 +885,22 @@ static double bm52x_rec_get_value(uint32_t raw, const int *ranges, int *digits)
 	 * could be affected.
 	 */
 	if (low_batt)
-		sr_warn("Recording was taken when battery was low.");
+		otc_warn("Recording was taken when battery was low.");
 
 	return value;
 }
 
 static int bm52x_rec_prep_feed(uint8_t bfunc, uint8_t bsel, uint8_t bstat,
-	struct sr_datafeed_analog *analog1, struct sr_datafeed_analog *analog2,
+	struct otc_datafeed_analog *analog1, struct otc_datafeed_analog *analog2,
 	double *value1, double *value2, const int **ranges1, const int **ranges2,
-	const struct sr_dev_inst *sdi)
+	const struct otc_dev_inst *sdi)
 {
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	gboolean is_amp, is_deg_f;
-	enum sr_mq *mq1, *mq2;
-	enum sr_unit *unit1, *unit2;
-	enum sr_mqflag *mqf1, *mqf2;
-	enum sr_unit unit_c_f;
+	enum otc_mq *mq1, *mq2;
+	enum otc_unit *unit1, *unit2;
+	enum otc_mqflag *mqf1, *mqf2;
+	enum otc_unit unit_c_f;
 	const int *r_a_ma;
 
 	/* Prepare general submission on first channel. */
@@ -933,196 +933,196 @@ static int bm52x_rec_prep_feed(uint8_t bfunc, uint8_t bsel, uint8_t bstat,
 		switch (bsel) {
 		case 0: /* AC volt, Hz */
 			*ranges1 = bm52x_ranges_volt;
-			*mq1 = SR_MQ_VOLTAGE;
-			*mqf1 |= SR_MQFLAG_AC;
-			*unit1 = SR_UNIT_VOLT;
+			*mq1 = OTC_MQ_VOLTAGE;
+			*mqf1 |= OTC_MQFLAG_AC;
+			*unit1 = OTC_UNIT_VOLT;
 			*ranges2 = bm52x_ranges_freq;
-			*mq2 = SR_MQ_FREQUENCY;
-			*unit2 = SR_UNIT_HERTZ;
+			*mq2 = OTC_MQ_FREQUENCY;
+			*unit2 = OTC_UNIT_HERTZ;
 			break;
 		case 1: /* Hz, AC volt */
 			*ranges1 = bm52x_ranges_freq;
-			*mq1 = SR_MQ_FREQUENCY;
-			*unit1 = SR_UNIT_HERTZ;
+			*mq1 = OTC_MQ_FREQUENCY;
+			*unit1 = OTC_UNIT_HERTZ;
 			*ranges2 = bm52x_ranges_volt;
-			*mq2 = SR_MQ_VOLTAGE;
-			*mqf2 |= SR_MQFLAG_AC;
-			*unit2 = SR_UNIT_VOLT;
+			*mq2 = OTC_MQ_VOLTAGE;
+			*mqf2 |= OTC_MQFLAG_AC;
+			*unit2 = OTC_UNIT_VOLT;
 			break;
 		default:
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		break;
 	case 2: /* DC V */
 		switch (bsel) {
 		case 0: /* DC V, - */
 			*ranges1 = bm52x_ranges_volt;
-			*mq1 = SR_MQ_VOLTAGE;
-			*mqf1 |= SR_MQFLAG_DC;
-			*unit1 = SR_UNIT_VOLT;
+			*mq1 = OTC_MQ_VOLTAGE;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*unit1 = OTC_UNIT_VOLT;
 			break;
 		case 1: /* DC V, AC V */
 			*ranges1 = bm52x_ranges_volt;
-			*mq1 = SR_MQ_VOLTAGE;
-			*mqf1 |= SR_MQFLAG_DC;
-			*unit1 = SR_UNIT_VOLT;
+			*mq1 = OTC_MQ_VOLTAGE;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*unit1 = OTC_UNIT_VOLT;
 			*ranges2 = bm52x_ranges_volt;
-			*mq2 = SR_MQ_VOLTAGE;
-			*mqf2 |= SR_MQFLAG_AC;
-			*unit2 = SR_UNIT_VOLT;
+			*mq2 = OTC_MQ_VOLTAGE;
+			*mqf2 |= OTC_MQFLAG_AC;
+			*unit2 = OTC_UNIT_VOLT;
 			break;
 		case 2: /* DC+AC V, AC V */
 			*ranges1 = bm52x_ranges_volt;
-			*mq1 = SR_MQ_VOLTAGE;
-			*mqf1 |= SR_MQFLAG_DC;
-			*mqf1 |= SR_MQFLAG_AC;
-			*unit1 = SR_UNIT_VOLT;
+			*mq1 = OTC_MQ_VOLTAGE;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*mqf1 |= OTC_MQFLAG_AC;
+			*unit1 = OTC_UNIT_VOLT;
 			*ranges2 = bm52x_ranges_volt;
-			*mq2 = SR_MQ_VOLTAGE;
-			*mqf2 |= SR_MQFLAG_AC;
-			*unit2 = SR_UNIT_VOLT;
+			*mq2 = OTC_MQ_VOLTAGE;
+			*mqf2 |= OTC_MQFLAG_AC;
+			*unit2 = OTC_UNIT_VOLT;
 			break;
 		default:
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		break;
 	case 3: /* DC mV */
 		switch (bsel) {
 		case 0: /* DC mV, - */
 			*ranges1 = bm52x_ranges_millivolt;
-			*mq1 = SR_MQ_VOLTAGE;
-			*mqf1 |= SR_MQFLAG_DC;
-			*unit1 = SR_UNIT_VOLT;
+			*mq1 = OTC_MQ_VOLTAGE;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*unit1 = OTC_UNIT_VOLT;
 			break;
 		case 1: /* DC mV, AC mV */
 			*ranges1 = bm52x_ranges_millivolt;
-			*mq1 = SR_MQ_VOLTAGE;
-			*mqf1 |= SR_MQFLAG_DC;
-			*unit1 = SR_UNIT_VOLT;
+			*mq1 = OTC_MQ_VOLTAGE;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*unit1 = OTC_UNIT_VOLT;
 			*ranges2 = bm52x_ranges_millivolt;
-			*mq2 = SR_MQ_VOLTAGE;
-			*mqf2 |= SR_MQFLAG_AC;
-			*unit2 = SR_UNIT_VOLT;
+			*mq2 = OTC_MQ_VOLTAGE;
+			*mqf2 |= OTC_MQFLAG_AC;
+			*unit2 = OTC_UNIT_VOLT;
 			break;
 		case 2: /* DC+AC mV, AC mV */
 			*ranges1 = bm52x_ranges_millivolt;
-			*mq1 = SR_MQ_VOLTAGE;
-			*mqf1 |= SR_MQFLAG_DC;
-			*mqf1 |= SR_MQFLAG_AC;
-			*unit1 = SR_UNIT_VOLT;
+			*mq1 = OTC_MQ_VOLTAGE;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*mqf1 |= OTC_MQFLAG_AC;
+			*unit1 = OTC_UNIT_VOLT;
 			*ranges2 = bm52x_ranges_millivolt;
-			*mq2 = SR_MQ_VOLTAGE;
-			*mqf2 |= SR_MQFLAG_AC;
-			*unit2 = SR_UNIT_VOLT;
+			*mq2 = OTC_MQ_VOLTAGE;
+			*mqf2 |= OTC_MQFLAG_AC;
+			*unit2 = OTC_UNIT_VOLT;
 			break;
 		case 3: /* Hz, - */
 			*ranges1 = bm52x_ranges_freq;
-			*mq1 = SR_MQ_FREQUENCY;
-			*unit1 = SR_UNIT_HERTZ;
+			*mq1 = OTC_MQ_FREQUENCY;
+			*unit1 = OTC_UNIT_HERTZ;
 			break;
 		case 4: /* %, - */
 			*ranges1 = bm52x_ranges_duty;
-			*mq1 = SR_MQ_DUTY_CYCLE;
-			*unit1 = SR_UNIT_PERCENTAGE;
+			*mq1 = OTC_MQ_DUTY_CYCLE;
+			*unit1 = OTC_UNIT_PERCENTAGE;
 			break;
 		default:
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		break;
 	case 4: /* AC mV */
 		switch (bsel) {
 		case 0: /* AC mV, Hz */
 			*ranges1 = bm52x_ranges_millivolt;
-			*mq1 = SR_MQ_VOLTAGE;
-			*mqf1 |= SR_MQFLAG_AC;
-			*unit1 = SR_UNIT_VOLT;
+			*mq1 = OTC_MQ_VOLTAGE;
+			*mqf1 |= OTC_MQFLAG_AC;
+			*unit1 = OTC_UNIT_VOLT;
 			*ranges2 = bm52x_ranges_freq;
-			*mq2 = SR_MQ_FREQUENCY;
-			*unit2 = SR_UNIT_HERTZ;
+			*mq2 = OTC_MQ_FREQUENCY;
+			*unit2 = OTC_UNIT_HERTZ;
 			break;
 		case 1: /* Hz, AC mV */
 			*ranges1 = bm52x_ranges_freq;
-			*mq1 = SR_MQ_FREQUENCY;
-			*unit1 = SR_UNIT_HERTZ;
+			*mq1 = OTC_MQ_FREQUENCY;
+			*unit1 = OTC_UNIT_HERTZ;
 			*ranges2 = bm52x_ranges_millivolt;
-			*mq2 = SR_MQ_VOLTAGE;
-			*mqf2 |= SR_MQFLAG_AC;
-			*unit2 = SR_UNIT_VOLT;
+			*mq2 = OTC_MQ_VOLTAGE;
+			*mqf2 |= OTC_MQFLAG_AC;
+			*unit2 = OTC_UNIT_VOLT;
 			break;
 		default:
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		break;
 	case 5: /* Res/Cond/Cont */
 		switch (bsel) {
 		case 0: /* Resistance */
 			*ranges1 = bm52x_ranges_ohm;
-			*mq1 = SR_MQ_RESISTANCE;
-			*unit1 = SR_UNIT_OHM;
+			*mq1 = OTC_MQ_RESISTANCE;
+			*unit1 = OTC_UNIT_OHM;
 			break;
 		case 1: /* Siemens */
 			*ranges1 = bm52x_ranges_cond;
-			*mq1 = SR_MQ_CONDUCTANCE;
-			*unit1 = SR_UNIT_SIEMENS;
+			*mq1 = OTC_MQ_CONDUCTANCE;
+			*unit1 = OTC_UNIT_SIEMENS;
 			break;
 		case 2: /* Continuity */
 			*ranges1 = bm52x_ranges_ohm;
-			*mq1 = SR_MQ_CONTINUITY;
-			*unit1 = SR_UNIT_OHM;
+			*mq1 = OTC_MQ_CONTINUITY;
+			*unit1 = OTC_UNIT_OHM;
 			break;
 		default:
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		break;
 	case 6: /* Temperature */
-		unit_c_f = is_deg_f ? SR_UNIT_FAHRENHEIT : SR_UNIT_CELSIUS;
+		unit_c_f = is_deg_f ? OTC_UNIT_FAHRENHEIT : OTC_UNIT_CELSIUS;
 		switch (bsel) {
 		case 0: /* T1, - */
 			*ranges1 = bm52x_ranges_temp;
-			*mq1 = SR_MQ_TEMPERATURE;
+			*mq1 = OTC_MQ_TEMPERATURE;
 			*unit1 = unit_c_f;
 			break;
 		case 1: /* T2, - */
 			*ranges1 = bm52x_ranges_temp;
-			*mq1 = SR_MQ_TEMPERATURE;
+			*mq1 = OTC_MQ_TEMPERATURE;
 			*unit1 = unit_c_f;
 			break;
 		case 2: /* T1, T2 */
 			*ranges1 = bm52x_ranges_temp;
-			*mq1 = SR_MQ_TEMPERATURE;
+			*mq1 = OTC_MQ_TEMPERATURE;
 			*unit1 = unit_c_f;
 			*ranges2 = bm52x_ranges_temp;
-			*mq2 = SR_MQ_TEMPERATURE;
+			*mq2 = OTC_MQ_TEMPERATURE;
 			*unit2 = unit_c_f;
 			break;
 		case 3: /* T1-T2, T2 */
 			*ranges1 = bm52x_ranges_temp;
-			*mq1 = SR_MQ_TEMPERATURE;
+			*mq1 = OTC_MQ_TEMPERATURE;
 			*unit1 = unit_c_f;
 			*ranges2 = bm52x_ranges_temp;
-			*mq2 = SR_MQ_TEMPERATURE;
+			*mq2 = OTC_MQ_TEMPERATURE;
 			*unit2 = unit_c_f;
 			break;
 		default:
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		break;
 	case 7: /* Cap/Diode */
 		switch (bsel) {
 		case 0: /* Capacitance, - */
 			*ranges1 = bm52x_ranges_cap;
-			*mq1 = SR_MQ_CAPACITANCE;
-			*unit1 |= SR_UNIT_FARAD;
+			*mq1 = OTC_MQ_CAPACITANCE;
+			*unit1 |= OTC_UNIT_FARAD;
 			break;
 		case 1: /* Diode voltage, - */
 			*ranges1 = bm52x_ranges_diode;
-			*mq1 = SR_MQ_VOLTAGE;
-			*mqf1 |= SR_MQFLAG_DC;
-			*mqf1 |= SR_MQFLAG_DIODE;
-			*unit1 |= SR_UNIT_VOLT;
+			*mq1 = OTC_MQ_VOLTAGE;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*mqf1 |= OTC_MQFLAG_DIODE;
+			*unit1 |= OTC_UNIT_VOLT;
 			break;
 		default:
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		break;
 	case 8: /* DC A/mA */
@@ -1130,96 +1130,96 @@ static int bm52x_rec_prep_feed(uint8_t bfunc, uint8_t bsel, uint8_t bstat,
 		switch (bsel) {
 		case 0: /* DC A/mA, - */
 			*ranges1 = r_a_ma;
-			*mq1 = SR_MQ_CURRENT;
-			*mqf1 |= SR_MQFLAG_DC;
-			*unit1 = SR_UNIT_AMPERE;
+			*mq1 = OTC_MQ_CURRENT;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*unit1 = OTC_UNIT_AMPERE;
 			break;
 		case 1: /* DC A/mA, AC A/mA */
 			*ranges1 = r_a_ma;
-			*mq1 = SR_MQ_CURRENT;
-			*mqf1 |= SR_MQFLAG_DC;
-			*unit1 = SR_UNIT_AMPERE;
+			*mq1 = OTC_MQ_CURRENT;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*unit1 = OTC_UNIT_AMPERE;
 			*ranges2 = r_a_ma;
-			*mq2 = SR_MQ_CURRENT;
-			*mqf2 |= SR_MQFLAG_AC;
-			*unit2 = SR_UNIT_AMPERE;
+			*mq2 = OTC_MQ_CURRENT;
+			*mqf2 |= OTC_MQFLAG_AC;
+			*unit2 = OTC_UNIT_AMPERE;
 			break;
 		case 2: /* DC+AC A/mA, AC A/mA */
 			*ranges1 = r_a_ma;
-			*mq1 = SR_MQ_CURRENT;
-			*mqf1 |= SR_MQFLAG_DC;
-			*mqf1 |= SR_MQFLAG_AC;
-			*unit1 = SR_UNIT_AMPERE;
+			*mq1 = OTC_MQ_CURRENT;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*mqf1 |= OTC_MQFLAG_AC;
+			*unit1 = OTC_UNIT_AMPERE;
 			*ranges2 = r_a_ma;
-			*mq2 = SR_MQ_CURRENT;
-			*mqf2 |= SR_MQFLAG_AC;
-			*unit2 = SR_UNIT_AMPERE;
+			*mq2 = OTC_MQ_CURRENT;
+			*mqf2 |= OTC_MQFLAG_AC;
+			*unit2 = OTC_UNIT_AMPERE;
 			break;
 		case 3: /* AC A/mA, Hz */
 			*ranges1 = r_a_ma;
-			*mq1 = SR_MQ_CURRENT;
-			*mqf1 |= SR_MQFLAG_AC;
-			*unit1 = SR_UNIT_AMPERE;
+			*mq1 = OTC_MQ_CURRENT;
+			*mqf1 |= OTC_MQFLAG_AC;
+			*unit1 = OTC_UNIT_AMPERE;
 			*ranges2 = bm52x_ranges_freq;
-			*mq2 = SR_MQ_FREQUENCY;
-			*unit2 = SR_UNIT_HERTZ;
+			*mq2 = OTC_MQ_FREQUENCY;
+			*unit2 = OTC_UNIT_HERTZ;
 			break;
 		default:
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		break;
 	case 9: /* DC uA */
 		switch (bsel) {
 		case 0: /* DC uA, - */
 			*ranges1 = bm52x_ranges_microamp;
-			*mq1 = SR_MQ_CURRENT;
-			*mqf1 |= SR_MQFLAG_DC;
-			*unit1 = SR_UNIT_AMPERE;
+			*mq1 = OTC_MQ_CURRENT;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*unit1 = OTC_UNIT_AMPERE;
 			break;
 		case 1: /* DC uA, AC uA */
 			*ranges1 = bm52x_ranges_microamp;
-			*mq1 = SR_MQ_CURRENT;
-			*mqf1 |= SR_MQFLAG_DC;
-			*unit1 = SR_UNIT_AMPERE;
+			*mq1 = OTC_MQ_CURRENT;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*unit1 = OTC_UNIT_AMPERE;
 			*ranges2 = bm52x_ranges_microamp;
-			*mq2 = SR_MQ_CURRENT;
-			*mqf2 |= SR_MQFLAG_AC;
-			*unit2 = SR_UNIT_AMPERE;
+			*mq2 = OTC_MQ_CURRENT;
+			*mqf2 |= OTC_MQFLAG_AC;
+			*unit2 = OTC_UNIT_AMPERE;
 			break;
 		case 2: /* DC+AC uA, AC uA */
 			*ranges1 = bm52x_ranges_microamp;
-			*mq1 = SR_MQ_CURRENT;
-			*mqf1 |= SR_MQFLAG_DC;
-			*mqf1 |= SR_MQFLAG_AC;
-			*unit1 = SR_UNIT_AMPERE;
+			*mq1 = OTC_MQ_CURRENT;
+			*mqf1 |= OTC_MQFLAG_DC;
+			*mqf1 |= OTC_MQFLAG_AC;
+			*unit1 = OTC_UNIT_AMPERE;
 			*ranges2 = bm52x_ranges_microamp;
-			*mq2 = SR_MQ_CURRENT;
-			*mqf2 |= SR_MQFLAG_AC;
-			*unit2 = SR_UNIT_AMPERE;
+			*mq2 = OTC_MQ_CURRENT;
+			*mqf2 |= OTC_MQFLAG_AC;
+			*unit2 = OTC_UNIT_AMPERE;
 			break;
 		case 3: /* AC uA, Hz */
 			*ranges1 = bm52x_ranges_microamp;
-			*mq1 = SR_MQ_CURRENT;
-			*mqf1 |= SR_MQFLAG_AC;
-			*unit1 = SR_UNIT_AMPERE;
+			*mq1 = OTC_MQ_CURRENT;
+			*mqf1 |= OTC_MQFLAG_AC;
+			*unit1 = OTC_UNIT_AMPERE;
 			*ranges2 = bm52x_ranges_freq;
-			*mq2 = SR_MQ_FREQUENCY;
-			*unit2 = SR_UNIT_HERTZ;
+			*mq2 = OTC_MQ_FREQUENCY;
+			*unit2 = OTC_UNIT_HERTZ;
 			break;
 		default:
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		}
 		break;
 	default:
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** Traverse one recorded session page, optionally feed session bus. */
-static int bm52x_rec_read_page_int(const struct sr_dev_inst *sdi,
-	struct brymen_bm52x_state *state, struct sr_serial_dev_inst *serial,
+static int bm52x_rec_read_page_int(const struct otc_dev_inst *sdi,
+	struct brymen_bm52x_state *state, struct otc_serial_dev_inst *serial,
 	gboolean skip)
 {
 	uint8_t bfunc, bsel, bstat;
@@ -1227,31 +1227,31 @@ static int bm52x_rec_read_page_int(const struct sr_dev_inst *sdi,
 	gboolean has_sec_disp;
 	size_t page_len, meas_len, meas_count;
 	uint32_t meas_data;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog1, analog2;
-	struct sr_analog_encoding encoding1, encoding2;
-	struct sr_analog_meaning meaning1, meaning2;
-	struct sr_analog_spec spec1, spec2;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog1, analog2;
+	struct otc_analog_encoding encoding1, encoding2;
+	struct otc_analog_meaning meaning1, meaning2;
+	struct otc_analog_spec spec1, spec2;
 	int digits, ret;
 	double values[2];
 	const int *ranges1, *ranges2;
-	enum sr_configkey key;
+	enum otc_configkey key;
 	uint64_t num;
 
-	sr_dbg("progress: %s, %s", __func__, skip ? "skip" : "feed");
+	otc_dbg("progress: %s, %s", __func__, skip ? "skip" : "feed");
 
 	/* Get the header information of the session page (raw). */
 	if (bm52x_rec_get_u8(serial, state) != 0xee) /* "DLE" */
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (bm52x_rec_get_u8(serial, state) != 0xa0) /* "STX" */
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	(void)bm52x_rec_get_u24(serial, state); /* prev page addr */
 	(void)bm52x_rec_get_u24(serial, state); /* next page addr */
 	bfunc = bm52x_rec_get_u8(serial, state); /* meter function */
 	bsel = bm52x_rec_get_u8(serial, state); /* fun selection */
 	bstat = bm52x_rec_get_u8(serial, state); /* status */
 	page_len = bm52x_rec_get_u24(serial, state); /* page length */
-	sr_dbg("page head: func/sel/state %02x/%02x/%02x, len %zu",
+	otc_dbg("page head: func/sel/state %02x/%02x/%02x, len %zu",
 		bfunc, bsel, bstat, page_len);
 
 	/* Interpret the header information of the session page. */
@@ -1259,35 +1259,35 @@ static int bm52x_rec_read_page_int(const struct sr_dev_inst *sdi,
 	has_sec_disp = bstat & (1u << 7);
 	meas_len = (has_sec_disp ? 2 : 1) * 3;
 	if (page_len % meas_len)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	meas_count = page_len / meas_len;
-	sr_dbg("page head: ival %u, %s, samples %zu",
+	otc_dbg("page head: ival %u, %s, samples %zu",
 		ival, has_sec_disp ? "dual" : "main", meas_count);
 
-	/* Prepare feed to the sigrok session. Send rate/interval. */
-	sr_analog_init(&analog1, &encoding1, &meaning1, &spec1, 0);
-	sr_analog_init(&analog2, &encoding2, &meaning2, &spec2, 0);
+	/* Prepare feed to the opentracelab session. Send rate/interval. */
+	otc_analog_init(&analog1, &encoding1, &meaning1, &spec1, 0);
+	otc_analog_init(&analog2, &encoding2, &meaning2, &spec2, 0);
 	ret = bm52x_rec_prep_feed(bfunc, bsel, bstat,
 		&analog1, &analog2, &values[0], &values[1],
 		&ranges1, &ranges2, sdi);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
 	if (!skip) {
 		memset(&packet, 0, sizeof(packet));
-		packet.type = SR_DF_ANALOG;
+		packet.type = OTC_DF_ANALOG;
 
 		if (bm52x_rec_ivals[ival].freq_rate) {
-			sr_dbg("rate: %u", bm52x_rec_ivals[ival].freq_rate);
-			key = SR_CONF_SAMPLERATE;
+			otc_dbg("rate: %u", bm52x_rec_ivals[ival].freq_rate);
+			key = OTC_CONF_SAMPLERATE;
 			num = bm52x_rec_ivals[ival].freq_rate;
-			(void)sr_session_send_meta(sdi,
+			(void)otc_session_send_meta(sdi,
 				key, g_variant_new_uint64(num));
 		}
 		if (bm52x_rec_ivals[ival].ival_secs) {
-			sr_dbg("ival: %u", bm52x_rec_ivals[ival].ival_secs);
-			key = SR_CONF_SAMPLE_INTERVAL;
+			otc_dbg("ival: %u", bm52x_rec_ivals[ival].ival_secs);
+			key = OTC_CONF_SAMPLE_INTERVAL;
 			num = bm52x_rec_ivals[ival].ival_secs * 1000; /* in ms */
-			(void)sr_session_send_meta(sdi,
+			(void)otc_session_send_meta(sdi,
 				key, g_variant_new_uint64(num));
 		}
 	}
@@ -1307,8 +1307,8 @@ static int bm52x_rec_read_page_int(const struct sr_dev_inst *sdi,
 			analog1.encoding->digits  = digits;
 			analog1.spec->spec_digits = digits;
 			packet.payload = &analog1;
-			ret = sr_session_send(sdi, &packet);
-			if (ret != SR_OK)
+			ret = otc_session_send(sdi, &packet);
+			if (ret != OTC_OK)
 				return ret;
 		}
 
@@ -1320,47 +1320,47 @@ static int bm52x_rec_read_page_int(const struct sr_dev_inst *sdi,
 			analog2.encoding->digits  = digits;
 			analog2.spec->spec_digits = digits;
 			packet.payload = &analog2;
-			ret = sr_session_send(sdi, &packet);
-			if (ret != SR_OK)
+			ret = otc_session_send(sdi, &packet);
+			if (ret != OTC_OK)
 				return ret;
 		}
 	}
 
 	/* Check termination of the session page. */
 	if (bm52x_rec_get_u8(serial, state) != 0xee) /* "DLE" */
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	if (bm52x_rec_get_u8(serial, state) != 0xc0) /* "ETX" */
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** Skip one recorded session page. */
-static int bm52x_rec_skip_page(const struct sr_dev_inst *sdi,
-	struct brymen_bm52x_state *state, struct sr_serial_dev_inst *serial)
+static int bm52x_rec_skip_page(const struct otc_dev_inst *sdi,
+	struct brymen_bm52x_state *state, struct otc_serial_dev_inst *serial)
 {
 	return bm52x_rec_read_page_int(sdi, state, serial, TRUE);
 }
 
 /** Forward one recorded session page. */
-static int bm52x_rec_read_page(const struct sr_dev_inst *sdi,
-	struct brymen_bm52x_state *state, struct sr_serial_dev_inst *serial)
+static int bm52x_rec_read_page(const struct otc_dev_inst *sdi,
+	struct brymen_bm52x_state *state, struct otc_serial_dev_inst *serial)
 {
 	return bm52x_rec_read_page_int(sdi, state, serial, FALSE);
 }
 
-SR_PRIV void *brymen_bm52x_state_init(void)
+OTC_PRIV void *brymen_bm52x_state_init(void)
 {
 	return g_malloc0(sizeof(struct brymen_bm52x_state));
 }
 
-SR_PRIV void brymen_bm52x_state_free(void *state)
+OTC_PRIV void brymen_bm52x_state_free(void *state)
 {
 	g_free(state);
 }
 
-SR_PRIV int brymen_bm52x_config_get(void *st, uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+OTC_PRIV int brymen_bm52x_config_get(void *st, uint32_t key, GVariant **data,
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct brymen_bm52x_state *state;
 	char text[32];
@@ -1368,26 +1368,26 @@ SR_PRIV int brymen_bm52x_config_get(void *st, uint32_t key, GVariant **data,
 	state = st;
 
 	if (!sdi)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	(void)cg;
 
 	switch (key) {
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_DATA_SOURCE:
 		if (!state)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if (state->sess_idx == 0)
 			snprintf(text, sizeof(text), "Live");
 		else
 			snprintf(text, sizeof(text), "Rec-%zu", state->sess_idx);
 		*data = g_variant_new_string(text);
-		return SR_OK;
+		return OTC_OK;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 }
 
-SR_PRIV int brymen_bm52x_config_set(void *st, uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+OTC_PRIV int brymen_bm52x_config_set(void *st, uint32_t key, GVariant *data,
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct brymen_bm52x_state *state;
 	const char *s;
@@ -1396,36 +1396,36 @@ SR_PRIV int brymen_bm52x_config_set(void *st, uint32_t key, GVariant *data,
 	state = st;
 
 	if (!sdi)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	(void)cg;
 
 	switch (key) {
-	case SR_CONF_DATA_SOURCE:
+	case OTC_CONF_DATA_SOURCE:
 		s = g_variant_get_string(data, NULL);
 		if (!s || !*s)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		if (strcasecmp(s, "Live") == 0) {
 			state->sess_idx = 0;
-			return SR_OK;
+			return OTC_OK;
 		}
 		if (strncasecmp(s, "Rec-", strlen("Rec-")) != 0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		s += strlen("Rec-");
-		ret = sr_atoi(s, &nr);
-		if (ret != SR_OK || nr <= 0 || nr > 999)
-			return SR_ERR_ARG;
+		ret = otc_atoi(s, &nr);
+		if (ret != OTC_OK || nr <= 0 || nr > 999)
+			return OTC_ERR_ARG;
 		state->sess_idx = nr;
-		return SR_OK;
+		return OTC_OK;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 }
 
-SR_PRIV int brymen_bm52x_config_list(void *st, uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+OTC_PRIV int brymen_bm52x_config_list(void *st, uint32_t key, GVariant **data,
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct brymen_bm52x_state *state;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int ret;
 	size_t count, idx;
 	GVariantBuilder gvb;
@@ -1437,24 +1437,24 @@ SR_PRIV int brymen_bm52x_config_list(void *st, uint32_t key, GVariant **data,
 	 * Only handle strictly local properties here in this code path.
 	 */
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
 		/* Scan options. Common property. */
-		return SR_ERR_NA;
-	case SR_CONF_DEVICE_OPTIONS:
+		return OTC_ERR_NA;
+	case OTC_CONF_DEVICE_OPTIONS:
 		if (!sdi)
 			/* Driver options. Common property. */
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if (cg)
 			/* Channel group's devopts. Common error path. */
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		/* List meter's local device options. Overrides common data. */
 		*data = g_variant_new_fixed_array(G_VARIANT_TYPE_UINT32,
 				devopts, ARRAY_SIZE(devopts), sizeof(uint32_t));
-		return SR_OK;
-	case SR_CONF_DATA_SOURCE:
+		return OTC_OK;
+	case OTC_CONF_DATA_SOURCE:
 		state = st;
 		if (!sdi)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		serial = sdi->conn;
 		ret = bm52x_rec_get_count(state, serial);
 		if (ret < 0)
@@ -1469,9 +1469,9 @@ SR_PRIV int brymen_bm52x_config_list(void *st, uint32_t key, GVariant **data,
 			g_variant_builder_add(&gvb, "s", name);
 		}
 		*data = g_variant_builder_end(&gvb);
-		return SR_OK;
+		return OTC_OK;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 }
 
@@ -1493,9 +1493,9 @@ SR_PRIV int brymen_bm52x_config_list(void *st, uint32_t key, GVariant **data,
 static int bm52x_rec_receive_data(int fd, int revents, void *cb_data)
 {
 	struct brymen_bm52x_state *state;
-	const struct sr_dev_inst *sdi;
-	struct sr_dev_inst *sdi_rw;
-	struct sr_serial_dev_inst *serial;
+	const struct otc_dev_inst *sdi;
+	struct otc_dev_inst *sdi_rw;
+	struct otc_serial_dev_inst *serial;
 	int ret;
 	size_t count, idx;
 
@@ -1511,8 +1511,8 @@ static int bm52x_rec_receive_data(int fd, int revents, void *cb_data)
 		return FALSE;
 	count = ret;
 
-	/* Un-const 'sdi' since sr_dev_acquisition_stop() needs that. */
-	sdi_rw = (struct sr_dev_inst *)sdi;
+	/* Un-const 'sdi' since otc_dev_acquisition_stop() needs that. */
+	sdi_rw = (struct otc_dev_inst *)sdi;
 
 	/*
 	 * Immediate (silent, zero data) stop for non-existent sessions.
@@ -1521,7 +1521,7 @@ static int bm52x_rec_receive_data(int fd, int revents, void *cb_data)
 	 * users request non-existing session pages.
 	 */
 	if (state->sess_idx > count) {
-		sr_dev_acquisition_stop(sdi_rw);
+		otc_dev_acquisition_stop(sdi_rw);
 		return FALSE;
 	}
 
@@ -1531,11 +1531,11 @@ static int bm52x_rec_receive_data(int fd, int revents, void *cb_data)
 			ret = bm52x_rec_read_page(sdi, state, serial);
 		else
 			ret = bm52x_rec_skip_page(sdi, state, serial);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 	}
 
-	sr_dev_acquisition_stop(sdi_rw);
+	otc_dev_acquisition_stop(sdi_rw);
 	return FALSE;
 }
 
@@ -1547,8 +1547,8 @@ static int bm52x_rec_receive_data(int fd, int revents, void *cb_data)
  * @param[out] cb Receive callback for the acquisition.
  * @param[out] cb_data Callback data for receive callback.
  *
- * @returns SR_OK upon success.
- * @returns SR_ERR* upon failure.
+ * @returns OTC_OK upon success.
+ * @returns OTC_ERR* upon failure.
  *
  * @private
  *
@@ -1556,23 +1556,23 @@ static int bm52x_rec_receive_data(int fd, int revents, void *cb_data)
  * for live acquisition, but runs a different set of requests and a
  * different response layout interpretation for recorded measurements.
  */
-SR_PRIV int brymen_bm52x_acquire_start(void *st, const struct sr_dev_inst *sdi,
-	sr_receive_data_callback *cb, void **cb_data)
+OTC_PRIV int brymen_bm52x_acquire_start(void *st, const struct otc_dev_inst *sdi,
+	otc_receive_data_callback *cb, void **cb_data)
 {
 	struct brymen_bm52x_state *state;
 
 	if (!sdi || !st)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	state = st;
 
 	/* Read live measurements. No local override required. */
 	if (state->sess_idx == 0)
-		return SR_OK;
+		return OTC_OK;
 
 	/* Arrange to read back recorded session. */
-	sr_dbg("session page requested: %zu", state->sess_idx);
+	otc_dbg("session page requested: %zu", state->sess_idx);
 	state->sdi = sdi;
 	*cb = bm52x_rec_receive_data;
 	*cb_data = state;
-	return SR_OK;
+	return OTC_OK;
 }

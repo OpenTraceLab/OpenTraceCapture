@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Bert Vermeulen <bert@biot.com>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 #define SCPI_CMD_IDN "*IDN?"
 #define SCPI_CMD_OPC "*OPC?"
@@ -80,14 +80,14 @@ struct scpi_command {
 	const char *string;
 };
 
-struct sr_scpi_hw_info {
+struct otc_scpi_hw_info {
 	char *manufacturer;
 	char *model;
 	char *serial_number;
 	char *firmware_version;
 };
 
-struct sr_scpi_dev_inst {
+struct otc_scpi_dev_inst {
 	const char *name;
 	const char *prefix;
 	enum scpi_transport_layer transport;
@@ -95,17 +95,17 @@ struct sr_scpi_dev_inst {
 	GSList *(*scan)(struct drv_context *drvc);
 	int (*dev_inst_new)(void *priv, struct drv_context *drvc,
 		const char *resource, char **params, const char *serialcomm);
-	int (*open)(struct sr_scpi_dev_inst *scpi);
-	int (*connection_id)(struct sr_scpi_dev_inst *scpi, char **connection_id);
-	int (*source_add)(struct sr_session *session, void *priv, int events,
-		int timeout, sr_receive_data_callback cb, void *cb_data);
-	int (*source_remove)(struct sr_session *session, void *priv);
+	int (*open)(struct otc_scpi_dev_inst *scpi);
+	int (*connection_id)(struct otc_scpi_dev_inst *scpi, char **connection_id);
+	int (*source_add)(struct otc_session *session, void *priv, int events,
+		int timeout, otc_receive_data_callback cb, void *cb_data);
+	int (*source_remove)(struct otc_session *session, void *priv);
 	int (*send)(void *priv, const char *command);
 	int (*read_begin)(void *priv);
 	int (*read_data)(void *priv, char *buf, int maxlen);
 	int (*write_data)(void *priv, char *buf, int len);
 	int (*read_complete)(void *priv);
-	int (*close)(struct sr_scpi_dev_inst *scpi);
+	int (*close)(struct otc_scpi_dev_inst *scpi);
 	void (*free)(void *priv);
 	unsigned int read_timeout_us;
 	void *priv;
@@ -116,64 +116,64 @@ struct sr_scpi_dev_inst {
 	gboolean no_opc_command;
 };
 
-SR_PRIV GSList *sr_scpi_scan(struct drv_context *drvc, GSList *options,
-		struct sr_dev_inst *(*probe_device)(struct sr_scpi_dev_inst *scpi));
-SR_PRIV struct sr_scpi_dev_inst *scpi_dev_inst_new(struct drv_context *drvc,
+OTC_PRIV GSList *otc_scpi_scan(struct drv_context *drvc, GSList *options,
+		struct otc_dev_inst *(*probe_device)(struct otc_scpi_dev_inst *scpi));
+OTC_PRIV struct otc_scpi_dev_inst *scpi_dev_inst_new(struct drv_context *drvc,
 		const char *resource, const char *serialcomm);
-SR_PRIV int sr_scpi_open(struct sr_scpi_dev_inst *scpi);
-SR_PRIV int sr_scpi_connection_id(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_open(struct otc_scpi_dev_inst *scpi);
+OTC_PRIV int otc_scpi_connection_id(struct otc_scpi_dev_inst *scpi,
 		char **connection_id);
-SR_PRIV int sr_scpi_source_add(struct sr_session *session,
-		struct sr_scpi_dev_inst *scpi, int events, int timeout,
-		sr_receive_data_callback cb, void *cb_data);
-SR_PRIV int sr_scpi_source_remove(struct sr_session *session,
-		struct sr_scpi_dev_inst *scpi);
-SR_PRIV int sr_scpi_send(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_source_add(struct otc_session *session,
+		struct otc_scpi_dev_inst *scpi, int events, int timeout,
+		otc_receive_data_callback cb, void *cb_data);
+OTC_PRIV int otc_scpi_source_remove(struct otc_session *session,
+		struct otc_scpi_dev_inst *scpi);
+OTC_PRIV int otc_scpi_send(struct otc_scpi_dev_inst *scpi,
 		const char *format, ...);
-SR_PRIV int sr_scpi_send_variadic(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_send_variadic(struct otc_scpi_dev_inst *scpi,
 		const char *format, va_list args);
-SR_PRIV int sr_scpi_read_begin(struct sr_scpi_dev_inst *scpi);
-SR_PRIV int sr_scpi_read_data(struct sr_scpi_dev_inst *scpi, char *buf, int maxlen);
-SR_PRIV int sr_scpi_write_data(struct sr_scpi_dev_inst *scpi, char *buf, int len);
-SR_PRIV int sr_scpi_read_complete(struct sr_scpi_dev_inst *scpi);
-SR_PRIV int sr_scpi_close(struct sr_scpi_dev_inst *scpi);
-SR_PRIV void sr_scpi_free(struct sr_scpi_dev_inst *scpi);
+OTC_PRIV int otc_scpi_read_begin(struct otc_scpi_dev_inst *scpi);
+OTC_PRIV int otc_scpi_read_data(struct otc_scpi_dev_inst *scpi, char *buf, int maxlen);
+OTC_PRIV int otc_scpi_write_data(struct otc_scpi_dev_inst *scpi, char *buf, int len);
+OTC_PRIV int otc_scpi_read_complete(struct otc_scpi_dev_inst *scpi);
+OTC_PRIV int otc_scpi_close(struct otc_scpi_dev_inst *scpi);
+OTC_PRIV void otc_scpi_free(struct otc_scpi_dev_inst *scpi);
 
-SR_PRIV int sr_scpi_read_response(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_read_response(struct otc_scpi_dev_inst *scpi,
 			GString *response, gint64 abs_timeout_us);
-SR_PRIV int sr_scpi_get_string(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_string(struct otc_scpi_dev_inst *scpi,
 			const char *command, char **scpi_response);
-SR_PRIV int sr_scpi_get_bool(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_bool(struct otc_scpi_dev_inst *scpi,
 			const char *command, gboolean *scpi_response);
-SR_PRIV int sr_scpi_get_int(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_int(struct otc_scpi_dev_inst *scpi,
 			const char *command, int *scpi_response);
-SR_PRIV int sr_scpi_get_float(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_float(struct otc_scpi_dev_inst *scpi,
 			const char *command, float *scpi_response);
-SR_PRIV int sr_scpi_get_double(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_double(struct otc_scpi_dev_inst *scpi,
 			const char *command, double *scpi_response);
-SR_PRIV int sr_scpi_get_opc(struct sr_scpi_dev_inst *scpi);
-SR_PRIV int sr_scpi_get_floatv(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_opc(struct otc_scpi_dev_inst *scpi);
+OTC_PRIV int otc_scpi_get_floatv(struct otc_scpi_dev_inst *scpi,
 			const char *command, GArray **scpi_response);
-SR_PRIV int sr_scpi_get_uint8v(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_uint8v(struct otc_scpi_dev_inst *scpi,
 			const char *command, GArray **scpi_response);
-SR_PRIV int sr_scpi_get_data(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_data(struct otc_scpi_dev_inst *scpi,
 			const char *command, GString **scpi_response);
-SR_PRIV int sr_scpi_get_block(struct sr_scpi_dev_inst *scpi,
+OTC_PRIV int otc_scpi_get_block(struct otc_scpi_dev_inst *scpi,
 			const char *command, GByteArray **scpi_response);
-SR_PRIV int sr_scpi_get_hw_id(struct sr_scpi_dev_inst *scpi,
-			struct sr_scpi_hw_info **scpi_response);
-SR_PRIV void sr_scpi_hw_info_free(struct sr_scpi_hw_info *hw_info);
+OTC_PRIV int otc_scpi_get_hw_id(struct otc_scpi_dev_inst *scpi,
+			struct otc_scpi_hw_info **scpi_response);
+OTC_PRIV void otc_scpi_hw_info_free(struct otc_scpi_hw_info *hw_info);
 
-SR_PRIV const char *sr_scpi_unquote_string(char *s);
+OTC_PRIV const char *otc_scpi_unquote_string(char *s);
 
-SR_PRIV const char *sr_vendor_alias(const char *raw_vendor);
-SR_PRIV const char *sr_scpi_cmd_get(const struct scpi_command *cmdtable,
+OTC_PRIV const char *otc_vendor_alias(const char *raw_vendor);
+OTC_PRIV const char *otc_scpi_cmd_get(const struct scpi_command *cmdtable,
 		int command);
-SR_PRIV int sr_scpi_cmd(const struct sr_dev_inst *sdi,
+OTC_PRIV int otc_scpi_cmd(const struct otc_dev_inst *sdi,
 		const struct scpi_command *cmdtable,
 		int channel_command, const char *channel_name,
 		int command, ...);
-SR_PRIV int sr_scpi_cmd_resp(const struct sr_dev_inst *sdi,
+OTC_PRIV int otc_scpi_cmd_resp(const struct otc_dev_inst *sdi,
 		const struct scpi_command *cmdtable,
 		int channel_command, const char *channel_name,
 		GVariant **gvar, const GVariantType *gvtype, int command, ...);
@@ -181,7 +181,7 @@ SR_PRIV int sr_scpi_cmd_resp(const struct sr_dev_inst *sdi,
 /*--- GPIB only functions ---------------------------------------------------*/
 
 #ifdef HAVE_LIBGPIB
-SR_PRIV int sr_scpi_gpib_spoll(struct sr_scpi_dev_inst *scpi, char *buf);
+OTC_PRIV int otc_scpi_gpib_spoll(struct otc_scpi_dev_inst *scpi, char *buf);
 #endif
 
 #endif

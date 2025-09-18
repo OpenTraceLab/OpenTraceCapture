@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018-2020 Andreas Sandberg <andreas@sandberg.pp.se>
  *
@@ -20,12 +20,12 @@
 #include <config.h>
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 /* Read/write timeouts, poll request intervals. */
@@ -40,23 +40,23 @@
 #define UM_CMD_POLL 0xf0
 
 static const struct rdtech_um_channel_desc default_channels[] = {
-	{ "V", { 2, BVT_BE_UINT16, }, { 10, 1e3, }, 2, SR_MQ_VOLTAGE, SR_UNIT_VOLT },
-	{ "I", { 4, BVT_BE_UINT16, }, { 1, 1e3, }, 3, SR_MQ_CURRENT, SR_UNIT_AMPERE },
-	{ "D+", { 96, BVT_BE_UINT16, }, { 10, 1e3, }, 2, SR_MQ_VOLTAGE, SR_UNIT_VOLT },
-	{ "D-", { 98, BVT_BE_UINT16, }, { 10, 1e3, }, 2, SR_MQ_VOLTAGE, SR_UNIT_VOLT },
-	{ "T", { 10, BVT_BE_UINT16, }, { 1, 1, }, 0, SR_MQ_TEMPERATURE, SR_UNIT_CELSIUS },
+	{ "V", { 2, BVT_BE_UINT16, }, { 10, 1e3, }, 2, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT },
+	{ "I", { 4, BVT_BE_UINT16, }, { 1, 1e3, }, 3, OTC_MQ_CURRENT, OTC_UNIT_AMPERE },
+	{ "D+", { 96, BVT_BE_UINT16, }, { 10, 1e3, }, 2, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT },
+	{ "D-", { 98, BVT_BE_UINT16, }, { 10, 1e3, }, 2, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT },
+	{ "T", { 10, BVT_BE_UINT16, }, { 1, 1, }, 0, OTC_MQ_TEMPERATURE, OTC_UNIT_CELSIUS },
 	/* Threshold-based recording (mWh) */
-	{ "E", { 106, BVT_BE_UINT32, }, { 1, 1e3, }, 3, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR },
+	{ "E", { 106, BVT_BE_UINT32, }, { 1, 1e3, }, 3, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR },
 };
 
 static const struct rdtech_um_channel_desc um25c_channels[] = {
-	{ "V", { 2, BVT_BE_UINT16, }, { 1, 1e3, }, 3, SR_MQ_VOLTAGE, SR_UNIT_VOLT },
-	{ "I", { 4, BVT_BE_UINT16, }, { 100, 1e6, }, 4, SR_MQ_CURRENT, SR_UNIT_AMPERE },
-	{ "D+", { 96, BVT_BE_UINT16, }, { 10, 1e3, }, 2, SR_MQ_VOLTAGE, SR_UNIT_VOLT },
-	{ "D-", { 98, BVT_BE_UINT16, }, { 10, 1e3, }, 2, SR_MQ_VOLTAGE, SR_UNIT_VOLT },
-	{ "T", { 10, BVT_BE_UINT16, }, { 1, 1, }, 0, SR_MQ_TEMPERATURE, SR_UNIT_CELSIUS },
+	{ "V", { 2, BVT_BE_UINT16, }, { 1, 1e3, }, 3, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT },
+	{ "I", { 4, BVT_BE_UINT16, }, { 100, 1e6, }, 4, OTC_MQ_CURRENT, OTC_UNIT_AMPERE },
+	{ "D+", { 96, BVT_BE_UINT16, }, { 10, 1e3, }, 2, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT },
+	{ "D-", { 98, BVT_BE_UINT16, }, { 10, 1e3, }, 2, OTC_MQ_VOLTAGE, OTC_UNIT_VOLT },
+	{ "T", { 10, BVT_BE_UINT16, }, { 1, 1, }, 0, OTC_MQ_TEMPERATURE, OTC_UNIT_CELSIUS },
 	/* Threshold-based recording (mWh) */
-	{ "E", { 106, BVT_BE_UINT32, }, { 1, 1e3, }, 3, SR_MQ_ENERGY, SR_UNIT_WATT_HOUR },
+	{ "E", { 106, BVT_BE_UINT32, }, { 1, 1e3, }, 3, OTC_MQ_ENERGY, OTC_UNIT_WATT_HOUR },
 };
 
 static gboolean csum_ok_fff1(const uint8_t *buf, size_t len)
@@ -116,7 +116,7 @@ static const struct rdtech_um_profile *find_profile(uint16_t id)
 	return NULL;
 }
 
-SR_PRIV const struct rdtech_um_profile *rdtech_um_probe(struct sr_serial_dev_inst *serial)
+OTC_PRIV const struct rdtech_um_profile *rdtech_um_probe(struct otc_serial_dev_inst *serial)
 {
 	const struct rdtech_um_profile *p;
 	uint8_t req;
@@ -128,64 +128,64 @@ SR_PRIV const struct rdtech_um_profile *rdtech_um_probe(struct sr_serial_dev_ins
 	req = UM_CMD_POLL;
 	ret = serial_write_blocking(serial, &req, sizeof(req), WRITE_TO_MS);
 	if (ret < 0) {
-		sr_err("Failed to send probe request.");
+		otc_err("Failed to send probe request.");
 		return NULL;
 	}
 
 	rcvd = serial_read_blocking(serial, buf, POLL_RECV_LEN, PROBE_TO_MS);
 	if (rcvd != POLL_RECV_LEN) {
-		sr_err("Failed to read probe response.");
+		otc_err("Failed to read probe response.");
 		return NULL;
 	}
 
 	model_id = read_u16be(&buf[0]);
 	p = find_profile(model_id);
 	if (!p) {
-		sr_err("Unrecognized UM device (0x%.4" PRIx16 ").", model_id);
+		otc_err("Unrecognized UM device (0x%.4" PRIx16 ").", model_id);
 		return NULL;
 	}
 
 	if (!p->csum_ok(buf, rcvd)) {
-		sr_err("Probe response fails checksum verification.");
+		otc_err("Probe response fails checksum verification.");
 		return NULL;
 	}
 
 	return p;
 }
 
-SR_PRIV int rdtech_um_poll(const struct sr_dev_inst *sdi, gboolean force)
+OTC_PRIV int rdtech_um_poll(const struct otc_dev_inst *sdi, gboolean force)
 {
 	struct dev_context *devc;
 	int64_t now, elapsed;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	uint8_t req;
 	int ret;
 
 	/* Don't send request when receive data is being accumulated. */
 	devc = sdi->priv;
 	if (!force && devc->buflen)
-		return SR_OK;
+		return OTC_OK;
 
 	/* Check for expired intervals or forced requests. */
 	now = g_get_monotonic_time() / 1000;
 	elapsed = now - devc->cmd_sent_at;
 	if (!force && elapsed < POLL_PERIOD_MS)
-		return SR_OK;
+		return OTC_OK;
 
 	/* Send another poll request. Update interval only on success. */
 	serial = sdi->conn;
 	req = UM_CMD_POLL;
 	ret = serial_write_blocking(serial, &req, sizeof(req), WRITE_TO_MS);
 	if (ret < 0) {
-		sr_err("Unable to send poll request.");
-		return SR_ERR;
+		otc_err("Unable to send poll request.");
+		return OTC_ERR;
 	}
 	devc->cmd_sent_at = now;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int process_data(struct sr_dev_inst *sdi,
+static int process_data(struct otc_dev_inst *sdi,
 	const uint8_t *data, size_t dlen)
 {
 	struct dev_context *devc;
@@ -197,37 +197,37 @@ static int process_data(struct sr_dev_inst *sdi,
 	devc = sdi->priv;
 	p = devc->profile;
 
-	sr_spew("Received poll packet (len: %zu).", dlen);
+	otc_spew("Received poll packet (len: %zu).", dlen);
 	if (dlen < POLL_RECV_LEN) {
-		sr_err("Insufficient response data length: %zu", dlen);
-		return SR_ERR_DATA;
+		otc_err("Insufficient response data length: %zu", dlen);
+		return OTC_ERR_DATA;
 	}
 
 	if (!p->csum_ok(data, POLL_RECV_LEN)) {
-		sr_err("Packet checksum verification failed.");
-		return SR_ERR_DATA;
+		otc_err("Packet checksum verification failed.");
+		return OTC_ERR_DATA;
 	}
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	std_session_send_df_frame_begin(sdi);
 	for (ch_idx = 0; ch_idx < p->channel_count; ch_idx++) {
 		ret = bv_get_value_len(&v, &p->channels[ch_idx].spec, data, dlen);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 		ret = feed_queue_analog_submit_one(devc->feeds[ch_idx], v, 1);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 	}
 	std_session_send_df_frame_end(sdi);
 
-	sr_sw_limits_update_frames_read(&devc->limits, 1);
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	otc_sw_limits_update_frames_read(&devc->limits, 1);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 
 	return ret;
 }
 
-static int accum_data(struct sr_dev_inst *sdi, struct sr_serial_dev_inst *serial)
+static int accum_data(struct otc_dev_inst *sdi, struct otc_serial_dev_inst *serial)
 {
 	struct dev_context *devc;
 	const struct rdtech_um_profile *p;
@@ -252,12 +252,12 @@ static int accum_data(struct sr_dev_inst *sdi, struct sr_serial_dev_inst *serial
 	while (space) {
 		ret = serial_read_nonblocking(serial, rdptr, space);
 		if (ret < 0)
-			return SR_ERR_IO;
+			return OTC_ERR_IO;
 		rcvd = (size_t)ret;
 		if (rcvd == 0)
 			break;
 		if (rcvd > space)
-			return SR_ERR_BUG;
+			return OTC_ERR_BUG;
 		if (devc->buflen < sync_len)
 			do_sync_check = TRUE;
 		devc->buflen += rcvd;
@@ -284,7 +284,7 @@ static int accum_data(struct sr_dev_inst *sdi, struct sr_serial_dev_inst *serial
 	 */
 	sync_idx = 0;
 	if (do_sync_check && read_u16be(&devc->buf[sync_idx]) != p->model_id)
-		sr_warn("Unexpected response data, trying to synchronize.");
+		otc_warn("Unexpected response data, trying to synchronize.");
 	while (do_sync_check) {
 		if (sync_idx + sync_len >= devc->buflen)
 			break;
@@ -293,7 +293,7 @@ static int accum_data(struct sr_dev_inst *sdi, struct sr_serial_dev_inst *serial
 		sync_idx++;
 	}
 	if (do_sync_check && sync_idx) {
-		sr_dbg("Skipping %zu bytes in attempt to sync.", sync_idx);
+		otc_dbg("Skipping %zu bytes in attempt to sync.", sync_idx);
 		sync_len = devc->buflen - sync_idx;
 		if (sync_len)
 			memmove(&devc->buf[0], &devc->buf[sync_idx], sync_len);
@@ -307,17 +307,17 @@ static int accum_data(struct sr_dev_inst *sdi, struct sr_serial_dev_inst *serial
 	 */
 	rdptr = devc->buf;
 	rdlen = devc->buflen;
-	ret = SR_OK;
-	while (ret == SR_OK && rdlen >= POLL_RECV_LEN) {
+	ret = OTC_OK;
+	while (ret == OTC_OK && rdlen >= POLL_RECV_LEN) {
 		ret = process_data(sdi, rdptr, rdlen);
-		if (ret != SR_OK) {
-			sr_err("Processing response packet failed.");
+		if (ret != OTC_OK) {
+			otc_err("Processing response packet failed.");
 			break;
 		}
 		rdptr += POLL_RECV_LEN;
 		rdlen -= POLL_RECV_LEN;
 
-		if (0 && !sr_sw_limits_check(&devc->limits))
+		if (0 && !otc_sw_limits_check(&devc->limits))
 			(void)rdtech_um_poll(sdi, FALSE);
 	}
 	rcvd = rdptr - devc->buf;
@@ -328,11 +328,11 @@ static int accum_data(struct sr_dev_inst *sdi, struct sr_serial_dev_inst *serial
 	return ret;
 }
 
-SR_PRIV int rdtech_um_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int rdtech_um_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int ret;
 
 	(void)fd;
@@ -349,15 +349,15 @@ SR_PRIV int rdtech_um_receive_data(int fd, int revents, void *cb_data)
 	serial = sdi->conn;
 	if (revents == G_IO_IN) {
 		ret = accum_data(sdi, serial);
-		if (ret != SR_OK) {
-			sr_dev_acquisition_stop(sdi);
+		if (ret != OTC_OK) {
+			otc_dev_acquisition_stop(sdi);
 			return TRUE;
 		}
 	}
 
 	/* Check configured acquisition limits. */
-	if (sr_sw_limits_check(&devc->limits)) {
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits)) {
+		otc_dev_acquisition_stop(sdi);
 		return TRUE;
 	}
 

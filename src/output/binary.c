@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -21,28 +21,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "output/binary"
 
-static int receive(const struct sr_output *o, const struct sr_datafeed_packet *packet,
+static int receive(const struct otc_output *o, const struct otc_datafeed_packet *packet,
 		GString **out)
 {
-	const struct sr_datafeed_logic *logic;
+	const struct otc_datafeed_logic *logic;
 
 	(void)o;
 
 	*out = NULL;
-	if (packet->type != SR_DF_LOGIC)
-		return SR_OK;
+	if (packet->type != OTC_DF_LOGIC)
+		return OTC_OK;
 	logic = packet->payload;
 	*out = g_string_new_len(logic->data, logic->length);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_output_module output_binary = {
+OTC_PRIV struct otc_output_module output_binary = {
 	.id = "binary",
 	.name = "Binary",
 	.desc = "Raw binary logic data",

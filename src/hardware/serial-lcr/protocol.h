@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Janne Huttunen <jahuttun@gmail.com>
  * Copyright (C) 2019 Gerhard Sittig <gerhard.sittig@gmx.net>
@@ -23,13 +23,13 @@
 
 #define LOG_PREFIX "serial-lcr"
 
-#include <libsigrok/libsigrok.h>
-#include <libsigrok-internal.h>
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include <stdint.h>
 #include <stdlib.h>
 
 struct lcr_info {
-	struct sr_dev_driver di;
+	struct otc_dev_driver di;
 	const char *vendor;
 	const char *model;
 	size_t channel_count;
@@ -37,26 +37,26 @@ struct lcr_info {
 	const char *comm;
 	size_t packet_size;
 	int64_t req_timeout_ms;
-	int (*packet_request)(struct sr_serial_dev_inst *serial);
+	int (*packet_request)(struct otc_serial_dev_inst *serial);
 	gboolean (*packet_valid)(const uint8_t *pkt);
 	int (*packet_parse)(const uint8_t *pkt, float *value,
-		struct sr_datafeed_analog *analog, void *info);
+		struct otc_datafeed_analog *analog, void *info);
 	int (*config_get)(uint32_t key, GVariant **data,
-		const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg);
+		const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg);
 	int (*config_set)(uint32_t key, GVariant *data,
-		const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg);
+		const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg);
 	int (*config_list)(uint32_t key, GVariant **data,
-		const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg);
+		const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg);
 };
 
 #define LCR_BUFSIZE	128
 
 struct dev_context {
 	const struct lcr_info *lcr_info;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	uint8_t buf[LCR_BUFSIZE];
 	size_t buf_rxpos, buf_rdpos;
 	struct lcr_parse_info parse_info;
@@ -65,6 +65,6 @@ struct dev_context {
 	int64_t req_next_at;
 };
 
-SR_PRIV int lcr_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int lcr_receive_data(int fd, int revents, void *cb_data);
 
 #endif

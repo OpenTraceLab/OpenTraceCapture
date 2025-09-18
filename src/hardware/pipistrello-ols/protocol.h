@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -24,8 +24,8 @@
 #include <string.h>
 #include <glib.h>
 #include <ftdi.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "pipistrello-ols"
 
@@ -37,9 +37,9 @@
 
 #define NUM_CHANNELS           32
 #define NUM_TRIGGER_STAGES     4
-#define CLOCK_RATE             SR_MHZ(100)
+#define CLOCK_RATE             OTC_MHZ(100)
 #define MIN_NUM_SAMPLES        4
-#define DEFAULT_SAMPLERATE     SR_MHZ(100)
+#define DEFAULT_SAMPLERATE     OTC_MHZ(100)
 
 /* Command opcodes */
 #define CMD_RESET                  0x00
@@ -110,15 +110,15 @@ struct dev_context {
 	unsigned char *raw_sample_buf;
 };
 
-SR_PRIV extern const char *p_ols_channel_names[];
-SR_PRIV int write_shortcommand(struct dev_context *devc, uint8_t command);
-SR_PRIV int write_longcommand(struct dev_context *devc, uint8_t command, uint8_t *data);
-SR_PRIV int p_ols_open(struct dev_context *devc);
-SR_PRIV int p_ols_close(struct dev_context *devc);
-SR_PRIV void pols_channel_mask(const struct sr_dev_inst *sdi);
-SR_PRIV int pols_convert_trigger(const struct sr_dev_inst *sdi);
-SR_PRIV struct sr_dev_inst *p_ols_get_metadata(uint8_t *buf, int bytes_read, struct dev_context *devc);
-SR_PRIV int p_ols_set_samplerate(const struct sr_dev_inst *sdi, uint64_t samplerate);
-SR_PRIV int p_ols_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV extern const char *p_ols_channel_names[];
+OTC_PRIV int write_shortcommand(struct dev_context *devc, uint8_t command);
+OTC_PRIV int write_longcommand(struct dev_context *devc, uint8_t command, uint8_t *data);
+OTC_PRIV int p_ols_open(struct dev_context *devc);
+OTC_PRIV int p_ols_close(struct dev_context *devc);
+OTC_PRIV void pols_channel_mask(const struct otc_dev_inst *sdi);
+OTC_PRIV int pols_convert_trigger(const struct otc_dev_inst *sdi);
+OTC_PRIV struct otc_dev_inst *p_ols_get_metadata(uint8_t *buf, int bytes_read, struct dev_context *devc);
+OTC_PRIV int p_ols_set_samplerate(const struct otc_dev_inst *sdi, uint64_t samplerate);
+OTC_PRIV int p_ols_receive_data(int fd, int revents, void *cb_data);
 
 #endif

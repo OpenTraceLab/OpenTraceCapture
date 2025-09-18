@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -23,8 +23,8 @@
 #include <glib.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "microchip-pickit2"
 
@@ -48,15 +48,15 @@ struct dev_context {
 	const uint64_t *captureratios;
 	size_t num_captureratios;
 	size_t curr_captureratio_idx;
-	struct sr_sw_limits sw_limits;
+	struct otc_sw_limits sw_limits;
 	gboolean detached_kernel_driver;
-	int32_t triggers[PICKIT2_CHANNEL_COUNT];	/**@< see @ref SR_TRIGGER_ZERO et al */
+	int32_t triggers[PICKIT2_CHANNEL_COUNT];	/**@< see @ref OTC_TRIGGER_ZERO et al */
 	size_t trigpos;
 	uint8_t samples_raw[PICKIT2_SAMPLE_RAWLEN];
 	uint8_t samples_conv[PICKIT2_SAMPLE_COUNT];
 };
 
-SR_PRIV int microchip_pickit2_setup_trigger(const struct sr_dev_inst *sdi);
-SR_PRIV int microchip_pickit2_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int microchip_pickit2_setup_trigger(const struct otc_dev_inst *sdi);
+OTC_PRIV int microchip_pickit2_receive_data(int fd, int revents, void *cb_data);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018-2019 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -19,8 +19,8 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 #include <string.h>
 #include <memory.h>
 
@@ -190,7 +190,7 @@ static const char *conn_name_text(enum ser_bt_conn_t type)
  * can get processed here.
  */
 static int ser_bt_parse_conn_spec(
-	struct sr_serial_dev_inst *serial, const char *spec,
+	struct otc_serial_dev_inst *serial, const char *spec,
 	enum ser_bt_conn_t *conn_type, const char **remote_addr,
 	size_t *rfcomm_channel,
 	uint16_t *read_hdl, uint16_t *write_hdl,
@@ -223,33 +223,33 @@ static int ser_bt_parse_conn_spec(
 		*ble_mtu = 0;
 
 	if (!serial || !spec || !spec[0])
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Evaluate the mandatory first three fields. */
 	fields = g_strsplit_set(spec, "/", 0);
 	if (!fields)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (g_strv_length(fields) < 3) {
 		g_strfreev(fields);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	field = fields[0];
 	if (strcmp(field, SER_BT_CONN_PREFIX) != 0) {
 		g_strfreev(fields);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	field = fields[1];
 	type = lookup_conn_name(field);
 	if (!type) {
 		g_strfreev(fields);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	if (conn_type)
 		*conn_type = type;
 	field = fields[2];
 	if (!field || !*field) {
 		g_strfreev(fields);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	addr = g_strdup(field);
 	if (remote_addr)
@@ -326,7 +326,7 @@ static int ser_bt_parse_conn_spec(
 			*cccd_val = 0x0001;
 		break;
 	default:
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
 	/*
@@ -335,7 +335,7 @@ static int ser_bt_parse_conn_spec(
 	 * Update the defaults which were setup above. Pessimize the
 	 * routine's return value in error paths.
 	 */
-	ret_parse = SR_OK;
+	ret_parse = OTC_OK;
 	fields_count = g_strv_length(fields);
 	for (field_idx = 3; field_idx < fields_count; field_idx++) {
 		field = fields[field_idx];
@@ -344,9 +344,9 @@ static int ser_bt_parse_conn_spec(
 		if (g_str_has_prefix(field, SER_BT_PARAM_PREFIX_CHANNEL)) {
 			field += strlen(SER_BT_PARAM_PREFIX_CHANNEL);
 			endp = NULL;
-			ret = sr_atoul_base(field, &parm_val, &endp, 0);
-			if (ret != SR_OK || !endp || *endp != '\0') {
-				ret_parse = SR_ERR_ARG;
+			ret = otc_atoul_base(field, &parm_val, &endp, 0);
+			if (ret != OTC_OK || !endp || *endp != '\0') {
+				ret_parse = OTC_ERR_ARG;
 				break;
 			}
 			if (rfcomm_channel)
@@ -356,9 +356,9 @@ static int ser_bt_parse_conn_spec(
 		if (g_str_has_prefix(field, SER_BT_PARAM_PREFIX_HDL_RX)) {
 			field += strlen(SER_BT_PARAM_PREFIX_HDL_RX);
 			endp = NULL;
-			ret = sr_atoul_base(field, &parm_val, &endp, 0);
-			if (ret != SR_OK || !endp || *endp != '\0') {
-				ret_parse = SR_ERR_ARG;
+			ret = otc_atoul_base(field, &parm_val, &endp, 0);
+			if (ret != OTC_OK || !endp || *endp != '\0') {
+				ret_parse = OTC_ERR_ARG;
 				break;
 			}
 			if (read_hdl)
@@ -368,9 +368,9 @@ static int ser_bt_parse_conn_spec(
 		if (g_str_has_prefix(field, SER_BT_PARAM_PREFIX_HDL_TX)) {
 			field += strlen(SER_BT_PARAM_PREFIX_HDL_TX);
 			endp = NULL;
-			ret = sr_atoul_base(field, &parm_val, &endp, 0);
-			if (ret != SR_OK || !endp || *endp != '\0') {
-				ret_parse = SR_ERR_ARG;
+			ret = otc_atoul_base(field, &parm_val, &endp, 0);
+			if (ret != OTC_OK || !endp || *endp != '\0') {
+				ret_parse = OTC_ERR_ARG;
 				break;
 			}
 			if (write_hdl)
@@ -380,9 +380,9 @@ static int ser_bt_parse_conn_spec(
 		if (g_str_has_prefix(field, SER_BT_PARAM_PREFIX_HDL_CCCD)) {
 			field += strlen(SER_BT_PARAM_PREFIX_HDL_CCCD);
 			endp = NULL;
-			ret = sr_atoul_base(field, &parm_val, &endp, 0);
-			if (ret != SR_OK || !endp || *endp != '\0') {
-				ret_parse = SR_ERR_ARG;
+			ret = otc_atoul_base(field, &parm_val, &endp, 0);
+			if (ret != OTC_OK || !endp || *endp != '\0') {
+				ret_parse = OTC_ERR_ARG;
 				break;
 			}
 			if (cccd_hdl)
@@ -392,9 +392,9 @@ static int ser_bt_parse_conn_spec(
 		if (g_str_has_prefix(field, SER_BT_PARAM_PREFIX_VAL_CCCD)) {
 			field += strlen(SER_BT_PARAM_PREFIX_VAL_CCCD);
 			endp = NULL;
-			ret = sr_atoul_base(field, &parm_val, &endp, 0);
-			if (ret != SR_OK || !endp || *endp != '\0') {
-				ret_parse = SR_ERR_ARG;
+			ret = otc_atoul_base(field, &parm_val, &endp, 0);
+			if (ret != OTC_OK || !endp || *endp != '\0') {
+				ret_parse = OTC_ERR_ARG;
 				break;
 			}
 			if (cccd_val)
@@ -404,23 +404,23 @@ static int ser_bt_parse_conn_spec(
 		if (g_str_has_prefix(field, SER_BT_PARAM_PREFIX_BLE_MTU)) {
 			field += strlen(SER_BT_PARAM_PREFIX_BLE_MTU);
 			endp = NULL;
-			ret = sr_atoul_base(field, &parm_val, &endp, 0);
-			if (ret != SR_OK || !endp || *endp != '\0') {
-				ret_parse = SR_ERR_ARG;
+			ret = otc_atoul_base(field, &parm_val, &endp, 0);
+			if (ret != OTC_OK || !endp || *endp != '\0') {
+				ret_parse = OTC_ERR_ARG;
 				break;
 			}
 			if (ble_mtu)
 				*ble_mtu = parm_val;
 			continue;
 		}
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 
 	g_strfreev(fields);
 	return ret_parse;
 }
 
-static void ser_bt_mask_databits(struct sr_serial_dev_inst *serial,
+static void ser_bt_mask_databits(struct otc_serial_dev_inst *serial,
 	uint8_t *data, size_t len)
 {
 	uint32_t mask32;
@@ -438,7 +438,7 @@ static void ser_bt_mask_databits(struct sr_serial_dev_inst *serial,
 
 static int ser_bt_data_cb(void *cb_data, uint8_t *data, size_t dlen)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	serial = cb_data;
 	if (!serial)
@@ -450,7 +450,7 @@ static int ser_bt_data_cb(void *cb_data, uint8_t *data, size_t dlen)
 		return 0;
 
 	ser_bt_mask_databits(serial, data, dlen);
-	sr_ser_queue_rx_data(serial, data, dlen);
+	otc_ser_queue_rx_data(serial, data, dlen);
 
 	return 0;
 }
@@ -459,7 +459,7 @@ static int ser_bt_data_cb(void *cb_data, uint8_t *data, size_t dlen)
 /* {{{ wrap serial-over-BT operations in a common serial.c API */
 
 /* See if a serial port's name refers to a BT type. */
-SR_PRIV int ser_name_is_bt(struct sr_serial_dev_inst *serial)
+OTC_PRIV int ser_name_is_bt(struct otc_serial_dev_inst *serial)
 {
 	size_t off;
 	char sep;
@@ -481,7 +481,7 @@ SR_PRIV int ser_name_is_bt(struct sr_serial_dev_inst *serial)
 }
 
 /* The open() wrapper for BT ports. */
-static int ser_bt_open(struct sr_serial_dev_inst *serial, int flags)
+static int ser_bt_open(struct otc_serial_dev_inst *serial, int flags)
 {
 	enum ser_bt_conn_t conn_type;
 	const char *remote_addr;
@@ -489,7 +489,7 @@ static int ser_bt_open(struct sr_serial_dev_inst *serial, int flags)
 	uint16_t read_hdl, write_hdl, cccd_hdl, cccd_val;
 	uint16_t ble_mtu;
 	int rc;
-	struct sr_bt_desc *desc;
+	struct otc_bt_desc *desc;
 
 	(void)flags;
 
@@ -500,28 +500,28 @@ static int ser_bt_open(struct sr_serial_dev_inst *serial, int flags)
 			&read_hdl, &write_hdl,
 			&cccd_hdl, &cccd_val,
 			&ble_mtu);
-	if (rc != SR_OK)
-		return SR_ERR_ARG;
+	if (rc != OTC_OK)
+		return OTC_ERR_ARG;
 
 	if (!conn_type || !remote_addr || !remote_addr[0]) {
 		/* TODO Auto-search for available connections? */
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
 	/* Create the connection. Only store params after successful use. */
-	desc = sr_bt_desc_new();
+	desc = otc_bt_desc_new();
 	if (!desc)
-		return SR_ERR;
+		return OTC_ERR;
 	serial->bt_desc = desc;
-	rc = sr_bt_config_addr_remote(desc, remote_addr);
+	rc = otc_bt_config_addr_remote(desc, remote_addr);
 	if (rc < 0)
-		return SR_ERR;
+		return OTC_ERR;
 	serial->bt_addr_remote = g_strdup(remote_addr);
 	switch (conn_type) {
 	case SER_BT_CONN_RFCOMM:
-		rc = sr_bt_config_rfcomm(desc, rfcomm_channel);
+		rc = otc_bt_config_rfcomm(desc, rfcomm_channel);
 		if (rc < 0)
-			return SR_ERR;
+			return OTC_ERR;
 		serial->bt_rfcomm_channel = rfcomm_channel;
 		break;
 	case SER_BT_CONN_BLE122:
@@ -530,11 +530,11 @@ static int ser_bt_open(struct sr_serial_dev_inst *serial, int flags)
 	case SER_BT_CONN_AC6328:
 	case SER_BT_CONN_DIALOG:
 	case SER_BT_CONN_NOTIFY:
-		rc = sr_bt_config_notify(desc,
+		rc = otc_bt_config_notify(desc,
 			read_hdl, write_hdl, cccd_hdl, cccd_val,
 			ble_mtu);
 		if (rc < 0)
-			return SR_ERR;
+			return OTC_ERR;
 		serial->bt_notify_handle_read = read_hdl;
 		serial->bt_notify_handle_write = write_hdl;
 		serial->bt_notify_handle_cccd = cccd_hdl;
@@ -543,23 +543,23 @@ static int ser_bt_open(struct sr_serial_dev_inst *serial, int flags)
 		break;
 	default:
 		/* Unsupported type, or incomplete implementation. */
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	serial->bt_conn_type = conn_type;
 
 	/* Make sure the receive buffer can accept input data. */
 	if (!serial->rcv_buffer)
 		serial->rcv_buffer = g_string_sized_new(SER_BT_CHUNK_SIZE);
-	rc = sr_bt_config_cb_data(desc, ser_bt_data_cb, serial);
+	rc = otc_bt_config_cb_data(desc, ser_bt_data_cb, serial);
 	if (rc < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
 	/* Open the connection. */
 	switch (conn_type) {
 	case SER_BT_CONN_RFCOMM:
-		rc = sr_bt_connect_rfcomm(desc);
+		rc = otc_bt_connect_rfcomm(desc);
 		if (rc < 0)
-			return SR_ERR;
+			return OTC_ERR;
 		break;
 	case SER_BT_CONN_BLE122:
 	case SER_BT_CONN_NRF51:
@@ -567,30 +567,30 @@ static int ser_bt_open(struct sr_serial_dev_inst *serial, int flags)
 	case SER_BT_CONN_AC6328:
 	case SER_BT_CONN_DIALOG:
 	case SER_BT_CONN_NOTIFY:
-		rc = sr_bt_connect_ble(desc);
+		rc = otc_bt_connect_ble(desc);
 		if (rc < 0)
-			return SR_ERR;
-		rc = sr_bt_start_notify(desc);
+			return OTC_ERR;
+		rc = otc_bt_start_notify(desc);
 		if (rc < 0)
-			return SR_ERR;
+			return OTC_ERR;
 		break;
 	default:
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int ser_bt_close(struct sr_serial_dev_inst *serial)
+static int ser_bt_close(struct otc_serial_dev_inst *serial)
 {
 	if (!serial)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (!serial->bt_desc)
-		return SR_OK;
+		return OTC_OK;
 
-	sr_bt_disconnect(serial->bt_desc);
-	sr_bt_desc_free(serial->bt_desc);
+	otc_bt_disconnect(serial->bt_desc);
+	otc_bt_desc_free(serial->bt_desc);
 	serial->bt_desc = NULL;
 
 	g_free(serial->bt_addr_local);
@@ -600,28 +600,28 @@ static int ser_bt_close(struct sr_serial_dev_inst *serial)
 	g_slist_free_full(serial->bt_source_args, g_free);
 	serial->bt_source_args = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Flush, discards pending RX data, empties buffers. */
-static int ser_bt_flush(struct sr_serial_dev_inst *serial)
+static int ser_bt_flush(struct otc_serial_dev_inst *serial)
 {
 	(void)serial;
 	/* EMPTY */
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Drain, waits for completion of pending TX data. */
-static int ser_bt_drain(struct sr_serial_dev_inst *serial)
+static int ser_bt_drain(struct otc_serial_dev_inst *serial)
 {
 	(void)serial;
 	/* EMPTY */	/* TODO? */
 
-	return SR_ERR_BUG;
+	return OTC_ERR_BUG;
 }
 
-static int ser_bt_write(struct sr_serial_dev_inst *serial,
+static int ser_bt_write(struct otc_serial_dev_inst *serial,
 		const void *buf, size_t count,
 		int nonblocking, unsigned int timeout_ms)
 {
@@ -636,9 +636,9 @@ static int ser_bt_write(struct sr_serial_dev_inst *serial,
 	case SER_BT_CONN_RFCOMM:
 		(void)nonblocking;
 		(void)timeout_ms;
-		wrlen = sr_bt_write(serial->bt_desc, buf, count);
+		wrlen = otc_bt_write(serial->bt_desc, buf, count);
 		if (wrlen < 0)
-			return SR_ERR_IO;
+			return OTC_ERR_IO;
 		return wrlen;
 	case SER_BT_CONN_BLE122:
 	case SER_BT_CONN_NRF51:
@@ -654,17 +654,17 @@ static int ser_bt_write(struct sr_serial_dev_inst *serial,
 		 */
 		(void)nonblocking;
 		(void)timeout_ms;
-		wrlen = sr_bt_write(serial->bt_desc, buf, count);
+		wrlen = otc_bt_write(serial->bt_desc, buf, count);
 		if (wrlen < 0)
-			return SR_ERR_IO;
+			return OTC_ERR_IO;
 		return wrlen;
 	default:
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	/* UNREACH */
 }
 
-static int ser_bt_read(struct sr_serial_dev_inst *serial,
+static int ser_bt_read(struct otc_serial_dev_inst *serial,
 		void *buf, size_t count,
 		int nonblocking, unsigned int timeout_ms)
 {
@@ -678,8 +678,8 @@ static int ser_bt_read(struct sr_serial_dev_inst *serial,
 	 * Immediately satisfy the caller's request from the RX buffer
 	 * if the requested amount of data is available already.
 	 */
-	if (sr_ser_has_queued_data(serial) >= count)
-		return sr_ser_unqueue_rx_data(serial, buf, count);
+	if (otc_ser_has_queued_data(serial) >= count)
+		return otc_ser_unqueue_rx_data(serial, buf, count);
 
 	/*
 	 * When a timeout was specified, then determine the deadline
@@ -701,7 +701,7 @@ static int ser_bt_read(struct sr_serial_dev_inst *serial,
 		/* Run another attempt to receive data. */
 		switch (serial->bt_conn_type) {
 		case SER_BT_CONN_RFCOMM:
-			rdlen = sr_bt_read(serial->bt_desc, buffer, sizeof(buffer));
+			rdlen = otc_bt_read(serial->bt_desc, buffer, sizeof(buffer));
 			if (rdlen <= 0)
 				break;
 			rc = ser_bt_data_cb(serial, buffer, rdlen);
@@ -714,11 +714,11 @@ static int ser_bt_read(struct sr_serial_dev_inst *serial,
 		case SER_BT_CONN_AC6328:
 		case SER_BT_CONN_DIALOG:
 		case SER_BT_CONN_NOTIFY:
-			dlen = sr_ser_has_queued_data(serial);
-			rc = sr_bt_check_notify(serial->bt_desc);
+			dlen = otc_ser_has_queued_data(serial);
+			rc = otc_bt_check_notify(serial->bt_desc);
 			if (rc < 0)
 				rdlen = -1;
-			else if (sr_ser_has_queued_data(serial) != dlen)
+			else if (otc_ser_has_queued_data(serial) != dlen)
 				rdlen = +1;
 			else
 				rdlen = 0;
@@ -743,7 +743,7 @@ static int ser_bt_read(struct sr_serial_dev_inst *serial,
 		}
 
 		/* Also stop when sufficient data has become available. */
-		if (sr_ser_has_queued_data(serial) >= count)
+		if (otc_ser_has_queued_data(serial) >= count)
 			break;
 	}
 
@@ -751,21 +751,21 @@ static int ser_bt_read(struct sr_serial_dev_inst *serial,
 	 * Satisfy the caller's demand for receive data from previously
 	 * queued incoming data.
 	 */
-	dlen = sr_ser_has_queued_data(serial);
+	dlen = otc_ser_has_queued_data(serial);
 	if (dlen > count)
 		dlen = count;
 	if (!dlen)
 		return 0;
 
-	return sr_ser_unqueue_rx_data(serial, buf, dlen);
+	return otc_ser_unqueue_rx_data(serial, buf, dlen);
 }
 
 struct bt_source_args_t {
 	/* The application callback. */
-	sr_receive_data_callback cb;
+	otc_receive_data_callback cb;
 	void *cb_data;
 	/* The serial device, to store RX data. */
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 };
 
 /*
@@ -777,7 +777,7 @@ struct bt_source_args_t {
 static int bt_source_cb(int fd, int revents, void *cb_data)
 {
 	struct bt_source_args_t *args;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	uint8_t rx_buf[SER_BT_CHUNK_SIZE];
 	ssize_t rdlen;
 	size_t dlen;
@@ -801,7 +801,7 @@ static int bt_source_cb(int fd, int revents, void *cb_data)
 	do {
 		switch (serial->bt_conn_type) {
 		case SER_BT_CONN_RFCOMM:
-			rdlen = sr_bt_read(serial->bt_desc, rx_buf, sizeof(rx_buf));
+			rdlen = otc_bt_read(serial->bt_desc, rx_buf, sizeof(rx_buf));
 			if (rdlen <= 0)
 				break;
 			rc = ser_bt_data_cb(serial, rx_buf, rdlen);
@@ -814,11 +814,11 @@ static int bt_source_cb(int fd, int revents, void *cb_data)
 		case SER_BT_CONN_AC6328:
 		case SER_BT_CONN_DIALOG:
 		case SER_BT_CONN_NOTIFY:
-			dlen = sr_ser_has_queued_data(serial);
-			rc = sr_bt_check_notify(serial->bt_desc);
+			dlen = otc_ser_has_queued_data(serial);
+			rc = otc_bt_check_notify(serial->bt_desc);
 			if (rc < 0)
 				rdlen = -1;
-			else if (sr_ser_has_queued_data(serial) != dlen)
+			else if (otc_ser_has_queued_data(serial) != dlen)
 				rdlen = +1;
 			else
 				rdlen = 0;
@@ -835,7 +835,7 @@ static int bt_source_cb(int fd, int revents, void *cb_data)
 	 * run the application callback, since it handles timeouts and
 	 * might carry out other tasks as well like signalling progress.
 	 */
-	if (sr_ser_has_queued_data(args->serial))
+	if (otc_ser_has_queued_data(args->serial))
 		revents |= G_IO_IN;
 	rc = args->cb(fd, revents, args->cb_data);
 
@@ -844,10 +844,10 @@ static int bt_source_cb(int fd, int revents, void *cb_data)
 
 /* TODO Can we use the Bluetooth socket's file descriptor? Probably not portably. */
 #define WITH_MAXIMUM_TIMEOUT_VALUE	0
-static int ser_bt_setup_source_add(struct sr_session *session,
-		struct sr_serial_dev_inst *serial,
+static int ser_bt_setup_source_add(struct otc_session *session,
+		struct otc_serial_dev_inst *serial,
 		int events, int timeout,
-		sr_receive_data_callback cb, void *cb_data)
+		otc_receive_data_callback cb, void *cb_data)
 {
 	struct bt_source_args_t *args;
 	int rc;
@@ -870,30 +870,30 @@ static int ser_bt_setup_source_add(struct sr_session *session,
 	 * free the memory, and we haven't bothered to create a custom
 	 * BT specific GSource.
 	 */
-	rc = sr_session_source_add(session, -1, events, timeout, bt_source_cb, args);
-	if (rc != SR_OK) {
+	rc = otc_session_source_add(session, -1, events, timeout, bt_source_cb, args);
+	if (rc != OTC_OK) {
 		g_free(args);
 		return rc;
 	}
 	serial->bt_source_args = g_slist_append(serial->bt_source_args, args);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int ser_bt_setup_source_remove(struct sr_session *session,
-		struct sr_serial_dev_inst *serial)
+static int ser_bt_setup_source_remove(struct otc_session *session,
+		struct otc_serial_dev_inst *serial)
 {
 	(void)serial;
 
-	(void)sr_session_source_remove(session, -1);
+	(void)otc_session_source_remove(session, -1);
 	/* Release callback args here already? */
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 struct bt_scan_args_t {
 	GSList *port_list;
-	sr_ser_list_append_t append;
+	otc_ser_list_append_t append;
 	GSList *addr_list;
 	const char *bt_type;
 };
@@ -911,7 +911,7 @@ static void scan_cb(void *cb_args, const char *addr, const char *name)
 	scan_args = cb_args;
 	if (!scan_args)
 		return;
-	sr_info("BT scan, found: %s - %s\n", addr, name);
+	otc_info("BT scan, found: %s - %s\n", addr, name);
 
 	/* Check whether the device was seen before. */
 	for (l = scan_args->addr_list; l; l = l->next) {
@@ -942,12 +942,12 @@ static void scan_cb(void *cb_args, const char *addr, const char *name)
 	scan_args->addr_list = g_slist_append(scan_args->addr_list, addr_copy);
 }
 
-static GSList *ser_bt_list(GSList *list, sr_ser_list_append_t append)
+static GSList *ser_bt_list(GSList *list, otc_ser_list_append_t append)
 {
 	static const int scan_duration = 3;
 
 	struct bt_scan_args_t scan_args;
-	struct sr_bt_desc *desc;
+	struct otc_bt_desc *desc;
 
 	/*
 	 * Implementor's note: This "list" routine is best-effort. We
@@ -956,7 +956,7 @@ static GSList *ser_bt_list(GSList *list, sr_ser_list_append_t append)
 	 * we happen to find.
 	 */
 
-	desc = sr_bt_desc_new();
+	desc = otc_bt_desc_new();
 	if (!desc)
 		return list;
 
@@ -966,17 +966,17 @@ static GSList *ser_bt_list(GSList *list, sr_ser_list_append_t append)
 
 	scan_args.addr_list = NULL;
 	scan_args.bt_type = "BT";
-	(void)sr_bt_config_cb_scan(desc, scan_cb, &scan_args);
-	(void)sr_bt_scan_bt(desc, scan_duration);
+	(void)otc_bt_config_cb_scan(desc, scan_cb, &scan_args);
+	(void)otc_bt_scan_bt(desc, scan_duration);
 	g_slist_free_full(scan_args.addr_list, g_free);
 
 	scan_args.addr_list = NULL;
 	scan_args.bt_type = "BLE";
-	(void)sr_bt_config_cb_scan(desc, scan_cb, &scan_args);
-	(void)sr_bt_scan_le(desc, scan_duration);
+	(void)otc_bt_config_cb_scan(desc, scan_cb, &scan_args);
+	(void)otc_bt_scan_le(desc, scan_duration);
 	g_slist_free_full(scan_args.addr_list, g_free);
 
-	sr_bt_desc_free(desc);
+	otc_bt_desc_free(desc);
 
 	return scan_args.port_list;
 }
@@ -1001,19 +1001,19 @@ static struct ser_lib_functions serlib_bt = {
 	.list = ser_bt_list,
 	.get_frame_format = NULL,
 };
-SR_PRIV struct ser_lib_functions *ser_lib_funcs_bt = &serlib_bt;
+OTC_PRIV struct ser_lib_functions *ser_lib_funcs_bt = &serlib_bt;
 
 /* }}} */
 #else
 
-SR_PRIV int ser_name_is_bt(struct sr_serial_dev_inst *serial)
+OTC_PRIV int ser_name_is_bt(struct otc_serial_dev_inst *serial)
 {
 	(void)serial;
 
 	return 0;
 }
 
-SR_PRIV struct ser_lib_functions *ser_lib_funcs_bt = NULL;
+OTC_PRIV struct ser_lib_functions *ser_lib_funcs_bt = NULL;
 
 #endif
 #endif

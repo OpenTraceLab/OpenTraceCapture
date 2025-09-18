@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -26,8 +26,8 @@
 #include <ctype.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "fs9922"
 
@@ -43,7 +43,7 @@ static gboolean flags_valid(const struct fs9922_info *info)
 	count += (info->is_kilo) ? 1 : 0;
 	count += (info->is_mega) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one multiplier detected in packet.");
+		otc_dbg("More than one multiplier detected in packet.");
 		return FALSE;
 	}
 
@@ -66,19 +66,19 @@ static gboolean flags_valid(const struct fs9922_info *info)
 	count += (info->is_celsius) ? 1 : 0;
 	count += (info->is_fahrenheit) ? 1 : 0;
 	if (count > 1) {
-		sr_dbg("More than one measurement type detected in packet.");
+		otc_dbg("More than one measurement type detected in packet.");
 		return FALSE;
 	}
 
 	/* Both AC and DC set? */
 	if (info->is_ac && info->is_dc) {
-		sr_dbg("Both AC and DC flags detected in packet.");
+		otc_dbg("Both AC and DC flags detected in packet.");
 		return FALSE;
 	}
 
 	/* Both Celsius and Fahrenheit set? */
 	if (info->is_celsius && info->is_fahrenheit) {
-		sr_dbg("Both Celsius and Fahrenheit flags detected in packet.");
+		otc_dbg("Both Celsius and Fahrenheit flags detected in packet.");
 		return FALSE;
 	}
 
@@ -96,8 +96,8 @@ static int parse_value(const uint8_t *buf, float *result, int *exponent)
 	} else if (buf[0] == '-') {
 		sign = -1;
 	} else {
-		sr_dbg("Invalid sign byte: 0x%02x.", buf[0]);
-		return SR_ERR;
+		otc_dbg("Invalid sign byte: 0x%02x.", buf[0]);
+		return OTC_ERR;
 	}
 
 	/*
@@ -106,16 +106,16 @@ static int parse_value(const uint8_t *buf, float *result, int *exponent)
 	 * Over limit: "0.L" on the display, "?0:?" as protocol "digits".
 	 */
 	if (buf[1] == '?' && buf[2] == '0' && buf[3] == ':' && buf[4] == '?') {
-		sr_spew("Over limit.");
+		otc_spew("Over limit.");
 		*result = INFINITY;
-		return SR_OK;
+		return OTC_OK;
 	} else if (!isdigit(buf[1]) || !isdigit(buf[2]) ||
 		   !isdigit(buf[3]) || !isdigit(buf[4])) {
-		sr_dbg("Value contained invalid digits: %02x %02x %02x %02x ("
+		otc_dbg("Value contained invalid digits: %02x %02x %02x %02x ("
 			"%c %c %c %c).",
 			buf[1], buf[2], buf[3], buf[4],
 			buf[1], buf[2], buf[3], buf[4]);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	intval = 0;
 	intval += (buf[1] - '0') * 1000;
@@ -135,8 +135,8 @@ static int parse_value(const uint8_t *buf, float *result, int *exponent)
 	 * used, but '0'/'1'/'2'/'4' is actually correct.
 	 */
 	if (buf[6] != '0' && buf[6] != '1' && buf[6] != '2' && buf[6] != '4') {
-		sr_dbg("Invalid decimal point value: 0x%02x.", buf[6]);
-		return SR_ERR;
+		otc_dbg("Invalid decimal point value: 0x%02x.", buf[6]);
+		return OTC_ERR;
 	}
 	if (buf[6] == '0')
 		*exponent = 0;
@@ -150,11 +150,11 @@ static int parse_value(const uint8_t *buf, float *result, int *exponent)
 	/* Apply sign. */
 	floatval *= sign;
 
-	sr_spew("The display value is %f.", floatval);
+	otc_spew("The display value is %f.", floatval);
 
 	*result = floatval;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void parse_flags(const uint8_t *buf, struct fs9922_info *info)
@@ -222,7 +222,7 @@ static void parse_flags(const uint8_t *buf, struct fs9922_info *info)
 	/* Byte 13: Always '\n' (newline, 0x0a, 10) */
 }
 
-static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
+static void handle_flags(struct otc_datafeed_analog *analog, float *floatval,
 			 int *exponent, const struct fs9922_info *info)
 {
 	/* Factors */
@@ -241,86 +241,86 @@ static void handle_flags(struct sr_datafeed_analog *analog, float *floatval,
 	/* Measurement modes */
 	if (info->is_volt || info->is_diode) {
 		/* Note: In "diode mode" both is_diode and is_volt are set. */
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 	}
 	if (info->is_ampere) {
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 	}
 	if (info->is_ohm) {
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 	}
 	if (info->is_hfe) {
-		analog->meaning->mq = SR_MQ_GAIN;
-		analog->meaning->unit = SR_UNIT_UNITLESS;
+		analog->meaning->mq = OTC_MQ_GAIN;
+		analog->meaning->unit = OTC_UNIT_UNITLESS;
 	}
 	if (info->is_hertz) {
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 	}
 	if (info->is_farad) {
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 	}
 	if (info->is_celsius) {
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
-		analog->meaning->unit = SR_UNIT_CELSIUS;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
+		analog->meaning->unit = OTC_UNIT_CELSIUS;
 	}
 	if (info->is_fahrenheit) {
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
-		analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
+		analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 	}
 	if (info->is_beep) {
-		analog->meaning->mq = SR_MQ_CONTINUITY;
-		analog->meaning->unit = SR_UNIT_BOOLEAN;
+		analog->meaning->mq = OTC_MQ_CONTINUITY;
+		analog->meaning->unit = OTC_UNIT_BOOLEAN;
 		*floatval = (*floatval == INFINITY) ? 0.0 : 1.0;
 	}
 	if (info->is_percent) {
-		analog->meaning->mq = SR_MQ_DUTY_CYCLE;
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 	}
 
 	/* Measurement related flags */
 	if (info->is_ac)
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 	if (info->is_dc)
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 	if (info->is_auto)
-		analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 	if (info->is_diode)
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 	if (info->is_hold)
-		analog->meaning->mqflags |= SR_MQFLAG_HOLD;
+		analog->meaning->mqflags |= OTC_MQFLAG_HOLD;
 	if (info->is_max)
-		analog->meaning->mqflags |= SR_MQFLAG_MAX;
+		analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 	if (info->is_min)
-		analog->meaning->mqflags |= SR_MQFLAG_MIN;
+		analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 	if (info->is_rel)
-		analog->meaning->mqflags |= SR_MQFLAG_RELATIVE;
+		analog->meaning->mqflags |= OTC_MQFLAG_RELATIVE;
 
 	/* Other flags */
 	if (info->is_apo)
-		sr_spew("Automatic power-off function is active.");
+		otc_spew("Automatic power-off function is active.");
 	if (info->is_bat)
-		sr_spew("Battery is low.");
+		otc_spew("Battery is low.");
 	if (info->is_z1)
-		sr_spew("User-defined LCD symbol 1 is active.");
+		otc_spew("User-defined LCD symbol 1 is active.");
 	if (info->is_z2)
-		sr_spew("User-defined LCD symbol 2 is active.");
+		otc_spew("User-defined LCD symbol 2 is active.");
 	if (info->is_z3)
-		sr_spew("User-defined LCD symbol 3 is active.");
+		otc_spew("User-defined LCD symbol 3 is active.");
 	if (info->is_z4)
-		sr_spew("User-defined LCD symbol 4 is active.");
+		otc_spew("User-defined LCD symbol 4 is active.");
 	if (info->is_bpn)
-		sr_spew("The bargraph value is %d.", info->bargraph_value);
+		otc_spew("The bargraph value is %d.", info->bargraph_value);
 	else
-		sr_spew("The bargraph is not active.");
+		otc_spew("The bargraph is not active.");
 
 }
 
-SR_PRIV gboolean sr_fs9922_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_fs9922_packet_valid(const uint8_t *buf)
 {
 	struct fs9922_info info;
 
@@ -344,25 +344,25 @@ SR_PRIV gboolean sr_fs9922_packet_valid(const uint8_t *buf)
  * @param buf Buffer containing the protocol packet. Must not be NULL.
  * @param floatval Pointer to a float variable. That variable will contain the
  *                 result value upon parsing success. Must not be NULL.
- * @param analog Pointer to a struct sr_datafeed_analog. The struct will be
+ * @param analog Pointer to a struct otc_datafeed_analog. The struct will be
  *               filled with data according to the protocol packet.
  *               Must not be NULL.
  * @param info Pointer to a struct fs9922_info. The struct will be filled
  *             with data according to the protocol packet. Must not be NULL.
  *
- * @return SR_OK upon success, SR_ERR upon failure. Upon errors, the
+ * @return OTC_OK upon success, OTC_ERR upon failure. Upon errors, the
  *         'analog' variable contents are undefined and should not be used.
  */
-SR_PRIV int sr_fs9922_parse(const uint8_t *buf, float *floatval,
-			    struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_fs9922_parse(const uint8_t *buf, float *floatval,
+			    struct otc_datafeed_analog *analog, void *info)
 {
 	int ret, exponent = 0;
 	struct fs9922_info *info_local;
 
 	info_local = info;
 
-	if ((ret = parse_value(buf, floatval, &exponent)) != SR_OK) {
-		sr_dbg("Error parsing value: %d.", ret);
+	if ((ret = parse_value(buf, floatval, &exponent)) != OTC_OK) {
+		otc_dbg("Error parsing value: %d.", ret);
 		return ret;
 	}
 
@@ -372,10 +372,10 @@ SR_PRIV int sr_fs9922_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits = -exponent;
 	analog->spec->spec_digits = -exponent;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV void sr_fs9922_z1_diode(struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV void otc_fs9922_z1_diode(struct otc_datafeed_analog *analog, void *info)
 {
 	struct fs9922_info *info_local;
 
@@ -383,8 +383,8 @@ SR_PRIV void sr_fs9922_z1_diode(struct sr_datafeed_analog *analog, void *info)
 
 	/* User-defined z1 flag means "diode mode". */
 	if (info_local->is_z1) {
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE | SR_MQFLAG_DC;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE | OTC_MQFLAG_DC;
 	}
 }

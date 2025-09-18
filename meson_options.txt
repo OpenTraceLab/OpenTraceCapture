@@ -1,0 +1,18 @@
+# Crypto (nettle)
+option('with_nettle',    type: 'feature', value: 'auto', description: 'Enable drivers that require nettle (nettle/aes.h)')
+
+# Parallel port (IEEE1284)
+option('with_ieee1284',  type: 'feature', value: 'auto', description: 'Enable drivers that require libieee1284 (ieee1284.h)')
+
+# GPIB (linux-gpib / NI)
+option('with_gpib',      type: 'feature', value: 'auto', description: 'Enable drivers that require GPIB (gpib/ib.h)')
+
+# Vendor SDK placeholders (disabled by default)
+option('with_vendor_sdks', type: 'feature', value: 'disabled', description: 'Enable drivers that depend on proprietary SDKs')
+
+# HID API
+option('hidapi', type: 'feature', value: 'auto', description: 'Enable HIDAPI-based support')
+option('hidapi_backend', type: 'combo', value: 'auto', choices: ['auto','hidraw','libusb','generic'], description: 'Preferred HIDAPI backend')
+
+# udev rules installation
+option('udevdir', type: 'string', value: '', description: 'udev base dir (…/udev); rules go into rules.d under this')

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -28,263 +28,263 @@
 
 /*--- analog.c --------------------------------------------------------------*/
 
-SR_API int sr_analog_to_float(const struct sr_datafeed_analog *analog,
+OTC_API int otc_analog_to_float(const struct otc_datafeed_analog *analog,
 		float *buf);
-SR_API const char *sr_analog_si_prefix(float *value, int *digits);
-SR_API gboolean sr_analog_si_prefix_friendly(enum sr_unit unit);
-SR_API int sr_analog_unit_to_string(const struct sr_datafeed_analog *analog,
+OTC_API const char *otc_analog_si_prefix(float *value, int *digits);
+OTC_API gboolean otc_analog_si_prefix_friendly(enum otc_unit unit);
+OTC_API int otc_analog_unit_to_string(const struct otc_datafeed_analog *analog,
 		char **result);
-SR_API void sr_rational_set(struct sr_rational *r, int64_t p, uint64_t q);
-SR_API int sr_rational_eq(const struct sr_rational *a, const struct sr_rational *b);
-SR_API int sr_rational_mult(struct sr_rational *res, const struct sr_rational *a,
-		const struct sr_rational *b);
-SR_API int sr_rational_div(struct sr_rational *res, const struct sr_rational *num,
-		const struct sr_rational *div);
+OTC_API void otc_rational_set(struct otc_rational *r, int64_t p, uint64_t q);
+OTC_API int otc_rational_eq(const struct otc_rational *a, const struct otc_rational *b);
+OTC_API int otc_rational_mult(struct otc_rational *res, const struct otc_rational *a,
+		const struct otc_rational *b);
+OTC_API int otc_rational_div(struct otc_rational *res, const struct otc_rational *num,
+		const struct otc_rational *div);
 
 /*--- backend.c -------------------------------------------------------------*/
 
-SR_API int sr_init(struct sr_context **ctx);
-SR_API int sr_exit(struct sr_context *ctx);
+OTC_API int otc_init(struct otc_context **ctx);
+OTC_API int otc_exit(struct otc_context *ctx);
 
-SR_API GSList *sr_buildinfo_libs_get(void);
-SR_API char *sr_buildinfo_host_get(void);
-SR_API char *sr_buildinfo_scpi_backends_get(void);
+OTC_API GSList *otc_buildinfo_libs_get(void);
+OTC_API char *otc_buildinfo_host_get(void);
+OTC_API char *otc_buildinfo_scpi_backends_get(void);
 
 /*--- conversion.c ----------------------------------------------------------*/
 
-SR_API int sr_a2l_threshold(const struct sr_datafeed_analog *analog,
+OTC_API int otc_a2l_threshold(const struct otc_datafeed_analog *analog,
 		float threshold, uint8_t *output, uint64_t count);
-SR_API int sr_a2l_schmitt_trigger(const struct sr_datafeed_analog *analog,
+OTC_API int otc_a2l_schmitt_trigger(const struct otc_datafeed_analog *analog,
 		float lo_thr, float hi_thr, uint8_t *state, uint8_t *output,
 		uint64_t count);
 
 /*--- log.c -----------------------------------------------------------------*/
 
-typedef int (*sr_log_callback)(void *cb_data, int loglevel,
+typedef int (*otc_log_callback)(void *cb_data, int loglevel,
 				const char *format, va_list args);
 
-SR_API int sr_log_loglevel_set(int loglevel);
-SR_API int sr_log_loglevel_get(void);
-SR_API int sr_log_callback_set(sr_log_callback cb, void *cb_data);
-SR_API int sr_log_callback_set_default(void);
-SR_API int sr_log_callback_get(sr_log_callback *cb, void **cb_data);
+OTC_API int otc_log_loglevel_set(int loglevel);
+OTC_API int otc_log_loglevel_get(void);
+OTC_API int otc_log_callback_set(otc_log_callback cb, void *cb_data);
+OTC_API int otc_log_callback_set_default(void);
+OTC_API int otc_log_callback_get(otc_log_callback *cb, void **cb_data);
 
 /*--- device.c --------------------------------------------------------------*/
 
-SR_API int sr_dev_channel_name_set(struct sr_channel *channel,
+OTC_API int otc_dev_channel_name_set(struct otc_channel *channel,
 		const char *name);
-SR_API int sr_dev_channel_enable(struct sr_channel *channel,
+OTC_API int otc_dev_channel_enable(struct otc_channel *channel,
 		gboolean state);
-SR_API gboolean sr_dev_has_option(const struct sr_dev_inst *sdi, int key);
-SR_API int sr_dev_config_capabilities_list(const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg, int key);
-SR_API GArray *sr_dev_options(const struct sr_dev_driver *driver,
-		const struct sr_dev_inst *sdi, const struct sr_channel_group *cg);
-SR_API GSList *sr_dev_list(const struct sr_dev_driver *driver);
-SR_API int sr_dev_clear(const struct sr_dev_driver *driver);
-SR_API int sr_dev_open(struct sr_dev_inst *sdi);
-SR_API int sr_dev_close(struct sr_dev_inst *sdi);
+OTC_API gboolean otc_dev_has_option(const struct otc_dev_inst *sdi, int key);
+OTC_API int otc_dev_config_capabilities_list(const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg, int key);
+OTC_API GArray *otc_dev_options(const struct otc_dev_driver *driver,
+		const struct otc_dev_inst *sdi, const struct otc_channel_group *cg);
+OTC_API GSList *otc_dev_list(const struct otc_dev_driver *driver);
+OTC_API int otc_dev_clear(const struct otc_dev_driver *driver);
+OTC_API int otc_dev_open(struct otc_dev_inst *sdi);
+OTC_API int otc_dev_close(struct otc_dev_inst *sdi);
 
-SR_API struct sr_dev_driver *sr_dev_inst_driver_get(const struct sr_dev_inst *sdi);
-SR_API const char *sr_dev_inst_vendor_get(const struct sr_dev_inst *sdi);
-SR_API const char *sr_dev_inst_model_get(const struct sr_dev_inst *sdi);
-SR_API const char *sr_dev_inst_version_get(const struct sr_dev_inst *sdi);
-SR_API const char *sr_dev_inst_sernum_get(const struct sr_dev_inst *sdi);
-SR_API const char *sr_dev_inst_connid_get(const struct sr_dev_inst *sdi);
-SR_API GSList *sr_dev_inst_channels_get(const struct sr_dev_inst *sdi);
-SR_API GSList *sr_dev_inst_channel_groups_get(const struct sr_dev_inst *sdi);
+OTC_API struct otc_dev_driver *otc_dev_inst_driver_get(const struct otc_dev_inst *sdi);
+OTC_API const char *otc_dev_inst_vendor_get(const struct otc_dev_inst *sdi);
+OTC_API const char *otc_dev_inst_model_get(const struct otc_dev_inst *sdi);
+OTC_API const char *otc_dev_inst_version_get(const struct otc_dev_inst *sdi);
+OTC_API const char *otc_dev_inst_sernum_get(const struct otc_dev_inst *sdi);
+OTC_API const char *otc_dev_inst_connid_get(const struct otc_dev_inst *sdi);
+OTC_API GSList *otc_dev_inst_channels_get(const struct otc_dev_inst *sdi);
+OTC_API GSList *otc_dev_inst_channel_groups_get(const struct otc_dev_inst *sdi);
 
-SR_API struct sr_dev_inst *sr_dev_inst_user_new(const char *vendor,
+OTC_API struct otc_dev_inst *otc_dev_inst_user_new(const char *vendor,
 		const char *model, const char *version);
-SR_API int sr_dev_inst_channel_add(struct sr_dev_inst *sdi, int index, int type, const char *name);
+OTC_API int otc_dev_inst_channel_add(struct otc_dev_inst *sdi, int index, int type, const char *name);
 
 /*--- hwdriver.c ------------------------------------------------------------*/
 
-SR_API struct sr_dev_driver **sr_driver_list(const struct sr_context *ctx);
-SR_API int sr_driver_init(struct sr_context *ctx,
-		struct sr_dev_driver *driver);
-SR_API GArray *sr_driver_scan_options_list(const struct sr_dev_driver *driver);
-SR_API GSList *sr_driver_scan(struct sr_dev_driver *driver, GSList *options);
-SR_API int sr_config_get(const struct sr_dev_driver *driver,
-		const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg,
+OTC_API struct otc_dev_driver **otc_driver_list(const struct otc_context *ctx);
+OTC_API int otc_driver_init(struct otc_context *ctx,
+		struct otc_dev_driver *driver);
+OTC_API GArray *otc_driver_scan_options_list(const struct otc_dev_driver *driver);
+OTC_API GSList *otc_driver_scan(struct otc_dev_driver *driver, GSList *options);
+OTC_API int otc_config_get(const struct otc_dev_driver *driver,
+		const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg,
 		uint32_t key, GVariant **data);
-SR_API int sr_config_set(const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg,
+OTC_API int otc_config_set(const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg,
 		uint32_t key, GVariant *data);
-SR_API int sr_config_commit(const struct sr_dev_inst *sdi);
-SR_API int sr_config_list(const struct sr_dev_driver *driver,
-		const struct sr_dev_inst *sdi,
-		const struct sr_channel_group *cg,
+OTC_API int otc_config_commit(const struct otc_dev_inst *sdi);
+OTC_API int otc_config_list(const struct otc_dev_driver *driver,
+		const struct otc_dev_inst *sdi,
+		const struct otc_channel_group *cg,
 		uint32_t key, GVariant **data);
-SR_API const struct sr_key_info *sr_key_info_get(int keytype, uint32_t key);
-SR_API const struct sr_key_info *sr_key_info_name_get(int keytype, const char *keyid);
+OTC_API const struct otc_key_info *otc_key_info_get(int keytype, uint32_t key);
+OTC_API const struct otc_key_info *otc_key_info_name_get(int keytype, const char *keyid);
 
 /*--- session.c -------------------------------------------------------------*/
 
-typedef void (*sr_session_stopped_callback)(void *data);
-typedef void (*sr_datafeed_callback)(const struct sr_dev_inst *sdi,
-		const struct sr_datafeed_packet *packet, void *cb_data);
+typedef void (*otc_session_stopped_callback)(void *data);
+typedef void (*otc_datafeed_callback)(const struct otc_dev_inst *sdi,
+		const struct otc_datafeed_packet *packet, void *cb_data);
 
-SR_API struct sr_trigger *sr_session_trigger_get(struct sr_session *session);
+OTC_API struct otc_trigger *otc_session_trigger_get(struct otc_session *session);
 
 /* Session setup */
-SR_API int sr_session_load(struct sr_context *ctx, const char *filename,
-	struct sr_session **session);
-SR_API int sr_session_new(struct sr_context *ctx, struct sr_session **session);
-SR_API int sr_session_destroy(struct sr_session *session);
-SR_API int sr_session_dev_remove_all(struct sr_session *session);
-SR_API int sr_session_dev_add(struct sr_session *session,
-		struct sr_dev_inst *sdi);
-SR_API int sr_session_dev_remove(struct sr_session *session,
-		struct sr_dev_inst *sdi);
-SR_API int sr_session_dev_list(struct sr_session *session, GSList **devlist);
-SR_API int sr_session_trigger_set(struct sr_session *session, struct sr_trigger *trig);
+OTC_API int otc_session_load(struct otc_context *ctx, const char *filename,
+	struct otc_session **session);
+OTC_API int otc_session_new(struct otc_context *ctx, struct otc_session **session);
+OTC_API int otc_session_destroy(struct otc_session *session);
+OTC_API int otc_session_dev_remove_all(struct otc_session *session);
+OTC_API int otc_session_dev_add(struct otc_session *session,
+		struct otc_dev_inst *sdi);
+OTC_API int otc_session_dev_remove(struct otc_session *session,
+		struct otc_dev_inst *sdi);
+OTC_API int otc_session_dev_list(struct otc_session *session, GSList **devlist);
+OTC_API int otc_session_trigger_set(struct otc_session *session, struct otc_trigger *trig);
 
 /* Datafeed setup */
-SR_API int sr_session_datafeed_callback_remove_all(struct sr_session *session);
-SR_API int sr_session_datafeed_callback_add(struct sr_session *session,
-		sr_datafeed_callback cb, void *cb_data);
+OTC_API int otc_session_datafeed_callback_remove_all(struct otc_session *session);
+OTC_API int otc_session_datafeed_callback_add(struct otc_session *session,
+		otc_datafeed_callback cb, void *cb_data);
 
 /* Session control */
-SR_API int sr_session_start(struct sr_session *session);
-SR_API int sr_session_run(struct sr_session *session);
-SR_API int sr_session_stop(struct sr_session *session);
-SR_API int sr_session_is_running(struct sr_session *session);
-SR_API int sr_session_stopped_callback_set(struct sr_session *session,
-		sr_session_stopped_callback cb, void *cb_data);
+OTC_API int otc_session_start(struct otc_session *session);
+OTC_API int otc_session_run(struct otc_session *session);
+OTC_API int otc_session_stop(struct otc_session *session);
+OTC_API int otc_session_is_running(struct otc_session *session);
+OTC_API int otc_session_stopped_callback_set(struct otc_session *session,
+		otc_session_stopped_callback cb, void *cb_data);
 
-SR_API int sr_packet_copy(const struct sr_datafeed_packet *packet,
-		struct sr_datafeed_packet **copy);
-SR_API void sr_packet_free(struct sr_datafeed_packet *packet);
+OTC_API int otc_packet_copy(const struct otc_datafeed_packet *packet,
+		struct otc_datafeed_packet **copy);
+OTC_API void otc_packet_free(struct otc_datafeed_packet *packet);
 
 /*--- input/input.c ---------------------------------------------------------*/
 
-SR_API const struct sr_input_module **sr_input_list(void);
-SR_API const char *sr_input_id_get(const struct sr_input_module *imod);
-SR_API const char *sr_input_name_get(const struct sr_input_module *imod);
-SR_API const char *sr_input_description_get(const struct sr_input_module *imod);
-SR_API const char *const *sr_input_extensions_get(
-		const struct sr_input_module *imod);
-SR_API const struct sr_input_module *sr_input_find(const char *id);
-SR_API const struct sr_option **sr_input_options_get(const struct sr_input_module *imod);
-SR_API void sr_input_options_free(const struct sr_option **options);
-SR_API struct sr_input *sr_input_new(const struct sr_input_module *imod,
+OTC_API const struct otc_input_module **otc_input_list(void);
+OTC_API const char *otc_input_id_get(const struct otc_input_module *imod);
+OTC_API const char *otc_input_name_get(const struct otc_input_module *imod);
+OTC_API const char *otc_input_description_get(const struct otc_input_module *imod);
+OTC_API const char *const *otc_input_extensions_get(
+		const struct otc_input_module *imod);
+OTC_API const struct otc_input_module *otc_input_find(const char *id);
+OTC_API const struct otc_option **otc_input_options_get(const struct otc_input_module *imod);
+OTC_API void otc_input_options_free(const struct otc_option **options);
+OTC_API struct otc_input *otc_input_new(const struct otc_input_module *imod,
 		GHashTable *options);
-SR_API int sr_input_scan_buffer(GString *buf, const struct sr_input **in);
-SR_API int sr_input_scan_file(const char *filename, const struct sr_input **in);
-SR_API const struct sr_input_module *sr_input_module_get(const struct sr_input *in);
-SR_API struct sr_dev_inst *sr_input_dev_inst_get(const struct sr_input *in);
-SR_API int sr_input_send(const struct sr_input *in, GString *buf);
-SR_API int sr_input_end(const struct sr_input *in);
-SR_API int sr_input_reset(const struct sr_input *in);
-SR_API void sr_input_free(const struct sr_input *in);
+OTC_API int otc_input_scan_buffer(GString *buf, const struct otc_input **in);
+OTC_API int otc_input_scan_file(const char *filename, const struct otc_input **in);
+OTC_API const struct otc_input_module *otc_input_module_get(const struct otc_input *in);
+OTC_API struct otc_dev_inst *otc_input_dev_inst_get(const struct otc_input *in);
+OTC_API int otc_input_send(const struct otc_input *in, GString *buf);
+OTC_API int otc_input_end(const struct otc_input *in);
+OTC_API int otc_input_reset(const struct otc_input *in);
+OTC_API void otc_input_free(const struct otc_input *in);
 
 /*--- output/output.c -------------------------------------------------------*/
 
-SR_API const struct sr_output_module **sr_output_list(void);
-SR_API const char *sr_output_id_get(const struct sr_output_module *omod);
-SR_API const char *sr_output_name_get(const struct sr_output_module *omod);
-SR_API const char *sr_output_description_get(const struct sr_output_module *omod);
-SR_API const char *const *sr_output_extensions_get(
-		const struct sr_output_module *omod);
-SR_API const struct sr_output_module *sr_output_find(char *id);
-SR_API const struct sr_option **sr_output_options_get(const struct sr_output_module *omod);
-SR_API void sr_output_options_free(const struct sr_option **opts);
-SR_API const struct sr_output *sr_output_new(const struct sr_output_module *omod,
-		GHashTable *params, const struct sr_dev_inst *sdi,
+OTC_API const struct otc_output_module **otc_output_list(void);
+OTC_API const char *otc_output_id_get(const struct otc_output_module *omod);
+OTC_API const char *otc_output_name_get(const struct otc_output_module *omod);
+OTC_API const char *otc_output_description_get(const struct otc_output_module *omod);
+OTC_API const char *const *otc_output_extensions_get(
+		const struct otc_output_module *omod);
+OTC_API const struct otc_output_module *otc_output_find(char *id);
+OTC_API const struct otc_option **otc_output_options_get(const struct otc_output_module *omod);
+OTC_API void otc_output_options_free(const struct otc_option **opts);
+OTC_API const struct otc_output *otc_output_new(const struct otc_output_module *omod,
+		GHashTable *params, const struct otc_dev_inst *sdi,
 		const char *filename);
-SR_API gboolean sr_output_test_flag(const struct sr_output_module *omod,
+OTC_API gboolean otc_output_test_flag(const struct otc_output_module *omod,
 		uint64_t flag);
-SR_API int sr_output_send(const struct sr_output *o,
-		const struct sr_datafeed_packet *packet, GString **out);
-SR_API int sr_output_free(const struct sr_output *o);
+OTC_API int otc_output_send(const struct otc_output *o,
+		const struct otc_datafeed_packet *packet, GString **out);
+OTC_API int otc_output_free(const struct otc_output *o);
 
 /*--- transform/transform.c -------------------------------------------------*/
 
-SR_API const struct sr_transform_module **sr_transform_list(void);
-SR_API const char *sr_transform_id_get(const struct sr_transform_module *tmod);
-SR_API const char *sr_transform_name_get(const struct sr_transform_module *tmod);
-SR_API const char *sr_transform_description_get(const struct sr_transform_module *tmod);
-SR_API const struct sr_transform_module *sr_transform_find(const char *id);
-SR_API const struct sr_option **sr_transform_options_get(const struct sr_transform_module *tmod);
-SR_API void sr_transform_options_free(const struct sr_option **opts);
-SR_API const struct sr_transform *sr_transform_new(const struct sr_transform_module *tmod,
-		GHashTable *params, const struct sr_dev_inst *sdi);
-SR_API int sr_transform_free(const struct sr_transform *t);
+OTC_API const struct otc_transform_module **otc_transform_list(void);
+OTC_API const char *otc_transform_id_get(const struct otc_transform_module *tmod);
+OTC_API const char *otc_transform_name_get(const struct otc_transform_module *tmod);
+OTC_API const char *otc_transform_description_get(const struct otc_transform_module *tmod);
+OTC_API const struct otc_transform_module *otc_transform_find(const char *id);
+OTC_API const struct otc_option **otc_transform_options_get(const struct otc_transform_module *tmod);
+OTC_API void otc_transform_options_free(const struct otc_option **opts);
+OTC_API const struct otc_transform *otc_transform_new(const struct otc_transform_module *tmod,
+		GHashTable *params, const struct otc_dev_inst *sdi);
+OTC_API int otc_transform_free(const struct otc_transform *t);
 
 /*--- trigger.c -------------------------------------------------------------*/
 
-SR_API struct sr_trigger *sr_trigger_new(const char *name);
-SR_API void sr_trigger_free(struct sr_trigger *trig);
-SR_API struct sr_trigger_stage *sr_trigger_stage_add(struct sr_trigger *trig);
-SR_API int sr_trigger_match_add(struct sr_trigger_stage *stage,
-		struct sr_channel *ch, int trigger_match, float value);
+OTC_API struct otc_trigger *otc_trigger_new(const char *name);
+OTC_API void otc_trigger_free(struct otc_trigger *trig);
+OTC_API struct otc_trigger_stage *otc_trigger_stage_add(struct otc_trigger *trig);
+OTC_API int otc_trigger_match_add(struct otc_trigger_stage *stage,
+		struct otc_channel *ch, int trigger_match, float value);
 
 /*--- serial.c --------------------------------------------------------------*/
 
-SR_API GSList *sr_serial_list(const struct sr_dev_driver *driver);
-SR_API void sr_serial_free(struct sr_serial_port *serial);
+OTC_API GSList *otc_serial_list(const struct otc_dev_driver *driver);
+OTC_API void otc_serial_free(struct otc_serial_port *serial);
 
 /*--- resource.c ------------------------------------------------------------*/
 
-typedef int (*sr_resource_open_callback)(struct sr_resource *res,
+typedef int (*otc_resource_open_callback)(struct otc_resource *res,
 		const char *name, void *cb_data);
-typedef int (*sr_resource_close_callback)(struct sr_resource *res,
+typedef int (*otc_resource_close_callback)(struct otc_resource *res,
 		void *cb_data);
-typedef gssize (*sr_resource_read_callback)(const struct sr_resource *res,
+typedef gssize (*otc_resource_read_callback)(const struct otc_resource *res,
 		void *buf, size_t count, void *cb_data);
 
-SR_API GSList *sr_resourcepaths_get(int res_type);
+OTC_API GSList *otc_resourcepaths_get(int res_type);
 
-SR_API int sr_resource_set_hooks(struct sr_context *ctx,
-		sr_resource_open_callback open_cb,
-		sr_resource_close_callback close_cb,
-		sr_resource_read_callback read_cb, void *cb_data);
+OTC_API int otc_resource_set_hooks(struct otc_context *ctx,
+		otc_resource_open_callback open_cb,
+		otc_resource_close_callback close_cb,
+		otc_resource_read_callback read_cb, void *cb_data);
 
 /*--- strutil.c -------------------------------------------------------------*/
 
-SR_API char *sr_si_string_u64(uint64_t x, const char *unit);
-SR_API char *sr_samplerate_string(uint64_t samplerate);
-SR_API char *sr_period_string(uint64_t v_p, uint64_t v_q);
-SR_API char *sr_voltage_string(uint64_t v_p, uint64_t v_q);
-SR_API int sr_parse_sizestring(const char *sizestring, uint64_t *size);
-SR_API uint64_t sr_parse_timestring(const char *timestring);
-SR_API gboolean sr_parse_boolstring(const char *boolstring);
-SR_API int sr_parse_period(const char *periodstr, uint64_t *p, uint64_t *q);
-SR_API int sr_parse_voltage(const char *voltstr, uint64_t *p, uint64_t *q);
-SR_API char **sr_parse_probe_names(const char *spec,
+OTC_API char *otc_si_string_u64(uint64_t x, const char *unit);
+OTC_API char *otc_samplerate_string(uint64_t samplerate);
+OTC_API char *otc_period_string(uint64_t v_p, uint64_t v_q);
+OTC_API char *otc_voltage_string(uint64_t v_p, uint64_t v_q);
+OTC_API int otc_parse_sizestring(const char *sizestring, uint64_t *size);
+OTC_API uint64_t otc_parse_timestring(const char *timestring);
+OTC_API gboolean otc_parse_boolstring(const char *boolstring);
+OTC_API int otc_parse_period(const char *periodstr, uint64_t *p, uint64_t *q);
+OTC_API int otc_parse_voltage(const char *voltstr, uint64_t *p, uint64_t *q);
+OTC_API char **otc_parse_probe_names(const char *spec,
 	const char **dflt_names, size_t dflt_count,
 	size_t max_count, size_t *ret_count);
-SR_API void sr_free_probe_names(char **names);
-SR_API int sr_sprintf_ascii(char *buf, const char *format, ...);
-SR_API int sr_vsprintf_ascii(char *buf, const char *format, va_list args);
-SR_API int sr_snprintf_ascii(char *buf, size_t buf_size,
+OTC_API void otc_free_probe_names(char **names);
+OTC_API int otc_sprintf_ascii(char *buf, const char *format, ...);
+OTC_API int otc_vsprintf_ascii(char *buf, const char *format, va_list args);
+OTC_API int otc_snprintf_ascii(char *buf, size_t buf_size,
 		const char *format, ...);
-SR_API int sr_vsnprintf_ascii(char *buf, size_t buf_size,
+OTC_API int otc_vsnprintf_ascii(char *buf, size_t buf_size,
 		const char *format, va_list args);
-SR_API int sr_parse_rational(const char *str, struct sr_rational *ret);
-SR_API char *sr_text_trim_spaces(char *s);
-SR_API char *sr_text_next_line(char *s, size_t l, char **next, size_t *taken);
-SR_API char *sr_text_next_word(char *s, char **next);
+OTC_API int otc_parse_rational(const char *str, struct otc_rational *ret);
+OTC_API char *otc_text_trim_spaces(char *s);
+OTC_API char *otc_text_next_line(char *s, size_t l, char **next, size_t *taken);
+OTC_API char *otc_text_next_word(char *s, char **next);
 
-SR_API int sr_next_power_of_two(size_t value, size_t *bits, size_t *power);
+OTC_API int otc_next_power_of_two(size_t value, size_t *bits, size_t *power);
 
 /*--- version.c -------------------------------------------------------------*/
 
-SR_API int sr_package_version_major_get(void);
-SR_API int sr_package_version_minor_get(void);
-SR_API int sr_package_version_micro_get(void);
-SR_API const char *sr_package_version_string_get(void);
+OTC_API int otc_package_version_major_get(void);
+OTC_API int otc_package_version_minor_get(void);
+OTC_API int otc_package_version_micro_get(void);
+OTC_API const char *otc_package_version_string_get(void);
 
-SR_API int sr_lib_version_current_get(void);
-SR_API int sr_lib_version_revision_get(void);
-SR_API int sr_lib_version_age_get(void);
-SR_API const char *sr_lib_version_string_get(void);
+OTC_API int otc_lib_version_current_get(void);
+OTC_API int otc_lib_version_revision_get(void);
+OTC_API int otc_lib_version_age_get(void);
+OTC_API const char *otc_lib_version_string_get(void);
 
 /*--- error.c ---------------------------------------------------------------*/
 
-SR_API const char *sr_strerror(int error_code);
-SR_API const char *sr_strerror_name(int error_code);
+OTC_API const char *otc_strerror(int error_code);
+OTC_API const char *otc_strerror_name(int error_code);
 
 #endif

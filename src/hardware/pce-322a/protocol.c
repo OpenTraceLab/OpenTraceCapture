@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 George Hopkins <george-hopkins@null.net>
  * Copyright (C) 2016 Matthieu Guillaumin <matthieu@guillaum.in>
@@ -22,9 +22,9 @@
 #include <string.h>
 #include "protocol.h"
 
-static int send_command(const struct sr_dev_inst *sdi, uint16_t command)
+static int send_command(const struct otc_dev_inst *sdi, uint16_t command)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	uint8_t buffer[2];
 	int ret;
 
@@ -32,20 +32,20 @@ static int send_command(const struct sr_dev_inst *sdi, uint16_t command)
 	buffer[1] = command;
 
 	if (!(serial = sdi->conn))
-		return SR_ERR;
+		return OTC_ERR;
 
 	ret = serial_write_blocking(serial, buffer, sizeof(buffer), 0);
 	if (ret < 0)
 		return ret;
 	if ((size_t)ret != sizeof(buffer))
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int send_long_command(const struct sr_dev_inst *sdi, uint32_t command)
+static int send_long_command(const struct otc_dev_inst *sdi, uint32_t command)
 {
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	uint8_t buffer[4];
 	int ret;
 
@@ -55,46 +55,46 @@ static int send_long_command(const struct sr_dev_inst *sdi, uint32_t command)
 	buffer[3] = command;
 
 	if (!(serial = sdi->conn))
-		return SR_ERR;
+		return OTC_ERR;
 
 	ret = serial_write_blocking(serial, buffer, sizeof(buffer), 0);
 	if (ret < 0)
 		return ret;
 	if ((size_t)ret != sizeof(buffer))
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void send_data(const struct sr_dev_inst *sdi, float sample)
+static void send_data(const struct otc_dev_inst *sdi, float sample)
 {
 	struct dev_context *devc;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
 	devc = sdi->priv;
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 1);
-	meaning.mq = SR_MQ_SOUND_PRESSURE_LEVEL;
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 1);
+	meaning.mq = OTC_MQ_SOUND_PRESSURE_LEVEL;
 	meaning.mqflags = devc->cur_mqflags;
-	meaning.unit = SR_UNIT_DECIBEL_SPL;
+	meaning.unit = OTC_UNIT_DECIBEL_SPL;
 	meaning.channels = sdi->channels;
 	analog.num_samples = 1;
 	analog.data = &sample;
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
 	devc->num_samples++;
 	/* Limiting number of samples is only supported for live data. */
 	if (devc->cur_data_source == DATA_SOURCE_LIVE && devc->limit_samples && devc->num_samples >= devc->limit_samples)
-		sr_dev_acquisition_stop((struct sr_dev_inst *)sdi);
+		otc_dev_acquisition_stop((struct otc_dev_inst *)sdi);
 }
 
-static void process_measurement(const struct sr_dev_inst *sdi)
+static void process_measurement(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	unsigned short value;
@@ -102,39 +102,39 @@ static void process_measurement(const struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	if (devc->buffer[3] & (1 << 0)) {
-		devc->cur_mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_C;
-		devc->cur_mqflags &= ~SR_MQFLAG_SPL_FREQ_WEIGHT_A;
+		devc->cur_mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_C;
+		devc->cur_mqflags &= ~OTC_MQFLAG_SPL_FREQ_WEIGHT_A;
 	} else {
-		devc->cur_mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_A;
-		devc->cur_mqflags &= ~SR_MQFLAG_SPL_FREQ_WEIGHT_C;
+		devc->cur_mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_A;
+		devc->cur_mqflags &= ~OTC_MQFLAG_SPL_FREQ_WEIGHT_C;
 	}
 
 	if (devc->buffer[3] & (1 << 1)) {
-		devc->cur_mqflags |= SR_MQFLAG_SPL_TIME_WEIGHT_S;
-		devc->cur_mqflags &= ~SR_MQFLAG_SPL_TIME_WEIGHT_F;
+		devc->cur_mqflags |= OTC_MQFLAG_SPL_TIME_WEIGHT_S;
+		devc->cur_mqflags &= ~OTC_MQFLAG_SPL_TIME_WEIGHT_F;
 	} else {
-		devc->cur_mqflags |= SR_MQFLAG_SPL_TIME_WEIGHT_F;
-		devc->cur_mqflags &= ~SR_MQFLAG_SPL_TIME_WEIGHT_S;
+		devc->cur_mqflags |= OTC_MQFLAG_SPL_TIME_WEIGHT_F;
+		devc->cur_mqflags &= ~OTC_MQFLAG_SPL_TIME_WEIGHT_S;
 	}
 
 	devc->cur_meas_range = devc->buffer[4] & 3;
 
 	if (devc->buffer[4] & (1 << 2)) {
-		devc->cur_mqflags |= SR_MQFLAG_MAX;
-		devc->cur_mqflags &= ~SR_MQFLAG_MIN;
+		devc->cur_mqflags |= OTC_MQFLAG_MAX;
+		devc->cur_mqflags &= ~OTC_MQFLAG_MIN;
 	} else if (devc->buffer[4] & (1 << 3)) {
-		devc->cur_mqflags |= SR_MQFLAG_MIN;
-		devc->cur_mqflags &= ~SR_MQFLAG_MAX;
+		devc->cur_mqflags |= OTC_MQFLAG_MIN;
+		devc->cur_mqflags &= ~OTC_MQFLAG_MAX;
 	} else {
-		devc->cur_mqflags &= ~SR_MQFLAG_MIN;
-		devc->cur_mqflags &= ~SR_MQFLAG_MAX;
+		devc->cur_mqflags &= ~OTC_MQFLAG_MIN;
+		devc->cur_mqflags &= ~OTC_MQFLAG_MAX;
 	}
 
 	value = devc->buffer[1] << 8 | devc->buffer[2];
 	send_data(sdi, value / 10.0);
 }
 
-static void process_memory_measurement(const struct sr_dev_inst *sdi)
+static void process_memory_measurement(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint16_t value;
@@ -146,7 +146,7 @@ static void process_memory_measurement(const struct sr_dev_inst *sdi)
 	send_data(sdi, value / 10.0);
 }
 
-static void process_byte(const struct sr_dev_inst *sdi, const unsigned char c)
+static void process_byte(const struct otc_dev_inst *sdi, const unsigned char c)
 {
 	struct dev_context *devc;
 
@@ -166,7 +166,7 @@ static void process_byte(const struct sr_dev_inst *sdi, const unsigned char c)
 	}
 }
 
-static void process_usage_byte(const struct sr_dev_inst *sdi, uint8_t c)
+static void process_usage_byte(const struct otc_dev_inst *sdi, uint8_t c)
 {
 	struct dev_context *devc;
 
@@ -185,7 +185,7 @@ static void process_usage_byte(const struct sr_dev_inst *sdi, uint8_t c)
 			&& devc->buffer[MEM_USAGE_BUFFER_SIZE - 1] == 0x20) {
 		devc->memory_block_usage = devc->buffer[5] << 8 | devc->buffer[6];
 		devc->memory_last_block_usage = devc->buffer[7];
-		sr_warn("Memory usage: %d blocks of 256 bytes, 1 block of %d bytes",
+		otc_warn("Memory usage: %d blocks of 256 bytes, 1 block of %d bytes",
 			devc->memory_block_usage - 1, devc->memory_last_block_usage);
 		devc->buffer_len = 0;
 		devc->buffer_skip = 1;
@@ -195,7 +195,7 @@ static void process_usage_byte(const struct sr_dev_inst *sdi, uint8_t c)
 	}
 }
 
-static void process_memory_byte(const struct sr_dev_inst *sdi, uint8_t c)
+static void process_memory_byte(const struct otc_dev_inst *sdi, uint8_t c)
 {
 	struct dev_context *devc;
 
@@ -219,16 +219,16 @@ static void process_memory_byte(const struct sr_dev_inst *sdi, uint8_t c)
 			&& (devc->buffer[0] & 0x7f) == 0x7f && (devc->buffer[1] & 0xf7) == 0xf7
 			&& devc->buffer[2] == 0x01 && devc->buffer[3] == 0x00) {
 		/* Print information about recording. */
-		sr_err("Recording dB(%X) %02x/%02x/%02x %02x:%02x:%02x ",
+		otc_err("Recording dB(%X) %02x/%02x/%02x %02x:%02x:%02x ",
 			devc->buffer[4], devc->buffer[5], devc->buffer[6], devc->buffer[7],
 			devc->buffer[8] & 0x3f, devc->buffer[9], devc->buffer[10]);
 		/* Set dBA/dBC flag for recording. */
 		if (devc->buffer[4] == 0x0c) {
-			devc->cur_mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_C;
-			devc->cur_mqflags &= ~SR_MQFLAG_SPL_FREQ_WEIGHT_A;
+			devc->cur_mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_C;
+			devc->cur_mqflags &= ~OTC_MQFLAG_SPL_FREQ_WEIGHT_A;
 		} else {
-			devc->cur_mqflags |= SR_MQFLAG_SPL_FREQ_WEIGHT_A;
-			devc->cur_mqflags &= ~SR_MQFLAG_SPL_FREQ_WEIGHT_C;
+			devc->cur_mqflags |= OTC_MQFLAG_SPL_FREQ_WEIGHT_A;
+			devc->cur_mqflags &= ~OTC_MQFLAG_SPL_FREQ_WEIGHT_C;
 		}
 		send_data(sdi, -1.0); /* Signal switch of recording. */
 		devc->buffer_skip = 2;
@@ -249,11 +249,11 @@ static void process_memory_byte(const struct sr_dev_inst *sdi, uint8_t c)
 	}
 }
 
-SR_PRIV int pce_322a_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int pce_322a_receive_data(int fd, int revents, void *cb_data)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	unsigned char c;
 
 	(void)fd;
@@ -271,7 +271,7 @@ SR_PRIV int pce_322a_receive_data(int fd, int revents, void *cb_data)
 		switch (devc->memory_state) {
 		case MEM_STATE_REQUEST_MEMORY_USAGE:
 			/* At init, disconnect and request the memory status. */
-			sr_warn("Requesting memory usage.");
+			otc_warn("Requesting memory usage.");
 			pce_322a_disconnect(sdi);
 			devc->memory_state = MEM_STATE_GET_MEMORY_USAGE;
 			devc->memory_block_usage = 0;
@@ -291,11 +291,11 @@ SR_PRIV int pce_322a_receive_data(int fd, int revents, void *cb_data)
 		case MEM_STATE_REQUEST_MEMORY_BLOCK:
 			/* When cursor is 0, request next memory block. */
 			if (devc->memory_block_counter <= devc->memory_block_usage) {
-				sr_warn("Requesting memory block %d.", devc->memory_block_counter);
+				otc_warn("Requesting memory block %d.", devc->memory_block_counter);
 				pce_322a_memory_block(sdi, devc->memory_block_counter);
 				devc->memory_state = MEM_STATE_GET_MEMORY_BLOCK;
 			} else {
-				sr_warn("Exhausted memory blocks.");
+				otc_warn("Exhausted memory blocks.");
 				return FALSE;
 			}
 			break;
@@ -303,7 +303,7 @@ SR_PRIV int pce_322a_receive_data(int fd, int revents, void *cb_data)
 			/* Stop after reading last byte of last block. */
 			if (devc->memory_block_counter >= devc->memory_block_usage
 					&& devc->memory_block_cursor >= devc->memory_last_block_usage) {
-				sr_warn("Done reading memory (%d bytes).",
+				otc_warn("Done reading memory (%d bytes).",
 					256 * (devc->memory_block_counter - 1)
 					+ devc->memory_block_cursor);
 				return FALSE;
@@ -328,27 +328,27 @@ SR_PRIV int pce_322a_receive_data(int fd, int revents, void *cb_data)
 	return TRUE;
 }
 
-SR_PRIV int pce_322a_connect(const struct sr_dev_inst *sdi)
+OTC_PRIV int pce_322a_connect(const struct otc_dev_inst *sdi)
 {
 	return send_command(sdi, CMD_CONNECT);
 }
 
-SR_PRIV int pce_322a_disconnect(const struct sr_dev_inst *sdi)
+OTC_PRIV int pce_322a_disconnect(const struct otc_dev_inst *sdi)
 {
 	return send_command(sdi, CMD_DISCONNECT);
 }
 
-SR_PRIV int pce_322a_memory_status(const struct sr_dev_inst *sdi)
+OTC_PRIV int pce_322a_memory_status(const struct otc_dev_inst *sdi)
 {
 	return send_command(sdi, CMD_MEMORY_STATUS);
 }
 
-SR_PRIV int pce_322a_memory_clear(const struct sr_dev_inst *sdi)
+OTC_PRIV int pce_322a_memory_clear(const struct otc_dev_inst *sdi)
 {
 	return send_command(sdi, CMD_MEMORY_CLEAR);
 }
 
-SR_PRIV int pce_322a_memory_block(const struct sr_dev_inst *sdi, uint16_t memblk)
+OTC_PRIV int pce_322a_memory_block(const struct otc_dev_inst *sdi, uint16_t memblk)
 {
 	uint8_t buf0 = memblk;
 	uint8_t buf1 = memblk >> 8;
@@ -356,49 +356,49 @@ SR_PRIV int pce_322a_memory_block(const struct sr_dev_inst *sdi, uint16_t memblk
 	return send_long_command(sdi, command);
 }
 
-SR_PRIV uint64_t pce_322a_weight_freq_get(const struct sr_dev_inst *sdi)
+OTC_PRIV uint64_t pce_322a_weight_freq_get(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
 	devc = sdi->priv;
 
-	return devc->cur_mqflags & (SR_MQFLAG_SPL_FREQ_WEIGHT_A | SR_MQFLAG_SPL_FREQ_WEIGHT_C);
+	return devc->cur_mqflags & (OTC_MQFLAG_SPL_FREQ_WEIGHT_A | OTC_MQFLAG_SPL_FREQ_WEIGHT_C);
 }
 
-SR_PRIV int pce_322a_weight_freq_set(const struct sr_dev_inst *sdi, uint64_t freqw)
+OTC_PRIV int pce_322a_weight_freq_set(const struct otc_dev_inst *sdi, uint64_t freqw)
 {
 	struct dev_context *devc;
 
 	devc = sdi->priv;
 
 	if (devc->cur_mqflags & freqw)
-		return SR_OK;
+		return OTC_OK;
 
 	return send_command(sdi, CMD_TOGGLE_WEIGHT_FREQ);
 }
 
-SR_PRIV uint64_t pce_322a_weight_time_get(const struct sr_dev_inst *sdi)
+OTC_PRIV uint64_t pce_322a_weight_time_get(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
 	devc = sdi->priv;
 
-	return devc->cur_mqflags & (SR_MQFLAG_SPL_TIME_WEIGHT_F | SR_MQFLAG_SPL_TIME_WEIGHT_S);
+	return devc->cur_mqflags & (OTC_MQFLAG_SPL_TIME_WEIGHT_F | OTC_MQFLAG_SPL_TIME_WEIGHT_S);
 }
 
-SR_PRIV int pce_322a_weight_time_set(const struct sr_dev_inst *sdi, uint64_t timew)
+OTC_PRIV int pce_322a_weight_time_set(const struct otc_dev_inst *sdi, uint64_t timew)
 {
 	struct dev_context *devc;
 
 	devc = sdi->priv;
 
 	if (devc->cur_mqflags & timew)
-		return SR_OK;
+		return OTC_OK;
 
 	return send_command(sdi, CMD_TOGGLE_WEIGHT_TIME);
 }
 
-SR_PRIV int pce_322a_meas_range_get(const struct sr_dev_inst *sdi,
+OTC_PRIV int pce_322a_meas_range_get(const struct otc_dev_inst *sdi,
 		uint64_t *low, uint64_t *high)
 {
 	struct dev_context *devc;
@@ -423,18 +423,18 @@ SR_PRIV int pce_322a_meas_range_get(const struct sr_dev_inst *sdi,
 		*high = 130;
 		break;
 	default:
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int pce_322a_meas_range_set(const struct sr_dev_inst *sdi,
+OTC_PRIV int pce_322a_meas_range_set(const struct otc_dev_inst *sdi,
 		uint64_t low, uint64_t high)
 {
 	struct dev_context *devc;
 	uint8_t range;
-	int ret = SR_OK;
+	int ret = OTC_OK;
 
 	devc = sdi->priv;
 
@@ -447,11 +447,11 @@ SR_PRIV int pce_322a_meas_range_set(const struct sr_dev_inst *sdi,
 	else if (low == 80 && high == 130)
 		range = MEAS_RANGE_80_130;
 	else
-		return SR_ERR;
+		return OTC_ERR;
 
 	while (range != devc->cur_meas_range) {
 		ret = send_command(sdi, CMD_TOGGLE_MEAS_RANGE);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 		range = (range - 1) & 3;
 	}
@@ -459,7 +459,7 @@ SR_PRIV int pce_322a_meas_range_set(const struct sr_dev_inst *sdi,
 	return ret;
 }
 
-SR_PRIV int pce_322a_power_off(const struct sr_dev_inst *sdi)
+OTC_PRIV int pce_322a_power_off(const struct otc_dev_inst *sdi)
 {
 	return send_command(sdi, CMD_POWER_OFF);
 }

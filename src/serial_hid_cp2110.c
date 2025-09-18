@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017 Carl-Fredrik Sundström <audio.cf@gmail.com>
  * Copyright (C) 2017-2019 Gerhard Sittig <gerhard.sittig@gmx.net>
@@ -20,8 +20,8 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 #include "serial_hid.h"
 #include <string.h>
 
@@ -89,7 +89,7 @@ enum cp2110_uart_config_flowctrl {
 	CP2110_FLOWCTRL_HARD = 1,
 };
 
-static int cp2110_set_params(struct sr_serial_dev_inst *serial,
+static int cp2110_set_params(struct otc_serial_dev_inst *serial,
 	int baudrate, int bits, int parity, int stopbits,
 	int flowcontrol, int rts, int dtr)
 {
@@ -99,12 +99,12 @@ static int cp2110_set_params(struct sr_serial_dev_inst *serial,
 
 	/* Map serial API specs to CP2110 register values. Check ranges. */
 	if (baudrate < CP2110_BAUDRATE_MIN || baudrate > CP2110_BAUDRATE_MAX) {
-		sr_err("CP2110: baudrate %d out of range", baudrate);
-		return SR_ERR_ARG;
+		otc_err("CP2110: baudrate %d out of range", baudrate);
+		return OTC_ERR_ARG;
 	}
 	if (bits < CP2110_DATABITS_MIN || bits > CP2110_DATABITS_MAX) {
-		sr_err("CP2110: %d databits out of range", bits);
-		return SR_ERR_ARG;
+		otc_err("CP2110: %d databits out of range", bits);
+		return OTC_ERR_ARG;
 	}
 	bits -= CP2110_DATABITS_MIN;
 	switch (parity) {
@@ -124,8 +124,8 @@ static int cp2110_set_params(struct sr_serial_dev_inst *serial,
 		parity = CP2110_PARITY_SPACE;
 		break;
 	default:
-		sr_err("CP2110: unknown parity spec %d", parity);
-		return SR_ERR_ARG;
+		otc_err("CP2110: unknown parity spec %d", parity);
+		return OTC_ERR_ARG;
 	}
 	switch (stopbits) {
 	case 1:
@@ -135,22 +135,22 @@ static int cp2110_set_params(struct sr_serial_dev_inst *serial,
 		stopbits = CP2110_STOPBITS_LONG;
 		break;
 	default:
-		sr_err("CP2110: unknown stop bits spec %d", stopbits);
-		return SR_ERR_ARG;
+		otc_err("CP2110: unknown stop bits spec %d", stopbits);
+		return OTC_ERR_ARG;
 	}
 	switch (flowcontrol) {
 	case SP_FLOWCONTROL_NONE:
 		flowcontrol = CP2110_FLOWCTRL_NONE;
 		break;
 	case SP_FLOWCONTROL_XONXOFF:
-		sr_err("CP2110: unsupported XON/XOFF flow control spec");
-		return SR_ERR_ARG;
+		otc_err("CP2110: unsupported XON/XOFF flow control spec");
+		return OTC_ERR_ARG;
 	case SP_FLOWCONTROL_RTSCTS:
 		flowcontrol = CP2110_FLOWCTRL_HARD;
 		break;
 	default:
-		sr_err("CP2110: unknown flow control spec %d", flowcontrol);
-		return SR_ERR_ARG;
+		otc_err("CP2110: unknown flow control spec %d", flowcontrol);
+		return OTC_ERR_ARG;
 	}
 
 	/*
@@ -162,9 +162,9 @@ static int cp2110_set_params(struct sr_serial_dev_inst *serial,
 	report[replen++] = CP2110_UART_ENABLE;
 	rc = ser_hid_hidapi_set_report(serial, report, replen);
 	if (rc < 0)
-		return SR_ERR;
+		return OTC_ERR;
 	if (rc != replen)
-		return SR_ERR;
+		return OTC_ERR;
 
 	/*
 	 * Setup bitrate and frame format. Report layout:
@@ -185,9 +185,9 @@ static int cp2110_set_params(struct sr_serial_dev_inst *serial,
 	report[replen++] = stopbits;
 	rc = ser_hid_hidapi_set_report(serial, report, replen);
 	if (rc < 0)
-		return SR_ERR;
+		return OTC_ERR;
 	if (rc != replen)
-		return SR_ERR;
+		return OTC_ERR;
 
 	/*
 	 * Currently not implemented: Control RTS and DTR state.
@@ -197,10 +197,10 @@ static int cp2110_set_params(struct sr_serial_dev_inst *serial,
 	(void)rts;
 	(void)dtr;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int cp2110_read_bytes(struct sr_serial_dev_inst *serial,
+static int cp2110_read_bytes(struct otc_serial_dev_inst *serial,
 	uint8_t *data, int space, unsigned int timeout)
 {
 	uint8_t buffer[1 + CP2110_MAX_BYTES_PER_REQUEST];
@@ -217,42 +217,42 @@ static int cp2110_read_bytes(struct sr_serial_dev_inst *serial,
 	 */
 	memset(buffer, 0, sizeof(buffer));
 	rc = ser_hid_hidapi_get_data(serial, 0, buffer, sizeof(buffer), timeout);
-	if (rc == SR_ERR_TIMEOUT)
+	if (rc == OTC_ERR_TIMEOUT)
 		return 0;
 	if (rc < 0)
-		return SR_ERR;
+		return OTC_ERR;
 	if (rc == 0)
 		return 0;
-	sr_dbg("DBG: %s() got report len %d, 0x%02x.", __func__, rc, buffer[0]);
+	otc_dbg("DBG: %s() got report len %d, 0x%02x.", __func__, rc, buffer[0]);
 
 	/* Check the length spec, get the byte count. */
 	count = buffer[0];
 	if (!count)
 		return 0;
 	if (count > CP2110_MAX_BYTES_PER_REQUEST)
-		return SR_ERR;
-	sr_dbg("DBG: %s(), got %d UART RX bytes.", __func__, count);
+		return OTC_ERR;
+	otc_dbg("DBG: %s(), got %d UART RX bytes.", __func__, count);
 	if (count > space)
-		return SR_ERR;
+		return OTC_ERR;
 
 	/* Pass received data bytes and their count to the caller. */
 	memcpy(data, &buffer[1], count);
 	return count;
 }
 
-static int cp2110_write_bytes(struct sr_serial_dev_inst *serial,
+static int cp2110_write_bytes(struct otc_serial_dev_inst *serial,
 	const uint8_t *data, int size)
 {
 	uint8_t buffer[1 + CP2110_MAX_BYTES_PER_REQUEST];
 	int rc;
 
-	sr_dbg("DBG: %s() shall send UART TX data, len %d.", __func__, size);
+	otc_dbg("DBG: %s() shall send UART TX data, len %d.", __func__, size);
 
 	if (size < 1)
 		return 0;
 	if (size > CP2110_MAX_BYTES_PER_REQUEST) {
 		size = CP2110_MAX_BYTES_PER_REQUEST;
-		sr_dbg("DBG: %s() capping size to %d.", __func__, size);
+		otc_dbg("DBG: %s() capping size to %d.", __func__, size);
 	}
 
 	/*
@@ -270,28 +270,28 @@ static int cp2110_write_bytes(struct sr_serial_dev_inst *serial,
 	return size;
 }
 
-static int cp2110_flush(struct sr_serial_dev_inst *serial)
+static int cp2110_flush(struct otc_serial_dev_inst *serial)
 {
 	uint8_t buffer[2];
 	int rc;
 
-	sr_dbg("DBG: %s() discarding RX and TX FIFO data.", __func__);
+	otc_dbg("DBG: %s() discarding RX and TX FIFO data.", __func__);
 
 	buffer[0] = CP2110_FIFO_PURGE;
 	buffer[1] = CP2110_FIFO_PURGE_TX | CP2110_FIFO_PURGE_RX;
 	rc = ser_hid_hidapi_set_data(serial, 0, buffer, sizeof(buffer), 0);
 	if (rc != sizeof(buffer))
-		return SR_ERR;
-	return SR_OK;
+		return OTC_ERR;
+	return OTC_OK;
 }
 
-static int cp2110_drain(struct sr_serial_dev_inst *serial)
+static int cp2110_drain(struct otc_serial_dev_inst *serial)
 {
 	uint8_t buffer[7];
 	int rc;
 	uint16_t tx_fill, rx_fill;
 
-	sr_dbg("DBG: %s() waiting for TX data to drain.", __func__);
+	otc_dbg("DBG: %s() waiting for TX data to drain.", __func__);
 
 	/*
 	 * Keep retrieving the UART status until the FIFO is found empty,
@@ -309,23 +309,23 @@ static int cp2110_drain(struct sr_serial_dev_inst *serial)
 		buffer[0] = CP2110_UART_STATUS;
 		rc = ser_hid_hidapi_get_data(serial, 0, buffer, sizeof(buffer), 0);
 		if (rc != sizeof(buffer)) {
-			rc = SR_ERR_DATA;
+			rc = OTC_ERR_DATA;
 			break;
 		}
 		if (buffer[0] != CP2110_UART_STATUS) {
-			rc = SR_ERR_DATA;
+			rc = OTC_ERR_DATA;
 			break;
 		}
 		rx_fill = RB16(&buffer[1]);
 		tx_fill = RB16(&buffer[3]);
 		if (!tx_fill) {
-			rc = SR_OK;
+			rc = OTC_OK;
 			break;
 		}
 		g_usleep(2000);
 	} while (1);
 
-	sr_dbg("DBG: %s() TX drained, rc %d, RX fill %u, returning.",
+	otc_dbg("DBG: %s() TX drained, rc %d, RX fill %u, returning.",
 		__func__, rc, (unsigned int)rx_fill);
 	return rc;
 }
@@ -341,11 +341,11 @@ static struct ser_hid_chip_functions chip_cp2110 = {
 	.flush = cp2110_flush,
 	.drain = cp2110_drain,
 };
-SR_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_cp2110 = &chip_cp2110;
+OTC_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_cp2110 = &chip_cp2110;
 
 #else
 
-SR_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_cp2110 = NULL;
+OTC_PRIV struct ser_hid_chip_functions *ser_hid_chip_funcs_cp2110 = NULL;
 
 #endif
 #endif

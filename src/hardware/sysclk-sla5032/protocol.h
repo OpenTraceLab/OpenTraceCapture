@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Vitaliy Vorobyov
  *
@@ -23,8 +23,8 @@
 #include <stdint.h>
 #include <libusb.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include <libsigrok-internal.h>
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "sysclk-sla5032"
 
@@ -106,7 +106,7 @@ struct dev_context {
 	enum protocol_state state;	/* async protocol state */
 };
 
-SR_PRIV int sla5032_start_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV int sla5032_apply_fpga_config(const struct sr_dev_inst *sdi);
+OTC_PRIV int sla5032_start_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV int sla5032_apply_fpga_config(const struct otc_dev_inst *sdi);
 
 #endif

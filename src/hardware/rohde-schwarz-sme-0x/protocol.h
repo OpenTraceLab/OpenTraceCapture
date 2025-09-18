@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Vlad Ivanov <vlad.ivanov@lab-systems.ru>
  *
@@ -22,13 +22,13 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "rohde-schwarz-sme-0x"
 
 struct rs_sme0x_info {
-	struct sr_dev_driver di;
+	struct otc_dev_driver di;
 	char *vendor;
 	char *device;
 };
@@ -45,10 +45,10 @@ struct dev_context {
 	const struct rs_device_model *model_config;
 };
 
-SR_PRIV int rs_sme0x_mode_remote(struct sr_scpi_dev_inst *scpi);
-SR_PRIV int rs_sme0x_get_freq(const struct sr_dev_inst *sdi, double *freq);
-SR_PRIV int rs_sme0x_get_power(const struct sr_dev_inst *sdi, double *power);
-SR_PRIV int rs_sme0x_set_freq(const struct sr_dev_inst *sdi, double freq);
-SR_PRIV int rs_sme0x_set_power(const struct sr_dev_inst *sdi, double power);
+OTC_PRIV int rs_sme0x_mode_remote(struct otc_scpi_dev_inst *scpi);
+OTC_PRIV int rs_sme0x_get_freq(const struct otc_dev_inst *sdi, double *freq);
+OTC_PRIV int rs_sme0x_get_power(const struct otc_dev_inst *sdi, double *power);
+OTC_PRIV int rs_sme0x_set_freq(const struct otc_dev_inst *sdi, double freq);
+OTC_PRIV int rs_sme0x_set_power(const struct otc_dev_inst *sdi, double power);
 
 #endif

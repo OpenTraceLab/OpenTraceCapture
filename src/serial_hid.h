@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017-2019 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -42,13 +42,13 @@
  * Routines to get/set reports/data, provided by serial_hid.c and used
  * in serial_hid_<chip>.c files.
  */
-SR_PRIV int ser_hid_hidapi_get_report(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ser_hid_hidapi_get_report(struct otc_serial_dev_inst *serial,
 	uint8_t *data, size_t len);
-SR_PRIV int ser_hid_hidapi_set_report(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ser_hid_hidapi_set_report(struct otc_serial_dev_inst *serial,
 	const uint8_t *data, size_t len);
-SR_PRIV int ser_hid_hidapi_get_data(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ser_hid_hidapi_get_data(struct otc_serial_dev_inst *serial,
 	uint8_t ep, uint8_t *data, size_t len, int timeout);
-SR_PRIV int ser_hid_hidapi_set_data(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ser_hid_hidapi_set_data(struct otc_serial_dev_inst *serial,
 	uint8_t ep, const uint8_t *data, size_t len, int timeout);
 
 #endif

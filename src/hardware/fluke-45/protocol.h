@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2017 John Chajecki <subs@qcontinuum.plus.com>
@@ -23,7 +23,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <scpi.h>
+#include "../../scpi.h"
 
 #define LOG_PREFIX "fluke-45"
 
@@ -155,14 +155,14 @@ struct channel_group_spec {
 };
 
 struct dmm_channel {
-	enum sr_mq mq;
+	enum otc_mq mq;
 	unsigned int hw_output_idx;
 	const char *hwname;
 	int digits;
 };
 
 struct dmm_channel_instance {
-	enum sr_mq mq;
+	enum otc_mq mq;
 	int command;
 	const char *prefix;
 };
@@ -172,7 +172,7 @@ struct dmm_channel_group {
 };
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	unsigned int num_channels;
 	const struct scpi_command *cmdset;
 	char *response;
@@ -188,13 +188,13 @@ struct dev_context {
 
 int get_reading_dd(char *reading, size_t size);
 
-SR_PRIV extern const struct fluke_scpi_dmm_model dmm_profiles[];
+OTC_PRIV extern const struct fluke_scpi_dmm_model dmm_profiles[];
 
-SR_PRIV int fl45_scpi_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV int fl45_scpi_get_response(const struct sr_dev_inst *sdi,  char *cmd);
-SR_PRIV int fl45_get_status(const struct sr_dev_inst *sdi,
-		struct sr_datafeed_analog *analog, int idx);
-SR_PRIV int fl45_get_modifiers(const struct sr_dev_inst *sdi,
-		struct sr_datafeed_analog *analog, int idx);
+OTC_PRIV int fl45_scpi_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int fl45_scpi_get_response(const struct otc_dev_inst *sdi,  char *cmd);
+OTC_PRIV int fl45_get_status(const struct otc_dev_inst *sdi,
+		struct otc_datafeed_analog *analog, int idx);
+OTC_PRIV int fl45_get_modifiers(const struct otc_dev_inst *sdi,
+		struct otc_datafeed_analog *analog, int idx);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -23,7 +23,7 @@
 
 #include "protocol.h"
 
-SR_PRIV int dcttech_usbrelay_update_state(const struct sr_dev_inst *sdi)
+OTC_PRIV int dcttech_usbrelay_update_state(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint8_t report[1 + REPORT_BYTECOUNT];
@@ -37,22 +37,22 @@ SR_PRIV int dcttech_usbrelay_update_state(const struct sr_dev_inst *sdi)
 	report[0] = REPORT_NUMBER;
 	ret = hid_get_feature_report(devc->hid_dev, report, sizeof(report));
 	if (ret != sizeof(report))
-		return SR_ERR_IO;
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
-		txt = sr_hexdump_new(report, sizeof(report));
-		sr_spew("Got report bytes: %s.", txt->str);
-		sr_hexdump_free(txt);
+		return OTC_ERR_IO;
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
+		txt = otc_hexdump_new(report, sizeof(report));
+		otc_spew("Got report bytes: %s.", txt->str);
+		otc_hexdump_free(txt);
 	}
 
 	/* Update relay state cache from HID report content. */
 	devc->relay_state = report[1 + STATE_INDEX];
 	devc->relay_state &= devc->relay_mask;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int dcttech_usbrelay_switch_cg(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, gboolean on)
+OTC_PRIV int dcttech_usbrelay_switch_cg(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, gboolean on)
 {
 	struct dev_context *devc;
 	struct channel_group_context *cgc;
@@ -98,24 +98,24 @@ SR_PRIV int dcttech_usbrelay_switch_cg(const struct sr_dev_inst *sdi,
 			report[2] = relay_idx;
 		}
 	}
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
-		txt = sr_hexdump_new(report, sizeof(report));
-		sr_spew("Sending report bytes: %s", txt->str);
-		sr_hexdump_free(txt);
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
+		txt = otc_hexdump_new(report, sizeof(report));
+		otc_spew("Sending report bytes: %s", txt->str);
+		otc_hexdump_free(txt);
 	}
 	ret = hid_send_feature_report(devc->hid_dev, report, sizeof(report));
 	if (ret != sizeof(report))
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
 	/* Update relay state cache (non-fatal). */
 	(void)dcttech_usbrelay_update_state(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Answers the query from cached relay state. Beware of 1-based indexing. */
-SR_PRIV int dcttech_usbrelay_query_cg(const struct sr_dev_inst *sdi,
-	const struct sr_channel_group *cg, gboolean *on)
+OTC_PRIV int dcttech_usbrelay_query_cg(const struct otc_dev_inst *sdi,
+	const struct otc_channel_group *cg, gboolean *on)
 {
 	struct dev_context *devc;
 	struct channel_group_context *cgc;
@@ -124,14 +124,14 @@ SR_PRIV int dcttech_usbrelay_query_cg(const struct sr_dev_inst *sdi,
 
 	devc = sdi->priv;
 	if (!cg)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	cgc = cg->priv;
 	relay_idx = cgc->number;
 	if (relay_idx < 1 || relay_idx > devc->relay_count)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	relay_mask = 1U << (relay_idx - 1);
 
 	*on = devc->relay_state & relay_mask;
 
-	return SR_OK;
+	return OTC_OK;
 }

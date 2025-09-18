@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Daniel Elstner <daniel.kitta@gmail.com>
  *
@@ -31,12 +31,12 @@ static int submit_transfer(struct dev_context *devc,
 	ret = libusb_submit_transfer(xfer);
 
 	if (ret != 0) {
-		sr_err("Submit transfer failed: %s.", libusb_error_name(ret));
+		otc_err("Submit transfer failed: %s.", libusb_error_name(ret));
 		devc->transfer_error = TRUE;
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Set up transfer for the next register in a write sequence. */
@@ -73,18 +73,18 @@ static int read_reg_response(struct acquisition_state *acq)
 	uint32_t value;
 
 	if (acq->xfer_in->actual_length != 4) {
-		sr_err("Received size %d doesn't match expected size 4.",
+		otc_err("Received size %d doesn't match expected size 4.",
 		       acq->xfer_in->actual_length);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	value = LWLA_TO_UINT32(acq->xfer_buf_in[0]);
 	acq->reg_sequence[acq->reg_seq_pos].val = value;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Enter a new state and submit the corresponding request to the device. */
-static int submit_request(const struct sr_dev_inst *sdi,
+static int submit_request(const struct otc_dev_inst *sdi,
 			  enum protocol_state state)
 {
 	struct dev_context *devc;
@@ -103,7 +103,7 @@ static int submit_request(const struct sr_dev_inst *sdi,
 	/* Perform the model-specific action for the new state. */
 	ret = (*devc->model->prepare_request)(sdi);
 
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		devc->transfer_error = TRUE;
 		return ret;
 	}
@@ -119,7 +119,7 @@ static int submit_request(const struct sr_dev_inst *sdi,
 }
 
 /* Evaluate and act on the response to a capture status request. */
-static void handle_status_response(const struct sr_dev_inst *sdi)
+static void handle_status_response(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct acquisition_state *acq;
@@ -129,33 +129,33 @@ static void handle_status_response(const struct sr_dev_inst *sdi)
 	acq = devc->acquisition;
 	old_status = acq->status;
 
-	if ((*devc->model->handle_response)(sdi) != SR_OK) {
+	if ((*devc->model->handle_response)(sdi) != OTC_OK) {
 		devc->transfer_error = TRUE;
 		return;
 	}
 	devc->state = STATE_STATUS_WAIT;
 
-	sr_spew("Captured %u words, %" PRIu64 " ms, status 0x%02X.",
+	otc_spew("Captured %u words, %" PRIu64 " ms, status 0x%02X.",
 		acq->mem_addr_fill, acq->duration_now, acq->status);
 
 	if ((~old_status & acq->status & STATUS_TRIGGERED) != 0)
-		sr_info("Capture triggered.");
+		otc_info("Capture triggered.");
 
 	if (acq->duration_now >= acq->duration_max) {
-		sr_dbg("Time limit reached, stopping capture.");
+		otc_dbg("Time limit reached, stopping capture.");
 		submit_request(sdi, STATE_STOP_CAPTURE);
 	} else if ((acq->status & STATUS_TRIGGERED) == 0) {
-		sr_spew("Waiting for trigger.");
+		otc_spew("Waiting for trigger.");
 	} else if ((acq->status & STATUS_MEM_AVAIL) == 0) {
-		sr_dbg("Capture memory filled.");
+		otc_dbg("Capture memory filled.");
 		submit_request(sdi, STATE_LENGTH_REQUEST);
 	} else if ((acq->status & STATUS_CAPTURING) != 0) {
-		sr_spew("Sampling in progress.");
+		otc_spew("Sampling in progress.");
 	}
 }
 
 /* Evaluate and act on the response to a capture length request. */
-static void handle_length_response(const struct sr_dev_inst *sdi)
+static void handle_length_response(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct acquisition_state *acq;
@@ -163,7 +163,7 @@ static void handle_length_response(const struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 	acq = devc->acquisition;
 
-	if ((*devc->model->handle_response)(sdi) != SR_OK) {
+	if ((*devc->model->handle_response)(sdi) != OTC_OK) {
 		devc->transfer_error = TRUE;
 		return;
 	}
@@ -178,26 +178,26 @@ static void handle_length_response(const struct sr_dev_inst *sdi)
 		submit_request(sdi, STATE_READ_FINISH);
 		return;
 	}
-	sr_dbg("%u words in capture buffer.",
+	otc_dbg("%u words in capture buffer.",
 	       acq->mem_addr_stop - acq->mem_addr_next);
 
 	submit_request(sdi, STATE_READ_PREPARE);
 }
 
 /* Evaluate and act on the response to a capture memory read request. */
-static void handle_read_response(const struct sr_dev_inst *sdi)
+static void handle_read_response(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct acquisition_state *acq;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 	unsigned int end_addr;
 
 	devc = sdi->priv;
 	acq = devc->acquisition;
 
 	/* Prepare session packet. */
-	packet.type = SR_DF_LOGIC;
+	packet.type = OTC_DF_LOGIC;
 	packet.payload = &logic;
 	logic.unitsize = (devc->model->num_channels + 7) / 8;
 	logic.data = acq->out_packet;
@@ -213,14 +213,14 @@ static void handle_read_response(const struct sr_dev_inst *sdi)
 			&& (acq->run_len > 0 || acq->mem_addr_done < end_addr)
 			&& acq->samples_done < acq->samples_max) {
 
-		if ((*devc->model->handle_response)(sdi) != SR_OK) {
+		if ((*devc->model->handle_response)(sdi) != OTC_OK) {
 			devc->transfer_error = TRUE;
 			return;
 		}
 		if (acq->out_index * logic.unitsize >= PACKET_SIZE) {
 			/* Send off full logic packet. */
 			logic.length = acq->out_index * logic.unitsize;
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 			acq->out_index = 0;
 		}
 	}
@@ -236,14 +236,14 @@ static void handle_read_response(const struct sr_dev_inst *sdi)
 	/* Send partially filled packet as it is the last one. */
 	if (!devc->cancel_requested && acq->out_index > 0) {
  		logic.length = acq->out_index * logic.unitsize;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 		acq->out_index = 0;
 	}
 	submit_request(sdi, STATE_READ_FINISH);
 }
 
 /* Destroy and unset the acquisition state record. */
-static void clear_acquisition_state(const struct sr_dev_inst *sdi)
+static void clear_acquisition_state(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct acquisition_state *acq;
@@ -263,7 +263,7 @@ static void clear_acquisition_state(const struct sr_dev_inst *sdi)
 /* USB I/O source callback. */
 static int transfer_event(int fd, int revents, void *cb_data)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct drv_context *drvc;
 	struct timeval tv;
@@ -281,10 +281,10 @@ static int transfer_event(int fd, int revents, void *cb_data)
 	/* Handle pending USB events without blocking. */
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
-	ret = libusb_handle_events_timeout_completed(drvc->sr_ctx->libusb_ctx,
+	ret = libusb_handle_events_timeout_completed(drvc->otc_ctx->libusb_ctx,
 						     &tv, NULL);
 	if (ret != 0) {
-		sr_err("Event handling failed: %s.", libusb_error_name(ret));
+		otc_err("Event handling failed: %s.", libusb_error_name(ret));
 		devc->transfer_error = TRUE;
 	}
 
@@ -302,7 +302,7 @@ static int transfer_event(int fd, int revents, void *cb_data)
 	if (devc->state != STATE_IDLE)
 		return G_SOURCE_CONTINUE;
 
-	sr_info("Acquisition stopped.");
+	otc_info("Acquisition stopped.");
 
 	/* We are done, clean up and send end packet to session bus. */
 	clear_acquisition_state(sdi);
@@ -314,7 +314,7 @@ static int transfer_event(int fd, int revents, void *cb_data)
 /* USB output transfer completion callback. */
 static void LIBUSB_CALL transfer_out_completed(struct libusb_transfer *transfer)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct acquisition_state *acq;
 
@@ -323,7 +323,7 @@ static void LIBUSB_CALL transfer_out_completed(struct libusb_transfer *transfer)
 	acq = devc->acquisition;
 
 	if (transfer->status != LIBUSB_TRANSFER_COMPLETED) {
-		sr_err("Transfer to device failed (state %d): %s.",
+		otc_err("Transfer to device failed (state %d): %s.",
 		       devc->state, libusb_error_name(transfer->status));
 		devc->transfer_error = TRUE;
 		return;
@@ -346,7 +346,7 @@ static void LIBUSB_CALL transfer_out_completed(struct libusb_transfer *transfer)
 
 	switch (devc->state) {
 	case STATE_START_CAPTURE:
-		sr_info("Acquisition started.");
+		otc_info("Acquisition started.");
 
 		if (!devc->cancel_requested)
 			devc->state = STATE_STATUS_WAIT;
@@ -369,7 +369,7 @@ static void LIBUSB_CALL transfer_out_completed(struct libusb_transfer *transfer)
 		devc->state = STATE_IDLE;
 		break;
 	default:
-		sr_err("Unexpected device state %d.", devc->state);
+		otc_err("Unexpected device state %d.", devc->state);
 		devc->transfer_error = TRUE;
 		break;
 	}
@@ -378,7 +378,7 @@ static void LIBUSB_CALL transfer_out_completed(struct libusb_transfer *transfer)
 /* USB input transfer completion callback. */
 static void LIBUSB_CALL transfer_in_completed(struct libusb_transfer *transfer)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct acquisition_state *acq;
 
@@ -387,13 +387,13 @@ static void LIBUSB_CALL transfer_in_completed(struct libusb_transfer *transfer)
 	acq = devc->acquisition;
 
 	if (transfer->status != LIBUSB_TRANSFER_COMPLETED) {
-		sr_err("Transfer from device failed (state %d): %s.",
+		otc_err("Transfer from device failed (state %d): %s.",
 		       devc->state, libusb_error_name(transfer->status));
 		devc->transfer_error = TRUE;
 		return;
 	}
 	if ((devc->state & STATE_EXPECT_RESPONSE) == 0) {
-		sr_err("Unexpected completion of input transfer (state %d).",
+		otc_err("Unexpected completion of input transfer (state %d).",
 		       devc->state);
 		devc->transfer_error = TRUE;
 		return;
@@ -401,7 +401,7 @@ static void LIBUSB_CALL transfer_in_completed(struct libusb_transfer *transfer)
 
 	if (acq->reg_seq_pos < acq->reg_seq_len && !devc->cancel_requested) {
 		/* Complete register read sequence. */
-		if (read_reg_response(acq) != SR_OK) {
+		if (read_reg_response(acq) != OTC_OK) {
 			devc->transfer_error = TRUE;
 			return;
 		}
@@ -430,77 +430,77 @@ static void LIBUSB_CALL transfer_in_completed(struct libusb_transfer *transfer)
 		handle_read_response(sdi);
 		break;
 	default:
-		sr_err("Unexpected device state %d.", devc->state);
+		otc_err("Unexpected device state %d.", devc->state);
 		devc->transfer_error = TRUE;
 		break;
 	}
 }
 
 /* Set up the acquisition state record. */
-static int init_acquisition_state(const struct sr_dev_inst *sdi)
+static int init_acquisition_state(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	struct acquisition_state *acq;
 
 	devc = sdi->priv;
 	usb = sdi->conn;
 
 	if (devc->acquisition) {
-		sr_err("Acquisition still in progress?");
-		return SR_ERR;
+		otc_err("Acquisition still in progress?");
+		return OTC_ERR;
 	}
 	if (devc->cfg_clock_source == CLOCK_INTERNAL && devc->samplerate == 0) {
-		sr_err("Samplerate not set.");
-		return SR_ERR;
+		otc_err("Samplerate not set.");
+		return OTC_ERR;
 	}
 
 	acq = g_try_malloc0(sizeof(struct acquisition_state));
 	if (!acq)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
 	acq->xfer_in = libusb_alloc_transfer(0);
 	if (!acq->xfer_in) {
 		g_free(acq);
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	}
 	acq->xfer_out = libusb_alloc_transfer(0);
 	if (!acq->xfer_out) {
 		libusb_free_transfer(acq->xfer_in);
 		g_free(acq);
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	}
 
 	libusb_fill_bulk_transfer(acq->xfer_out, usb->devhdl, EP_COMMAND,
 				  (unsigned char *)acq->xfer_buf_out, 0,
 				  &transfer_out_completed,
-				  (struct sr_dev_inst *)sdi, USB_TIMEOUT_MS);
+				  (struct otc_dev_inst *)sdi, USB_TIMEOUT_MS);
 
 	libusb_fill_bulk_transfer(acq->xfer_in, usb->devhdl, EP_REPLY,
 				  (unsigned char *)acq->xfer_buf_in,
 				  sizeof(acq->xfer_buf_in),
 				  &transfer_in_completed,
-				  (struct sr_dev_inst *)sdi, USB_TIMEOUT_MS);
+				  (struct otc_dev_inst *)sdi, USB_TIMEOUT_MS);
 
 	if (devc->limit_msec > 0) {
 		acq->duration_max = devc->limit_msec;
-		sr_info("Acquisition time limit %" PRIu64 " ms.",
+		otc_info("Acquisition time limit %" PRIu64 " ms.",
 			devc->limit_msec);
 	} else
 		acq->duration_max = MAX_LIMIT_MSEC;
 
 	if (devc->limit_samples > 0) {
 		acq->samples_max = devc->limit_samples;
-		sr_info("Acquisition sample count limit %" PRIu64 ".",
+		otc_info("Acquisition sample count limit %" PRIu64 ".",
 			devc->limit_samples);
 	} else
 		acq->samples_max = MAX_LIMIT_SAMPLES;
 
 	if (devc->cfg_clock_source == CLOCK_INTERNAL) {
-		sr_info("Internal clock, samplerate %" PRIu64 ".",
+		otc_info("Internal clock, samplerate %" PRIu64 ".",
 			devc->samplerate);
 		/* Ramp up clock speed to enable samplerates above 100 MS/s. */
-		acq->clock_boost = (devc->samplerate > SR_MHZ(100));
+		acq->clock_boost = (devc->samplerate > OTC_MHZ(100));
 
 		/* If only one of the limits is set, derive the other one. */
 		if (devc->limit_msec == 0 && devc->limit_samples > 0)
@@ -513,18 +513,18 @@ static int init_acquisition_state(const struct sr_dev_inst *sdi)
 		acq->clock_boost = TRUE;
 
 		if (devc->cfg_clock_edge == EDGE_POSITIVE)
-			sr_info("External clock, rising edge.");
+			otc_info("External clock, rising edge.");
 		else
-			sr_info("External clock, falling edge.");
+			otc_info("External clock, falling edge.");
 	}
 
 	acq->rle_enabled = devc->cfg_rle;
 	devc->acquisition = acq;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int lwla_start_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int lwla_start_acquisition(const struct otc_dev_inst *sdi)
 {
 	struct drv_context *drvc;
 	struct dev_context *devc;
@@ -535,36 +535,36 @@ SR_PRIV int lwla_start_acquisition(const struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	if (devc->state != STATE_IDLE) {
-		sr_err("Not in idle state, cannot start acquisition.");
-		return SR_ERR;
+		otc_err("Not in idle state, cannot start acquisition.");
+		return OTC_ERR;
 	}
 	devc->cancel_requested = FALSE;
 	devc->transfer_error = FALSE;
 
 	ret = init_acquisition_state(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = (*devc->model->setup_acquisition)(sdi);
-	if (ret != SR_OK) {
-		sr_err("Failed to set up device for acquisition.");
+	if (ret != OTC_OK) {
+		otc_err("Failed to set up device for acquisition.");
 		clear_acquisition_state(sdi);
 		return ret;
 	}
 	/* Register event source for asynchronous USB I/O. */
-	ret = usb_source_add(sdi->session, drvc->sr_ctx, poll_interval_ms,
-			     &transfer_event, (struct sr_dev_inst *)sdi);
-	if (ret != SR_OK) {
+	ret = usb_source_add(sdi->session, drvc->otc_ctx, poll_interval_ms,
+			     &transfer_event, (struct otc_dev_inst *)sdi);
+	if (ret != OTC_OK) {
 		clear_acquisition_state(sdi);
 		return ret;
 	}
 	ret = submit_request(sdi, STATE_START_CAPTURE);
 
-	if (ret == SR_OK)
+	if (ret == OTC_OK)
 		ret = std_session_send_df_header(sdi);
 
-	if (ret != SR_OK) {
-		usb_source_remove(sdi->session, drvc->sr_ctx);
+	if (ret != OTC_OK) {
+		usb_source_remove(sdi->session, drvc->otc_ctx);
 		clear_acquisition_state(sdi);
 	}
 

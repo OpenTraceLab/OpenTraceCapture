@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Aurelien Jacobs <aurel@gnuage.org>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "appa-55ii"
 
@@ -37,7 +37,7 @@ enum {
 };
 
 struct dev_context {
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	gboolean data_source; /**< Whether to read live samples or memory */
 
 	uint8_t buf[APPA_55II_BUF_SIZE];
@@ -47,7 +47,7 @@ struct dev_context {
 	unsigned int num_log_records;
 };
 
-SR_PRIV gboolean appa_55ii_packet_valid(const uint8_t *buf);
-SR_PRIV int appa_55ii_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV gboolean appa_55ii_packet_valid(const uint8_t *buf);
+OTC_PRIV int appa_55ii_receive_data(int fd, int revents, void *cb_data);
 
 #endif

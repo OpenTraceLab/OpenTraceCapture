@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -19,78 +19,78 @@
 
 #include <config.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "transform/scale"
 
 struct context {
-	struct sr_rational factor;
+	struct otc_rational factor;
 };
 
-static int init(struct sr_transform *t, GHashTable *options)
+static int init(struct otc_transform *t, GHashTable *options)
 {
 	struct context *ctx;
 
 	if (!t || !t->sdi || !options)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	t->priv = ctx = g_malloc0(sizeof(struct context));
 
 	g_variant_get(g_hash_table_lookup(options, "factor"), "(xt)",
 			&ctx->factor.p, &ctx->factor.q);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int receive(const struct sr_transform *t,
-		struct sr_datafeed_packet *packet_in,
-		struct sr_datafeed_packet **packet_out)
+static int receive(const struct otc_transform *t,
+		struct otc_datafeed_packet *packet_in,
+		struct otc_datafeed_packet **packet_out)
 {
 	struct context *ctx;
-	const struct sr_datafeed_analog *analog;
+	const struct otc_datafeed_analog *analog;
 
 	if (!t || !t->sdi || !packet_in || !packet_out)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	ctx = t->priv;
 
 	switch (packet_in->type) {
-	case SR_DF_ANALOG:
+	case OTC_DF_ANALOG:
 		analog = packet_in->payload;
 		analog->encoding->scale.p *= ctx->factor.p;
 		analog->encoding->scale.q *= ctx->factor.q;
 		break;
 	default:
-		sr_spew("Unsupported packet type %d, ignoring.", packet_in->type);
+		otc_spew("Unsupported packet type %d, ignoring.", packet_in->type);
 		break;
 	}
 
 	/* Return the in-place-modified packet. */
 	*packet_out = packet_in;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int cleanup(struct sr_transform *t)
+static int cleanup(struct otc_transform *t)
 {
 	struct context *ctx;
 
 	if (!t || !t->sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	ctx = t->priv;
 
 	g_free(ctx);
 	t->priv = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	{ "factor", "Factor", "Factor by which to scale the analog values", NULL, NULL },
 	ALL_ZERO
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	int64_t p = 1;
 	uint64_t q = 1;
@@ -102,7 +102,7 @@ static const struct sr_option *get_options(void)
 	return options;
 }
 
-SR_PRIV struct sr_transform_module transform_scale = {
+OTC_PRIV struct otc_transform_module transform_scale = {
 	.id = "scale",
 	.name = "Scale",
 	.desc = "Scale analog values by a specified factor",

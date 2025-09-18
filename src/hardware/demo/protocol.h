@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2011 Olivier Fauchon <olivier@aixmarseille.com>
@@ -25,8 +25,8 @@
 #define LIBSIGROK_HARDWARE_DEMO_PROTOCOL_H
 
 #include <stdint.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "demo"
 
@@ -46,7 +46,7 @@
 /* Logic patterns we can generate. */
 enum logic_pattern_type {
 	/**
-	 * Spells "sigrok" across 8 channels using '0's (with '1's as
+	 * Spells "opentracelab" across 8 channels using '0's (with '1's as
 	 * "background") when displayed using the 'bits' output format.
 	 * The pattern is repeated every 8 channels, shifted to the right
 	 * in time by one bit.
@@ -145,23 +145,23 @@ struct dev_context {
 };
 
 struct analog_gen {
-	struct sr_channel *ch;
-	enum sr_mq mq;
-	enum sr_mqflag mq_flags;
-	enum sr_unit unit;
+	struct otc_channel *ch;
+	enum otc_mq mq;
+	enum otc_mqflag mq_flags;
+	enum otc_unit unit;
 	enum analog_pattern_type pattern;
 	float amplitude;
 	float offset;
-	struct sr_datafeed_analog packet;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_analog packet;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	float avg_val; /* Average value */
 	unsigned int num_avgs; /* Number of samples averaged */
 };
 
-SR_PRIV void demo_generate_analog_pattern(struct dev_context *devc);
-SR_PRIV void demo_free_analog_pattern(struct dev_context *devc);
-SR_PRIV int demo_prepare_data(int fd, int revents, void *cb_data);
+OTC_PRIV void demo_generate_analog_pattern(struct dev_context *devc);
+OTC_PRIV void demo_free_analog_pattern(struct dev_context *devc);
+OTC_PRIV int demo_prepare_data(int fd, int revents, void *cb_data);
 
 #endif

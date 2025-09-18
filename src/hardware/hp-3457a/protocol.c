@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Alexandru Gagniuc <mr.nuke.me@gmail.com>
  *
@@ -19,12 +19,12 @@
 
 #include <config.h>
 #include <math.h>
-#include <scpi.h>
+#include "../../scpi.h"
 #include "protocol.h"
 
-static int set_mq_volt(struct sr_scpi_dev_inst *scpi, enum sr_mqflag flags);
-static int set_mq_amp(struct sr_scpi_dev_inst *scpi, enum sr_mqflag flags);
-static int set_mq_ohm(struct sr_scpi_dev_inst *scpi, enum sr_mqflag flags);
+static int set_mq_volt(struct otc_scpi_dev_inst *scpi, enum otc_mqflag flags);
+static int set_mq_amp(struct otc_scpi_dev_inst *scpi, enum otc_mqflag flags);
+static int set_mq_ohm(struct otc_scpi_dev_inst *scpi, enum otc_mqflag flags);
 
 /*
  * The source for the frequency measurement can be either AC voltage, AC+DC
@@ -34,15 +34,15 @@ static int set_mq_ohm(struct sr_scpi_dev_inst *scpi, enum sr_mqflag flags);
  * a cmd string must be provided.
  */
 static const struct {
-	enum sr_mq mq;
-	enum sr_unit unit;
+	enum otc_mq mq;
+	enum otc_unit unit;
 	const char *cmd;
-	int (*set_mode)(struct sr_scpi_dev_inst *scpi, enum sr_mqflag flags);
-} sr_mq_to_cmd_map[] = {
-	{ SR_MQ_VOLTAGE, SR_UNIT_VOLT, "DCV", set_mq_volt },
-	{ SR_MQ_CURRENT, SR_UNIT_AMPERE, "DCI", set_mq_amp },
-	{ SR_MQ_RESISTANCE, SR_UNIT_OHM, "OHM", set_mq_ohm },
-	{ SR_MQ_FREQUENCY, SR_UNIT_HERTZ, "FREQ", NULL },
+	int (*set_mode)(struct otc_scpi_dev_inst *scpi, enum otc_mqflag flags);
+} otc_mq_to_cmd_map[] = {
+	{ OTC_MQ_VOLTAGE, OTC_UNIT_VOLT, "DCV", set_mq_volt },
+	{ OTC_MQ_CURRENT, OTC_UNIT_AMPERE, "DCI", set_mq_amp },
+	{ OTC_MQ_RESISTANCE, OTC_UNIT_OHM, "OHM", set_mq_ohm },
+	{ OTC_MQ_FREQUENCY, OTC_UNIT_HERTZ, "FREQ", NULL },
 };
 
 static const struct rear_card_info rear_card_parameters[] = {
@@ -67,83 +67,83 @@ static const struct rear_card_info rear_card_parameters[] = {
 	}
 };
 
-static int send_mq_ac_dc(struct sr_scpi_dev_inst *scpi, const char *mode,
-			 enum sr_mqflag flags)
+static int send_mq_ac_dc(struct otc_scpi_dev_inst *scpi, const char *mode,
+			 enum otc_mqflag flags)
 {
 	const char *ac_flag, *dc_flag;
 
-	if (flags & ~(SR_MQFLAG_AC | SR_MQFLAG_DC))
-		return SR_ERR_NA;
+	if (flags & ~(OTC_MQFLAG_AC | OTC_MQFLAG_DC))
+		return OTC_ERR_NA;
 
-	ac_flag = (flags & SR_MQFLAG_AC) ? "AC" : "";
+	ac_flag = (flags & OTC_MQFLAG_AC) ? "AC" : "";
 	dc_flag = "";
 	/* Must specify DC measurement when AC flag is not given. */
-	if ((flags & SR_MQFLAG_DC) || !(flags & SR_MQFLAG_AC))
+	if ((flags & OTC_MQFLAG_DC) || !(flags & OTC_MQFLAG_AC))
 		dc_flag = "DC";
 
-	return sr_scpi_send(scpi, "%s%s%s", ac_flag, dc_flag, mode);
+	return otc_scpi_send(scpi, "%s%s%s", ac_flag, dc_flag, mode);
 }
 
-static int set_mq_volt(struct sr_scpi_dev_inst *scpi, enum sr_mqflag flags)
+static int set_mq_volt(struct otc_scpi_dev_inst *scpi, enum otc_mqflag flags)
 {
 	return send_mq_ac_dc(scpi, "V", flags);
 }
 
-static int set_mq_amp(struct sr_scpi_dev_inst *scpi, enum sr_mqflag flags)
+static int set_mq_amp(struct otc_scpi_dev_inst *scpi, enum otc_mqflag flags)
 {
 	return send_mq_ac_dc(scpi, "I", flags);
 }
 
-static int set_mq_ohm(struct sr_scpi_dev_inst *scpi, enum sr_mqflag flags)
+static int set_mq_ohm(struct otc_scpi_dev_inst *scpi, enum otc_mqflag flags)
 {
 	const char *ohm_flag;
 
-	if (flags & ~(SR_MQFLAG_FOUR_WIRE))
-		return SR_ERR_NA;
+	if (flags & ~(OTC_MQFLAG_FOUR_WIRE))
+		return OTC_ERR_NA;
 
-	ohm_flag = (flags & SR_MQFLAG_FOUR_WIRE) ? "F" : "";
-	return sr_scpi_send(scpi, "OHM%s", ohm_flag);
+	ohm_flag = (flags & OTC_MQFLAG_FOUR_WIRE) ? "F" : "";
+	return otc_scpi_send(scpi, "OHM%s", ohm_flag);
 }
 
-SR_PRIV int hp_3457a_set_mq(const struct sr_dev_inst *sdi, enum sr_mq mq,
-			    enum sr_mqflag mq_flags)
+OTC_PRIV int hp_3457a_set_mq(const struct otc_dev_inst *sdi, enum otc_mq mq,
+			    enum otc_mqflag mq_flags)
 {
 	int ret;
 	size_t i;
-	struct sr_scpi_dev_inst *scpi = sdi->conn;
+	struct otc_scpi_dev_inst *scpi = sdi->conn;
 	struct dev_context *devc = sdi->priv;
 
 	/* No need to send command if we're not changing measurement type. */
 	if (devc->measurement_mq == mq)
-		return SR_OK;
+		return OTC_OK;
 
-	for (i = 0; i < ARRAY_SIZE(sr_mq_to_cmd_map); i++) {
-		if (sr_mq_to_cmd_map[i].mq != mq)
+	for (i = 0; i < ARRAY_SIZE(otc_mq_to_cmd_map); i++) {
+		if (otc_mq_to_cmd_map[i].mq != mq)
 			continue;
-		if (sr_mq_to_cmd_map[i].set_mode) {
-			ret = sr_mq_to_cmd_map[i].set_mode(scpi, mq_flags);
+		if (otc_mq_to_cmd_map[i].set_mode) {
+			ret = otc_mq_to_cmd_map[i].set_mode(scpi, mq_flags);
 		} else {
-			ret = sr_scpi_send(scpi, sr_mq_to_cmd_map[i].cmd);
+			ret = otc_scpi_send(scpi, otc_mq_to_cmd_map[i].cmd);
 		}
-		if (ret == SR_OK) {
-			devc->measurement_mq = sr_mq_to_cmd_map[i].mq;
+		if (ret == OTC_OK) {
+			devc->measurement_mq = otc_mq_to_cmd_map[i].mq;
 			devc->measurement_mq_flags = mq_flags;
-			devc->measurement_unit = sr_mq_to_cmd_map[i].unit;
+			devc->measurement_unit = otc_mq_to_cmd_map[i].unit;
 		}
 		return ret;
 	}
 
-	return SR_ERR_NA;
+	return OTC_ERR_NA;
 }
 
-SR_PRIV const struct rear_card_info *hp_3457a_probe_rear_card(struct sr_scpi_dev_inst *scpi)
+OTC_PRIV const struct rear_card_info *hp_3457a_probe_rear_card(struct otc_scpi_dev_inst *scpi)
 {
 	size_t i;
 	float card_fval;
 	unsigned int card_id;
 	const struct rear_card_info *rear_card = NULL;
 
-	if (sr_scpi_get_float(scpi, "OPT?", &card_fval) != SR_OK)
+	if (otc_scpi_get_float(scpi, "OPT?", &card_fval) != OTC_OK)
 		return NULL;
 
 	card_id = (unsigned int)card_fval;
@@ -158,50 +158,50 @@ SR_PRIV const struct rear_card_info *hp_3457a_probe_rear_card(struct sr_scpi_dev
 	if (!rear_card)
 		return NULL;
 
-	sr_info("Found %s.", rear_card->name);
+	otc_info("Found %s.", rear_card->name);
 
 	return rear_card;
 }
 
-SR_PRIV int hp_3457a_set_nplc(const struct sr_dev_inst *sdi, float nplc)
+OTC_PRIV int hp_3457a_set_nplc(const struct otc_dev_inst *sdi, float nplc)
 {
 	int ret;
-	struct sr_scpi_dev_inst *scpi = sdi->conn;
+	struct otc_scpi_dev_inst *scpi = sdi->conn;
 	struct dev_context *devc = sdi->priv;
 
 	if ((nplc < 1E-6) || (nplc > 100))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Only need one digit of precision here. */
-	ret = sr_scpi_send(scpi, "NPLC %.0E", nplc);
+	ret = otc_scpi_send(scpi, "NPLC %.0E", nplc);
 
 	/*
 	 * The instrument only has a few valid NPLC setting, so get back the
 	 * one which was selected.
 	 */
-	sr_scpi_get_float(scpi, "NPLC?", &devc->nplc);
+	otc_scpi_get_float(scpi, "NPLC?", &devc->nplc);
 
 	return ret;
 }
 
-SR_PRIV int hp_3457a_select_input(const struct sr_dev_inst *sdi,
+OTC_PRIV int hp_3457a_select_input(const struct otc_dev_inst *sdi,
 				  enum channel_conn loc)
 {
 	int ret;
-	struct sr_scpi_dev_inst *scpi = sdi->conn;
+	struct otc_scpi_dev_inst *scpi = sdi->conn;
 	struct dev_context *devc = sdi->priv;
 
 	if (devc->input_loc == loc)
-		return SR_OK;
+		return OTC_OK;
 
-	ret = sr_scpi_send(scpi, "TERM %s", (loc == CONN_FRONT) ? "FRONT": "REAR");
-	if (ret == SR_OK)
+	ret = otc_scpi_send(scpi, "TERM %s", (loc == CONN_FRONT) ? "FRONT": "REAR");
+	if (ret == OTC_OK)
 		devc->input_loc = loc;
 
 	return ret;
 }
 
-SR_PRIV int hp_3457a_send_scan_list(const struct sr_dev_inst *sdi,
+OTC_PRIV int hp_3457a_send_scan_list(const struct otc_dev_inst *sdi,
 				    unsigned int *channels, size_t len)
 {
 	size_t i;
@@ -212,7 +212,7 @@ SR_PRIV int hp_3457a_send_scan_list(const struct sr_dev_inst *sdi,
 		g_strlcat(list_str, chan, sizeof(list_str));
 	}
 
-	return sr_scpi_send(sdi->conn, "SLIST %s", list_str);
+	return otc_scpi_send(sdi->conn, "SLIST %s", list_str);
 }
 
 /* HIRES register only contains valid data with 10 or more powerline cycles. */
@@ -224,7 +224,7 @@ static int is_highres_enabled(struct dev_context *devc)
 static void activate_next_channel(struct dev_context *devc)
 {
 	GSList *list_elem;
-	struct sr_channel *chan;
+	struct otc_channel *chan;
 
 	list_elem = g_slist_find(devc->active_channels, devc->current_channel);
 	if (list_elem)
@@ -237,31 +237,31 @@ static void activate_next_channel(struct dev_context *devc)
 	devc->current_channel = chan;
 }
 
-static void retrigger_measurement(struct sr_scpi_dev_inst *scpi,
+static void retrigger_measurement(struct otc_scpi_dev_inst *scpi,
 				  struct dev_context *devc)
 {
-	sr_scpi_send(scpi, "?");
+	otc_scpi_send(scpi, "?");
 	devc->acq_state = ACQ_TRIGGERED_MEASUREMENT;
 }
 
-static void request_hires(struct sr_scpi_dev_inst *scpi,
+static void request_hires(struct otc_scpi_dev_inst *scpi,
 			  struct dev_context *devc)
 {
-	sr_scpi_send(scpi, "RMATH HIRES");
+	otc_scpi_send(scpi, "RMATH HIRES");
 	devc->acq_state = ACQ_REQUESTED_HIRES;
 }
 
-static void request_range(struct sr_scpi_dev_inst *scpi,
+static void request_range(struct otc_scpi_dev_inst *scpi,
 			  struct dev_context *devc)
 {
-	sr_scpi_send(scpi, "RANGE?");
+	otc_scpi_send(scpi, "RANGE?");
 	devc->acq_state = ACQ_REQUESTED_RANGE;
 }
 
-static void request_current_channel(struct sr_scpi_dev_inst *scpi,
+static void request_current_channel(struct otc_scpi_dev_inst *scpi,
 				    struct dev_context *devc)
 {
-	sr_scpi_send(scpi, "CHAN?");
+	otc_scpi_send(scpi, "CHAN?");
 	devc->acq_state = ACQ_REQUESTED_CHANNEL_SYNC;
 }
 
@@ -332,16 +332,16 @@ static int calculate_num_zero_digits(double measurement, double range)
  * See bug #779 for details.
  * The workaround should be removed once the output modules are fixed.
  */
-static void acq_send_measurement(struct sr_dev_inst *sdi)
+static void acq_send_measurement(struct otc_dev_inst *sdi)
 {
 	double hires_measurement;
 	float measurement_workaround;
 	int zero_digits, num_digits;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	struct dev_context *devc = sdi->priv;
 
 	hires_measurement = devc->base_measurement;
@@ -354,10 +354,10 @@ static void acq_send_measurement(struct sr_dev_inst *sdi)
 						devc->measurement_range);
 	num_digits = num_digits - zero_digits;
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, num_digits);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, num_digits);
 	encoding.unitsize = sizeof(float);
 
 	meaning.channels = g_slist_append(NULL, devc->current_channel);
@@ -370,7 +370,7 @@ static void acq_send_measurement(struct sr_dev_inst *sdi)
 	meaning.mqflags = devc->measurement_mq_flags;
 	meaning.unit = devc->measurement_unit;
 
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
 	g_slist_free(meaning.channels);
 }
@@ -383,13 +383,13 @@ static void acq_send_measurement(struct sr_dev_inst *sdi)
  * most errors we can retrigger the measurement and still be in sync. This
  * check is done to make sure we don't fall out of sync due to obscure errors.
  */
-SR_PRIV int hp_3457a_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int hp_3457a_receive_data(int fd, int revents, void *cb_data)
 {
 	int ret;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	struct dev_context *devc;
 	struct channel_context *chanc;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 
 	(void)fd;
 	(void)revents;
@@ -404,8 +404,8 @@ SR_PRIV int hp_3457a_receive_data(int fd, int revents, void *cb_data)
 
 	switch (devc->acq_state) {
 	case ACQ_TRIGGERED_MEASUREMENT:
-		ret = sr_scpi_get_double(scpi, NULL, &devc->base_measurement);
-		if (ret != SR_OK) {
+		ret = otc_scpi_get_double(scpi, NULL, &devc->base_measurement);
+		if (ret != OTC_OK) {
 			retrigger_measurement(scpi, devc);
 			return TRUE;
 		}
@@ -417,26 +417,26 @@ SR_PRIV int hp_3457a_receive_data(int fd, int revents, void *cb_data)
 
 		break;
 	case ACQ_REQUESTED_HIRES:
-		ret = sr_scpi_get_double(scpi, NULL, &devc->hires_register);
-		if (ret != SR_OK) {
+		ret = otc_scpi_get_double(scpi, NULL, &devc->hires_register);
+		if (ret != OTC_OK) {
 			retrigger_measurement(scpi, devc);
 			return TRUE;
 		}
 		request_range(scpi, devc);
 		break;
 	case ACQ_REQUESTED_RANGE:
-		ret = sr_scpi_get_double(scpi, NULL, &devc->measurement_range);
-		if (ret != SR_OK) {
+		ret = otc_scpi_get_double(scpi, NULL, &devc->measurement_range);
+		if (ret != OTC_OK) {
 			retrigger_measurement(scpi, devc);
 			return TRUE;
 		}
 		devc->acq_state = ACQ_GOT_MEASUREMENT;
 		break;
 	case ACQ_REQUESTED_CHANNEL_SYNC:
-		ret = sr_scpi_get_double(scpi, NULL, &devc->last_channel_sync);
-		if (ret != SR_OK) {
-			sr_err("Cannot check channel synchronization.");
-			sr_dev_acquisition_stop(sdi);
+		ret = otc_scpi_get_double(scpi, NULL, &devc->last_channel_sync);
+		if (ret != OTC_OK) {
+			otc_err("Cannot check channel synchronization.");
+			otc_dev_acquisition_stop(sdi);
 			return FALSE;
 		}
 		devc->acq_state = ACQ_GOT_CHANNEL_SYNC;
@@ -453,11 +453,11 @@ SR_PRIV int hp_3457a_receive_data(int fd, int revents, void *cb_data)
 	if (devc->acq_state == ACQ_GOT_CHANNEL_SYNC) {
 		chanc = devc->current_channel->priv;
 		if (chanc->index != devc->last_channel_sync) {
-			sr_err("Current channel and scan advance out of sync.");
-			sr_err("Expected channel %u, but device says %u",
+			otc_err("Current channel and scan advance out of sync.");
+			otc_err("Expected channel %u, but device says %u",
 			       chanc->index,
 			       (unsigned int)devc->last_channel_sync);
-			sr_dev_acquisition_stop(sdi);
+			otc_dev_acquisition_stop(sdi);
 			return FALSE;
 		}
 		/* All is good. Back to business. */
@@ -465,7 +465,7 @@ SR_PRIV int hp_3457a_receive_data(int fd, int revents, void *cb_data)
 	}
 
 	if (devc->limit_samples && (devc->num_samples >= devc->limit_samples)) {
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 		return FALSE;
 	}
 

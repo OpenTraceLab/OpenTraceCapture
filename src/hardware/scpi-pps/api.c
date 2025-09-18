@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2017,2019 Frank Stettner <frank-stettner@gmx.net>
@@ -21,37 +21,37 @@
 #include <config.h>
 #include <string.h>
 #include <strings.h>
-#include "scpi.h"
+#include "../../scpi.h"
 #include "protocol.h"
 
-static struct sr_dev_driver scpi_pps_driver_info;
-static struct sr_dev_driver hp_ib_pps_driver_info;
+static struct otc_dev_driver scpi_pps_driver_info;
+static struct otc_dev_driver hp_ib_pps_driver_info;
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_POWER_SUPPLY,
+	OTC_CONF_POWER_SUPPLY,
 };
 
 static const struct pps_channel_instance pci[] = {
-	{ SR_MQ_VOLTAGE, SCPI_CMD_GET_MEAS_VOLTAGE, "V" },
-	{ SR_MQ_CURRENT, SCPI_CMD_GET_MEAS_CURRENT, "I" },
-	{ SR_MQ_POWER, SCPI_CMD_GET_MEAS_POWER, "P" },
-	{ SR_MQ_FREQUENCY, SCPI_CMD_GET_MEAS_FREQUENCY, "F" },
+	{ OTC_MQ_VOLTAGE, SCPI_CMD_GET_MEAS_VOLTAGE, "V" },
+	{ OTC_MQ_CURRENT, SCPI_CMD_GET_MEAS_CURRENT, "I" },
+	{ OTC_MQ_POWER, SCPI_CMD_GET_MEAS_POWER, "P" },
+	{ OTC_MQ_FREQUENCY, SCPI_CMD_GET_MEAS_FREQUENCY, "F" },
 };
 
-static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi,
-		int (*get_hw_id)(struct sr_scpi_dev_inst *scpi,
-		struct sr_scpi_hw_info **scpi_response))
+static struct otc_dev_inst *probe_device(struct otc_scpi_dev_inst *scpi,
+		int (*get_hw_id)(struct otc_scpi_dev_inst *scpi,
+		struct otc_scpi_hw_info **scpi_response))
 {
 	struct dev_context *devc;
-	struct sr_dev_inst *sdi;
-	struct sr_scpi_hw_info *hw_info;
-	struct sr_channel_group *cg;
-	struct sr_channel *ch;
+	struct otc_dev_inst *sdi;
+	struct otc_scpi_hw_info *hw_info;
+	struct otc_channel_group *cg;
+	struct otc_channel *ch;
 	const struct scpi_pps *device;
 	struct pps_channel *pch;
 	struct channel_spec *channels;
@@ -66,14 +66,14 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi,
 	const char *vendor;
 	char ch_name[16];
 
-	if (get_hw_id(scpi, &hw_info) != SR_OK) {
-		sr_info("Couldn't get IDN response.");
+	if (get_hw_id(scpi, &hw_info) != OTC_OK) {
+		otc_info("Couldn't get IDN response.");
 		return NULL;
 	}
 
 	device = NULL;
 	for (i = 0; i < num_pps_profiles; i++) {
-		vendor = sr_vendor_alias(hw_info->manufacturer);
+		vendor = otc_vendor_alias(hw_info->manufacturer);
 		if (g_ascii_strcasecmp(vendor, pps_profiles[i].vendor))
 			continue;
 		model_re = g_regex_new(pps_profiles[i].model, 0, 0, NULL);
@@ -85,22 +85,22 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi,
 			break;
 	}
 	if (!device) {
-		sr_scpi_hw_info_free(hw_info);
+		otc_scpi_hw_info_free(hw_info);
 		return NULL;
 	}
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
 	sdi->vendor = g_strdup(vendor);
 	sdi->model = g_strdup(hw_info->model);
 	sdi->version = g_strdup(hw_info->firmware_version);
 	sdi->conn = scpi;
 	sdi->driver = &scpi_pps_driver_info;
-	sdi->inst_type = SR_INST_SCPI;
+	sdi->inst_type = OTC_INST_SCPI;
 	sdi->serial_num = g_strdup(hw_info->serial_number);
 
 	devc = g_malloc0(sizeof(struct dev_context));
 	devc->device = device;
-	sr_sw_limits_init(&devc->limits);
+	otc_sw_limits_init(&devc->limits);
 	sdi->priv = devc;
 
 	if (device->num_channels) {
@@ -113,8 +113,8 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi,
 		/* Channels and groups need to be probed. */
 		ret = device->probe_channels(sdi, hw_info, &channels, &num_channels,
 				&channel_groups, &num_channel_groups);
-		if (ret != SR_OK) {
-			sr_err("Failed to probe for channels.");
+		if (ret != OTC_OK) {
+			otc_err("Failed to probe for channels.");
 			return NULL;
 		}
 		/*
@@ -129,11 +129,11 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi,
 	for (ch_num = 0; ch_num < num_channels; ch_num++) {
 		/* Create one channel per measurable output unit. */
 		for (i = 0; i < ARRAY_SIZE(pci); i++) {
-			if (!sr_scpi_cmd_get(devc->device->commands, pci[i].command))
+			if (!otc_scpi_cmd_get(devc->device->commands, pci[i].command))
 				continue;
 			g_snprintf(ch_name, 16, "%s%s", pci[i].prefix,
 					channels[ch_num].name);
-			ch = sr_channel_new(sdi, ch_idx++, SR_CHANNEL_ANALOG, TRUE,
+			ch = otc_channel_new(sdi, ch_idx++, OTC_CHANNEL_ANALOG, TRUE,
 					ch_name);
 			pch = g_malloc0(sizeof(struct pps_channel));
 			pch->hw_output_idx = ch_num;
@@ -145,7 +145,7 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi,
 
 	for (i = 0; i < num_channel_groups; i++) {
 		cgs = &channel_groups[i];
-		cg = sr_channel_group_new(sdi, cgs->name, NULL);
+		cg = otc_channel_group_new(sdi, cgs->name, NULL);
 		for (j = 0, mask = 1; j < 64; j++, mask <<= 1) {
 			if (cgs->channel_index_mask & mask) {
 				for (l = sdi->channels; l; l = l->next) {
@@ -154,7 +154,7 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi,
 					/* Add mqflags from channel_group_spec only to voltage
 					 * and current channels.
 					 */
-					if (pch->mq == SR_MQ_VOLTAGE || pch->mq == SR_MQ_CURRENT)
+					if (pch->mq == OTC_MQ_VOLTAGE || pch->mq == OTC_MQ_CURRENT)
 						pch->mqflags = cgs->mqflags;
 					else
 						pch->mqflags = 0;
@@ -168,26 +168,26 @@ static struct sr_dev_inst *probe_device(struct sr_scpi_dev_inst *scpi,
 		cg->priv = pcg;
 	}
 
-	sr_scpi_hw_info_free(hw_info);
+	otc_scpi_hw_info_free(hw_info);
 	hw_info = NULL;
 
 	/* Don't send SCPI_CMD_LOCAL for HP 66xxB using SCPI over GPIB. */
 	if (!(devc->device->dialect == SCPI_DIALECT_HP_66XXB &&
 			scpi->transport == SCPI_TRANSPORT_LIBGPIB))
-		sr_scpi_cmd(sdi, devc->device->commands, 0, NULL, SCPI_CMD_LOCAL);
+		otc_scpi_cmd(sdi, devc->device->commands, 0, NULL, SCPI_CMD_LOCAL);
 
 	return sdi;
 }
 
-static gchar *hpib_get_revision(struct sr_scpi_dev_inst *scpi)
+static gchar *hpib_get_revision(struct otc_scpi_dev_inst *scpi)
 {
 	int ret;
 	gboolean matches;
 	char *response;
 	GRegex *version_regex;
 
-	ret = sr_scpi_get_string(scpi, "ROM?", &response);
-	if (ret != SR_OK && !response)
+	ret = otc_scpi_get_string(scpi, "ROM?", &response);
+	if (ret != OTC_OK && !response)
 		return NULL;
 
 	/* Example version string: "B01 B01" */
@@ -214,43 +214,43 @@ static gchar *hpib_get_revision(struct sr_scpi_dev_inst *scpi)
  * set was introduced into the standard. We haven't seen any non-HP instruments
  * which respond to the "ID?" query, so assume all are HP for now.
  */
-static int hpib_get_hw_id(struct sr_scpi_dev_inst *scpi,
-			  struct sr_scpi_hw_info **scpi_response)
+static int hpib_get_hw_id(struct otc_scpi_dev_inst *scpi,
+			  struct otc_scpi_hw_info **scpi_response)
 {
 	int ret;
 	char *response;
-	struct sr_scpi_hw_info *hw_info;
+	struct otc_scpi_hw_info *hw_info;
 
-	ret = sr_scpi_get_string(scpi, "ID?", &response);
-	if ((ret != SR_OK) || !response)
-		return SR_ERR;
+	ret = otc_scpi_get_string(scpi, "ID?", &response);
+	if ((ret != OTC_OK) || !response)
+		return OTC_ERR;
 
-	hw_info = g_malloc0(sizeof(struct sr_scpi_hw_info));
+	hw_info = g_malloc0(sizeof(struct otc_scpi_hw_info));
 
 	*scpi_response = hw_info;
 	hw_info->model = response;
 	hw_info->firmware_version = hpib_get_revision(scpi);
 	hw_info->manufacturer = g_strdup("HP");
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_inst *probe_scpi_pps_device(struct sr_scpi_dev_inst *scpi)
+static struct otc_dev_inst *probe_scpi_pps_device(struct otc_scpi_dev_inst *scpi)
 {
-	return probe_device(scpi, sr_scpi_get_hw_id);
+	return probe_device(scpi, otc_scpi_get_hw_id);
 }
 
-static struct sr_dev_inst *probe_hpib_pps_device(struct sr_scpi_dev_inst *scpi)
+static struct otc_dev_inst *probe_hpib_pps_device(struct otc_scpi_dev_inst *scpi)
 {
 	return probe_device(scpi, hpib_get_hw_id);
 }
 
-static GSList *scan_scpi_pps(struct sr_dev_driver *di, GSList *options)
+static GSList *scan_scpi_pps(struct otc_dev_driver *di, GSList *options)
 {
-	return sr_scpi_scan(di->context, options, probe_scpi_pps_device);
+	return otc_scpi_scan(di->context, options, probe_scpi_pps_device);
 }
 
-static GSList *scan_hpib_pps(struct sr_dev_driver *di, GSList *options)
+static GSList *scan_hpib_pps(struct otc_dev_driver *di, GSList *options)
 {
 	const char *conn;
 
@@ -259,65 +259,65 @@ static GSList *scan_hpib_pps(struct sr_dev_driver *di, GSList *options)
 	 * break SCPI devices' operation.
 	 */
 	conn = NULL;
-	(void)sr_serial_extract_options(options, &conn, NULL);
+	(void)otc_serial_extract_options(options, &conn, NULL);
 	if (!conn)
 		return NULL;
 
-	return sr_scpi_scan(di->context, options, probe_hpib_pps_device);
+	return otc_scpi_scan(di->context, options, probe_hpib_pps_device);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	GVariant *beeper;
 
 	scpi = sdi->conn;
-	if (sr_scpi_open(scpi) < 0)
-		return SR_ERR;
+	if (otc_scpi_open(scpi) < 0)
+		return OTC_ERR;
 
 	devc = sdi->priv;
 
 	/* Don't send SCPI_CMD_REMOTE for HP 66xxB using SCPI over GPIB. */
 	if (!(devc->device->dialect == SCPI_DIALECT_HP_66XXB &&
 			scpi->transport == SCPI_TRANSPORT_LIBGPIB))
-		sr_scpi_cmd(sdi, devc->device->commands, 0, NULL, SCPI_CMD_REMOTE);
+		otc_scpi_cmd(sdi, devc->device->commands, 0, NULL, SCPI_CMD_REMOTE);
 
 	devc->beeper_was_set = FALSE;
-	if (sr_scpi_cmd_resp(sdi, devc->device->commands, 0, NULL,
-			&beeper, G_VARIANT_TYPE_BOOLEAN, SCPI_CMD_BEEPER) == SR_OK) {
+	if (otc_scpi_cmd_resp(sdi, devc->device->commands, 0, NULL,
+			&beeper, G_VARIANT_TYPE_BOOLEAN, SCPI_CMD_BEEPER) == OTC_OK) {
 		if (g_variant_get_boolean(beeper)) {
 			devc->beeper_was_set = TRUE;
-			sr_scpi_cmd(sdi, devc->device->commands,
+			otc_scpi_cmd(sdi, devc->device->commands,
 				0, NULL, SCPI_CMD_BEEPER_DISABLE);
 		}
 		g_variant_unref(beeper);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	struct dev_context *devc;
 
 	devc = sdi->priv;
 	scpi = sdi->conn;
 
 	if (!scpi)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	if (devc->beeper_was_set)
-		sr_scpi_cmd(sdi, devc->device->commands,
+		otc_scpi_cmd(sdi, devc->device->commands,
 			0, NULL, SCPI_CMD_BEEPER_ENABLE);
 
 	/* Don't send SCPI_CMD_LOCAL for HP 66xxB using SCPI over GPIB. */
 	if (!(devc->device->dialect == SCPI_DIALECT_HP_66XXB &&
 			scpi->transport == SCPI_TRANSPORT_LIBGPIB))
-		sr_scpi_cmd(sdi, devc->device->commands, 0, NULL, SCPI_CMD_LOCAL);
+		otc_scpi_cmd(sdi, devc->device->commands, 0, NULL, SCPI_CMD_LOCAL);
 
-	return sr_scpi_close(scpi);
+	return otc_scpi_close(scpi);
 }
 
 static void clear_helper(struct dev_context *devc)
@@ -326,13 +326,13 @@ static void clear_helper(struct dev_context *devc)
 	g_free(devc->channel_groups);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	const GVariantType *gvtype;
@@ -345,7 +345,7 @@ static int config_get(uint32_t key, GVariant **data,
 	gboolean is_hmp_sqii, is_keysight_e36300a;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
@@ -372,35 +372,35 @@ static int config_get(uint32_t key, GVariant **data,
 	gvtype = NULL;
 	cmd = -1;
 	switch (key) {
-	case SR_CONF_ENABLED:
+	case OTC_CONF_ENABLED:
 		gvtype = G_VARIANT_TYPE_BOOLEAN;
 		cmd = SCPI_CMD_GET_OUTPUT_ENABLED;
 		break;
-	case SR_CONF_VOLTAGE:
+	case OTC_CONF_VOLTAGE:
 		gvtype = G_VARIANT_TYPE_DOUBLE;
 		cmd = SCPI_CMD_GET_MEAS_VOLTAGE;
 		break;
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		gvtype = G_VARIANT_TYPE_DOUBLE;
 		cmd = SCPI_CMD_GET_VOLTAGE_TARGET;
 		break;
-	case SR_CONF_OUTPUT_FREQUENCY:
+	case OTC_CONF_OUTPUT_FREQUENCY:
 		gvtype = G_VARIANT_TYPE_DOUBLE;
 		cmd = SCPI_CMD_GET_MEAS_FREQUENCY;
 		break;
-	case SR_CONF_OUTPUT_FREQUENCY_TARGET:
+	case OTC_CONF_OUTPUT_FREQUENCY_TARGET:
 		gvtype = G_VARIANT_TYPE_DOUBLE;
 		cmd = SCPI_CMD_GET_FREQUENCY_TARGET;
 		break;
-	case SR_CONF_CURRENT:
+	case OTC_CONF_CURRENT:
 		gvtype = G_VARIANT_TYPE_DOUBLE;
 		cmd = SCPI_CMD_GET_MEAS_CURRENT;
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		gvtype = G_VARIANT_TYPE_DOUBLE;
 		cmd = SCPI_CMD_GET_CURRENT_LIMIT;
 		break;
-	case SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED:
 		if (devc->device->dialect == SCPI_DIALECT_HMP) {
 			/* OVP is always enabled. */
 			*data = g_variant_new_boolean(TRUE);
@@ -409,7 +409,7 @@ static int config_get(uint32_t key, GVariant **data,
 		gvtype = G_VARIANT_TYPE_BOOLEAN;
 		cmd = SCPI_CMD_GET_OVER_VOLTAGE_PROTECTION_ENABLED;
 		break;
-	case SR_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE:
+	case OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE:
 		if (devc->device->dialect == SCPI_DIALECT_HP_66XXB ||
 			devc->device->dialect == SCPI_DIALECT_HP_COMP)
 			gvtype = G_VARIANT_TYPE_STRING;
@@ -417,15 +417,15 @@ static int config_get(uint32_t key, GVariant **data,
 			gvtype = G_VARIANT_TYPE_BOOLEAN;
 		cmd = SCPI_CMD_GET_OVER_VOLTAGE_PROTECTION_ACTIVE;
 		break;
-	case SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
+	case OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
 		gvtype = G_VARIANT_TYPE_DOUBLE;
 		cmd = SCPI_CMD_GET_OVER_VOLTAGE_PROTECTION_THRESHOLD;
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED:
 		gvtype = G_VARIANT_TYPE_BOOLEAN;
 		cmd = SCPI_CMD_GET_OVER_CURRENT_PROTECTION_ENABLED;
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_ACTIVE:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE:
 		if (devc->device->dialect == SCPI_DIALECT_HP_66XXB ||
 			devc->device->dialect == SCPI_DIALECT_HP_COMP)
 			gvtype = G_VARIANT_TYPE_STRING;
@@ -433,15 +433,15 @@ static int config_get(uint32_t key, GVariant **data,
 			gvtype = G_VARIANT_TYPE_BOOLEAN;
 		cmd = SCPI_CMD_GET_OVER_CURRENT_PROTECTION_ACTIVE;
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
 		gvtype = G_VARIANT_TYPE_DOUBLE;
 		cmd = SCPI_CMD_GET_OVER_CURRENT_PROTECTION_THRESHOLD;
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_DELAY:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_DELAY:
 		gvtype = G_VARIANT_TYPE_DOUBLE;
 		cmd = SCPI_CMD_GET_OVER_CURRENT_PROTECTION_DELAY;
 		break;
-	case SR_CONF_OVER_TEMPERATURE_PROTECTION:
+	case OTC_CONF_OVER_TEMPERATURE_PROTECTION:
 		if (devc->device->dialect == SCPI_DIALECT_HMP) {
 			/* OTP is always enabled. */
 			*data = g_variant_new_boolean(TRUE);
@@ -450,7 +450,7 @@ static int config_get(uint32_t key, GVariant **data,
 		gvtype = G_VARIANT_TYPE_BOOLEAN;
 		cmd = SCPI_CMD_GET_OVER_TEMPERATURE_PROTECTION;
 		break;
-	case SR_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE:
+	case OTC_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE:
 		if (devc->device->dialect == SCPI_DIALECT_HP_66XXB ||
 			devc->device->dialect == SCPI_DIALECT_HP_COMP ||
 			devc->device->dialect == SCPI_DIALECT_HMP ||
@@ -460,15 +460,15 @@ static int config_get(uint32_t key, GVariant **data,
 			gvtype = G_VARIANT_TYPE_BOOLEAN;
 		cmd = SCPI_CMD_GET_OVER_TEMPERATURE_PROTECTION_ACTIVE;
 		break;
-	case SR_CONF_REGULATION:
+	case OTC_CONF_REGULATION:
 		gvtype = G_VARIANT_TYPE_STRING;
 		cmd = SCPI_CMD_GET_OUTPUT_REGULATION;
 		break;
 	default:
-		return sr_sw_limits_config_get(&devc->limits, key, data);
+		return otc_sw_limits_config_get(&devc->limits, key, data);
 	}
 	if (!gvtype)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	channel_group_cmd = 0;
 	channel_group_name = NULL;
@@ -490,13 +490,13 @@ static int config_get(uint32_t key, GVariant **data,
 	if (is_hmp_sqii || is_keysight_e36300a) {
 		if (!cg) {
 			/* STAT:QUES:INST:ISUMx query requires channel spec. */
-			sr_err("Need a channel group for regulation or OTP-active query.");
-			return SR_ERR_NA;
+			otc_err("Need a channel group for regulation or OTP-active query.");
+			return OTC_ERR_NA;
 		}
-		ret = sr_scpi_cmd_resp(sdi, devc->device->commands,
+		ret = otc_scpi_cmd_resp(sdi, devc->device->commands,
 			0, NULL, data, gvtype, cmd, channel_group_name);
 	} else {
-		ret = sr_scpi_cmd_resp(sdi, devc->device->commands,
+		ret = otc_scpi_cmd_resp(sdi, devc->device->commands,
 			channel_group_cmd, channel_group_name, data, gvtype, cmd);
 	}
 	g_free(channel_group_name);
@@ -523,7 +523,7 @@ static int config_get(uint32_t key, GVariant **data,
 		if (devc->device->dialect == SCPI_DIALECT_HP_COMP) {
 			/* Evaluate Status Register from a HP 66xx in COMP mode. */
 			s = g_variant_get_string(*data, NULL);
-			sr_atoi(s, &reg);
+			otc_atoi(s, &reg);
 			g_variant_unref(*data);
 			if (reg & (1 << 0))
 				*data = g_variant_new_string("CV");
@@ -539,7 +539,7 @@ static int config_get(uint32_t key, GVariant **data,
 		if (devc->device->dialect == SCPI_DIALECT_HP_66XXB) {
 			/* Evaluate Operational Status Register from a HP 66xxB. */
 			s = g_variant_get_string(*data, NULL);
-			sr_atoi(s, &reg);
+			otc_atoi(s, &reg);
 			g_variant_unref(*data);
 			if (reg & (1 << 8))
 				*data = g_variant_new_string("CV");
@@ -553,7 +553,7 @@ static int config_get(uint32_t key, GVariant **data,
 		if (devc->device->dialect == SCPI_DIALECT_HMP) {
 			/* Evaluate Condition Status Register from a HMP series device. */
 			s = g_variant_get_string(*data, NULL);
-			sr_atoi(s, &reg);
+			otc_atoi(s, &reg);
 			g_variant_unref(*data);
 			if (reg & (1 << 0))
 				*data = g_variant_new_string("CC");
@@ -565,7 +565,7 @@ static int config_get(uint32_t key, GVariant **data,
 		if (devc->device->dialect == SCPI_DIALECT_KEYSIGHT_E36300A) {
 			/* Evaluate Condition Status Register from a Keysight E36300A series device. */
 			s = g_variant_get_string(*data, NULL);
-			sr_atoi(s, &reg);
+			otc_atoi(s, &reg);
 			reg &= 0x03u;
 			g_variant_unref(*data);
 			if (reg == 0x01u)
@@ -584,8 +584,8 @@ static int config_get(uint32_t key, GVariant **data,
 		if (g_strcmp0(s, "CV") && g_strcmp0(s, "CC") && g_strcmp0(s, "CC-") &&
 			g_strcmp0(s, "UR") && g_strcmp0(s, "")) {
 
-			sr_err("Unknown response to SCPI_CMD_GET_OUTPUT_REGULATION: %s", s);
-			ret = SR_ERR_DATA;
+			otc_err("Unknown response to SCPI_CMD_GET_OUTPUT_REGULATION: %s", s);
+			ret = OTC_ERR_DATA;
 		}
 	}
 
@@ -593,14 +593,14 @@ static int config_get(uint32_t key, GVariant **data,
 		if (devc->device->dialect == SCPI_DIALECT_HP_COMP) {
 			/* Evaluate Status Register from a HP 66xx in COMP mode. */
 			s = g_variant_get_string(*data, NULL);
-			sr_atoi(s, &reg);
+			otc_atoi(s, &reg);
 			g_variant_unref(*data);
 			*data = g_variant_new_boolean(reg & (1 << 3));
 		}
 		if (devc->device->dialect == SCPI_DIALECT_HP_66XXB) {
 			/* Evaluate Questionable Status Register bit 0 from a HP 66xxB. */
 			s = g_variant_get_string(*data, NULL);
-			sr_atoi(s, &reg);
+			otc_atoi(s, &reg);
 			g_variant_unref(*data);
 			*data = g_variant_new_boolean(reg & (1 << 0));
 		}
@@ -610,14 +610,14 @@ static int config_get(uint32_t key, GVariant **data,
 		if (devc->device->dialect == SCPI_DIALECT_HP_COMP) {
 			/* Evaluate Status Register from a HP 66xx in COMP mode. */
 			s = g_variant_get_string(*data, NULL);
-			sr_atoi(s, &reg);
+			otc_atoi(s, &reg);
 			g_variant_unref(*data);
 			*data = g_variant_new_boolean(reg & (1 << 6));
 		}
 		if (devc->device->dialect == SCPI_DIALECT_HP_66XXB) {
 			/* Evaluate Questionable Status Register bit 1 from a HP 66xxB. */
 			s = g_variant_get_string(*data, NULL);
-			sr_atoi(s, &reg);
+			otc_atoi(s, &reg);
 			g_variant_unref(*data);
 			*data = g_variant_new_boolean(reg & (1 << 1));
 		}
@@ -627,7 +627,7 @@ static int config_get(uint32_t key, GVariant **data,
 		if (devc->device->dialect == SCPI_DIALECT_HP_COMP) {
 			/* Evaluate Status Register from a HP 66xx in COMP mode. */
 			s = g_variant_get_string(*data, NULL);
-			sr_atoi(s, &reg);
+			otc_atoi(s, &reg);
 			g_variant_unref(*data);
 			*data = g_variant_new_boolean(reg & (1 << 4));
 		}
@@ -639,7 +639,7 @@ static int config_get(uint32_t key, GVariant **data,
 			/* but the bit position is the same as an HP 66xxB's Questionable Status Register. */
 
 			s = g_variant_get_string(*data, NULL);
-			sr_atoi(s, &reg);
+			otc_atoi(s, &reg);
 			g_variant_unref(*data);
 			*data = g_variant_new_boolean(reg & (1 << 4));
 		}
@@ -649,7 +649,7 @@ static int config_get(uint32_t key, GVariant **data,
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	double d;
@@ -658,7 +658,7 @@ static int config_set(uint32_t key, GVariant *data,
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	channel_group_cmd = 0;
 	channel_group_name = NULL;
@@ -670,84 +670,84 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_ENABLED:
+	case OTC_CONF_ENABLED:
 		if (g_variant_get_boolean(data))
-			ret = sr_scpi_cmd(sdi, devc->device->commands,
+			ret = otc_scpi_cmd(sdi, devc->device->commands,
 					channel_group_cmd, channel_group_name,
 					SCPI_CMD_SET_OUTPUT_ENABLE);
 		else
-			ret = sr_scpi_cmd(sdi, devc->device->commands,
+			ret = otc_scpi_cmd(sdi, devc->device->commands,
 					channel_group_cmd, channel_group_name,
 					SCPI_CMD_SET_OUTPUT_DISABLE);
 		break;
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		d = g_variant_get_double(data);
-		ret = sr_scpi_cmd(sdi, devc->device->commands,
+		ret = otc_scpi_cmd(sdi, devc->device->commands,
 				channel_group_cmd, channel_group_name,
 				SCPI_CMD_SET_VOLTAGE_TARGET, d);
 		break;
-	case SR_CONF_OUTPUT_FREQUENCY_TARGET:
+	case OTC_CONF_OUTPUT_FREQUENCY_TARGET:
 		d = g_variant_get_double(data);
-		ret = sr_scpi_cmd(sdi, devc->device->commands,
+		ret = otc_scpi_cmd(sdi, devc->device->commands,
 				channel_group_cmd, channel_group_name,
 				SCPI_CMD_SET_FREQUENCY_TARGET, d);
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		d = g_variant_get_double(data);
-		ret = sr_scpi_cmd(sdi, devc->device->commands,
+		ret = otc_scpi_cmd(sdi, devc->device->commands,
 				channel_group_cmd, channel_group_name,
 				SCPI_CMD_SET_CURRENT_LIMIT, d);
 		break;
-	case SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED:
 		if (g_variant_get_boolean(data))
-			ret = sr_scpi_cmd(sdi, devc->device->commands,
+			ret = otc_scpi_cmd(sdi, devc->device->commands,
 					channel_group_cmd, channel_group_name,
 					SCPI_CMD_SET_OVER_VOLTAGE_PROTECTION_ENABLE);
 		else
-			ret = sr_scpi_cmd(sdi, devc->device->commands,
+			ret = otc_scpi_cmd(sdi, devc->device->commands,
 					channel_group_cmd, channel_group_name,
 					SCPI_CMD_SET_OVER_VOLTAGE_PROTECTION_DISABLE);
 		break;
-	case SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
+	case OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
 		d = g_variant_get_double(data);
-		ret = sr_scpi_cmd(sdi, devc->device->commands,
+		ret = otc_scpi_cmd(sdi, devc->device->commands,
 				channel_group_cmd, channel_group_name,
 				SCPI_CMD_SET_OVER_VOLTAGE_PROTECTION_THRESHOLD, d);
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_ENABLED:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED:
 		if (g_variant_get_boolean(data))
-			ret = sr_scpi_cmd(sdi, devc->device->commands,
+			ret = otc_scpi_cmd(sdi, devc->device->commands,
 					channel_group_cmd, channel_group_name,
 					SCPI_CMD_SET_OVER_CURRENT_PROTECTION_ENABLE);
 		else
-			ret = sr_scpi_cmd(sdi, devc->device->commands,
+			ret = otc_scpi_cmd(sdi, devc->device->commands,
 					channel_group_cmd, channel_group_name,
 					SCPI_CMD_SET_OVER_CURRENT_PROTECTION_DISABLE);
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
 		d = g_variant_get_double(data);
-		ret = sr_scpi_cmd(sdi, devc->device->commands,
+		ret = otc_scpi_cmd(sdi, devc->device->commands,
 				channel_group_cmd, channel_group_name,
 				SCPI_CMD_SET_OVER_CURRENT_PROTECTION_THRESHOLD, d);
 		break;
-	case SR_CONF_OVER_CURRENT_PROTECTION_DELAY:
+	case OTC_CONF_OVER_CURRENT_PROTECTION_DELAY:
 		d = g_variant_get_double(data);
-		ret = sr_scpi_cmd(sdi, devc->device->commands,
+		ret = otc_scpi_cmd(sdi, devc->device->commands,
 				channel_group_cmd, channel_group_name,
 				SCPI_CMD_SET_OVER_CURRENT_PROTECTION_DELAY, d);
 		break;
-	case SR_CONF_OVER_TEMPERATURE_PROTECTION:
+	case OTC_CONF_OVER_TEMPERATURE_PROTECTION:
 		if (g_variant_get_boolean(data))
-			ret = sr_scpi_cmd(sdi, devc->device->commands,
+			ret = otc_scpi_cmd(sdi, devc->device->commands,
 					channel_group_cmd, channel_group_name,
 					SCPI_CMD_SET_OVER_TEMPERATURE_PROTECTION_ENABLE);
 		else
-			ret = sr_scpi_cmd(sdi, devc->device->commands,
+			ret = otc_scpi_cmd(sdi, devc->device->commands,
 					channel_group_cmd, channel_group_name,
 					SCPI_CMD_SET_OVER_TEMPERATURE_PROTECTION_DISABLE);
 		break;
 	default:
-		ret = sr_sw_limits_config_set(&devc->limits, key, data);
+		ret = otc_sw_limits_config_set(&devc->limits, key, data);
 	}
 
 	g_free(channel_group_name);
@@ -756,10 +756,10 @@ static int config_set(uint32_t key, GVariant *data,
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	struct pps_channel *pch;
 	const struct channel_spec *ch_spec;
 	int i;
@@ -769,17 +769,17 @@ static int config_list(uint32_t key, GVariant **data,
 
 	if (!cg) {
 		switch (key) {
-		case SR_CONF_SCAN_OPTIONS:
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_SCAN_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			return std_opts_config_list(key, data, sdi, cg,
 				ARRAY_AND_SIZE(scanopts),
 				ARRAY_AND_SIZE(drvopts),
 				(devc && devc->device) ? devc->device->devopts : NULL,
 				(devc && devc->device) ? devc->device->num_devopts : 0);
 			break;
-		case SR_CONF_CHANNEL_CONFIG:
+		case OTC_CONF_CHANNEL_CONFIG:
 			if (!devc || !devc->device)
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			/* Not used. */
 			i = 0;
 			if (devc->device->features & PPS_INDEPENDENT)
@@ -793,12 +793,12 @@ static int config_list(uint32_t key, GVariant **data,
 				 * Shouldn't happen: independent-only devices
 				 * shouldn't advertise this option at all.
 				 */
-				return SR_ERR_NA;
+				return OTC_ERR_NA;
 			}
 			*data = g_variant_new_strv(s, i);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	} else {
 		/*
@@ -810,78 +810,78 @@ static int config_list(uint32_t key, GVariant **data,
 		ch = cg->channels->data;
 		pch = ch->priv;
 		if (!devc || !devc->device)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		ch_spec = &(devc->device->channels[pch->hw_output_idx]);
 
 		switch (key) {
-		case SR_CONF_DEVICE_OPTIONS:
+		case OTC_CONF_DEVICE_OPTIONS:
 			*data = std_gvar_array_u32(devc->device->devopts_cg, devc->device->num_devopts_cg);
 			break;
-		case SR_CONF_VOLTAGE_TARGET:
+		case OTC_CONF_VOLTAGE_TARGET:
 			*data = std_gvar_min_max_step_array(ch_spec->voltage);
 			break;
-		case SR_CONF_OUTPUT_FREQUENCY_TARGET:
+		case OTC_CONF_OUTPUT_FREQUENCY_TARGET:
 			*data = std_gvar_min_max_step_array(ch_spec->frequency);
 			break;
-		case SR_CONF_CURRENT_LIMIT:
+		case OTC_CONF_CURRENT_LIMIT:
 			*data = std_gvar_min_max_step_array(ch_spec->current);
 			break;
-		case SR_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
+		case OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD:
 			*data = std_gvar_min_max_step_array(ch_spec->ovp);
 			break;
-		case SR_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
+		case OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD:
 			*data = std_gvar_min_max_step_array(ch_spec->ocp);
 			break;
-		case SR_CONF_OVER_CURRENT_PROTECTION_DELAY:
+		case OTC_CONF_OVER_CURRENT_PROTECTION_DELAY:
 			*data = std_gvar_min_max_step_array(ch_spec->ocp_delay);
 			break;
 		default:
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 	int ret;
 
 	devc = sdi->priv;
 	scpi = sdi->conn;
 
 	/* Prime the pipe with the first channel. */
-	devc->cur_acquisition_channel = sr_next_enabled_channel(sdi, NULL);
+	devc->cur_acquisition_channel = otc_next_enabled_channel(sdi, NULL);
 
 	/* Device specific initialization before acquisition starts. */
 	if (devc->device->init_acquisition)
 		devc->device->init_acquisition(sdi);
 
-	if ((ret = sr_scpi_source_add(sdi->session, scpi, G_IO_IN, 10,
-			scpi_pps_receive_data, (void *)sdi)) != SR_OK)
+	if ((ret = otc_scpi_source_add(sdi->session, scpi, G_IO_IN, 10,
+			scpi_pps_receive_data, (void *)sdi)) != OTC_OK)
 		return ret;
 	std_session_send_df_header(sdi);
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
-	struct sr_scpi_dev_inst *scpi;
+	struct otc_scpi_dev_inst *scpi;
 
 	scpi = sdi->conn;
 
-	sr_scpi_source_remove(sdi->session, scpi);
+	otc_scpi_source_remove(sdi->session, scpi);
 
 	std_session_send_df_end(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver scpi_pps_driver_info = {
+static struct otc_dev_driver scpi_pps_driver_info = {
 	.name = "scpi-pps",
 	.longname = "SCPI PPS",
 	.api_version = 1,
@@ -900,7 +900,7 @@ static struct sr_dev_driver scpi_pps_driver_info = {
 	.context = NULL,
 };
 
-static struct sr_dev_driver hp_ib_pps_driver_info = {
+static struct otc_dev_driver hp_ib_pps_driver_info = {
 	.name = "hpib-pps",
 	.longname = "HP-IB PPS",
 	.api_version = 1,
@@ -918,5 +918,5 @@ static struct sr_dev_driver hp_ib_pps_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(scpi_pps_driver_info);
-SR_REGISTER_DEV_DRIVER(hp_ib_pps_driver_info);
+OTC_REGISTER_DEV_DRIVER(scpi_pps_driver_info);
+OTC_REGISTER_DEV_DRIVER(hp_ib_pps_driver_info);

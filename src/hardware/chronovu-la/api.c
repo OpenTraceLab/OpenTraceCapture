@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2011-2015 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -23,26 +23,26 @@
 #define SCAN_EXPECTED_VENDOR 0x0403
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
+	OTC_CONF_CONN,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_LIMIT_MSEC | SR_CONF_SET,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CONN | SR_CONF_GET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_SET,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CONN | OTC_CONF_GET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
 };
 
 static const int32_t trigger_matches[] = {
-	SR_TRIGGER_ZERO,
-	SR_TRIGGER_ONE,
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
+	OTC_TRIGGER_ZERO,
+	OTC_TRIGGER_ONE,
+	OTC_TRIGGER_RISING,
+	OTC_TRIGGER_FALLING,
 };
 
 static void clear_helper(struct dev_context *devc)
@@ -51,7 +51,7 @@ static void clear_helper(struct dev_context *devc)
 	g_free(devc->final_buf);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
@@ -62,10 +62,10 @@ static int add_device(int model, struct libusb_device_descriptor *des,
 {
 	int ret;
 	unsigned int i;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 
-	ret = SR_OK;
+	ret = OTC_OK;
 
 	devc = g_malloc0(sizeof(struct dev_context));
 
@@ -90,32 +90,32 @@ static int add_device(int model, struct libusb_device_descriptor *des,
 
 	/* Allocate memory where we'll store the de-mangled data. */
 	if (!(devc->final_buf = g_try_malloc(SDRAM_SIZE))) {
-		sr_err("Failed to allocate memory for sample buffer.");
-		ret = SR_ERR_MALLOC;
+		otc_err("Failed to allocate memory for sample buffer.");
+		ret = OTC_ERR_MALLOC;
 		goto err_free_devc;
 	}
 
 	/* We now know the device, set its max. samplerate as default. */
 	devc->cur_samplerate = devc->prof->max_samplerate;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("ChronoVu");
 	sdi->model = g_strdup(devc->prof->modelname);
 	sdi->serial_num = g_strdup(serial_num);
 	sdi->connection_id = g_strdup(connection_id);
-	sdi->conn = sr_usb_dev_inst_new(libusb_get_bus_number(usbdev),
+	sdi->conn = otc_usb_dev_inst_new(libusb_get_bus_number(usbdev),
 		libusb_get_device_address(usbdev), NULL);
 	sdi->priv = devc;
 
 	for (i = 0; i < devc->prof->num_channels; i++)
-		sr_channel_new(sdi, i, SR_CHANNEL_LOGIC, TRUE,
+		otc_channel_new(sdi, i, OTC_CHANNEL_LOGIC, TRUE,
 				cv_channel_names[i]);
 
 	*devices = g_slist_append(*devices, sdi);
 
-	if (ret == SR_OK)
-		return SR_OK;
+	if (ret == OTC_OK)
+		return OTC_OK;
 
 err_free_devc:
 	g_free(devc);
@@ -123,7 +123,7 @@ err_free_devc:
 	return ret;
 }
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct drv_context *drvc;
 	GSList *devices;
@@ -131,7 +131,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	int ret;
 	GSList *conn_devices, *l;
 	size_t i;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	uint8_t bus, addr;
 	struct libusb_device_descriptor des;
 	libusb_device **devlist;
@@ -143,12 +143,12 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	devices = NULL;
 
 	conn = NULL;
-	(void)sr_serial_extract_options(options, &conn, NULL);
+	(void)otc_serial_extract_options(options, &conn, NULL);
 	conn_devices = NULL;
 	if (conn)
-		conn_devices = sr_usb_find(drvc->sr_ctx->libusb_ctx, conn);
+		conn_devices = otc_usb_find(drvc->otc_ctx->libusb_ctx, conn);
 
-	libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+	libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 	for (i = 0; devlist[i]; i++) {
 		bus = libusb_get_bus_number(devlist[i]);
 		addr = libusb_get_device_address(devlist[i]);
@@ -174,8 +174,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		 * yet cause trouble when accessed including segfaults,
 		 * while libusb won't transparently handle their flaws.
 		 *
-		 * See https://sigrok.org/bugzilla/show_bug.cgi?id=1115
-		 * and https://github.com/sigrokproject/libsigrok/pull/166
+		 * See https://opentracelab.org/bugzilla/show_bug.cgi?id=1115
+		 * and https://github.com/opentracelabproject/libopentracecapture/pull/166
 		 * for a discussion.
 		 */
 		if (des.idVendor != SCAN_EXPECTED_VENDOR)
@@ -189,7 +189,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		} else if ((ret = libusb_get_string_descriptor_ascii(hdl,
 				des.iProduct, (unsigned char *)product,
 				sizeof(product))) < 0) {
-			sr_warn("Failed to get product string descriptor: %s.",
+			otc_warn("Failed to get product string descriptor: %s.",
 				libusb_error_name(ret));
 			continue;
 		}
@@ -199,7 +199,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		} else if ((ret = libusb_get_string_descriptor_ascii(hdl,
 				des.iSerialNumber, (unsigned char *)serial_num,
 				sizeof(serial_num))) < 0) {
-			sr_warn("Failed to get serial number string descriptor: %s.",
+			otc_warn("Failed to get serial number string descriptor: %s.",
 				libusb_error_name(ret));
 			continue;
 		}
@@ -216,23 +216,23 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		else
 			continue; /* Unknown iProduct string, ignore. */
 
-		sr_dbg("Found %s (%04x:%04x, %d.%d, %s).",
+		otc_dbg("Found %s (%04x:%04x, %d.%d, %s).",
 		       product, des.idVendor, des.idProduct,
 		       libusb_get_bus_number(devlist[i]),
 		       libusb_get_device_address(devlist[i]), connection_id);
 
 		if ((ret = add_device(model, &des, serial_num, connection_id,
 					devlist[i], &devices)) < 0) {
-			sr_dbg("Failed to add device: %d.", ret);
+			otc_dbg("Failed to add device: %d.", ret);
 		}
 	}
 	libusb_free_device_list(devlist, 1);
-	g_slist_free_full(conn_devices, (GDestroyNotify)sr_usb_dev_inst_free);
+	g_slist_free_full(conn_devices, (GDestroyNotify)otc_usb_dev_inst_free);
 
 	return std_scan_complete(di, devices);
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -240,43 +240,43 @@ static int dev_open(struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	if (!(devc->ftdic = ftdi_new())) {
-		sr_err("Failed to initialize libftdi.");
-		return SR_ERR;
+		otc_err("Failed to initialize libftdi.");
+		return OTC_ERR;
 	}
 
-	sr_dbg("Opening %s device (%04x:%04x).", devc->prof->modelname,
+	otc_dbg("Opening %s device (%04x:%04x).", devc->prof->modelname,
 	       devc->usb_vid, devc->usb_pid);
 
 	if ((ret = ftdi_usb_open_desc(devc->ftdic, devc->usb_vid,
 			devc->usb_pid, devc->prof->iproduct, NULL)) < 0) {
-		sr_err("Failed to open FTDI device (%d): %s.",
+		otc_err("Failed to open FTDI device (%d): %s.",
 		       ret, ftdi_get_error_string(devc->ftdic));
 		goto err_ftdi_free;
 	}
 
 	if ((ret = PURGE_FTDI_BOTH(devc->ftdic)) < 0) {
-		sr_err("Failed to purge FTDI buffers (%d): %s.",
+		otc_err("Failed to purge FTDI buffers (%d): %s.",
 		       ret, ftdi_get_error_string(devc->ftdic));
 		goto err_ftdi_free;
 	}
 
 	if ((ret = ftdi_setflowctrl(devc->ftdic, SIO_RTS_CTS_HS)) < 0) {
-		sr_err("Failed to enable FTDI flow control (%d): %s.",
+		otc_err("Failed to enable FTDI flow control (%d): %s.",
 		       ret, ftdi_get_error_string(devc->ftdic));
 		goto err_ftdi_free;
 	}
 
 	g_usleep(100 * 1000);
 
-	return SR_OK;
+	return OTC_OK;
 
 err_ftdi_free:
 	ftdi_free(devc->ftdic); /* Close device (if open), free FTDI context. */
 	devc->ftdic = NULL;
-	return SR_ERR;
+	return OTC_ERR;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	int ret;
 	struct dev_context *devc;
@@ -284,44 +284,44 @@ static int dev_close(struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	if (!devc->ftdic)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	if ((ret = ftdi_usb_close(devc->ftdic)) < 0)
-		sr_err("Failed to close FTDI device (%d): %s.",
+		otc_err("Failed to close FTDI device (%d): %s.",
 		       ret, ftdi_get_error_string(devc->ftdic));
 
-	return (ret == 0) ? SR_OK : SR_ERR;
+	return (ret == 0) ? OTC_OK : OTC_ERR;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 
 	(void)cg;
 
 	switch (key) {
-	case SR_CONF_CONN:
+	case OTC_CONF_CONN:
 		if (!sdi || !(usb = sdi->conn))
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		*data = g_variant_new_printf("%d.%d", usb->bus, usb->address);
 		break;
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		if (!sdi)
-			return SR_ERR_BUG;
+			return OTC_ERR_BUG;
 		devc = sdi->priv;
 		*data = g_variant_new_uint64(devc->cur_samplerate);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
@@ -330,83 +330,83 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		if (cv_set_samplerate(sdi, g_variant_get_uint64(data)) < 0)
-			return SR_ERR;
+			return OTC_ERR;
 		break;
-	case SR_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_MSEC:
 		devc->limit_msec = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		devc->limit_samples = g_variant_get_uint64(data);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	devc = (sdi) ? sdi->priv : NULL;
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		cv_fill_samplerates_if_needed(sdi);
 		*data = std_gvar_samplerates(ARRAY_AND_SIZE(devc->samplerates));
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		if (!devc || !devc->prof)
-			return SR_ERR_BUG;
+			return OTC_ERR_BUG;
 		*data = std_gvar_tuple_u64(0, (devc->prof->model == CHRONOVU_LA8) ? MAX_NUM_SAMPLES : MAX_NUM_SAMPLES / 2);
 		break;
-	case SR_CONF_TRIGGER_MATCH:
+	case OTC_CONF_TRIGGER_MATCH:
 		if (!devc || !devc->prof)
-			return SR_ERR_BUG;
+			return OTC_ERR_BUG;
 		*data = std_gvar_array_i32(trigger_matches, devc->prof->num_trigger_matches);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int receive_data(int fd, int revents, void *cb_data)
 {
 	int i, ret;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 
 	(void)fd;
 	(void)revents;
 
 	if (!(sdi = cb_data)) {
-		sr_err("cb_data was NULL.");
+		otc_err("cb_data was NULL.");
 		return FALSE;
 	}
 
 	if (!(devc = sdi->priv)) {
-		sr_err("sdi->priv was NULL.");
+		otc_err("sdi->priv was NULL.");
 		return FALSE;
 	}
 
 	if (!devc->ftdic) {
-		sr_err("devc->ftdic was NULL.");
+		otc_err("devc->ftdic was NULL.");
 		return FALSE;
 	}
 
 	/* Get one block of data. */
 	if ((ret = cv_read_block(devc)) < 0) {
-		sr_err("Failed to read data block: %d.", ret);
-		sr_dev_acquisition_stop(sdi);
+		otc_err("Failed to read data block: %d.", ret);
+		otc_dev_acquisition_stop(sdi);
 		return FALSE;
 	}
 
@@ -416,7 +416,7 @@ static int receive_data(int fd, int revents, void *cb_data)
 		return TRUE;
 	}
 
-	sr_dbg("Sampling finished, sending data to session bus now.");
+	otc_dbg("Sampling finished, sending data to session bus now.");
 
 	/*
 	 * All data was received and demangled, send it to the session bus.
@@ -429,12 +429,12 @@ static int receive_data(int fd, int revents, void *cb_data)
 	for (i = 0; i < NUM_BLOCKS; i++)
 		cv_send_block_to_session_bus(sdi, i);
 
-	sr_dev_acquisition_stop(sdi);
+	otc_dev_acquisition_stop(sdi);
 
 	return TRUE;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint8_t buf[8];
@@ -443,19 +443,19 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	if (!devc->ftdic) {
-		sr_err("devc->ftdic was NULL.");
-		return SR_ERR_BUG;
+		otc_err("devc->ftdic was NULL.");
+		return OTC_ERR_BUG;
 	}
 
 	devc->divcount = cv_samplerate_to_divcount(sdi, devc->cur_samplerate);
 	if (devc->divcount == 0xff) {
-		sr_err("Invalid divcount/samplerate.");
-		return SR_ERR;
+		otc_err("Invalid divcount/samplerate.");
+		return OTC_ERR;
 	}
 
-	if (cv_convert_trigger(sdi) != SR_OK) {
-		sr_err("Failed to configure trigger.");
-		return SR_ERR;
+	if (cv_convert_trigger(sdi) != OTC_OK) {
+		otc_err("Failed to configure trigger.");
+		return OTC_ERR;
 	}
 
 	/* Fill acquisition parameters into buf[]. */
@@ -481,8 +481,8 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	bytes_written = cv_write(devc, buf, bytes_to_write);
 
 	if (bytes_written < 0 || bytes_written != bytes_to_write) {
-		sr_err("Acquisition failed to start.");
-		return SR_ERR;
+		otc_err("Acquisition failed to start.");
+		return OTC_ERR;
 	}
 
 	std_session_send_df_header(sdi);
@@ -494,20 +494,20 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	devc->trigger_found = 0;
 
 	/* Hook up a dummy handler to receive data from the device. */
-	sr_session_source_add(sdi->session, -1, 0, 0, receive_data, (void *)sdi);
+	otc_session_source_add(sdi->session, -1, 0, 0, receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
-	sr_session_source_remove(sdi->session, -1);
+	otc_session_source_remove(sdi->session, -1);
 	std_session_send_df_end(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver chronovu_la_driver_info = {
+static struct otc_dev_driver chronovu_la_driver_info = {
 	.name = "chronovu-la",
 	.longname = "ChronoVu LA8/LA16",
 	.api_version = 1,
@@ -525,4 +525,4 @@ static struct sr_dev_driver chronovu_la_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(chronovu_la_driver_info);
+OTC_REGISTER_DEV_DRIVER(chronovu_la_driver_info);

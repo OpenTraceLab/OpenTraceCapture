@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2020 Peter Skarpetis <peters@skarpetis.com>
  *
@@ -44,8 +44,8 @@
 #include <config.h>
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 #include <math.h>
 #include <string.h>
 
@@ -219,16 +219,16 @@ static int meterman_38xr_decode(const uint8_t *buf, struct meterman_info *mi)
 {
 
 	if (!meterman_38xr_packet_valid(buf))
-		return SR_ERR;
+		return OTC_ERR;
 
 	mi->functioncode = meterman_38xr_func_code(buf);
 	if (mi->functioncode < 2 || mi->functioncode > 0x10)
-		return SR_ERR;
+		return OTC_ERR;
 	mi->reading = meterman_38xr_reading(buf);
 	mi->bargraphsegments = meterman_38xr_barsegments(buf);
 	mi->rangecode = meterman_38xr_hexnibble_to_uint(buf[8]);
 	if (mi->rangecode > 6)
-		return SR_ERR;
+		return OTC_ERR;
 	mi->ampsfunction = meterman_38xr_hexnibble_to_uint(buf[9]);
 	mi->peakstatus = meterman_38xr_hexnibble_to_uint(buf[10]);
 	mi->rflag_h = meterman_38xr_hexnibble_to_uint(buf[11]);
@@ -307,13 +307,13 @@ static int meterman_38xr_decode(const uint8_t *buf, struct meterman_info *mi)
 
 	default:
 		mi->meas_mode = MEAS_MODE_UNDEFINED;
-		return SR_ERR;
+		return OTC_ERR;
 
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV gboolean meterman_38xr_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean meterman_38xr_packet_valid(const uint8_t *buf)
 {
 	size_t i;
 	uint32_t fcode;
@@ -337,8 +337,8 @@ SR_PRIV gboolean meterman_38xr_packet_valid(const uint8_t *buf)
 	return TRUE;
 }
 
-SR_PRIV int meterman_38xr_parse(const uint8_t *buf, float *floatval,
-	struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int meterman_38xr_parse(const uint8_t *buf, float *floatval,
+	struct otc_datafeed_analog *analog, void *info)
 {
 	gboolean is_overload, is_bad_jack;
 	int digits;
@@ -346,8 +346,8 @@ SR_PRIV int meterman_38xr_parse(const uint8_t *buf, float *floatval,
 
 	(void)info;
 
-	if (meterman_38xr_decode(buf, &mi) != SR_OK)
-		return SR_ERR;
+	if (meterman_38xr_decode(buf, &mi) != OTC_OK)
+		return OTC_ERR;
 
 	digits = 0;
 
@@ -355,91 +355,91 @@ SR_PRIV int meterman_38xr_parse(const uint8_t *buf, float *floatval,
 		is_overload = mi.reading == METERMAN_DIGITS_OVERLOAD;
 		is_bad_jack = mi.reading == METERMAN_DIGITS_BAD_INPUT_JACK;
 		if (is_overload || is_bad_jack) {
-			sr_spew("Over limit.");
+			otc_spew("Over limit.");
 			*floatval = INFINITY; /* overload */
-			return SR_OK;
+			return OTC_OK;
 		}
 	}
 	switch (mi.meas_mode) {
 	case MEAS_MODE_VOLTS:
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
 		break;
 	case MEAS_MODE_RESISTANCE_OHMS:
-		analog->meaning->mq = SR_MQ_RESISTANCE;
-		analog->meaning->unit = SR_UNIT_OHM;
+		analog->meaning->mq = OTC_MQ_RESISTANCE;
+		analog->meaning->unit = OTC_UNIT_OHM;
 		break;
 	case MEAS_MODE_CURRENT_UAMPS:
 	case MEAS_MODE_CURRENT_MAMPS:
 	case MEAS_MODE_CURRENT_AMPS:
-		analog->meaning->mq = SR_MQ_CURRENT;
-		analog->meaning->unit = SR_UNIT_AMPERE;
+		analog->meaning->mq = OTC_MQ_CURRENT;
+		analog->meaning->unit = OTC_UNIT_AMPERE;
 		break;
 	case MEAS_MODE_CAPACITANCE:
-		analog->meaning->mq = SR_MQ_CAPACITANCE;
-		analog->meaning->unit = SR_UNIT_FARAD;
+		analog->meaning->mq = OTC_MQ_CAPACITANCE;
+		analog->meaning->unit = OTC_UNIT_FARAD;
 		break;
 	case MEAS_MODE_DIODE_TEST:
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_VOLT;
-		analog->meaning->mqflags |= SR_MQFLAG_DIODE;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_VOLT;
+		analog->meaning->mqflags |= OTC_MQFLAG_DIODE;
 		break;
 	case MEAS_MODE_TEMPERATURE_C:
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
-		analog->meaning->unit = SR_UNIT_CELSIUS;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
+		analog->meaning->unit = OTC_UNIT_CELSIUS;
 		break;
 	case MEAS_MODE_TEMPERATURE_F:
-		analog->meaning->mq = SR_MQ_TEMPERATURE;
-		analog->meaning->unit = SR_UNIT_FAHRENHEIT;
+		analog->meaning->mq = OTC_MQ_TEMPERATURE;
+		analog->meaning->unit = OTC_UNIT_FAHRENHEIT;
 		break;
 	case MEAS_MODE_FREQUENCY_HZ:
-		analog->meaning->mq = SR_MQ_FREQUENCY;
-		analog->meaning->unit = SR_UNIT_HERTZ;
+		analog->meaning->mq = OTC_MQ_FREQUENCY;
+		analog->meaning->unit = OTC_UNIT_HERTZ;
 		break;
 	case MEAS_MODE_INDUCTANCE_H:
-		analog->meaning->mq = SR_MQ_SERIES_INDUCTANCE;
-		analog->meaning->unit = SR_UNIT_HENRY;
+		analog->meaning->mq = OTC_MQ_SERIES_INDUCTANCE;
+		analog->meaning->unit = OTC_UNIT_HENRY;
 		break;
 	case MEAS_MODE_INDUCTANCE_MH:
-		analog->meaning->mq = SR_MQ_SERIES_INDUCTANCE;
-		analog->meaning->unit = SR_UNIT_HENRY;
+		analog->meaning->mq = OTC_MQ_SERIES_INDUCTANCE;
+		analog->meaning->unit = OTC_UNIT_HENRY;
 		break;
 	case MEAS_MODE_DBM:
-		analog->meaning->mq = SR_MQ_VOLTAGE;
-		analog->meaning->unit = SR_UNIT_DECIBEL_MW;
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mq = OTC_MQ_VOLTAGE;
+		analog->meaning->unit = OTC_UNIT_DECIBEL_MW;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 		break;
 	case MEAS_MODE_DUTY_CYCLE:
-		analog->meaning->mq = SR_MQ_DUTY_CYCLE;
-		analog->meaning->unit = SR_UNIT_PERCENTAGE;
+		analog->meaning->mq = OTC_MQ_DUTY_CYCLE;
+		analog->meaning->unit = OTC_UNIT_PERCENTAGE;
 		break;
 	case MEAS_MODE_CONTINUITY:
-		analog->meaning->mq = SR_MQ_CONTINUITY;
-		analog->meaning->unit = SR_UNIT_BOOLEAN;
+		analog->meaning->mq = OTC_MQ_CONTINUITY;
+		analog->meaning->unit = OTC_UNIT_BOOLEAN;
 		*floatval = (mi.reading == METERMAN_DIGITS_OVERLOAD) ? 0.0 : 1.0;
 		break;
 	default:
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	switch (mi.acdc) {
 	case ACDC_MODE_DC:
-		analog->meaning->mqflags |= SR_MQFLAG_DC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC;
 		break;
 	case ACDC_MODE_AC:
-		analog->meaning->mqflags |= SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_AC;
 		break;
 	case ACDC_MODE_AC_AND_DC:
-		analog->meaning->mqflags |= SR_MQFLAG_DC | SR_MQFLAG_AC;
+		analog->meaning->mqflags |= OTC_MQFLAG_DC | OTC_MQFLAG_AC;
 		break;
 	default:
 		break;
 	}
 	if (mi.peakstatus == 0x02 || mi.peakstatus == 0x0a)
-		analog->meaning->mqflags |= SR_MQFLAG_MAX;
+		analog->meaning->mqflags |= OTC_MQFLAG_MAX;
 	if (mi.peakstatus == 0x03 || mi.peakstatus == 0x0b)
-		analog->meaning->mqflags |= SR_MQFLAG_MIN;
+		analog->meaning->mqflags |= OTC_MQFLAG_MIN;
 	if (mi.rflag_h == 0x0a || mi.peakstatus == 0x0b)
-		analog->meaning->mqflags |= SR_MQFLAG_AUTORANGE;
+		analog->meaning->mqflags |= OTC_MQFLAG_AUTORANGE;
 	if (mi.meas_mode != MEAS_MODE_CONTINUITY) {
 		digits = units_exponents[mi.meas_mode][mi.rangecode] -
 			decimal_digits[mi.meas_mode][mi.rangecode];
@@ -453,5 +453,5 @@ SR_PRIV int meterman_38xr_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits = -digits;
 	analog->spec->spec_digits = -digits;
 
-	return SR_OK;
+	return OTC_OK;
 }

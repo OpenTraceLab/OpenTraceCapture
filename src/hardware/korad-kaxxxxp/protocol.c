@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Hannu Vuolasaho <vuokkosetae@gmail.com>
  * Copyright (C) 2018-2019 Frank Stettner <frank-stettner@gmx.net>
@@ -24,14 +24,14 @@
 #define DEVICE_PROCESSING_TIME_MS 80
 #define EXTRA_PROCESSING_TIME_MS  450
 
-SR_PRIV int korad_kaxxxxp_send_cmd(struct sr_serial_dev_inst *serial,
+OTC_PRIV int korad_kaxxxxp_send_cmd(struct otc_serial_dev_inst *serial,
 	const char *cmd)
 {
 	int ret;
 
-	sr_dbg("Sending '%s'.", cmd);
+	otc_dbg("Sending '%s'.", cmd);
 	if ((ret = serial_write_blocking(serial, cmd, strlen(cmd), 0)) < 0) {
-		sr_err("Error sending command: %d.", ret);
+		otc_err("Error sending command: %d.", ret);
 		return ret;
 	}
 
@@ -46,7 +46,7 @@ SR_PRIV int korad_kaxxxxp_send_cmd(struct sr_serial_dev_inst *serial,
  * @param[out] buf The buffer to read data into. Must be larger than @a count.
  *
  * @return The amount of received data, or negative in case of error.
- *     See @ref SR_ERR and other error codes.
+ *     See @ref OTC_ERR and other error codes.
  *
  * @internal
  *
@@ -70,7 +70,7 @@ SR_PRIV int korad_kaxxxxp_send_cmd(struct sr_serial_dev_inst *serial,
  * data. Quick termination after reception is important there, as is the
  * larger initial timeout period before receive data is seen.
  */
-SR_PRIV int korad_kaxxxxp_read_chars(struct sr_serial_dev_inst *serial,
+OTC_PRIV int korad_kaxxxxp_read_chars(struct otc_serial_dev_inst *serial,
 	size_t count, char *buf)
 {
 	int timeout_first, timeout_later, timeout;
@@ -108,7 +108,7 @@ SR_PRIV int korad_kaxxxxp_read_chars(struct sr_serial_dev_inst *serial,
 	timeout_later = serial_timeout(serial, 3);
 	retries_later = 1;
 
-	sr_spew("want %zu bytes, timeout/retry: init %d/%zu, later %d/%zu.",
+	otc_spew("want %zu bytes, timeout/retry: init %d/%zu, later %d/%zu.",
 		count, timeout_first, retries_first,
 		timeout_later, retries_later);
 
@@ -131,14 +131,14 @@ SR_PRIV int korad_kaxxxxp_read_chars(struct sr_serial_dev_inst *serial,
 		ret = serial_read_blocking(serial,
 			&buf[received], count - received, timeout);
 		if (ret < 0) {
-			sr_err("Error %d reading %zu bytes from device.",
+			otc_err("Error %d reading %zu bytes from device.",
 			       ret, count);
 			return ret;
 		}
 		if (ret == 0 && !received)
 			continue;
 		if (ret == 0 && received) {
-			sr_spew("receive timed out, want %zu, received %zu.",
+			otc_spew("receive timed out, want %zu, received %zu.",
 				count, received);
 			break;
 		}
@@ -147,7 +147,7 @@ SR_PRIV int korad_kaxxxxp_read_chars(struct sr_serial_dev_inst *serial,
 		retries = retries_later;
 	}
 	/* TODO Escape non-printables? Seen those with status queries. */
-	sr_dbg("got %zu bytes, received: '%s'.", received, buf);
+	otc_dbg("got %zu bytes, received: '%s'.", received, buf);
 
 	return received;
 }
@@ -162,7 +162,7 @@ static void give_device_time_to_process(struct dev_context *devc)
 	sleeping_time = devc->next_req_time - g_get_monotonic_time();
 	if (sleeping_time > 0) {
 		g_usleep(sleeping_time);
-		sr_spew("Sleeping for processing %" PRIi64 " usec", sleeping_time);
+		otc_spew("Sleeping for processing %" PRIi64 " usec", sleeping_time);
 	}
 }
 
@@ -184,7 +184,7 @@ static int64_t next_req_time(struct dev_context *devc,
 	return g_get_monotonic_time() + processing_time_us;
 }
 
-SR_PRIV int korad_kaxxxxp_set_value(struct sr_serial_dev_inst *serial,
+OTC_PRIV int korad_kaxxxxp_set_value(struct otc_serial_dev_inst *serial,
 	int target, struct dev_context *devc)
 {
 	char msg[20];
@@ -194,71 +194,71 @@ SR_PRIV int korad_kaxxxxp_set_value(struct sr_serial_dev_inst *serial,
 	give_device_time_to_process(devc);
 
 	msg[0] = '\0';
-	ret = SR_OK;
+	ret = OTC_OK;
 	switch (target) {
 	case KAXXXXP_CURRENT:
 	case KAXXXXP_VOLTAGE:
 	case KAXXXXP_STATUS:
-		sr_err("Can't set measured value %d.", target);
-		ret = SR_ERR;
+		otc_err("Can't set measured value %d.", target);
+		ret = OTC_ERR;
 		break;
 	case KAXXXXP_CURRENT_LIMIT:
-		sr_snprintf_ascii(msg, sizeof(msg),
+		otc_snprintf_ascii(msg, sizeof(msg),
 			"ISET1:%05.3f", devc->set_current_limit);
 		break;
 	case KAXXXXP_VOLTAGE_TARGET:
-		sr_snprintf_ascii(msg, sizeof(msg),
+		otc_snprintf_ascii(msg, sizeof(msg),
 			"VSET1:%05.2f", devc->set_voltage_target);
 		break;
 	case KAXXXXP_OUTPUT:
-		sr_snprintf_ascii(msg, sizeof(msg),
+		otc_snprintf_ascii(msg, sizeof(msg),
 			"OUT%1d", (devc->set_output_enabled) ? 1 : 0);
 		/* Set value back to recognize changes */
 		devc->output_enabled = devc->set_output_enabled;
 		break;
 	case KAXXXXP_BEEP:
-		sr_snprintf_ascii(msg, sizeof(msg),
+		otc_snprintf_ascii(msg, sizeof(msg),
 			"BEEP%1d", (devc->set_beep_enabled) ? 1 : 0);
 		break;
 	case KAXXXXP_OCP:
-		sr_snprintf_ascii(msg, sizeof(msg),
+		otc_snprintf_ascii(msg, sizeof(msg),
 			"OCP%1d", (devc->set_ocp_enabled) ? 1 : 0);
 		/* Set value back to recognize changes */
 		devc->ocp_enabled = devc->set_ocp_enabled;
 		break;
 	case KAXXXXP_OVP:
-		sr_snprintf_ascii(msg, sizeof(msg),
+		otc_snprintf_ascii(msg, sizeof(msg),
 			"OVP%1d", (devc->set_ovp_enabled) ? 1 : 0);
 		/* Set value back to recognize changes */
 		devc->ovp_enabled = devc->set_ovp_enabled;
 		break;
 	case KAXXXXP_SAVE:
 		if (devc->program < 1 || devc->program > 5) {
-			sr_err("Program %d is not in the supported 1-5 range.",
+			otc_err("Program %d is not in the supported 1-5 range.",
 			       devc->program);
-			ret = SR_ERR;
+			ret = OTC_ERR;
 			break;
 		}
-		sr_snprintf_ascii(msg, sizeof(msg),
+		otc_snprintf_ascii(msg, sizeof(msg),
 			"SAV%1d", devc->program);
 		break;
 	case KAXXXXP_RECALL:
 		if (devc->program < 1 || devc->program > 5) {
-			sr_err("Program %d is not in the supported 1-5 range.",
+			otc_err("Program %d is not in the supported 1-5 range.",
 			       devc->program);
-			ret = SR_ERR;
+			ret = OTC_ERR;
 			break;
 		}
-		sr_snprintf_ascii(msg, sizeof(msg),
+		otc_snprintf_ascii(msg, sizeof(msg),
 			"RCL%1d", devc->program);
 		break;
 	default:
-		sr_err("Don't know how to set target %d.", target);
-		ret = SR_ERR;
+		otc_err("Don't know how to set target %d.", target);
+		ret = OTC_ERR;
 		break;
 	}
 
-	if (ret == SR_OK && msg[0]) {
+	if (ret == OTC_OK && msg[0]) {
 		ret = korad_kaxxxxp_send_cmd(serial, msg);
 		devc->next_req_time = next_req_time(devc, TRUE, target);
 	}
@@ -268,7 +268,7 @@ SR_PRIV int korad_kaxxxxp_set_value(struct sr_serial_dev_inst *serial,
 	return ret;
 }
 
-SR_PRIV int korad_kaxxxxp_get_value(struct sr_serial_dev_inst *serial,
+OTC_PRIV int korad_kaxxxxp_get_value(struct otc_serial_dev_inst *serial,
 	int target, struct dev_context *devc)
 {
 	int ret, count;
@@ -314,8 +314,8 @@ SR_PRIV int korad_kaxxxxp_get_value(struct sr_serial_dev_inst *serial,
 		count = 1;
 		break;
 	default:
-		sr_err("Don't know how to query %d.", target);
-		ret = SR_ERR;
+		otc_err("Don't know how to query %d.", target);
+		ret = OTC_ERR;
 	}
 	if (ret < 0) {
 		g_mutex_unlock(&devc->rw_mutex);
@@ -330,8 +330,8 @@ SR_PRIV int korad_kaxxxxp_get_value(struct sr_serial_dev_inst *serial,
 	}
 
 	if (value) {
-		sr_atof_ascii((const char *)&reply, value);
-		sr_dbg("value: %f", *value);
+		otc_atof_ascii((const char *)&reply, value);
+		otc_dbg("value: %f", *value);
 	} else {
 		/* We have status reply. */
 		status_byte = reply[0];
@@ -370,8 +370,8 @@ SR_PRIV int korad_kaxxxxp_get_value(struct sr_serial_dev_inst *serial,
 			devc->ovp_enabled_changed = devc->ovp_enabled != prev_status;
 		}
 
-		sr_dbg("Status: 0x%02x", status_byte);
-		sr_spew("Status: CH1: constant %s CH2: constant %s. "
+		otc_dbg("Status: 0x%02x", status_byte);
+		otc_spew("Status: CH1: constant %s CH2: constant %s. "
 			"Tracking would be %s and %s. Output is %s. "
 			"OCP is %s, OVP is %s. Device is %s.",
 			(status_byte & (1 << 0)) ? "voltage" : "current",
@@ -393,7 +393,7 @@ SR_PRIV int korad_kaxxxxp_get_value(struct sr_serial_dev_inst *serial,
 	return ret;
 }
 
-SR_PRIV int korad_kaxxxxp_get_all_values(struct sr_serial_dev_inst *serial,
+OTC_PRIV int korad_kaxxxxp_get_all_values(struct otc_serial_dev_inst *serial,
 	struct dev_context *devc)
 {
 	int ret, target;
@@ -421,20 +421,20 @@ static void next_measurement(struct dev_context *devc)
 		break;
 	default:
 		devc->acquisition_target = KAXXXXP_CURRENT;
-		sr_err("Invalid target for next acquisition.");
+		otc_err("Invalid target for next acquisition.");
 	}
 }
 
-SR_PRIV int korad_kaxxxxp_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int korad_kaxxxxp_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_serial_dev_inst *serial;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	GSList *l;
 
 	(void)fd;
@@ -452,65 +452,65 @@ SR_PRIV int korad_kaxxxxp_receive_data(int fd, int revents, void *cb_data)
 	korad_kaxxxxp_get_value(serial, devc->acquisition_target, devc);
 
 	/* Note: digits/spec_digits will be overridden later. */
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 
 	/* Send the value forward. */
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
 	analog.num_samples = 1;
 	l = g_slist_copy(sdi->channels);
 	if (devc->acquisition_target == KAXXXXP_CURRENT) {
 		l = g_slist_remove_link(l, g_slist_nth(l, 0));
 		analog.meaning->channels = l;
-		analog.meaning->mq = SR_MQ_CURRENT;
-		analog.meaning->unit = SR_UNIT_AMPERE;
-		analog.meaning->mqflags = SR_MQFLAG_DC;
+		analog.meaning->mq = OTC_MQ_CURRENT;
+		analog.meaning->unit = OTC_UNIT_AMPERE;
+		analog.meaning->mqflags = OTC_MQFLAG_DC;
 		analog.encoding->digits = 3;
 		analog.spec->spec_digits = 3;
 		analog.data = &devc->current;
-		sr_session_send(sdi, &packet);
+		otc_session_send(sdi, &packet);
 	} else if (devc->acquisition_target == KAXXXXP_VOLTAGE) {
 		l = g_slist_remove_link(l, g_slist_nth(l, 1));
 		analog.meaning->channels = l;
-		analog.meaning->mq = SR_MQ_VOLTAGE;
-		analog.meaning->unit = SR_UNIT_VOLT;
-		analog.meaning->mqflags = SR_MQFLAG_DC;
+		analog.meaning->mq = OTC_MQ_VOLTAGE;
+		analog.meaning->unit = OTC_UNIT_VOLT;
+		analog.meaning->mqflags = OTC_MQFLAG_DC;
 		analog.encoding->digits = 2;
 		analog.spec->spec_digits = 2;
 		analog.data = &devc->voltage;
-		sr_session_send(sdi, &packet);
-		sr_sw_limits_update_samples_read(&devc->limits, 1);
+		otc_session_send(sdi, &packet);
+		otc_sw_limits_update_samples_read(&devc->limits, 1);
 	} else if (devc->acquisition_target == KAXXXXP_STATUS) {
 		if (devc->cc_mode_1_changed) {
-			sr_session_send_meta(sdi, SR_CONF_REGULATION,
+			otc_session_send_meta(sdi, OTC_CONF_REGULATION,
 				g_variant_new_string((devc->cc_mode[0]) ? "CC" : "CV"));
 			devc->cc_mode_1_changed = FALSE;
 		}
 		if (devc->cc_mode_2_changed) {
-			sr_session_send_meta(sdi, SR_CONF_REGULATION,
+			otc_session_send_meta(sdi, OTC_CONF_REGULATION,
 				g_variant_new_string((devc->cc_mode[1]) ? "CC" : "CV"));
 			devc->cc_mode_2_changed = FALSE;
 		}
 		if (devc->output_enabled_changed) {
-			sr_session_send_meta(sdi, SR_CONF_ENABLED,
+			otc_session_send_meta(sdi, OTC_CONF_ENABLED,
 				g_variant_new_boolean(devc->output_enabled));
 			devc->output_enabled_changed = FALSE;
 		}
 		if (devc->ocp_enabled_changed) {
-			sr_session_send_meta(sdi, SR_CONF_OVER_CURRENT_PROTECTION_ENABLED,
+			otc_session_send_meta(sdi, OTC_CONF_OVER_CURRENT_PROTECTION_ENABLED,
 				g_variant_new_boolean(devc->ocp_enabled));
 			devc->ocp_enabled_changed = FALSE;
 		}
 		if (devc->ovp_enabled_changed) {
-			sr_session_send_meta(sdi, SR_CONF_OVER_VOLTAGE_PROTECTION_ENABLED,
+			otc_session_send_meta(sdi, OTC_CONF_OVER_VOLTAGE_PROTECTION_ENABLED,
 				g_variant_new_boolean(devc->ovp_enabled));
 			devc->ovp_enabled_changed = FALSE;
 		}
 	}
 	next_measurement(devc);
 
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 
 	return TRUE;
 }

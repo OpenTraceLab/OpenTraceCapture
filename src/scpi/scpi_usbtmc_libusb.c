@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Aurelien Jacobs <aurel@gnuage.org>
  *
@@ -20,9 +20,9 @@
 #include <config.h>
 #include <inttypes.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
-#include "scpi.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
+#include "../scpi.h"
 
 #define LOG_PREFIX "scpi_usbtmc"
 
@@ -30,8 +30,8 @@
 #define TRANSFER_TIMEOUT 1000
 
 struct scpi_usbtmc_libusb {
-	struct sr_context *ctx;
-	struct sr_usb_dev_inst *usb;
+	struct otc_context *ctx;
+	struct otc_usb_dev_inst *usb;
 	int detached_kernel_driver;
 	uint8_t interface;
 	uint8_t bulk_in_ep;
@@ -130,9 +130,9 @@ static GSList *scpi_usbtmc_libusb_scan(struct drv_context *drvc)
 	int confidx, intfidx, ret, i;
 	char *res;
 
-	ret = libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist);
+	ret = libusb_get_device_list(drvc->otc_ctx->libusb_ctx, &devlist);
 	if (ret < 0) {
-		sr_err("Failed to get device list: %s.",
+		otc_err("Failed to get device list: %s.",
 		       libusb_error_name(ret));
 		return NULL;
 	}
@@ -142,7 +142,7 @@ static GSList *scpi_usbtmc_libusb_scan(struct drv_context *drvc)
 		for (confidx = 0; confidx < des.bNumConfigurations; confidx++) {
 			if ((ret = libusb_get_config_descriptor(devlist[i], confidx, &confdes)) < 0) {
 				if (ret != LIBUSB_ERROR_NOT_FOUND)
-					sr_dbg("Failed to get configuration descriptor: %s, "
+					otc_dbg("Failed to get configuration descriptor: %s, "
 					       "ignoring device.", libusb_error_name(ret));
 				break;
 			}
@@ -152,7 +152,7 @@ static GSList *scpi_usbtmc_libusb_scan(struct drv_context *drvc)
 				    intfdes->bInterfaceSubClass != SUBCLASS_USBTMC          ||
 				    intfdes->bInterfaceProtocol != USBTMC_USB488)
 					continue;
-				sr_dbg("Found USBTMC device (VID:PID = %04x:%04x, "
+				otc_dbg("Found USBTMC device (VID:PID = %04x:%04x, "
 				       "bus.address = %d.%d).", des.idVendor, des.idProduct,
 				       libusb_get_bus_number(devlist[i]),
 				       libusb_get_device_address(devlist[i]));
@@ -181,21 +181,21 @@ static int scpi_usbtmc_libusb_dev_inst_new(void *priv, struct drv_context *drvc,
 	(void)serialcomm;
 
 	if (!params || !params[1]) {
-		sr_err("Invalid parameters.");
-		return SR_ERR;
+		otc_err("Invalid parameters.");
+		return OTC_ERR;
 	}
 
-	uscpi->ctx = drvc->sr_ctx;
-	devices = sr_usb_find(uscpi->ctx->libusb_ctx, params[1]);
+	uscpi->ctx = drvc->otc_ctx;
+	devices = otc_usb_find(uscpi->ctx->libusb_ctx, params[1]);
 	if (g_slist_length(devices) != 1) {
-		sr_err("Failed to find USB device '%s'.", params[1]);
-		g_slist_free_full(devices, (GDestroyNotify)sr_usb_dev_inst_free);
-		return SR_ERR;
+		otc_err("Failed to find USB device '%s'.", params[1]);
+		g_slist_free_full(devices, (GDestroyNotify)otc_usb_dev_inst_free);
+		return OTC_ERR;
 	}
 	uscpi->usb = devices->data;
 	g_slist_free(devices);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int check_usbtmc_blacklist(struct usbtmc_blacklist *blacklist,
@@ -214,30 +214,30 @@ static int check_usbtmc_blacklist(struct usbtmc_blacklist *blacklist,
 
 static int scpi_usbtmc_remote(struct scpi_usbtmc_libusb *uscpi)
 {
-	struct sr_usb_dev_inst *usb = uscpi->usb;
+	struct otc_usb_dev_inst *usb = uscpi->usb;
 	struct libusb_device *dev;
 	struct libusb_device_descriptor des;
 	int ret;
 	uint8_t status;
 
 	if (!(uscpi->usb488_dev_cap & USB488_DEV_CAP_RL1))
-		return SR_OK;
+		return OTC_OK;
 
 	dev = libusb_get_device(usb->devhdl);
 	libusb_get_device_descriptor(dev, &des);
 	if (check_usbtmc_blacklist(blacklist_remote, des.idVendor, des.idProduct))
-		return SR_OK;
+		return OTC_OK;
 
-	sr_dbg("Locking out local control.");
+	otc_dbg("Locking out local control.");
 	ret = libusb_control_transfer(usb->devhdl, LIBUSB_ENDPOINT_IN |
 		LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE,
 		REN_CONTROL, 1, uscpi->interface, &status, 1, TRANSFER_TIMEOUT);
 	if (ret < 0 || status != USBTMC_STATUS_SUCCESS) {
 		if (ret < 0)
-			sr_dbg("Failed to enter REN state: %s.", libusb_error_name(ret));
+			otc_dbg("Failed to enter REN state: %s.", libusb_error_name(ret));
 		else
-			sr_dbg("Failed to enter REN state: USBTMC status %d.", status);
-		return SR_ERR;
+			otc_dbg("Failed to enter REN state: USBTMC status %d.", status);
+		return OTC_ERR;
 	}
 
 	ret = libusb_control_transfer(usb->devhdl, LIBUSB_ENDPOINT_IN |
@@ -246,20 +246,20 @@ static int scpi_usbtmc_remote(struct scpi_usbtmc_libusb *uscpi)
 		TRANSFER_TIMEOUT);
 	if (ret < 0 || status != USBTMC_STATUS_SUCCESS) {
 		if (ret < 0)
-			sr_dbg("Failed to enter local lockout state: %s.",
+			otc_dbg("Failed to enter local lockout state: %s.",
 					libusb_error_name(ret));
 		else
-			sr_dbg("Failed to enter local lockout state: USBTMC "
+			otc_dbg("Failed to enter local lockout state: USBTMC "
 					"status %d.", status);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void scpi_usbtmc_local(struct scpi_usbtmc_libusb *uscpi)
 {
-	struct sr_usb_dev_inst *usb = uscpi->usb;
+	struct otc_usb_dev_inst *usb = uscpi->usb;
 	struct libusb_device *dev;
 	struct libusb_device_descriptor des;
 	int ret;
@@ -273,26 +273,26 @@ static void scpi_usbtmc_local(struct scpi_usbtmc_libusb *uscpi)
 	if (check_usbtmc_blacklist(blacklist_remote, des.idVendor, des.idProduct))
 		return;
 
-	sr_dbg("Returning local control.");
+	otc_dbg("Returning local control.");
 	ret = libusb_control_transfer(usb->devhdl, LIBUSB_ENDPOINT_IN |
 		LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE,
 		GO_TO_LOCAL, 0, uscpi->interface, &status, 1, TRANSFER_TIMEOUT);
 	if (ret < 0 || status != USBTMC_STATUS_SUCCESS) {
 		if (ret < 0)
-			sr_dbg("Failed to clear local lockout state: %s.",
+			otc_dbg("Failed to clear local lockout state: %s.",
 					libusb_error_name(ret));
 		else
-			sr_dbg("Failed to clear local lockout state: USBTMC "
+			otc_dbg("Failed to clear local lockout state: USBTMC "
 					"status %d.", status);
 	}
 
 	return;
 }
 
-static int scpi_usbtmc_libusb_open(struct sr_scpi_dev_inst *scpi)
+static int scpi_usbtmc_libusb_open(struct otc_scpi_dev_inst *scpi)
 {
 	struct scpi_usbtmc_libusb *uscpi = scpi->priv;
-	struct sr_usb_dev_inst *usb = uscpi->usb;
+	struct otc_usb_dev_inst *usb = uscpi->usb;
 	struct libusb_device *dev;
 	struct libusb_device_descriptor des;
 	struct libusb_config_descriptor *confdes;
@@ -304,10 +304,10 @@ static int scpi_usbtmc_libusb_open(struct sr_scpi_dev_inst *scpi)
 	int do_reset;
 
 	if (usb->devhdl)
-		return SR_OK;
+		return OTC_OK;
 
-	if (sr_usb_open(uscpi->ctx->libusb_ctx, usb) != SR_OK)
-		return SR_ERR;
+	if (otc_usb_open(uscpi->ctx->libusb_ctx, usb) != OTC_OK)
+		return OTC_ERR;
 
 	dev = libusb_get_device(usb->devhdl);
 	libusb_get_device_descriptor(dev, &des);
@@ -315,7 +315,7 @@ static int scpi_usbtmc_libusb_open(struct sr_scpi_dev_inst *scpi)
 	for (confidx = 0; confidx < des.bNumConfigurations; confidx++) {
 		if ((ret = libusb_get_config_descriptor(dev, confidx, &confdes)) < 0) {
 			if (ret != LIBUSB_ERROR_NOT_FOUND)
-				sr_dbg("Failed to get configuration descriptor: %s, "
+				otc_dbg("Failed to get configuration descriptor: %s, "
 				       "ignoring device.", libusb_error_name(ret));
 			continue;
 		}
@@ -327,23 +327,23 @@ static int scpi_usbtmc_libusb_open(struct sr_scpi_dev_inst *scpi)
 				continue;
 			uscpi->interface = intfdes->bInterfaceNumber;
 			config = confdes->bConfigurationValue;
-			sr_dbg("Interface %d configuration %d.", uscpi->interface, config);
+			otc_dbg("Interface %d configuration %d.", uscpi->interface, config);
 			for (epidx = 0; epidx < intfdes->bNumEndpoints; epidx++) {
 				ep = &intfdes->endpoint[epidx];
 				if (ep->bmAttributes == LIBUSB_TRANSFER_TYPE_BULK &&
 				    !(ep->bEndpointAddress & (LIBUSB_ENDPOINT_DIR_MASK))) {
 					uscpi->bulk_out_ep = ep->bEndpointAddress;
-					sr_dbg("Bulk OUT EP %d", uscpi->bulk_out_ep);
+					otc_dbg("Bulk OUT EP %d", uscpi->bulk_out_ep);
 				}
 				if (ep->bmAttributes == LIBUSB_TRANSFER_TYPE_BULK &&
 				    ep->bEndpointAddress & (LIBUSB_ENDPOINT_DIR_MASK)) {
 					uscpi->bulk_in_ep = ep->bEndpointAddress;
-					sr_dbg("Bulk IN EP %d", uscpi->bulk_in_ep & 0x7f);
+					otc_dbg("Bulk IN EP %d", uscpi->bulk_in_ep & 0x7f);
 				}
 				if (ep->bmAttributes == LIBUSB_TRANSFER_TYPE_INTERRUPT &&
 				    ep->bEndpointAddress & (LIBUSB_ENDPOINT_DIR_MASK)) {
 					uscpi->interrupt_ep = ep->bEndpointAddress;
-					sr_dbg("Interrupt EP %d", uscpi->interrupt_ep & 0x7f);
+					otc_dbg("Interrupt EP %d", uscpi->interrupt_ep & 0x7f);
 				}
 			}
 			found = 1;
@@ -354,16 +354,16 @@ static int scpi_usbtmc_libusb_open(struct sr_scpi_dev_inst *scpi)
 	}
 
 	if (!found) {
-		sr_err("Failed to find USBTMC interface.");
-		return SR_ERR;
+		otc_err("Failed to find USBTMC interface.");
+		return OTC_ERR;
 	}
 
 	if (libusb_kernel_driver_active(usb->devhdl, uscpi->interface) == 1) {
 		if ((ret = libusb_detach_kernel_driver(usb->devhdl,
 		                                       uscpi->interface)) < 0) {
-			sr_err("Failed to detach kernel driver: %s.",
+			otc_err("Failed to detach kernel driver: %s.",
 			       libusb_error_name(ret));
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		uscpi->detached_kernel_driver = 1;
 	}
@@ -371,16 +371,16 @@ static int scpi_usbtmc_libusb_open(struct sr_scpi_dev_inst *scpi)
 	if (libusb_get_configuration(usb->devhdl, &current_config) == 0
 	    && current_config != config) {
 		if ((ret = libusb_set_configuration(usb->devhdl, config)) < 0) {
-			sr_err("Failed to set configuration: %s.",
+			otc_err("Failed to set configuration: %s.",
 			       libusb_error_name(ret));
-			return SR_ERR;
+			return OTC_ERR;
 		}
 	}
 
 	if ((ret = libusb_claim_interface(usb->devhdl, uscpi->interface)) < 0) {
-		sr_err("Failed to claim interface: %s.",
+		otc_err("Failed to claim interface: %s.",
 		       libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* Optionally reset the USB device. */
@@ -399,7 +399,7 @@ static int scpi_usbtmc_libusb_open(struct sr_scpi_dev_inst *scpi)
 		uscpi->usbtmc_dev_cap = capabilities[ 5];
 		uscpi->usb488_dev_cap = capabilities[15];
 	}
-	sr_dbg("Device capabilities: %s%s%s%s%s, %s, %s",
+	otc_dbg("Device capabilities: %s%s%s%s%s, %s, %s",
 	       uscpi->usb488_dev_cap & USB488_DEV_CAP_SCPI        ? "SCPI, "    : "",
 	       uscpi->usbtmc_dev_cap & USBTMC_DEV_CAP_TERMCHAR    ? "TermChar, ": "",
 	       uscpi->usbtmc_int_cap & USBTMC_INT_CAP_LISTEN_ONLY ? "L3, " :
@@ -412,23 +412,23 @@ static int scpi_usbtmc_libusb_open(struct sr_scpi_dev_inst *scpi)
 
 	scpi_usbtmc_remote(uscpi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_usbtmc_libusb_connection_id(struct sr_scpi_dev_inst *scpi,
+static int scpi_usbtmc_libusb_connection_id(struct otc_scpi_dev_inst *scpi,
 		char **connection_id)
 {
 	struct scpi_usbtmc_libusb *uscpi = scpi->priv;
-	struct sr_usb_dev_inst *usb = uscpi->usb;
+	struct otc_usb_dev_inst *usb = uscpi->usb;
 
 	*connection_id = g_strdup_printf("%s/%" PRIu8 ".%" PRIu8 "",
 		scpi->prefix, usb->bus, usb->address);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int scpi_usbtmc_libusb_source_add(struct sr_session *session,
-		void *priv, int events, int timeout, sr_receive_data_callback cb,
+static int scpi_usbtmc_libusb_source_add(struct otc_session *session,
+		void *priv, int events, int timeout, otc_receive_data_callback cb,
 		void *cb_data)
 {
 	struct scpi_usbtmc_libusb *uscpi = priv;
@@ -436,7 +436,7 @@ static int scpi_usbtmc_libusb_source_add(struct sr_session *session,
 	return usb_source_add(session, uscpi->ctx, timeout, cb, cb_data);
 }
 
-static int scpi_usbtmc_libusb_source_remove(struct sr_session *session,
+static int scpi_usbtmc_libusb_source_remove(struct otc_session *session,
 		void *priv)
 {
 	struct scpi_usbtmc_libusb *uscpi = priv;
@@ -467,25 +467,25 @@ static int usbtmc_bulk_in_header_read(void *header, uint8_t MsgID,
 	if (R8(header + 0) != MsgID ||
 	    R8(header + 1) != bTag  ||
 	    R8(header + 2) != (unsigned char)~bTag)
-		return SR_ERR;
+		return OTC_ERR;
 	if (TransferSize)
 		*TransferSize = RL32(header + 4);
 	if (bmTransferAttributes)
 		*bmTransferAttributes = R8(header + 8);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int scpi_usbtmc_bulkout(struct scpi_usbtmc_libusb *uscpi,
                                uint8_t msg_id, const void *data, int32_t size,
                                uint8_t transfer_attributes)
 {
-	struct sr_usb_dev_inst *usb = uscpi->usb;
+	struct otc_usb_dev_inst *usb = uscpi->usb;
 	int padded_size, ret, transferred;
 
 	if (data && (size + USBTMC_BULK_HEADER_SIZE + 3) > (int)sizeof(uscpi->buffer)) {
-		sr_err("USBTMC bulk out transfer is too big.");
-		return SR_ERR;
+		otc_err("USBTMC bulk out transfer is too big.");
+		return OTC_ERR;
 	}
 
 	uscpi->bTag++;
@@ -505,15 +505,15 @@ static int scpi_usbtmc_bulkout(struct scpi_usbtmc_libusb *uscpi,
 	                           uscpi->buffer, padded_size, &transferred,
 	                           TRANSFER_TIMEOUT);
 	if (ret < 0) {
-		sr_err("USBTMC bulk out transfer error: %s.",
+		otc_err("USBTMC bulk out transfer error: %s.",
 		       libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if (transferred < padded_size) {
-		sr_dbg("USBTMC bulk out partial transfer (%d/%d bytes).",
+		otc_dbg("USBTMC bulk out partial transfer (%d/%d bytes).",
 		       transferred, padded_size);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	return transferred - USBTMC_BULK_HEADER_SIZE;
@@ -523,7 +523,7 @@ static int scpi_usbtmc_bulkin_start(struct scpi_usbtmc_libusb *uscpi,
                                     uint8_t msg_id, void *data, int32_t size,
                                     uint8_t *transfer_attributes)
 {
-	struct sr_usb_dev_inst *usb = uscpi->usb;
+	struct otc_usb_dev_inst *usb = uscpi->usb;
 	int ret, transferred, message_size, tries;
 
 	for (tries = 0; ; tries++) {
@@ -531,9 +531,9 @@ static int scpi_usbtmc_bulkin_start(struct scpi_usbtmc_libusb *uscpi,
 					   size, &transferred,
 					   TRANSFER_TIMEOUT);
 		if (ret < 0) {
-			sr_err("USBTMC bulk in transfer error: %s.",
+			otc_err("USBTMC bulk in transfer error: %s.",
 			       libusb_error_name(ret));
-			return SR_ERR;
+			return OTC_ERR;
 		}
 
 		if (transferred == 0 && tries < 1) {
@@ -544,22 +544,22 @@ static int scpi_usbtmc_bulkin_start(struct scpi_usbtmc_libusb *uscpi,
 			 * it follows up with a valid message.  Give the device
 			 * one more chance to send a header.
 			 */
-			sr_warn("USBTMC bulk in start was empty; retrying\n");
+			otc_warn("USBTMC bulk in start was empty; retrying\n");
 			continue;
 		}
 
 		if (transferred < USBTMC_BULK_HEADER_SIZE) {
-			sr_err("USBTMC bulk in returned too little data: %d/%d bytes\n", transferred, size);
-			return SR_ERR;
+			otc_err("USBTMC bulk in returned too little data: %d/%d bytes\n", transferred, size);
+			return OTC_ERR;
 		}
 
 		break;
 	}
 
 	if (usbtmc_bulk_in_header_read(data, msg_id, uscpi->bTag, &message_size,
-	                               transfer_attributes) != SR_OK) {
-		sr_err("USBTMC invalid bulk in header.");
-		return SR_ERR;
+	                               transfer_attributes) != OTC_OK) {
+		otc_err("USBTMC invalid bulk in header.");
+		return OTC_ERR;
 	}
 
 	message_size += USBTMC_BULK_HEADER_SIZE;
@@ -573,15 +573,15 @@ static int scpi_usbtmc_bulkin_start(struct scpi_usbtmc_libusb *uscpi,
 static int scpi_usbtmc_bulkin_continue(struct scpi_usbtmc_libusb *uscpi,
                                        void *data, int size)
 {
-	struct sr_usb_dev_inst *usb = uscpi->usb;
+	struct otc_usb_dev_inst *usb = uscpi->usb;
 	int ret, transferred;
 
 	ret = libusb_bulk_transfer(usb->devhdl, uscpi->bulk_in_ep, data, size,
 	                           &transferred, TRANSFER_TIMEOUT);
 	if (ret < 0) {
-		sr_err("USBTMC bulk in transfer error: %s.",
+		otc_err("USBTMC bulk in transfer error: %s.",
 		       libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	uscpi->response_length = MIN(transferred, uscpi->remaining_length);
@@ -597,11 +597,11 @@ static int scpi_usbtmc_libusb_send(void *priv, const char *command)
 
 	if (scpi_usbtmc_bulkout(uscpi, DEV_DEP_MSG_OUT,
 	                        command, strlen(command), EOM) <= 0)
-		return SR_ERR;
+		return OTC_ERR;
 
-	sr_spew("Successfully sent SCPI command: '%s'.", command);
+	otc_spew("Successfully sent SCPI command: '%s'.", command);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int scpi_usbtmc_libusb_read_begin(void *priv)
@@ -612,13 +612,13 @@ static int scpi_usbtmc_libusb_read_begin(void *priv)
 
 	if (scpi_usbtmc_bulkout(uscpi, REQUEST_DEV_DEP_MSG_IN,
 	    NULL, INT32_MAX, 0) < 0)
-		return SR_ERR;
+		return OTC_ERR;
 	if (scpi_usbtmc_bulkin_start(uscpi, DEV_DEP_MSG_IN,
 	                             uscpi->buffer, sizeof(uscpi->buffer),
 	                             &uscpi->bulkin_attributes) < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int scpi_usbtmc_libusb_read_data(void *priv, char *buf, int maxlen)
@@ -630,12 +630,12 @@ static int scpi_usbtmc_libusb_read_data(void *priv, char *buf, int maxlen)
 		if (uscpi->remaining_length > 0) {
 			if (scpi_usbtmc_bulkin_continue(uscpi, uscpi->buffer,
 			                                sizeof(uscpi->buffer)) <= 0)
-				return SR_ERR;
+				return OTC_ERR;
 		} else {
 			if (uscpi->bulkin_attributes & EOM)
-				return SR_ERR;
+				return OTC_ERR;
 			if (scpi_usbtmc_libusb_read_begin(uscpi) < 0)
-				return SR_ERR;
+				return OTC_ERR;
 		}
 	}
 
@@ -656,41 +656,41 @@ static int scpi_usbtmc_libusb_read_complete(void *priv)
 	       uscpi->bulkin_attributes & EOM;
 }
 
-static int scpi_usbtmc_libusb_close(struct sr_scpi_dev_inst *scpi)
+static int scpi_usbtmc_libusb_close(struct otc_scpi_dev_inst *scpi)
 {
 	struct scpi_usbtmc_libusb *uscpi = scpi->priv;
-	struct sr_usb_dev_inst *usb = uscpi->usb;
+	struct otc_usb_dev_inst *usb = uscpi->usb;
 	int ret;
 
 	if (!usb->devhdl)
-		return SR_ERR;
+		return OTC_ERR;
 
 	scpi_usbtmc_local(uscpi);
 
 	if ((ret = libusb_release_interface(usb->devhdl, uscpi->interface)) < 0)
-		sr_err("Failed to release interface: %s.",
+		otc_err("Failed to release interface: %s.",
 		       libusb_error_name(ret));
 
 	if (uscpi->detached_kernel_driver) {
 		if ((ret = libusb_attach_kernel_driver(usb->devhdl,
 						uscpi->interface)) < 0)
-			sr_err("Failed to re-attach kernel driver: %s.",
+			otc_err("Failed to re-attach kernel driver: %s.",
 			       libusb_error_name(ret));
 
 		uscpi->detached_kernel_driver = 0;
 	}
-	sr_usb_close(usb);
+	otc_usb_close(usb);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void scpi_usbtmc_libusb_free(void *priv)
 {
 	struct scpi_usbtmc_libusb *uscpi = priv;
-	sr_usb_dev_inst_free(uscpi->usb);
+	otc_usb_dev_inst_free(uscpi->usb);
 }
 
-SR_PRIV const struct sr_scpi_dev_inst scpi_usbtmc_libusb_dev = {
+OTC_PRIV const struct otc_scpi_dev_inst scpi_usbtmc_libusb_dev = {
 	.name          = "USBTMC",
 	.prefix        = "usbtmc",
 	.transport     = SCPI_TRANSPORT_USBTMC,

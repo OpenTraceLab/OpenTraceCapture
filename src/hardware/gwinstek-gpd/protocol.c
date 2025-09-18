@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Bastian Schmitz <bastian.schmitz@udo.edu>
  *
@@ -21,7 +21,7 @@
 #include <string.h>
 #include "protocol.h"
 
-SR_PRIV int gpd_send_cmd(struct sr_serial_dev_inst *serial, const char *cmd, ...)
+OTC_PRIV int gpd_send_cmd(struct otc_serial_dev_inst *serial, const char *cmd, ...)
 {
 	int ret;
 	char cmdbuf[50];
@@ -33,20 +33,20 @@ SR_PRIV int gpd_send_cmd(struct sr_serial_dev_inst *serial, const char *cmd, ...
 	va_end(args);
 
 	cmd_esc = g_strescape(cmdbuf, NULL);
-	sr_dbg("Sending '%s'.", cmd_esc);
+	otc_dbg("Sending '%s'.", cmd_esc);
 	g_free(cmd_esc);
 
 	ret = serial_write_blocking(serial, cmdbuf, strlen(cmdbuf),
 				    serial_timeout(serial, strlen(cmdbuf)));
 	if (ret < 0) {
-		sr_err("Error sending command: %d.", ret);
+		otc_err("Error sending command: %d.", ret);
 		return ret;
 	}
 
 	return ret;
 }
 
-SR_PRIV int gpd_receive_reply(struct sr_serial_dev_inst *serial, char *buf,
+OTC_PRIV int gpd_receive_reply(struct otc_serial_dev_inst *serial, char *buf,
 				int buflen)
 {
 	int l_recv = 0, bufpos = 0, retc, l_startpos = 0, lines = 1;
@@ -54,7 +54,7 @@ SR_PRIV int gpd_receive_reply(struct sr_serial_dev_inst *serial, char *buf,
 	const int timeout_ms = 250;
 
 	if (!serial || !buf || (buflen <= 0))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	start = g_get_monotonic_time();
 	remaining = timeout_ms;
@@ -62,7 +62,7 @@ SR_PRIV int gpd_receive_reply(struct sr_serial_dev_inst *serial, char *buf,
 	while ((l_recv < lines) && (bufpos < (buflen + 1))) {
 		retc = serial_read_blocking(serial, &buf[bufpos], 1, remaining);
 		if (retc != 1)
-			return SR_ERR;
+			return OTC_ERR;
 
 		if (bufpos == 0 && buf[bufpos] == '\r')
 			continue;
@@ -71,7 +71,7 @@ SR_PRIV int gpd_receive_reply(struct sr_serial_dev_inst *serial, char *buf,
 
 		if (buf[bufpos] == '\n' || buf[bufpos] == '\r') {
 			buf[bufpos] = '\0';
-			sr_dbg("Received line '%s'.", &buf[l_startpos]);
+			otc_dbg("Received line '%s'.", &buf[l_startpos]);
 			buf[bufpos] = '\n';
 			l_startpos = bufpos + 1;
 			l_recv++;
@@ -81,28 +81,28 @@ SR_PRIV int gpd_receive_reply(struct sr_serial_dev_inst *serial, char *buf,
 		/* Reduce timeout by time elapsed. */
 		remaining = timeout_ms - ((g_get_monotonic_time() - start) / 1000);
 		if (remaining <= 0)
-			return SR_ERR; /* Timeout. */
+			return OTC_ERR; /* Timeout. */
 	}
 
 	buf[bufpos] = '\0';
 
 	if (l_recv == lines)
-		return SR_OK;
+		return OTC_OK;
 	else
-		return SR_ERR;
+		return OTC_ERR;
 }
 
-SR_PRIV int gpd_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int gpd_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
-	struct sr_channel *ch;
+	struct otc_serial_dev_inst *serial;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
+	struct otc_channel *ch;
 	unsigned int i;
 	char reply[50];
 	char *reply_esc;
@@ -119,63 +119,63 @@ SR_PRIV int gpd_receive_data(int fd, int revents, void *cb_data)
 
 	if (revents == G_IO_IN) {
 		if (!devc->reply_pending) {
-			sr_err("No reply pending.");
+			otc_err("No reply pending.");
 			gpd_receive_reply(serial, reply, sizeof(reply));
 			reply_esc = g_strescape(reply, NULL);
-			sr_err("Unexpected data '%s'.", reply_esc);
+			otc_err("Unexpected data '%s'.", reply_esc);
 			g_free(reply_esc);
 		} else {
 			for (i = 0; i < devc->model->num_channels; i++) {
-				packet.type = SR_DF_ANALOG;
+				packet.type = OTC_DF_ANALOG;
 				packet.payload = &analog;
 
 				reply[0] = '\0';
 				gpd_receive_reply(serial, reply, sizeof(reply));
 				if (sscanf(reply, "%f", &devc->config[i].output_current_last) != 1) {
-					sr_err("Invalid reply to IOUT1?: '%s'.",
+					otc_err("Invalid reply to IOUT1?: '%s'.",
 						reply);
 					return TRUE;
 				}
 
 				/* Send the value forward. */
-				sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+				otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 				analog.num_samples = 1;
 				ch = g_slist_nth_data(sdi->channels, i);
 				analog.meaning->channels =
 					g_slist_append(NULL, ch);
-				analog.meaning->mq = SR_MQ_CURRENT;
-				analog.meaning->unit = SR_UNIT_AMPERE;
+				analog.meaning->mq = OTC_MQ_CURRENT;
+				analog.meaning->unit = OTC_UNIT_AMPERE;
 				analog.meaning->mqflags = 0;
 				analog.encoding->digits = 3;
 				analog.spec->spec_digits = 3;
 				analog.data = &devc->config[i].output_current_last;
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 
 				reply[0] = '\0';
 				gpd_receive_reply(serial, reply, sizeof(reply));
 				if (sscanf(reply, "%f", &devc->config[i].output_voltage_last) != 1) {
-					sr_err("Invalid reply to VOUT1?: '%s'.",
+					otc_err("Invalid reply to VOUT1?: '%s'.",
 						reply);
 					return TRUE;
 				}
 
 				/* Send the value forward. */
-				sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+				otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 				analog.num_samples = 1;
 				ch = g_slist_nth_data(sdi->channels, i);
 				analog.meaning->channels =
 					g_slist_append(NULL, ch);
-				analog.meaning->mq = SR_MQ_VOLTAGE;
-				analog.meaning->unit = SR_UNIT_VOLT;
-				analog.meaning->mqflags = SR_MQFLAG_DC;
+				analog.meaning->mq = OTC_MQ_VOLTAGE;
+				analog.meaning->unit = OTC_UNIT_VOLT;
+				analog.meaning->mqflags = OTC_MQFLAG_DC;
 				analog.encoding->digits = 3;
 				analog.spec->spec_digits = 3;
 				analog.data = &devc->config[i].output_voltage_last;
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 			}
 
 			devc->reply_pending = FALSE;
-			sr_sw_limits_update_samples_read(&devc->limits, 1);
+			otc_sw_limits_update_samples_read(&devc->limits, 1);
 		}
 	} else {
 		if (!devc->reply_pending) {
@@ -187,8 +187,8 @@ SR_PRIV int gpd_receive_data(int fd, int revents, void *cb_data)
 		}
 	}
 
-	if (sr_sw_limits_check(&devc->limits)) {
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits)) {
+		otc_dev_acquisition_stop(sdi);
 		return TRUE;
 	}
 

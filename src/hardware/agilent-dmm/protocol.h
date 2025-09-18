@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2012 Bert Vermeulen <bert@biot.com>
  *
@@ -75,7 +75,7 @@ struct agdmm_profile {
 
 struct dev_context {
 	const struct agdmm_profile *profile;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	int data_source;
 
 	const struct agdmm_job *jobs;
@@ -86,8 +86,8 @@ struct dev_context {
 	unsigned char buf[AGDMM_BUFSIZE];
 	int buflen;
 	uint64_t cur_samplerate;
-	struct sr_channel *cur_channel;
-	struct sr_channel *cur_conf;
+	struct otc_channel *cur_channel;
+	struct otc_channel *cur_conf;
 	int cur_sample;
 	int cur_mq[MAX_CHANNELS];
 	int cur_unit[MAX_CHANNELS];
@@ -113,14 +113,14 @@ enum job_type {
 struct agdmm_job {
 	enum job_type type;
 	int interval;
-	int (*send) (const struct sr_dev_inst *sdi);
+	int (*send) (const struct otc_dev_inst *sdi);
 };
 
 struct agdmm_recv {
 	const char *recv_regex;
-	int (*recv) (const struct sr_dev_inst *sdi, GMatchInfo *match);
+	int (*recv) (const struct otc_dev_inst *sdi, GMatchInfo *match);
 };
 
-SR_PRIV int agdmm_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int agdmm_receive_data(int fd, int revents, void *cb_data);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Aurelien Jacobs <aurel@gnuage.org>
  *
@@ -19,10 +19,10 @@
 
 #include <config.h>
 #include <stdint.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
-SR_PRIV uint16_t sr_crc16(uint16_t crc, const uint8_t *buffer, int len)
+OTC_PRIV uint16_t otc_crc16(uint16_t crc, const uint8_t *buffer, int len)
 {
 	int i;
 

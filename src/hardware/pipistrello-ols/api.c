@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -21,25 +21,25 @@
 #include "protocol.h"
 
 static const uint32_t drvopts[] = {
-	SR_CONF_LOGIC_ANALYZER,
+	OTC_CONF_LOGIC_ANALYZER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
-	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_PATTERN_MODE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_EXTERNAL_CLOCK | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_SWAP | SR_CONF_SET,
-	SR_CONF_RLE | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_TRIGGER_MATCH | OTC_CONF_LIST,
+	OTC_CONF_CAPTURE_RATIO | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_PATTERN_MODE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_EXTERNAL_CLOCK | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_SWAP | OTC_CONF_SET,
+	OTC_CONF_RLE | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 static const int32_t trigger_matches[] = {
-	SR_TRIGGER_ZERO,
-	SR_TRIGGER_ONE,
-	SR_TRIGGER_RISING,
-	SR_TRIGGER_FALLING,
+	OTC_TRIGGER_ZERO,
+	OTC_TRIGGER_ONE,
+	OTC_TRIGGER_RISING,
+	OTC_TRIGGER_FALLING,
 };
 
 #define STR_PATTERN_NONE     "None"
@@ -65,7 +65,7 @@ static const char *patterns[] = {
 };
 
 /* Channels are numbered 0-31 (on the PCB silkscreen). */
-SR_PRIV const char *p_ols_channel_names[] = {
+OTC_PRIV const char *p_ols_channel_names[] = {
 	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12",
 	"13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23",
 	"24", "25", "26", "27", "28", "29", "30", "31",
@@ -73,14 +73,14 @@ SR_PRIV const char *p_ols_channel_names[] = {
 
 /* Default supported samplerates, can be overridden by device metadata. */
 static const uint64_t samplerates[] = {
-	SR_HZ(10),
-	SR_MHZ(200),
-	SR_HZ(1),
+	OTC_HZ(10),
+	OTC_MHZ(200),
+	OTC_HZ(1),
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	GSList *devices;
 	int ret, i;
@@ -103,11 +103,11 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	devc->ftdi_buf = g_malloc0(FTDI_BUF_SIZE);
 
 	if (!(devc->ftdic = ftdi_new())) {
-		sr_err("Failed to initialize libftdi.");
+		otc_err("Failed to initialize libftdi.");
 		goto err_free_ftdi_buf;;
 	}
 
-	if (p_ols_open(devc) != SR_OK)
+	if (p_ols_open(devc) != OTC_OK)
 		goto err_free_ftdic;
 
 	/* The discovery procedure is like this: first send the Reset
@@ -117,14 +117,14 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	 * have a match.
 	 */
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	for (i = 0; i < 5; i++) {
-		if ((ret = write_shortcommand(devc, CMD_RESET)) != SR_OK) {
+		if ((ret = write_shortcommand(devc, CMD_RESET)) != OTC_OK) {
 			break;
 		}
 	}
-	if (ret != SR_OK) {
-		sr_err("Could not reset device. Quitting.");
+	if (ret != OTC_OK) {
+		otc_err("Could not reset device. Quitting.");
 		goto err_close_ftdic;
 	}
 	write_shortcommand(devc, CMD_ID);
@@ -132,7 +132,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	/* Read the response data. */
 	bytes_read = ftdi_read_data(devc->ftdic, (uint8_t *)buf, 4);
 	if (bytes_read < 0) {
-		sr_err("Failed to read FTDI data (%d): %s.",
+		otc_err("Failed to read FTDI data (%d): %s.",
 		       bytes_read, ftdi_get_error_string(devc->ftdic));
 		goto err_close_ftdic;
 	}
@@ -151,7 +151,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
         /* Read the metadata. */
 	bytes_read = ftdi_read_data(devc->ftdic, (uint8_t *)buf, 64);
 	if (bytes_read < 0) {
-		sr_err("Failed to read FTDI data (%d): %s.",
+		otc_err("Failed to read FTDI data (%d): %s.",
 		       bytes_read, ftdi_get_error_string(devc->ftdic));
 		goto err_close_ftdic;
 	}
@@ -165,8 +165,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	sdi = p_ols_get_metadata((uint8_t *)buf, bytes_read, devc);
 
 	/* Configure samplerate and divider. */
-	if (p_ols_set_samplerate(sdi, DEFAULT_SAMPLERATE) != SR_OK)
-		sr_dbg("Failed to set default samplerate (%"PRIu64").",
+	if (p_ols_set_samplerate(sdi, DEFAULT_SAMPLERATE) != OTC_OK)
+		otc_dbg("Failed to set default samplerate (%"PRIu64").",
 				DEFAULT_SAMPLERATE);
 
 	devices = g_slist_append(devices, sdi);
@@ -190,34 +190,34 @@ static void clear_helper(struct dev_context *devc)
 	g_free(devc->ftdi_buf);
 }
 
-static int dev_clear(const struct sr_dev_driver *di)
+static int dev_clear(const struct otc_dev_driver *di)
 {
 	return std_dev_clear_with_callback(di, (std_dev_clear_callback)clear_helper);
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(devc->cur_samplerate);
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		*data = g_variant_new_uint64(devc->capture_ratio);
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		*data = g_variant_new_uint64(devc->limit_samples);
 		break;
-	case SR_CONF_PATTERN_MODE:
+	case OTC_CONF_PATTERN_MODE:
 		if (devc->flag_reg & FLAG_EXTERNAL_TEST_MODE)
 			*data = g_variant_new_string(STR_PATTERN_EXTERNAL);
 		else if (devc->flag_reg & FLAG_INTERNAL_TEST_MODE)
@@ -225,21 +225,21 @@ static int config_get(uint32_t key, GVariant **data,
 		else
 			*data = g_variant_new_string(STR_PATTERN_NONE);
 		break;
-	case SR_CONF_RLE:
+	case OTC_CONF_RLE:
 		*data = g_variant_new_boolean(devc->flag_reg & FLAG_RLE ? TRUE : FALSE);
 		break;
-	case SR_CONF_EXTERNAL_CLOCK:
+	case OTC_CONF_EXTERNAL_CLOCK:
 		*data = g_variant_new_boolean(devc->flag_reg & FLAG_CLOCK_EXTERNAL ? TRUE : FALSE);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	uint16_t flag;
@@ -251,99 +251,99 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		tmp_u64 = g_variant_get_uint64(data);
 		if (tmp_u64 < samplerates[0] || tmp_u64 > samplerates[1])
-			return SR_ERR_SAMPLERATE;
+			return OTC_ERR_SAMPLERATE;
 		return p_ols_set_samplerate(sdi, g_variant_get_uint64(data));
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		tmp_u64 = g_variant_get_uint64(data);
 		if (tmp_u64 < MIN_NUM_SAMPLES)
-			return SR_ERR;
+			return OTC_ERR;
 		devc->limit_samples = tmp_u64;
 		break;
-	case SR_CONF_CAPTURE_RATIO:
+	case OTC_CONF_CAPTURE_RATIO:
 		devc->capture_ratio = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_EXTERNAL_CLOCK:
+	case OTC_CONF_EXTERNAL_CLOCK:
 		if (g_variant_get_boolean(data)) {
-			sr_info("Enabling external clock.");
+			otc_info("Enabling external clock.");
 			devc->flag_reg |= FLAG_CLOCK_EXTERNAL;
 		} else {
-			sr_info("Disabled external clock.");
+			otc_info("Disabled external clock.");
 			devc->flag_reg &= ~FLAG_CLOCK_EXTERNAL;
 		}
 		break;
-	case SR_CONF_PATTERN_MODE:
+	case OTC_CONF_PATTERN_MODE:
 		stropt = g_variant_get_string(data, NULL);
 		if (!strcmp(stropt, STR_PATTERN_NONE)) {
-			sr_info("Disabling test modes.");
+			otc_info("Disabling test modes.");
 			flag = 0x0000;
 		} else if (!strcmp(stropt, STR_PATTERN_INTERNAL)) {
-			sr_info("Enabling internal test mode.");
+			otc_info("Enabling internal test mode.");
 			flag = FLAG_INTERNAL_TEST_MODE;
 		} else if (!strcmp(stropt, STR_PATTERN_EXTERNAL)) {
-			sr_info("Enabling external test mode.");
+			otc_info("Enabling external test mode.");
 			flag = FLAG_EXTERNAL_TEST_MODE;
 		} else {
-			return SR_ERR;
+			return OTC_ERR;
 		}
 		devc->flag_reg &= ~FLAG_INTERNAL_TEST_MODE;
 		devc->flag_reg &= ~FLAG_EXTERNAL_TEST_MODE;
 		devc->flag_reg |= flag;
 		break;
-	case SR_CONF_SWAP:
+	case OTC_CONF_SWAP:
 		if (g_variant_get_boolean(data)) {
-			sr_info("Enabling channel swapping.");
+			otc_info("Enabling channel swapping.");
 			devc->flag_reg |= FLAG_SWAP_CHANNELS;
 		} else {
-			sr_info("Disabling channel swapping.");
+			otc_info("Disabling channel swapping.");
 			devc->flag_reg &= ~FLAG_SWAP_CHANNELS;
 		}
 		break;
-	case SR_CONF_RLE:
+	case OTC_CONF_RLE:
 		if (g_variant_get_boolean(data)) {
-			sr_info("Enabling RLE.");
+			otc_info("Enabling RLE.");
 			devc->flag_reg |= FLAG_RLE;
 		} else {
-			sr_info("Disabling RLE.");
+			otc_info("Disabling RLE.");
 			devc->flag_reg &= ~FLAG_RLE;
 		}
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	int num_pols_changrp, i;
 
 	switch (key) {
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, NO_OPTS, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
 		break;
-	case SR_CONF_TRIGGER_MATCH:
+	case OTC_CONF_TRIGGER_MATCH:
 		*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
 		break;
-	case SR_CONF_PATTERN_MODE:
+	case OTC_CONF_PATTERN_MODE:
 		*data = g_variant_new_strv(ARRAY_AND_SIZE(patterns));
 		break;
-	case SR_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_SAMPLES:
 		if (!sdi)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		devc = sdi->priv;
 		if (devc->flag_reg & FLAG_RLE)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		if (devc->max_samplebytes == 0)
 			/* Device didn't specify sample memory size in metadata. */
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		/*
 		 * Channel groups are turned off if no channels in that group are
 		 * enabled, making more room for samples for the enabled group.
@@ -362,13 +362,13 @@ static int config_list(uint32_t key, GVariant **data,
 			(num_pols_changrp) ? devc->max_samplebytes / num_pols_changrp : MIN_NUM_SAMPLES);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -377,7 +377,7 @@ static int dev_open(struct sr_dev_inst *sdi)
 	return p_ols_open(devc);
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -386,7 +386,7 @@ static int dev_close(struct sr_dev_inst *sdi)
 	return p_ols_close(devc);
 }
 
-static int set_trigger(const struct sr_dev_inst *sdi, int stage)
+static int set_trigger(const struct otc_dev_inst *sdi, int stage)
 {
 	struct dev_context *devc;
 	uint8_t cmd, arg[4];
@@ -398,16 +398,16 @@ static int set_trigger(const struct sr_dev_inst *sdi, int stage)
 	arg[1] = (devc->trigger_mask[stage] >> 8) & 0xff;
 	arg[2] = (devc->trigger_mask[stage] >> 16) & 0xff;
 	arg[3] = (devc->trigger_mask[stage] >> 24) & 0xff;
-	if (write_longcommand(devc, cmd, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, cmd, arg) != OTC_OK)
+		return OTC_ERR;
 
 	cmd = CMD_SET_TRIGGER_VALUE + stage * 4;
 	arg[0] = devc->trigger_value[stage] & 0xff;
 	arg[1] = (devc->trigger_value[stage] >> 8) & 0xff;
 	arg[2] = (devc->trigger_value[stage] >> 16) & 0xff;
 	arg[3] = (devc->trigger_value[stage] >> 24) & 0xff;
-	if (write_longcommand(devc, cmd, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, cmd, arg) != OTC_OK)
+		return OTC_ERR;
 
 	cmd = CMD_SET_TRIGGER_CONFIG + stage * 4;
 	arg[0] = arg[1] = arg[3] = 0x00;
@@ -415,21 +415,21 @@ static int set_trigger(const struct sr_dev_inst *sdi, int stage)
 	if (stage == devc->num_stages)
 		/* Last stage, fire when this one matches. */
 		arg[3] |= TRIGGER_START;
-	if (write_longcommand(devc, cmd, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, cmd, arg) != OTC_OK)
+		return OTC_ERR;
 
 	cmd = CMD_SET_TRIGGER_EDGE + stage * 4;
 	arg[0] = devc->trigger_edge[stage] & 0xff;
 	arg[1] = (devc->trigger_edge[stage] >> 8) & 0xff;
 	arg[2] = (devc->trigger_edge[stage] >> 16) & 0xff;
 	arg[3] = (devc->trigger_edge[stage] >> 24) & 0xff;
-	if (write_longcommand(devc, cmd, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, cmd, arg) != OTC_OK)
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int disable_trigger(const struct sr_dev_inst *sdi, int stage)
+static int disable_trigger(const struct otc_dev_inst *sdi, int stage)
 {
 	struct dev_context *devc;
 	uint8_t cmd, arg[4];
@@ -438,27 +438,27 @@ static int disable_trigger(const struct sr_dev_inst *sdi, int stage)
 
 	cmd = CMD_SET_TRIGGER_MASK + stage * 4;
 	arg[0] = arg[1] = arg[2] = arg[3] = 0x00;
-	if (write_longcommand(devc, cmd, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, cmd, arg) != OTC_OK)
+		return OTC_ERR;
 
 	cmd = CMD_SET_TRIGGER_VALUE + stage * 4;
-	if (write_longcommand(devc, cmd, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, cmd, arg) != OTC_OK)
+		return OTC_ERR;
 
 	cmd = CMD_SET_TRIGGER_CONFIG + stage * 4;
 	arg[2] = 0x03;
-	if (write_longcommand(devc, cmd, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, cmd, arg) != OTC_OK)
+		return OTC_ERR;
 
 	cmd = CMD_SET_TRIGGER_EDGE + stage * 4;
 	arg[2] = 0x00;
-	if (write_longcommand(devc, cmd, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, cmd, arg) != OTC_OK)
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint32_t samplecount, readcount, delaycount;
@@ -494,10 +494,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	 * Limit readcount to prevent reading past the end of the hardware
 	 * buffer.
 	 */
-	sr_dbg("max_samples = %d", devc->max_samples);
-	sr_dbg("limit_samples = %" PRIu64, devc->limit_samples);
+	otc_dbg("max_samples = %d", devc->max_samples);
+	otc_dbg("limit_samples = %" PRIu64, devc->limit_samples);
 	samplecount = MIN(devc->max_samples, devc->limit_samples);
-	sr_dbg("Samplecount = %d", samplecount);
+	otc_dbg("Samplecount = %d", samplecount);
 
 	/* In demux mode the OLS is processing two samples per clock */
 	if (devc->flag_reg & FLAG_DEMUX) {
@@ -514,9 +514,9 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		readcount++;
 
 	/* Basic triggers. */
-	if (pols_convert_trigger(sdi) != SR_OK) {
-		sr_err("Failed to configure channels.");
-		return SR_ERR;
+	if (pols_convert_trigger(sdi) != OTC_OK) {
+		otc_err("Failed to configure channels.");
+		return OTC_ERR;
 	}
 
 	if (devc->num_stages > 0) {
@@ -524,50 +524,50 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 		devc->trigger_at = (readcount - delaycount) * samplespercount - devc->num_stages;
 		for (i = 0; i < NUM_TRIGGER_STAGES; i++) {
 			if (i <= devc->num_stages) {
-				sr_dbg("Setting p-ols stage %d trigger.", i);
-				if ((ret = set_trigger(sdi, i)) != SR_OK)
+				otc_dbg("Setting p-ols stage %d trigger.", i);
+				if ((ret = set_trigger(sdi, i)) != OTC_OK)
 					return ret;
 			}
 			else {
-				sr_dbg("Disabling p-ols stage %d trigger.", i);
-				if ((ret = disable_trigger(sdi, i)) != SR_OK)
+				otc_dbg("Disabling p-ols stage %d trigger.", i);
+				if ((ret = disable_trigger(sdi, i)) != OTC_OK)
 					return ret;
 			}
 		}
 	} else {
 		/* No triggers configured, force trigger on first stage. */
-		sr_dbg("Forcing trigger at stage 0.");
-		if ((ret = set_trigger(sdi, 0)) != SR_OK)
+		otc_dbg("Forcing trigger at stage 0.");
+		if ((ret = set_trigger(sdi, 0)) != OTC_OK)
 			return ret;
 		delaycount = readcount;
 	}
 
 	/* Samplerate. */
-	sr_dbg("Setting samplerate to %" PRIu64 "Hz (divider %u)",
+	otc_dbg("Setting samplerate to %" PRIu64 "Hz (divider %u)",
 			devc->cur_samplerate, devc->cur_samplerate_divider);
 	arg[0] = devc->cur_samplerate_divider & 0xff;
 	arg[1] = (devc->cur_samplerate_divider & 0xff00) >> 8;
 	arg[2] = (devc->cur_samplerate_divider & 0xff0000) >> 16;
 	arg[3] = 0x00;
-	if (write_longcommand(devc, CMD_SET_DIVIDER, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, CMD_SET_DIVIDER, arg) != OTC_OK)
+		return OTC_ERR;
 
 	/* Send extended sample limit and pre/post-trigger capture ratio. */
 	arg[0] = ((readcount - 1) & 0xff);
 	arg[1] = ((readcount - 1) & 0xff00) >> 8;
 	arg[2] = ((readcount - 1) & 0xff0000) >> 16;
 	arg[3] = ((readcount - 1) & 0xff000000) >> 24;
-	if (write_longcommand(devc, CMD_CAPTURE_READCOUNT, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, CMD_CAPTURE_READCOUNT, arg) != OTC_OK)
+		return OTC_ERR;
 	arg[0] = ((delaycount - 1) & 0xff);
 	arg[1] = ((delaycount - 1) & 0xff00) >> 8;
 	arg[2] = ((delaycount - 1) & 0xff0000) >> 16;
 	arg[3] = ((delaycount - 1) & 0xff000000) >> 24;
-	if (write_longcommand(devc, CMD_CAPTURE_DELAYCOUNT, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, CMD_CAPTURE_DELAYCOUNT, arg) != OTC_OK)
+		return OTC_ERR;
 
 	/* Flag register. */
-	sr_dbg("Setting intpat %s, extpat %s, RLE %s, noise_filter %s, demux %s",
+	otc_dbg("Setting intpat %s, extpat %s, RLE %s, noise_filter %s, demux %s",
 			devc->flag_reg & FLAG_INTERNAL_TEST_MODE ? "on": "off",
 			devc->flag_reg & FLAG_EXTERNAL_TEST_MODE ? "on": "off",
 			devc->flag_reg & FLAG_RLE ? "on" : "off",
@@ -580,7 +580,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	*/
 	devc->flag_reg &= ~0x3c;
 	devc->flag_reg |= ~(pols_changrp_mask << 2) & 0x3c;
-	sr_dbg("flag_reg = %x", devc->flag_reg);
+	otc_dbg("flag_reg = %x", devc->flag_reg);
 
 	/*
 	* In demux mode the OLS is processing two 8-bit or 16-bit samples
@@ -595,12 +595,12 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	arg[0] = flag_tmp & 0xff;
 	arg[1] = flag_tmp >> 8;
 	arg[2] = arg[3] = 0x00;
-	if (write_longcommand(devc, CMD_SET_FLAGS, arg) != SR_OK)
-		return SR_ERR;
+	if (write_longcommand(devc, CMD_SET_FLAGS, arg) != OTC_OK)
+		return OTC_ERR;
 
 	/* Start acquisition on the device. */
-	if (write_shortcommand(devc, CMD_RUN) != SR_OK)
-		return SR_ERR;
+	if (write_shortcommand(devc, CMD_RUN) != OTC_OK)
+		return OTC_ERR;
 
 	/* Reset all operational states. */
 	devc->rle_count = devc->num_transfers = 0;
@@ -611,13 +611,13 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	std_session_send_df_header(sdi);
 
 	/* Hook up a dummy handler to receive data from the device. */
-	sr_session_source_add(sdi->session, -1, 0, 10, p_ols_receive_data,
-				(struct sr_dev_inst *)sdi);
+	otc_session_source_add(sdi->session, -1, 0, 10, p_ols_receive_data,
+				(struct otc_dev_inst *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -629,14 +629,14 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	write_shortcommand(devc, CMD_RESET);
 	write_shortcommand(devc, CMD_RESET);
 
-	sr_session_source_remove(sdi->session, -1);
+	otc_session_source_remove(sdi->session, -1);
 
 	std_session_send_df_end(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver p_ols_driver_info = {
+static struct otc_dev_driver p_ols_driver_info = {
 	.name = "p-ols",
 	.longname = "Pipistrello OLS",
 	.api_version = 1,
@@ -654,4 +654,4 @@ static struct sr_dev_driver p_ols_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(p_ols_driver_info);
+OTC_REGISTER_DEV_DRIVER(p_ols_driver_info);

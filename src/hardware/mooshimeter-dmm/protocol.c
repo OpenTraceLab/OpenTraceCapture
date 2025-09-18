@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Derek Hageman <hageman@inthat.cloud>
  *
@@ -321,7 +321,7 @@ static gboolean update_tree_data(struct config_tree_node *node,
 	switch (node->type) {
 	case TREE_NODE_DATATYPE_PLAIN:
 	case TREE_NODE_DATATYPE_LINK:
-		sr_err("Update for dataless node.");
+		otc_err("Update for dataless node.");
 		g_byte_array_remove_range(contents, 0, 2);
 		return TRUE;
 	case TREE_NODE_DATATYPE_CHOOSER:
@@ -448,7 +448,7 @@ static void consume_packets(struct dev_context *devc)
 	target = devc->tree_id_lookup[id];
 
 	if (!target) {
-		sr_err("Command %hhu code does not map to a known node.", id);
+		otc_err("Command %hhu code does not map to a known node.", id);
 		g_byte_array_remove_index(devc->rx.contents, 0);
 		return consume_packets(devc);
 	}
@@ -461,7 +461,7 @@ static void consume_packets(struct dev_context *devc)
 
 static int notify_cb(void *cb_data, uint8_t *data, size_t dlen)
 {
-	const struct sr_dev_inst *sdi = cb_data;
+	const struct otc_dev_inst *sdi = cb_data;
 	struct dev_context *devc = sdi->priv;
 
 	if (!incoming_frame(&devc->rx, data, (guint)dlen))
@@ -472,18 +472,18 @@ static int notify_cb(void *cb_data, uint8_t *data, size_t dlen)
 	return 0;
 }
 
-static int write_frame(const struct sr_dev_inst *sdi,
+static int write_frame(const struct otc_dev_inst *sdi,
 	const void *frame, size_t length)
 {
-	struct sr_bt_desc *desc = sdi->conn;
+	struct otc_bt_desc *desc = sdi->conn;
 
-	if (sr_bt_write(desc, frame, length) != (ssize_t)length)
-		return SR_ERR;
+	if (otc_bt_write(desc, frame, length) != (ssize_t)length)
+		return OTC_ERR;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int poll_tree_value(const struct sr_dev_inst *sdi,
+static int poll_tree_value(const struct otc_dev_inst *sdi,
 	struct config_tree_node *node)
 {
 	struct dev_context *devc = sdi->priv;
@@ -497,7 +497,7 @@ static int poll_tree_value(const struct sr_dev_inst *sdi,
 	return write_frame(sdi, frame, 2);
 }
 
-static void set_tree_integer(const struct sr_dev_inst *sdi,
+static void set_tree_integer(const struct otc_dev_inst *sdi,
 	struct config_tree_node *node, int32_t value)
 {
 	struct dev_context *devc = sdi->priv;
@@ -512,7 +512,7 @@ static void set_tree_integer(const struct sr_dev_inst *sdi,
 	switch (node->type) {
 	case TREE_NODE_DATATYPE_PLAIN:
 	case TREE_NODE_DATATYPE_LINK:
-		sr_err("Set attempted for dataless node.");
+		otc_err("Set attempted for dataless node.");
 		return;
 	case TREE_NODE_DATATYPE_CHOOSER:
 	case TREE_NODE_DATATYPE_U8:
@@ -560,7 +560,7 @@ static int32_t get_tree_integer(struct config_tree_node *node)
 	switch (node->type) {
 	case TREE_NODE_DATATYPE_PLAIN:
 	case TREE_NODE_DATATYPE_LINK:
-		sr_err("Read attempted for dataless node.");
+		otc_err("Read attempted for dataless node.");
 		return 0;
 	case TREE_NODE_DATATYPE_CHOOSER:
 	case TREE_NODE_DATATYPE_U8:
@@ -584,7 +584,7 @@ static void tree_diagnostic_updated(struct config_tree_node *node, void *param)
 	(void)param;
 
 	if (!node->value.b->len) {
-		sr_warn("Mooshimeter error with no information.");
+		otc_warn("Mooshimeter error with no information.");
 		return;
 	}
 
@@ -593,24 +593,24 @@ static void tree_diagnostic_updated(struct config_tree_node *node, void *param)
 		node->value.b->data[node->value.b->len - 1] = 0;
 	}
 
-	sr_warn("Mooshimeter error: %s.", node->value.b->data);
+	otc_warn("Mooshimeter error: %s.", node->value.b->data);
 }
 
 static void chX_value_update(struct config_tree_node *node,
-	struct sr_dev_inst *sdi, int channel)
+	struct otc_dev_inst *sdi, int channel)
 {
 	struct dev_context *devc = sdi->priv;
 	float value;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
 	if (!devc->enable_value_stream)
 		return;
 
-	if (!((struct sr_channel *)devc->channel_meaning[channel].
+	if (!((struct otc_channel *)devc->channel_meaning[channel].
 		channels->data)->enabled) {
 		return;
 	}
@@ -619,7 +619,7 @@ static void chX_value_update(struct config_tree_node *node,
 		return;
 	value = node->value.f;
 
-	sr_spew("Received value for channel %d = %g.", channel, value);
+	otc_spew("Received value for channel %d = %g.", channel, value);
 
 	/*
 	 * Could do significant digit calculations based on the
@@ -627,26 +627,26 @@ static void chX_value_update(struct config_tree_node *node,
 	 * but does it matter?
 	 * (see https://github.com/mooshim/Mooshimeter-AndroidApp/blob/94a20a2d42f6af9975ad48591caa6a17130ca53b/app/src/main/java/com/mooshim/mooshimeter/devices/MooshimeterDevice.java#L691 )
 	 */
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 2);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 2);
 
 	memcpy(analog.meaning, &devc->channel_meaning[channel],
-		sizeof(struct sr_analog_meaning));
+		sizeof(struct otc_analog_meaning));
 	analog.num_samples = 1;
 	analog.data = &value;
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
 	if (devc->channel_autorange[channel])
 		(*devc->channel_autorange[channel])(sdi, value);
 
-	sr_sw_limits_update_samples_read(&devc->limits, 1);
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 }
 
 static void chX_buffer_update(struct config_tree_node *node,
-	struct sr_dev_inst *sdi, int channel)
+	struct otc_dev_inst *sdi, int channel)
 {
 	struct dev_context *devc = sdi->priv;
 	uint32_t bits_per_sample = devc->buffer_bps[channel];
@@ -662,16 +662,16 @@ static void chX_buffer_update(struct config_tree_node *node,
 	float maximum_value = 0;
 	float *values;
 	float *output_value;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
 	if (!devc->enable_value_stream)
 		return;
 
-	if (!((struct sr_channel *)devc->channel_meaning[channel].
+	if (!((struct otc_channel *)devc->channel_meaning[channel].
 		channels->data)->enabled) {
 		return;
 	}
@@ -694,19 +694,19 @@ static void chX_buffer_update(struct config_tree_node *node,
 	if (!number_of_samples)
 		return;
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 
 	values = g_new0(float, number_of_samples);
 	output_value = values;
 
 	memcpy(analog.meaning, &devc->channel_meaning[channel],
-		sizeof(struct sr_analog_meaning));
+		sizeof(struct otc_analog_meaning));
 	analog.num_samples = number_of_samples;
 	analog.data = output_value;
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
 
-	sr_spew("Received buffer for channel %d with %u bytes (%u samples).",
+	otc_spew("Received buffer for channel %d with %u bytes (%u samples).",
 		channel, (unsigned int)size, (unsigned int)number_of_samples);
 
 	sign_bit = 1 << (bits_per_sample - 1);
@@ -739,16 +739,16 @@ static void chX_buffer_update(struct config_tree_node *node,
 			maximum_value = fabsf(maximum_value);
 	}
 
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 
 	g_free(values);
 
 	if (devc->channel_autorange[channel])
 		(*devc->channel_autorange[channel])(sdi, maximum_value);
 
-	sr_sw_limits_update_samples_read(&devc->limits, number_of_samples);
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	otc_sw_limits_update_samples_read(&devc->limits, number_of_samples);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 }
 
 static void ch1_value_update(struct config_tree_node *node, void *param)
@@ -778,14 +778,14 @@ static void ch2_buffer_update(struct config_tree_node *node, void *param)
 
 static void ch1_buffer_bps_update(struct config_tree_node *node, void *param)
 {
-	const struct sr_dev_inst *sdi = param;
+	const struct otc_dev_inst *sdi = param;
 	struct dev_context *devc = sdi->priv;
 	devc->buffer_bps[0] = (uint32_t)get_tree_integer(node);
 }
 
 static void ch2_buffer_bps_update(struct config_tree_node *node, void *param)
 {
-	const struct sr_dev_inst *sdi = param;
+	const struct otc_dev_inst *sdi = param;
 	struct dev_context *devc = sdi->priv;
 	devc->buffer_bps[1] = (uint32_t)get_tree_integer(node);
 }
@@ -793,7 +793,7 @@ static void ch2_buffer_bps_update(struct config_tree_node *node, void *param)
 static void ch1_buffer_lsb2native_update(struct config_tree_node *node,
 	void *param)
 {
-	const struct sr_dev_inst *sdi = param;
+	const struct otc_dev_inst *sdi = param;
 	struct dev_context *devc = sdi->priv;
 	if (node->type != TREE_NODE_DATATYPE_BINARY)
 		return;
@@ -803,7 +803,7 @@ static void ch1_buffer_lsb2native_update(struct config_tree_node *node,
 static void ch2_buffer_lsb2native_update(struct config_tree_node *node,
 	void *param)
 {
-	const struct sr_dev_inst *sdi = param;
+	const struct otc_dev_inst *sdi = param;
 	struct dev_context *devc = sdi->priv;
 	if (node->type != TREE_NODE_DATATYPE_BINARY)
 		return;
@@ -880,13 +880,13 @@ static int deserialize_tree(struct dev_context *devc,
 	int res;
 
 	if (*size < 2)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	n = R8(*data);
 	*data += 1;
 	*size -= 1;
 	if (n > TREE_NODE_DATATYPE_FLOAT)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	node->type = n;
 
 	switch (node->type) {
@@ -902,13 +902,13 @@ static int deserialize_tree(struct dev_context *devc,
 	*data += 1;
 	*size -= 1;
 	if (n > *size)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	node->name = g_strndup((const char *)(*data), n);
 	*data += n;
 	*size -= n;
 
 	if (!(*size))
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	if (tree_node_has_id(node)) {
 		node->id = *id;
@@ -927,32 +927,32 @@ static int deserialize_tree(struct dev_context *devc,
 		for (size_t i = 0; i < n; i++) {
 			if ((res = deserialize_tree(devc,
 				node->children + i, id,
-				data, size)) != SR_OK) {
+				data, size)) != OTC_OK) {
 				return res;
 			}
 			node->children[i].index_in_parent = i;
 		}
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int wait_for_update(const struct sr_dev_inst *sdi,
+static int wait_for_update(const struct otc_dev_inst *sdi,
 	struct config_tree_node *node,
 	uint32_t original_update_number)
 {
-	struct sr_bt_desc *desc = sdi->conn;
+	struct otc_bt_desc *desc = sdi->conn;
 	int ret;
 	gint64 start_time;
 
 	start_time = g_get_monotonic_time();
 	for (;;) {
-		ret = sr_bt_check_notify(desc);
+		ret = otc_bt_check_notify(desc);
 		if (ret < 0)
-			return SR_ERR;
+			return OTC_ERR;
 
 		if (node->update_number != original_update_number)
-			return SR_OK;
+			return OTC_OK;
 
 		if (g_get_monotonic_time() - start_time > 5 * 1000 * 1000)
 			break;
@@ -964,10 +964,10 @@ static int wait_for_update(const struct sr_dev_inst *sdi,
 		g_usleep(50 * 1000);
 	}
 
-	return SR_ERR_TIMEOUT;
+	return OTC_ERR_TIMEOUT;
 }
 
-static void install_update_handlers(struct sr_dev_inst *sdi)
+static void install_update_handlers(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
 	struct config_tree_node *target;
@@ -977,7 +977,7 @@ static void install_update_handlers(struct sr_dev_inst *sdi)
 		target->on_update = ch1_value_update;
 		target->on_update_param = sdi;
 	} else {
-		sr_warn("No tree path for channel 1 values.");
+		otc_warn("No tree path for channel 1 values.");
 	}
 
 	target = lookup_tree_path(devc, "CH1:BUF");
@@ -985,7 +985,7 @@ static void install_update_handlers(struct sr_dev_inst *sdi)
 		target->on_update = ch1_buffer_update;
 		target->on_update_param = sdi;
 	} else {
-		sr_warn("No tree path for channel 1 buffer.");
+		otc_warn("No tree path for channel 1 buffer.");
 	}
 
 	target = lookup_tree_path(devc, "CH1:BUF_BPS");
@@ -993,7 +993,7 @@ static void install_update_handlers(struct sr_dev_inst *sdi)
 		target->on_update = ch1_buffer_bps_update;
 		target->on_update_param = sdi;
 	} else {
-		sr_warn("No tree path for channel 1 buffer BPS.");
+		otc_warn("No tree path for channel 1 buffer BPS.");
 	}
 
 	target = lookup_tree_path(devc, "CH1:BUF_LSB2NATIVE");
@@ -1001,7 +1001,7 @@ static void install_update_handlers(struct sr_dev_inst *sdi)
 		target->on_update = ch1_buffer_lsb2native_update;
 		target->on_update_param = sdi;
 	} else {
-		sr_warn("No tree path for channel 1 buffer conversion factor.");
+		otc_warn("No tree path for channel 1 buffer conversion factor.");
 	}
 
 	target = lookup_tree_path(devc, "CH2:VALUE");
@@ -1009,7 +1009,7 @@ static void install_update_handlers(struct sr_dev_inst *sdi)
 		target->on_update = ch2_value_update;
 		target->on_update_param = sdi;
 	} else {
-		sr_warn("No tree path for channel 2 values.");
+		otc_warn("No tree path for channel 2 values.");
 	}
 
 	target = lookup_tree_path(devc, "CH2:BUF");
@@ -1017,7 +1017,7 @@ static void install_update_handlers(struct sr_dev_inst *sdi)
 		target->on_update = ch2_buffer_update;
 		target->on_update_param = sdi;
 	} else {
-		sr_warn("No tree path for channel 2 buffer.");
+		otc_warn("No tree path for channel 2 buffer.");
 	}
 
 	target = lookup_tree_path(devc, "CH2:BUF_BPS");
@@ -1025,7 +1025,7 @@ static void install_update_handlers(struct sr_dev_inst *sdi)
 		target->on_update = ch2_buffer_bps_update;
 		target->on_update_param = sdi;
 	} else {
-		sr_warn("No tree path for channel 2 buffer BPS.");
+		otc_warn("No tree path for channel 2 buffer BPS.");
 	}
 
 	target = lookup_tree_path(devc, "CH2:BUF_LSB2NATIVE");
@@ -1033,7 +1033,7 @@ static void install_update_handlers(struct sr_dev_inst *sdi)
 		target->on_update = ch2_buffer_lsb2native_update;
 		target->on_update_param = sdi;
 	} else {
-		sr_warn("No tree path for channel 2 buffer conversion factor.");
+		otc_warn("No tree path for channel 2 buffer conversion factor.");
 	}
 
 	target = lookup_tree_path(devc, "REAL_PWR");
@@ -1041,12 +1041,12 @@ static void install_update_handlers(struct sr_dev_inst *sdi)
 		target->on_update = power_value_update;
 		target->on_update_param = sdi;
 	} else {
-		sr_warn("No tree path for real power.");
+		otc_warn("No tree path for real power.");
 	}
 }
 
 struct startup_context {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	uint32_t crc;
 	int result;
 	gboolean running;
@@ -1054,7 +1054,7 @@ struct startup_context {
 
 static void startup_failed(struct startup_context *ctx, int err)
 {
-	sr_dbg("Startup handshake failed: %s.", sr_strerror(err));
+	otc_dbg("Startup handshake failed: %s.", otc_strerror(err));
 
 	ctx->result = err;
 	ctx->running = FALSE;
@@ -1062,7 +1062,7 @@ static void startup_failed(struct startup_context *ctx, int err)
 
 static void startup_complete(struct startup_context *ctx)
 {
-	sr_dbg("Startup handshake completed.");
+	otc_dbg("Startup handshake completed.");
 
 	install_update_handlers(ctx->sdi);
 
@@ -1071,18 +1071,18 @@ static void startup_complete(struct startup_context *ctx)
 
 static int startup_run(struct startup_context *ctx)
 {
-	struct sr_bt_desc *desc = ctx->sdi->conn;
+	struct otc_bt_desc *desc = ctx->sdi->conn;
 	int ret;
 	gint64 start_time;
 
-	ctx->result = SR_OK;
+	ctx->result = OTC_OK;
 	ctx->running = TRUE;
 
 	start_time = g_get_monotonic_time();
 	for (;;) {
-		ret = sr_bt_check_notify(desc);
+		ret = otc_bt_check_notify(desc);
 		if (ret < 0)
-			return SR_ERR;
+			return OTC_ERR;
 
 		if (!ctx->running)
 			return ctx->result;
@@ -1097,7 +1097,7 @@ static int startup_run(struct startup_context *ctx)
 		g_usleep(50 * 1000);
 	}
 
-	return SR_ERR_TIMEOUT;
+	return OTC_ERR_TIMEOUT;
 }
 
 static void startup_tree_crc_updated(struct config_tree_node *node, void *param)
@@ -1109,9 +1109,9 @@ static void startup_tree_crc_updated(struct config_tree_node *node, void *param)
 
 	result = (uint32_t)get_tree_integer(node);
 	if (result != ctx->crc) {
-		sr_err("Tree CRC mismatch, expected %08X but received %08X.",
+		otc_err("Tree CRC mismatch, expected %08X but received %08X.",
 			ctx->crc, result);
-		startup_failed(ctx, SR_ERR_DATA);
+		startup_failed(ctx, OTC_ERR_DATA);
 		return;
 	}
 
@@ -1124,8 +1124,8 @@ static void startup_send_tree_crc(struct startup_context *ctx)
 	struct config_tree_node *target;
 
 	if (!(target = lookup_tree_path(devc, "ADMIN:CRC32"))) {
-		sr_err("ADMIN:CRC32 node not found in received startup tree.");
-		startup_failed(ctx, SR_ERR_DATA);
+		otc_err("ADMIN:CRC32 node not found in received startup tree.");
+		startup_failed(ctx, OTC_ERR_DATA);
 		return;
 	}
 
@@ -1195,17 +1195,17 @@ static void startup_tree_updated(struct config_tree_node *node, void *param)
 					tree_data->len * 2);
 				continue;
 			}
-			sr_err("Tree decompression failed: %s.", err->message);
+			otc_err("Tree decompression failed: %s.", err->message);
 		} else {
-			sr_err("Tree decompression error %d.",
+			otc_err("Tree decompression error %d.",
 				(int)decompress_result);
 		}
-		startup_failed(ctx, SR_ERR_DATA);
+		startup_failed(ctx, OTC_ERR_DATA);
 		return;
 	}
 	g_object_unref(decompressor);
 
-	sr_dbg("Config tree received (%d -> %d bytes) with CRC %08X.",
+	otc_dbg("Config tree received (%d -> %d bytes) with CRC %08X.",
 		node->value.b->len, (int)output_size,
 		ctx->crc);
 
@@ -1219,8 +1219,8 @@ static void startup_tree_updated(struct config_tree_node *node, void *param)
 	res = deserialize_tree(devc, &devc->tree_root, &id, &data, &size);
 	g_byte_array_free(tree_data, TRUE);
 
-	if (res != SR_OK) {
-		sr_err("Tree deserialization failed.");
+	if (res != OTC_OK) {
+		otc_err("Tree deserialization failed.");
 		startup_failed(ctx, res);
 		return;
 	}
@@ -1241,10 +1241,10 @@ static void release_rx_buffer(void *data)
 	g_byte_array_free(ba, TRUE);
 }
 
-SR_PRIV int mooshimeter_dmm_open(const struct sr_dev_inst *sdi)
+OTC_PRIV int mooshimeter_dmm_open(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
-	struct sr_bt_desc *desc = sdi->conn;
+	struct otc_bt_desc *desc = sdi->conn;
 	struct startup_context ctx;
 	int ret;
 
@@ -1261,42 +1261,42 @@ SR_PRIV int mooshimeter_dmm_open(const struct sr_dev_inst *sdi)
 	devc->rx.sequence_number = -1;
 	devc->tx.sequence_number = 0;
 
-	ret = sr_bt_config_cb_data(desc, notify_cb, (void *)sdi);
+	ret = otc_bt_config_cb_data(desc, notify_cb, (void *)sdi);
 	if (ret < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
-	ret = sr_bt_connect_ble(desc);
+	ret = otc_bt_connect_ble(desc);
 	if (ret < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
-	ret = sr_bt_start_notify(desc);
+	ret = otc_bt_start_notify(desc);
 	if (ret < 0)
-		return SR_ERR;
+		return OTC_ERR;
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.sdi = (struct sr_dev_inst *)sdi;
+	ctx.sdi = (struct otc_dev_inst *)sdi;
 
 	allocate_startup_tree(devc);
 	devc->tree_id_lookup[1]->on_update = startup_tree_updated;
 	devc->tree_id_lookup[1]->on_update_param = &ctx;
 	devc->tree_id_lookup[2]->on_update = tree_diagnostic_updated;
-	devc->tree_id_lookup[2]->on_update_param = (struct sr_dev_inst *)sdi;
+	devc->tree_id_lookup[2]->on_update_param = (struct otc_dev_inst *)sdi;
 
-	sr_spew("Initiating startup handshake.");
+	otc_spew("Initiating startup handshake.");
 
 	ret = poll_tree_value(sdi, devc->tree_id_lookup[1]);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return startup_run(&ctx);
 }
 
-SR_PRIV int mooshimeter_dmm_close(const struct sr_dev_inst *sdi)
+OTC_PRIV int mooshimeter_dmm_close(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc = sdi->priv;
-	struct sr_bt_desc *desc = sdi->conn;
+	struct otc_bt_desc *desc = sdi->conn;
 
-	sr_bt_disconnect(desc);
+	otc_bt_disconnect(desc);
 
 	release_tree_node(&devc->tree_root);
 	memset(&devc->tree_root, 0, sizeof(struct config_tree_node));
@@ -1308,10 +1308,10 @@ SR_PRIV int mooshimeter_dmm_close(const struct sr_dev_inst *sdi)
 		g_byte_array_free(devc->rx.contents, TRUE);
 	devc->rx.contents = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int mooshimeter_dmm_set_chooser(const struct sr_dev_inst *sdi,
+OTC_PRIV int mooshimeter_dmm_set_chooser(const struct otc_dev_inst *sdi,
 	const char *path, const char *choice)
 {
 	struct dev_context *devc = sdi->priv;
@@ -1321,24 +1321,24 @@ SR_PRIV int mooshimeter_dmm_set_chooser(const struct sr_dev_inst *sdi,
 
 	value = lookup_chooser_index(devc, choice);
 	if (value == -1) {
-		sr_err("Value %s not found for chooser %s.", choice, path);
-		return SR_ERR_DATA;
+		otc_err("Value %s not found for chooser %s.", choice, path);
+		return OTC_ERR_DATA;
 	}
 
 	target = lookup_tree_path(devc, path);
 	if (!target) {
-		sr_err("Tree path %s not found.", path);
-		return SR_ERR_DATA;
+		otc_err("Tree path %s not found.", path);
+		return OTC_ERR_DATA;
 	}
 
-	sr_spew("Setting chooser %s to %s (%d).", path, choice, value);
+	otc_spew("Setting chooser %s to %s (%d).", path, choice, value);
 
 	original_update_number = target->update_number;
 	set_tree_integer(sdi, target, value);
 	return wait_for_update(sdi, target, original_update_number);
 }
 
-SR_PRIV int mooshimeter_dmm_set_integer(const struct sr_dev_inst *sdi,
+OTC_PRIV int mooshimeter_dmm_set_integer(const struct otc_dev_inst *sdi,
 	const char *path, int value)
 {
 	struct dev_context *devc = sdi->priv;
@@ -1347,11 +1347,11 @@ SR_PRIV int mooshimeter_dmm_set_integer(const struct sr_dev_inst *sdi,
 
 	target = lookup_tree_path(devc, path);
 	if (!target) {
-		sr_err("Tree path %s not found.", path);
-		return SR_ERR_DATA;
+		otc_err("Tree path %s not found.", path);
+		return OTC_ERR_DATA;
 	}
 
-	sr_spew("Setting integer %s to %d.", path, value);
+	otc_spew("Setting integer %s to %d.", path, value);
 
 	original_update_number = target->update_number;
 	set_tree_integer(sdi, target, value);
@@ -1370,11 +1370,11 @@ static struct config_tree_node *select_next_largest_in_tree(
 
 	choice_parent = lookup_tree_path(devc, parent);
 	if (!choice_parent) {
-		sr_err("Tree path %s not found.", parent);
+		otc_err("Tree path %s not found.", parent);
 		return NULL;
 	}
 	if (!choice_parent->count_children) {
-		sr_err("Tree path %s has no children.", parent);
+		otc_err("Tree path %s has no children.", parent);
 		return NULL;
 	}
 
@@ -1408,7 +1408,7 @@ static struct config_tree_node *select_next_largest_in_tree(
 	return selected_choice;
 }
 
-SR_PRIV int mooshimeter_dmm_set_larger_number(const struct sr_dev_inst *sdi,
+OTC_PRIV int mooshimeter_dmm_set_larger_number(const struct otc_dev_inst *sdi,
 	const char *path, const char *parent, float number)
 {
 	struct dev_context *devc = sdi->priv;
@@ -1418,17 +1418,17 @@ SR_PRIV int mooshimeter_dmm_set_larger_number(const struct sr_dev_inst *sdi,
 
 	selected_choice = select_next_largest_in_tree(devc, parent, number);
 	if (!selected_choice) {
-		sr_err("No choice available for %f at %s.", number, parent);
-		return SR_ERR_NA;
+		otc_err("No choice available for %f at %s.", number, parent);
+		return OTC_ERR_NA;
 	}
 
 	target = lookup_tree_path(devc, path);
 	if (!target) {
-		sr_err("Tree path %s not found.", path);
-		return SR_ERR_DATA;
+		otc_err("Tree path %s not found.", path);
+		return OTC_ERR_DATA;
 	}
 
-	sr_spew("Setting number choice %s to index %d for requested %g.", path,
+	otc_spew("Setting number choice %s to index %d for requested %g.", path,
 		(int)selected_choice->index_in_parent, number);
 
 	original_update_number = target->update_number;
@@ -1436,7 +1436,7 @@ SR_PRIV int mooshimeter_dmm_set_larger_number(const struct sr_dev_inst *sdi,
 	return wait_for_update(sdi, target, original_update_number);
 }
 
-SR_PRIV gboolean mooshimeter_dmm_set_autorange(const struct sr_dev_inst *sdi,
+OTC_PRIV gboolean mooshimeter_dmm_set_autorange(const struct otc_dev_inst *sdi,
 	const char *path, const char *parent, float latest)
 {
 	struct dev_context *devc = sdi->priv;
@@ -1446,20 +1446,20 @@ SR_PRIV gboolean mooshimeter_dmm_set_autorange(const struct sr_dev_inst *sdi,
 	selected_choice = select_next_largest_in_tree(devc, parent,
 		fabsf(latest));
 	if (!selected_choice) {
-		sr_err("No choice available for %f at %s.", latest, parent);
+		otc_err("No choice available for %f at %s.", latest, parent);
 		return FALSE;
 	}
 
 	target = lookup_tree_path(devc, path);
 	if (!target) {
-		sr_err("Tree path %s not found.", path);
+		otc_err("Tree path %s not found.", path);
 		return FALSE;
 	}
 
 	if (get_tree_integer(target) == (int)selected_choice->index_in_parent)
 		return FALSE;
 
-	sr_spew("Changing autorange %s to index %d for %g.", path,
+	otc_spew("Changing autorange %s to index %d for %g.", path,
 		(int)selected_choice->index_in_parent, latest);
 
 	set_tree_integer(sdi, target, selected_choice->index_in_parent);
@@ -1467,7 +1467,7 @@ SR_PRIV gboolean mooshimeter_dmm_set_autorange(const struct sr_dev_inst *sdi,
 	return TRUE;
 }
 
-SR_PRIV int mooshimeter_dmm_get_chosen_number(const struct sr_dev_inst *sdi,
+OTC_PRIV int mooshimeter_dmm_get_chosen_number(const struct otc_dev_inst *sdi,
 	const char *path, const char *parent, float *number)
 {
 	struct dev_context *devc = sdi->priv;
@@ -1477,27 +1477,27 @@ SR_PRIV int mooshimeter_dmm_get_chosen_number(const struct sr_dev_inst *sdi,
 
 	value_node = lookup_tree_path(devc, path);
 	if (!value_node) {
-		sr_err("Tree path %s not found.", path);
-		return SR_ERR_DATA;
+		otc_err("Tree path %s not found.", path);
+		return OTC_ERR_DATA;
 	}
 
 	available = lookup_tree_path(devc, parent);
 	if (!available) {
-		sr_err("Tree path %s not found.", path);
-		return SR_ERR_DATA;
+		otc_err("Tree path %s not found.", path);
+		return OTC_ERR_DATA;
 	}
 
 	selected = get_tree_integer(value_node);
 	if (selected < 0 || selected >= (int32_t)available->count_children)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	*number = g_ascii_strtod(available->children[selected].name, NULL);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int mooshimeter_dmm_get_available_number_choices(
-	const struct sr_dev_inst *sdi, const char *path,
+OTC_PRIV int mooshimeter_dmm_get_available_number_choices(
+	const struct otc_dev_inst *sdi, const char *path,
 	float **numbers, size_t *count)
 {
 	struct dev_context *devc = sdi->priv;
@@ -1505,8 +1505,8 @@ SR_PRIV int mooshimeter_dmm_get_available_number_choices(
 
 	available = lookup_tree_path(devc, path);
 	if (!available) {
-		sr_err("Tree path %s not found.", path);
-		return SR_ERR_NA;
+		otc_err("Tree path %s not found.", path);
+		return OTC_ERR_NA;
 	}
 
 	*numbers = g_malloc(sizeof(float) * available->count_children);
@@ -1517,13 +1517,13 @@ SR_PRIV int mooshimeter_dmm_get_available_number_choices(
 			NULL);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int mooshimeter_dmm_poll(int fd, int revents, void *cb_data)
+OTC_PRIV int mooshimeter_dmm_poll(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
-	struct sr_bt_desc *desc;
+	struct otc_dev_inst *sdi;
+	struct otc_bt_desc *desc;
 
 	(void)fd;
 	(void)revents;
@@ -1533,7 +1533,7 @@ SR_PRIV int mooshimeter_dmm_poll(int fd, int revents, void *cb_data)
 
 	desc = sdi->conn;
 
-	while (sr_bt_check_notify(desc) > 0);
+	while (otc_bt_check_notify(desc) > 0);
 
 	return TRUE;
 }
@@ -1542,9 +1542,9 @@ SR_PRIV int mooshimeter_dmm_poll(int fd, int revents, void *cb_data)
  * The meter will disconnect if it doesn't receive a host command for 30 (?)
  * seconds, so periodically poll a trivial value to keep it alive.
  */
-SR_PRIV int mooshimeter_dmm_heartbeat(int fd, int revents, void *cb_data)
+OTC_PRIV int mooshimeter_dmm_heartbeat(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct config_tree_node *target;
 
@@ -1559,11 +1559,11 @@ SR_PRIV int mooshimeter_dmm_heartbeat(int fd, int revents, void *cb_data)
 
 	target = lookup_tree_path(devc, "PCB_VERSION");
 	if (!target) {
-		sr_err("Tree for PCB_VERSION not found.");
+		otc_err("Tree for PCB_VERSION not found.");
 		return FALSE;
 	}
 
-	sr_spew("Sending heartbeat request.");
+	otc_spew("Sending heartbeat request.");
 	poll_tree_value(sdi, target);
 
 	return TRUE;

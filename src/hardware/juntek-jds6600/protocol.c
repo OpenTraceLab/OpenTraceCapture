@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2023 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -41,7 +41,7 @@
  * - Add support for "modes" (sweep, pulse, burst; modulation if the
  *   device supports it).
  * - Add support for download/upload of arbitrary waveforms. This needs
- *   infrastructure in common libsigrok code as well as in applications.
+ *   infrastructure in common libopentracecapture code as well as in applications.
  *   At the moment "blob transfer" (waveform upload/download) appears to
  *   not be supported.
  * - Re-consider parameter value ranges. Frequency depends on the model.
@@ -75,7 +75,7 @@
  *   and 'b' to read arbitrary waveform data (sequence of sample values).
  * - Am not aware of a vendor's documentation for the protocol. Joy-IT
  *   provides the JT-JDS6600-Communication-protocol.pdf document which
- *   leaves a lot of questions. This sigrok driver implementation used
+ *   leaves a lot of questions. This opentracelab driver implementation used
  *   a lot of https://github.com/on1arf/jds6600_python knowledge for
  *   the initial version (MIT licenced Python code by Kristoff Bonne).
  * - The requests take effect when sent from application code. While
@@ -294,14 +294,14 @@ static void log_raw_bytes(const char *caption, GString *buff)
 
 	if (!WITH_SERIAL_RAW_DUMP)
 		return;
-	if (sr_log_loglevel_get() < SR_LOG_SPEW)
+	if (otc_log_loglevel_get() < OTC_LOG_SPEW)
 		return;
 
 	if (!caption)
 		caption = "";
-	text = sr_hexdump_new((const uint8_t *)buff->str, buff->len);
-	sr_spew("%s%s", caption, text->str);
-	sr_hexdump_free(text);
+	text = otc_hexdump_new((const uint8_t *)buff->str, buff->len);
+	otc_spew("%s%s", caption, text->str);
+	otc_hexdump_free(text);
 }
 
 /*
@@ -316,21 +316,21 @@ static void log_raw_bytes(const char *caption, GString *buff)
  * Normalizes to:
  *   ":r01=0.<CR><LF>"
  */
-static int serial_send_textline(const struct sr_dev_inst *sdi,
+static int serial_send_textline(const struct otc_dev_inst *sdi,
 	GString *s, unsigned int delay_ms)
 {
-	struct sr_serial_dev_inst *conn;
+	struct otc_serial_dev_inst *conn;
 	const char *rdptr;
 	size_t padlen, rdlen, wrlen;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	conn = sdi->conn;
 	if (!conn)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!s)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/*
 	 * Trim surrounding whitespace. Normalize to canonical format.
@@ -341,13 +341,13 @@ static int serial_send_textline(const struct sr_dev_inst *sdi,
 	padlen = 4;
 	while (padlen--)
 		g_string_append_c(s, '\0');
-	rdptr = sr_text_trim_spaces(s->str);
+	rdptr = otc_text_trim_spaces(s->str);
 	rdlen = strlen(rdptr);
 	if (rdlen && rdptr[rdlen - 1] == '.')
 		rdlen--;
 	g_string_set_size(s, rdlen);
 	g_string_append_c(s, '.');
-	sr_spew("serial TX text: --> %s", rdptr);
+	otc_spew("serial TX text: --> %s", rdptr);
 	g_string_append_c(s, '\r');
 	g_string_append_c(s, '\n');
 	rdlen = strlen(rdptr);
@@ -357,7 +357,7 @@ static int serial_send_textline(const struct sr_dev_inst *sdi,
 	while (rdlen) {
 		ret = serial_write_blocking(conn, rdptr, rdlen, 0);
 		if (ret < 0)
-			return SR_ERR_IO;
+			return OTC_ERR_IO;
 		wrlen = (size_t)ret;
 		if (wrlen > rdlen)
 			wrlen = rdlen;
@@ -368,7 +368,7 @@ static int serial_send_textline(const struct sr_dev_inst *sdi,
 	if (delay_ms)
 		g_usleep(delay_ms * 1000);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -381,12 +381,12 @@ static int serial_send_textline(const struct sr_dev_inst *sdi,
  * Optionally returns references (and lengths) to the response's RHS.
  * That's fine because data resides in a caller provided buffer.
  */
-static int serial_recv_textline(const struct sr_dev_inst *sdi,
+static int serial_recv_textline(const struct otc_dev_inst *sdi,
 	GString *s, unsigned int delay_ms, unsigned int timeout_ms,
 	gboolean *is_ok, char wants_insn, size_t wants_index,
 	char **rhs_start, size_t *rhs_length)
 {
-	struct sr_serial_dev_inst *ser;
+	struct otc_serial_dev_inst *ser;
 	char *rdptr;
 	size_t rdlen, got;
 	int ret;
@@ -404,12 +404,12 @@ static int serial_recv_textline(const struct sr_dev_inst *sdi,
 		*rhs_length = 0;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	ser = sdi->conn;
 	if (!ser)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!s)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	g_string_set_size(s, MAX_RSP_LENGTH);
 	g_string_truncate(s, 0);
@@ -428,7 +428,7 @@ static int serial_recv_textline(const struct sr_dev_inst *sdi,
 		/* Get another chunk of receive data. Check for EOL. */
 		ret = serial_read_blocking(ser, rdptr, rdlen, delay_ms);
 		if (ret < 0)
-			return SR_ERR_IO;
+			return OTC_ERR_IO;
 		got = (size_t)ret;
 		if (got > rdlen)
 			got = rdlen;
@@ -454,17 +454,17 @@ static int serial_recv_textline(const struct sr_dev_inst *sdi,
 		/* Normalize the received text line. */
 		*eol_pos++ = '\0';
 		rdptr = s->str;
-		(void)sr_text_trim_spaces(rdptr);
+		(void)otc_text_trim_spaces(rdptr);
 		rdlen = strlen(rdptr);
-		sr_spew("serial RX text: <-- %s", rdptr);
+		otc_spew("serial RX text: <-- %s", rdptr);
 		if (rdlen && rdptr[rdlen - 1] == '.')
 			rdptr[--rdlen] = '\0';
 
 		/* Check conditions as requested by the caller. */
 		if (is_ok || wants_insn || rhs_start) {
 			if (*rdptr != ':') {
-				sr_dbg("serial read, colon missing");
-				return SR_ERR_DATA;
+				otc_dbg("serial read, colon missing");
+				return OTC_ERR_DATA;
 			}
 			rdptr++;
 			rdlen--;
@@ -475,16 +475,16 @@ static int serial_recv_textline(const struct sr_dev_inst *sdi,
 		 */
 		if (is_ok) {
 			*is_ok = strcmp(rdptr, "ok") == 0;
-			sr_dbg("serial read, 'ok' check %d", *is_ok);
-			return *is_ok ? SR_OK : SR_ERR_DATA;
+			otc_dbg("serial read, 'ok' check %d", *is_ok);
+			return *is_ok ? OTC_OK : OTC_ERR_DATA;
 		}
 		/*
 		 * Conditional strict checks for caller's expected fields.
 		 * Unconditional weaker checks for general structure.
 		 */
 		if (wants_insn && *rdptr != wants_insn) {
-			sr_dbg("serial read, unexpected insn");
-			return SR_ERR_DATA;
+			otc_dbg("serial read, unexpected insn");
+			return OTC_ERR_DATA;
 		}
 		got_insn = *rdptr++;
 		switch (got_insn) {
@@ -495,22 +495,22 @@ static int serial_recv_textline(const struct sr_dev_inst *sdi,
 			/* EMPTY */
 			break;
 		default:
-			sr_dbg("serial read, unknown insn %c", got_insn);
-			return SR_ERR_DATA;
+			otc_dbg("serial read, unknown insn %c", got_insn);
+			return OTC_ERR_DATA;
 		}
 		endptr = NULL;
-		ret = sr_atoul_base(rdptr, &got_index, &endptr, 10);
-		if (ret != SR_OK || !endptr)
-			return SR_ERR_DATA;
+		ret = otc_atoul_base(rdptr, &got_index, &endptr, 10);
+		if (ret != OTC_OK || !endptr)
+			return OTC_ERR_DATA;
 		if (wants_index && got_index != wants_index) {
-			sr_dbg("serial read, unexpected index %lu", got_index);
-			return SR_ERR_DATA;
+			otc_dbg("serial read, unexpected index %lu", got_index);
+			return OTC_ERR_DATA;
 		}
 		rdptr = endptr;
 		if (rhs_start || rhs_length) {
 			if (*rdptr != '=') {
-				sr_dbg("serial read, equals sign missing");
-				return SR_ERR_DATA;
+				otc_dbg("serial read, equals sign missing");
+				return OTC_ERR_DATA;
 			}
 		}
 		if (*rdptr)
@@ -521,12 +521,12 @@ static int serial_recv_textline(const struct sr_dev_inst *sdi,
 			*rhs_start = rdptr;
 		if (rhs_length)
 			*rhs_length = strlen(rdptr);
-		return SR_OK;
+		return OTC_OK;
 	}
 	log_raw_bytes("serial RX bytes: <-- ", s);
-	sr_dbg("serial read, unterminated response, discarded");
+	otc_dbg("serial read, unterminated response, discarded");
 
-	return SR_ERR_DATA;
+	return OTC_ERR_DATA;
 }
 
 /* Formatting helpers for request construction. */
@@ -599,28 +599,28 @@ static int parse_freq_text(char *s, double *value)
 	replace_separators(s);
 
 	/* First word is a mantissa, in centi-Hertz. :-O */
-	word = sr_text_next_word(s, &s);
-	ret = sr_atod(word, &dvalue);
-	if (ret != SR_OK)
+	word = otc_text_next_word(s, &s);
+	ret = otc_atod(word, &dvalue);
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Next word is an encoded scaling factor. */
-	word = sr_text_next_word(s, &s);
-	ret = sr_atoul_base(word, &scale, NULL, 10);
-	if (ret != SR_OK)
+	word = otc_text_next_word(s, &s);
+	ret = otc_atoul_base(word, &scale, NULL, 10);
+	if (ret != OTC_OK)
 		return ret;
-	sr_spew("parse freq, mant %f, scale %lu", dvalue, scale);
+	otc_spew("parse freq, mant %f, scale %lu", dvalue, scale);
 	if (scale >= ARRAY_SIZE(scales_freq))
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 
 	/* Do scale the mantissa's value. */
 	dvalue /= 100.0;
 	dvalue /= scales_freq[scale];
-	sr_spew("parse freq, value %f", dvalue);
+	otc_spew("parse freq, value %f", dvalue);
 
 	if (value)
 		*value = dvalue;
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int parse_volt_text(char *s, double *value)
@@ -629,16 +629,16 @@ static int parse_volt_text(char *s, double *value)
 	double dvalue;
 
 	/* Single value, in units of mV. */
-	ret = sr_atod(s, &dvalue);
-	if (ret != SR_OK)
+	ret = otc_atod(s, &dvalue);
+	if (ret != OTC_OK)
 		return ret;
-	sr_spew("parse volt, mant %f", dvalue);
+	otc_spew("parse volt, mant %f", dvalue);
 	dvalue /= 1000.0;
-	sr_spew("parse volt, value %f", dvalue);
+	otc_spew("parse volt, value %f", dvalue);
 
 	if (value)
 		*value = dvalue;
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int parse_bias_text(char *s, double *value)
@@ -651,21 +651,21 @@ static int parse_bias_text(char *s, double *value)
 	 * the +9.99V..-9.99V range. The Joy-IT PDF is a little weird
 	 * suggesting that ":w27=9999." translates to 9.99 volts.
 	 */
-	ret = sr_atod(s, &dvalue);
-	if (ret != SR_OK)
+	ret = otc_atod(s, &dvalue);
+	if (ret != OTC_OK)
 		return ret;
-	sr_spew("parse bias, mant %f", dvalue);
+	otc_spew("parse bias, mant %f", dvalue);
 	dvalue /= 100.0;
 	dvalue -= 10.0;
 	if (dvalue >= 9.99)
 		dvalue = 9.99;
 	if (dvalue <= -9.99)
 		dvalue = -9.99;
-	sr_spew("parse bias, value %f", dvalue);
+	otc_spew("parse bias, value %f", dvalue);
 
 	if (value)
 		*value = dvalue;
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int parse_duty_text(char *s, double *value)
@@ -677,16 +677,16 @@ static int parse_duty_text(char *s, double *value)
 	 * Single value, in units of 0.1% (permille).
 	 * Scale to the 0.0..1.0 range.
 	 */
-	ret = sr_atod(s, &dvalue);
-	if (ret != SR_OK)
+	ret = otc_atod(s, &dvalue);
+	if (ret != OTC_OK)
 		return ret;
-	sr_spew("parse duty, mant %f", dvalue);
+	otc_spew("parse duty, mant %f", dvalue);
 	dvalue /= 1000.0;
-	sr_spew("parse duty, value %f", dvalue);
+	otc_spew("parse duty, value %f", dvalue);
 
 	if (value)
 		*value = dvalue;
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int parse_phase_text(char *s, double *value)
@@ -695,16 +695,16 @@ static int parse_phase_text(char *s, double *value)
 	double dvalue;
 
 	/* Single value, in units of deci-degrees. */
-	ret = sr_atod(s, &dvalue);
-	if (ret != SR_OK)
+	ret = otc_atod(s, &dvalue);
+	if (ret != OTC_OK)
 		return ret;
-	sr_spew("parse phase, mant %f", dvalue);
+	otc_spew("parse phase, mant %f", dvalue);
 	dvalue /= 10.0;
-	sr_spew("parse phase, value %f", dvalue);
+	otc_spew("parse phase, value %f", dvalue);
 
 	if (value)
 		*value = dvalue;
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -719,7 +719,7 @@ static void write_freq_text(GString *s, double freq)
 	unsigned long scale_idx;
 	const char *text_pos;
 
-	sr_spew("write freq, value %f", freq);
+	otc_spew("write freq, value %f", freq);
 	text_pos = &s->str[s->len];
 
 	/*
@@ -732,14 +732,14 @@ static void write_freq_text(GString *s, double freq)
 	freq *= 100.0;
 
 	g_string_append_printf(s, "%.0f,%lu", freq, scale_idx);
-	sr_spew("write freq, text %s", text_pos);
+	otc_spew("write freq, text %s", text_pos);
 }
 
 static void write_volt_text(GString *s, double volt)
 {
 	const char *text_pos;
 
-	sr_spew("write volt, value %f", volt);
+	otc_spew("write volt, value %f", volt);
 	text_pos = &s->str[s->len];
 
 	/*
@@ -753,14 +753,14 @@ static void write_volt_text(GString *s, double volt)
 		volt = 0.0;
 	volt *= 1000.0;
 	g_string_append_printf(s, "%.0f", volt);
-	sr_spew("write volt, text %s", text_pos);
+	otc_spew("write volt, text %s", text_pos);
 }
 
 static void write_bias_text(GString *s, double volt)
 {
 	const char *text_pos;
 
-	sr_spew("write bias, value %f", volt);
+	otc_spew("write bias, value %f", volt);
 	text_pos = &s->str[s->len];
 
 	/*
@@ -775,14 +775,14 @@ static void write_bias_text(GString *s, double volt)
 	volt *= 100.0;
 
 	g_string_append_printf(s, "%.0f", volt);
-	sr_spew("write bias, text %s", text_pos);
+	otc_spew("write bias, text %s", text_pos);
 }
 
 static void write_duty_text(GString *s, double duty)
 {
 	const char *text_pos;
 
-	sr_spew("write duty, value %f", duty);
+	otc_spew("write duty, value %f", duty);
 	text_pos = &s->str[s->len];
 
 	/*
@@ -796,14 +796,14 @@ static void write_duty_text(GString *s, double duty)
 	duty *= 1000.0;
 
 	g_string_append_printf(s, "%.0f", duty);
-	sr_spew("write duty, text %s", text_pos);
+	otc_spew("write duty, text %s", text_pos);
 }
 
 static void write_phase_text(GString *s, double phase)
 {
 	const char *text_pos;
 
-	sr_spew("write phase, value %f", phase);
+	otc_spew("write phase, value %f", phase);
 	text_pos = &s->str[s->len];
 
 	/*
@@ -814,7 +814,7 @@ static void write_phase_text(GString *s, double phase)
 	phase *= 10.0;
 
 	g_string_append_printf(s, "%.0f", phase);
-	sr_spew("write phase, text %s", text_pos);
+	otc_spew("write phase, text %s", text_pos);
 }
 
 /*
@@ -822,7 +822,7 @@ static void write_phase_text(GString *s, double phase)
  * simplifies resource handling in error paths. Sends a parameter-less
  * read-request. Then receives a response which can carry values.
  */
-static int quick_send_read_then_recv(const struct sr_dev_inst *sdi,
+static int quick_send_read_then_recv(const struct otc_dev_inst *sdi,
 	char insn, size_t idx,
 	unsigned int read_timeout_ms,
 	char **rhs_start, size_t *rhs_length)
@@ -832,10 +832,10 @@ static int quick_send_read_then_recv(const struct sr_dev_inst *sdi,
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!devc->quick_req)
 		devc->quick_req = g_string_sized_new(MAX_RSP_LENGTH);
 	s = devc->quick_req;
@@ -843,16 +843,16 @@ static int quick_send_read_then_recv(const struct sr_dev_inst *sdi,
 	g_string_truncate(s, 0);
 	append_insn_read_para(s, insn, idx);
 	ret = serial_send_textline(sdi, s, DELAY_AFTER_SEND);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = serial_recv_textline(sdi, s,
 		TIMEOUT_READ_CHUNK, read_timeout_ms,
 		NULL, insn, idx, rhs_start, rhs_length);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -861,10 +861,10 @@ static int quick_send_read_then_recv(const struct sr_dev_inst *sdi,
  * Had to put the request details after the response related parameters
  * because of the va_list API.
  */
-static int quick_send_write_then_recv_ok(const struct sr_dev_inst *sdi,
+static int quick_send_write_then_recv_ok(const struct otc_dev_inst *sdi,
 	unsigned int read_timeout_ms, gboolean *is_ok,
 	char insn, size_t idx, const char *fmt, ...) ATTR_FMT_PRINTF(6, 7);
-static int quick_send_write_then_recv_ok(const struct sr_dev_inst *sdi,
+static int quick_send_write_then_recv_ok(const struct otc_dev_inst *sdi,
 	unsigned int read_timeout_ms, gboolean *is_ok,
 	char insn, size_t idx, const char *fmt, ...)
 {
@@ -875,10 +875,10 @@ static int quick_send_write_then_recv_ok(const struct sr_dev_inst *sdi,
 	gboolean ok;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!devc->quick_req)
 		devc->quick_req = g_string_sized_new(MAX_RSP_LENGTH);
 	s = devc->quick_req;
@@ -888,7 +888,7 @@ static int quick_send_write_then_recv_ok(const struct sr_dev_inst *sdi,
 	append_insn_write_para_va(s, insn, idx, fmt, args);
 	va_end(args);
 	ret = serial_send_textline(sdi, s, DELAY_AFTER_SEND);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = serial_recv_textline(sdi, s,
@@ -896,10 +896,10 @@ static int quick_send_write_then_recv_ok(const struct sr_dev_inst *sdi,
 		&ok, '\0', 0, NULL, NULL);
 	if (is_ok)
 		*is_ok = ok;
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -907,7 +907,7 @@ static int quick_send_write_then_recv_ok(const struct sr_dev_inst *sdi,
  * To be used by the api.c config get/set infrastructure.
  */
 
-SR_PRIV int jds6600_get_chans_enable(const struct sr_dev_inst *sdi)
+OTC_PRIV int jds6600_get_chans_enable(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -919,35 +919,35 @@ SR_PRIV int jds6600_get_chans_enable(const struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Transmit the request, receive the response. */
 	ret = quick_send_read_then_recv(sdi,
 		INSN_READ_PARA, IDX_CHANNELS_ENABLE,
 		0, &rdptr, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	sr_dbg("get enabled, response text: %s", rdptr);
+	otc_dbg("get enabled, response text: %s", rdptr);
 
 	/* Interpret the response (multiple values, boolean). */
 	replace_separators(rdptr);
 	device = &devc->device;
 	chans = devc->channel_config;
 	for (idx = 0; idx < device->channel_count_gen; idx++) {
-		word = sr_text_next_word(rdptr, &rdptr);
+		word = otc_text_next_word(rdptr, &rdptr);
 		if (!word || !*word)
-			return SR_ERR_DATA;
+			return OTC_ERR_DATA;
 		endptr = NULL;
-		ret = sr_atoul_base(word, &on, &endptr, 10);
-		if (ret != SR_OK || !endptr || *endptr)
-			return SR_ERR_DATA;
+		ret = otc_atoul_base(word, &on, &endptr, 10);
+		if (ret != OTC_OK || !endptr || *endptr)
+			return OTC_ERR_DATA;
 		chans[idx].enabled = on;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_get_waveform(const struct sr_dev_inst *sdi, size_t ch_idx)
+OTC_PRIV int jds6600_get_waveform(const struct otc_dev_inst *sdi, size_t ch_idx)
 {
 	struct dev_context *devc;
 	int ret;
@@ -958,22 +958,22 @@ SR_PRIV int jds6600_get_waveform(const struct sr_dev_inst *sdi, size_t ch_idx)
 	size_t idx;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	waves = &devc->waveforms;
 	if (ch_idx >= ARRAY_SIZE(devc->channel_config))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	chan = &devc->channel_config[ch_idx];
 
 	/* Transmit the request, receive the response. */
 	ret = quick_send_read_then_recv(sdi,
 		INSN_READ_PARA, IDX_WAVEFORM_CH1 + ch_idx,
 		0, &rdptr, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	sr_dbg("get waveform, response text: %s", rdptr);
+	otc_dbg("get waveform, response text: %s", rdptr);
 
 	/*
 	 * Interpret the response (integer value, waveform code).
@@ -981,28 +981,28 @@ SR_PRIV int jds6600_get_waveform(const struct sr_dev_inst *sdi, size_t ch_idx)
 	 * list of user perceivable names for waveforms.
 	 */
 	endptr = NULL;
-	ret = sr_atoul_base(rdptr, &code, &endptr, 10);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
+	ret = otc_atoul_base(rdptr, &code, &endptr, 10);
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
 	for (idx = 0; idx < waves->names_count; idx++) {
 		if (code != waves->fw_codes[idx])
 			continue;
 		chan->waveform_code = code;
 		chan->waveform_index = idx;
-		sr_dbg("get waveform, code %lu, idx %zu, name %s",
+		otc_dbg("get waveform, code %lu, idx %zu, name %s",
 			code, idx, waves->names[idx]);
-		return SR_OK;
+		return OTC_OK;
 	}
 
-	return SR_ERR_DATA;
+	return OTC_ERR_DATA;
 }
 
 #if WITH_ARBWAVE_DOWNLOAD
 /*
  * Development HACK. Get a waveform from the device. Uncertain where to
- * dump it though. Have yet to identify a sigrok API for waveforms.
+ * dump it though. Have yet to identify a opentracelab API for waveforms.
  */
-static int jds6600_get_arb_waveform(const struct sr_dev_inst *sdi, size_t idx)
+static int jds6600_get_arb_waveform(const struct otc_dev_inst *sdi, size_t idx)
 {
 	struct dev_context *devc;
 	struct devc_wave *waves;
@@ -1012,45 +1012,45 @@ static int jds6600_get_arb_waveform(const struct sr_dev_inst *sdi, size_t idx)
 	unsigned long value;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	waves = &devc->waveforms;
 
 	if (idx >= waves->arbitrary_count)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Transmit the request, receive the response. */
 	ret = quick_send_read_then_recv(sdi,
 		INSN_READ_WAVE, idx,
 		0, &rdptr, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	sr_dbg("get arb wave, response text: %s", rdptr);
+	otc_dbg("get arb wave, response text: %s", rdptr);
 
 	/* Extract the sequence of samples for the waveform. */
 	replace_separators(rdptr);
 	sample_count = 0;
 	while (rdptr && *rdptr) {
-		word = sr_text_next_word(rdptr, &rdptr);
+		word = otc_text_next_word(rdptr, &rdptr);
 		if (!word)
 			break;
 		endptr = NULL;
-		ret = sr_atoul_base(word, &value, &endptr, 10);
-		if (ret != SR_OK || !endptr || *endptr) {
-			sr_dbg("get arb wave, conv error: %s", word);
-			return SR_ERR_DATA;
+		ret = otc_atoul_base(word, &value, &endptr, 10);
+		if (ret != OTC_OK || !endptr || *endptr) {
+			otc_dbg("get arb wave, conv error: %s", word);
+			return OTC_ERR_DATA;
 		}
 		sample_count++;
 	}
-	sr_dbg("get arb wave, samples count: %zu", sample_count);
+	otc_dbg("get arb wave, samples count: %zu", sample_count);
 
-	return SR_OK;
+	return OTC_OK;
 }
 #endif
 
-SR_PRIV int jds6600_get_frequency(const struct sr_dev_inst *sdi, size_t ch_idx)
+OTC_PRIV int jds6600_get_frequency(const struct otc_dev_inst *sdi, size_t ch_idx)
 {
 	struct dev_context *devc;
 	struct devc_chan *chan;
@@ -1060,29 +1060,29 @@ SR_PRIV int jds6600_get_frequency(const struct sr_dev_inst *sdi, size_t ch_idx)
 
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (ch_idx >= ARRAY_SIZE(devc->channel_config))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	chan = &devc->channel_config[ch_idx];
 
 	/* Transmit the request, receive the response. */
 	ret = quick_send_read_then_recv(sdi,
 		INSN_READ_PARA, IDX_FREQUENCY_CH1 + ch_idx,
 		0, &rdptr, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	sr_dbg("get frequency, response text: %s", rdptr);
+	otc_dbg("get frequency, response text: %s", rdptr);
 
 	/* Interpret the response (value and scale, frequency). */
 	ret = parse_freq_text(rdptr, &freq);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
-	sr_dbg("get frequency, value %f", freq);
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
+	otc_dbg("get frequency, value %f", freq);
 	chan->output_frequency = freq;
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_get_amplitude(const struct sr_dev_inst *sdi, size_t ch_idx)
+OTC_PRIV int jds6600_get_amplitude(const struct otc_dev_inst *sdi, size_t ch_idx)
 {
 	struct dev_context *devc;
 	struct devc_chan *chan;
@@ -1092,29 +1092,29 @@ SR_PRIV int jds6600_get_amplitude(const struct sr_dev_inst *sdi, size_t ch_idx)
 
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (ch_idx >= ARRAY_SIZE(devc->channel_config))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	chan = &devc->channel_config[ch_idx];
 
 	/* Transmit the request, receive the response. */
 	ret = quick_send_read_then_recv(sdi,
 		INSN_READ_PARA, IDX_AMPLITUDE_CH1 + ch_idx,
 		0, &rdptr, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	sr_dbg("get amplitude, response text: %s", rdptr);
+	otc_dbg("get amplitude, response text: %s", rdptr);
 
 	/* Interpret the response (single value, a voltage). */
 	ret = parse_volt_text(rdptr, &amp);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
-	sr_dbg("get amplitude, value %f", amp);
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
+	otc_dbg("get amplitude, value %f", amp);
 	chan->amplitude = amp;
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_get_offset(const struct sr_dev_inst *sdi, size_t ch_idx)
+OTC_PRIV int jds6600_get_offset(const struct otc_dev_inst *sdi, size_t ch_idx)
 {
 	struct dev_context *devc;
 	struct devc_chan *chan;
@@ -1124,29 +1124,29 @@ SR_PRIV int jds6600_get_offset(const struct sr_dev_inst *sdi, size_t ch_idx)
 
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (ch_idx >= ARRAY_SIZE(devc->channel_config))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	chan = &devc->channel_config[ch_idx];
 
 	/* Transmit the request, receive the response. */
 	ret = quick_send_read_then_recv(sdi,
 		INSN_READ_PARA, IDX_OFFSET_CH1 + ch_idx,
 		0, &rdptr, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	sr_dbg("get offset, response text: %s", rdptr);
+	otc_dbg("get offset, response text: %s", rdptr);
 
 	/* Interpret the response (single value, an offset). */
 	ret = parse_bias_text(rdptr, &off);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
-	sr_dbg("get offset, value %f", off);
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
+	otc_dbg("get offset, value %f", off);
 	chan->offset = off;
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_get_dutycycle(const struct sr_dev_inst *sdi, size_t ch_idx)
+OTC_PRIV int jds6600_get_dutycycle(const struct otc_dev_inst *sdi, size_t ch_idx)
 {
 	struct dev_context *devc;
 	struct devc_chan *chan;
@@ -1156,29 +1156,29 @@ SR_PRIV int jds6600_get_dutycycle(const struct sr_dev_inst *sdi, size_t ch_idx)
 
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (ch_idx >= ARRAY_SIZE(devc->channel_config))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	chan = &devc->channel_config[ch_idx];
 
 	/* Transmit the request, receive the response. */
 	ret = quick_send_read_then_recv(sdi,
 		INSN_READ_PARA, IDX_DUTYCYCLE_CH1 + ch_idx,
 		0, &rdptr, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	sr_dbg("get duty cycle, response text: %s", rdptr);
+	otc_dbg("get duty cycle, response text: %s", rdptr);
 
 	/* Interpret the response (single value, a percentage). */
 	ret = parse_duty_text(rdptr, &duty);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
-	sr_dbg("get duty cycle, value %f", duty);
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
+	otc_dbg("get duty cycle, value %f", duty);
 	chan->dutycycle = duty;
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_get_phase_chans(const struct sr_dev_inst *sdi)
+OTC_PRIV int jds6600_get_phase_chans(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -1187,26 +1187,26 @@ SR_PRIV int jds6600_get_phase_chans(const struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Transmit the request, receive the response. */
 	ret = quick_send_read_then_recv(sdi,
 		INSN_READ_PARA, IDX_PHASE_CHANNELS,
 		0, &rdptr, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	sr_dbg("get phase, response text: %s", rdptr);
+	otc_dbg("get phase, response text: %s", rdptr);
 
 	/* Interpret the response (single value, an angle). */
 	ret = parse_phase_text(rdptr, &phase);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
-	sr_dbg("get phase, value %f", phase);
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
+	otc_dbg("get phase, value %f", phase);
 	devc->channels_phase = phase;
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_set_chans_enable(const struct sr_dev_inst *sdi)
+OTC_PRIV int jds6600_set_chans_enable(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct devc_chan *chans;
@@ -1215,10 +1215,10 @@ SR_PRIV int jds6600_set_chans_enable(const struct sr_dev_inst *sdi)
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Transmit the request, receive an "ok" style response. */
 	chans = devc->channel_config;
@@ -1228,39 +1228,39 @@ SR_PRIV int jds6600_set_chans_enable(const struct sr_dev_inst *sdi)
 			g_string_append_c(en_text, ',');
 		g_string_append_c(en_text, chans[idx].enabled ? '1' : '0');
 	}
-	sr_dbg("set enabled, request text: %s", en_text->str);
+	otc_dbg("set enabled, request text: %s", en_text->str);
 	ret = quick_send_write_then_recv_ok(sdi, 0, NULL,
 		INSN_WRITE_PARA, IDX_CHANNELS_ENABLE, "%s", en_text->str);
 	g_string_free(en_text, 20);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_set_waveform(const struct sr_dev_inst *sdi, size_t ch_idx)
+OTC_PRIV int jds6600_set_waveform(const struct otc_dev_inst *sdi, size_t ch_idx)
 {
 	struct dev_context *devc;
 	struct devc_chan *chan;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (ch_idx >= devc->device.channel_count_gen)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	chan = &devc->channel_config[ch_idx];
 
 	/* Transmit the request, receive an "ok" style response. */
 	ret = quick_send_write_then_recv_ok(sdi, 0, NULL,
 		INSN_WRITE_PARA, IDX_WAVEFORM_CH1 + ch_idx,
 		"%" PRIu32, chan->waveform_code);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 #if WITH_ARBWAVE_DOWNLOAD
@@ -1301,7 +1301,7 @@ static uint16_t make_sample(size_t wave, size_t curr, size_t total)
 }
 
 /* Creation and download of the sequence of samples. */
-static int jds6600_set_arb_waveform(const struct sr_dev_inst *sdi, size_t idx)
+static int jds6600_set_arb_waveform(const struct otc_dev_inst *sdi, size_t idx)
 {
 	struct dev_context *devc;
 	struct devc_wave *waves;
@@ -1312,14 +1312,14 @@ static int jds6600_set_arb_waveform(const struct sr_dev_inst *sdi, size_t idx)
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	waves = &devc->waveforms;
 
 	if (idx >= waves->arbitrary_count)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Construct a pattern that depends on the waveform index. */
 	wave_text = g_string_sized_new(MAX_RSP_LENGTH);
@@ -1331,23 +1331,23 @@ static int jds6600_set_arb_waveform(const struct sr_dev_inst *sdi, size_t idx)
 			g_string_append_c(wave_text, ',');
 		g_string_append_printf(wave_text, "%" PRIu16, value);
 	}
-	sr_dbg("set arb wave, request text: %s", wave_text->str);
+	otc_dbg("set arb wave, request text: %s", wave_text->str);
 
 	/* Transmit the request, receive an "ok" style response. */
 	ret = quick_send_write_then_recv_ok(sdi, 0, &ok,
 		INSN_WRITE_WAVE, idx, "%s", wave_text->str);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	sr_dbg("set arb wave, response ok: %d", ok);
+	otc_dbg("set arb wave, response ok: %d", ok);
 
 	if (DELAY_AFTER_FLASH)
 		g_usleep(DELAY_AFTER_FLASH * 1000);
 
-	return SR_OK;
+	return OTC_OK;
 }
 #endif
 
-SR_PRIV int jds6600_set_frequency(const struct sr_dev_inst *sdi, size_t ch_idx)
+OTC_PRIV int jds6600_set_frequency(const struct otc_dev_inst *sdi, size_t ch_idx)
 {
 	struct dev_context *devc;
 	struct devc_chan *chan;
@@ -1356,12 +1356,12 @@ SR_PRIV int jds6600_set_frequency(const struct sr_dev_inst *sdi, size_t ch_idx)
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (ch_idx >= devc->device.channel_count_gen)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	chan = &devc->channel_config[ch_idx];
 
 	/* Limit input values to the range supported by the model. */
@@ -1378,13 +1378,13 @@ SR_PRIV int jds6600_set_frequency(const struct sr_dev_inst *sdi, size_t ch_idx)
 		INSN_WRITE_PARA, IDX_FREQUENCY_CH1 + ch_idx,
 		"%s", freq_text->str);
 	g_string_free(freq_text, TRUE);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_set_amplitude(const struct sr_dev_inst *sdi, size_t ch_idx)
+OTC_PRIV int jds6600_set_amplitude(const struct otc_dev_inst *sdi, size_t ch_idx)
 {
 	struct dev_context *devc;
 	struct devc_chan *chan;
@@ -1392,12 +1392,12 @@ SR_PRIV int jds6600_set_amplitude(const struct sr_dev_inst *sdi, size_t ch_idx)
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (ch_idx >= devc->device.channel_count_gen)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	chan = &devc->channel_config[ch_idx];
 
 	/* Transmit the request, receive an "ok" style response. */
@@ -1407,13 +1407,13 @@ SR_PRIV int jds6600_set_amplitude(const struct sr_dev_inst *sdi, size_t ch_idx)
 		INSN_WRITE_PARA, IDX_AMPLITUDE_CH1 + ch_idx,
 		"%s", volt_text->str);
 	g_string_free(volt_text, TRUE);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_set_offset(const struct sr_dev_inst *sdi, size_t ch_idx)
+OTC_PRIV int jds6600_set_offset(const struct otc_dev_inst *sdi, size_t ch_idx)
 {
 	struct dev_context *devc;
 	struct devc_chan *chan;
@@ -1421,12 +1421,12 @@ SR_PRIV int jds6600_set_offset(const struct sr_dev_inst *sdi, size_t ch_idx)
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (ch_idx >= devc->device.channel_count_gen)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	chan = &devc->channel_config[ch_idx];
 
 	/* Transmit the request, receive an "ok" style response. */
@@ -1436,13 +1436,13 @@ SR_PRIV int jds6600_set_offset(const struct sr_dev_inst *sdi, size_t ch_idx)
 		INSN_WRITE_PARA, IDX_OFFSET_CH1 + ch_idx,
 		"%s", volt_text->str);
 	g_string_free(volt_text, TRUE);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_set_dutycycle(const struct sr_dev_inst *sdi, size_t ch_idx)
+OTC_PRIV int jds6600_set_dutycycle(const struct otc_dev_inst *sdi, size_t ch_idx)
 {
 	struct dev_context *devc;
 	struct devc_chan *chan;
@@ -1450,12 +1450,12 @@ SR_PRIV int jds6600_set_dutycycle(const struct sr_dev_inst *sdi, size_t ch_idx)
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (ch_idx >= devc->device.channel_count_gen)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	chan = &devc->channel_config[ch_idx];
 
 	/* Transmit the request, receive an "ok" style response. */
@@ -1465,23 +1465,23 @@ SR_PRIV int jds6600_set_dutycycle(const struct sr_dev_inst *sdi, size_t ch_idx)
 		INSN_WRITE_PARA, IDX_DUTYCYCLE_CH1 + ch_idx,
 		"%s", duty_text->str);
 	g_string_free(duty_text, TRUE);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_set_phase_chans(const struct sr_dev_inst *sdi)
+OTC_PRIV int jds6600_set_phase_chans(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	GString *phase_text;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Transmit the request, receive an "ok" style response. */
 	phase_text = g_string_sized_new(32);
@@ -1490,10 +1490,10 @@ SR_PRIV int jds6600_set_phase_chans(const struct sr_dev_inst *sdi)
 		INSN_WRITE_PARA, IDX_PHASE_CHANNELS,
 		"%s", phase_text->str);
 	g_string_free(phase_text, TRUE);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1501,7 +1501,7 @@ SR_PRIV int jds6600_set_phase_chans(const struct sr_dev_inst *sdi)
  * device and synchronize to its current state and its capabilities.
  */
 
-SR_PRIV int jds6600_identify(struct sr_dev_inst *sdi)
+OTC_PRIV int jds6600_identify(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -1511,41 +1511,41 @@ SR_PRIV int jds6600_identify(struct sr_dev_inst *sdi)
 	(void)append_insn_write_para_dots;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Transmit "read device type" request, receive the response. */
 	ret = quick_send_read_then_recv(sdi,
 		INSN_READ_PARA, IDX_DEVICE_TYPE,
 		TIMEOUT_IDENTIFY, &rdptr, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	sr_dbg("identify, device type '%s'", rdptr);
+	otc_dbg("identify, device type '%s'", rdptr);
 
 	/* Interpret the response (integer value, max freq). */
 	endptr = NULL;
-	ret = sr_atoul_base(rdptr, &devtype, &endptr, 10);
-	if (ret != SR_OK || !endptr)
-		return SR_ERR_DATA;
+	ret = otc_atoul_base(rdptr, &devtype, &endptr, 10);
+	if (ret != OTC_OK || !endptr)
+		return OTC_ERR_DATA;
 	devc->device.device_type = devtype;
 
 	/* Transmit "read serial number" request. receive response. */
 	ret = quick_send_read_then_recv(sdi,
 		INSN_READ_PARA, IDX_SERIAL_NUMBER,
 		0, &rdptr, NULL);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
-	sr_dbg("identify, serial number '%s'", rdptr);
+	otc_dbg("identify, serial number '%s'", rdptr);
 
 	/* Keep the response (in string format, some serial number). */
 	devc->device.serial_number = g_strdup(rdptr);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int jds6600_setup_devc(struct sr_dev_inst *sdi)
+OTC_PRIV int jds6600_setup_devc(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	size_t alloc_count, assign_idx, idx;
@@ -1556,10 +1556,10 @@ SR_PRIV int jds6600_setup_devc(struct sr_dev_inst *sdi)
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/*
 	 * Derive maximum output frequency from detected device type.
@@ -1567,9 +1567,9 @@ SR_PRIV int jds6600_setup_devc(struct sr_dev_inst *sdi)
 	 */
 	device = &devc->device;
 	if (!device->device_type)
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	device->max_output_frequency = device->device_type;
-	device->max_output_frequency *= SR_MHZ(1);
+	device->max_output_frequency *= OTC_MHZ(1);
 	device->channel_count_gen = MAX_GEN_CHANNELS;
 
 	/* Construct the list of waveform names and their codes. */
@@ -1585,7 +1585,7 @@ SR_PRIV int jds6600_setup_devc(struct sr_dev_inst *sdi)
 	if (!waves->names || !waves->fw_codes) {
 		g_free(waves->names);
 		g_free(waves->fw_codes);
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	}
 	assign_idx = 0;
 	for (idx = 0; idx < waves->builtin_count; idx++) {
@@ -1616,7 +1616,7 @@ SR_PRIV int jds6600_setup_devc(struct sr_dev_inst *sdi)
 	 * conditions are extremely unlikely. Not checking every getter
 	 * call's return value is acceptable here.
 	 */
-	ret = SR_OK;
+	ret = OTC_OK;
 	ret |= jds6600_get_chans_enable(sdi);
 	for (idx = 0; idx < device->channel_count_gen; idx++) {
 		ret |= jds6600_get_waveform(sdi, idx);
@@ -1624,28 +1624,28 @@ SR_PRIV int jds6600_setup_devc(struct sr_dev_inst *sdi)
 		ret |= jds6600_get_amplitude(sdi, idx);
 		ret |= jds6600_get_offset(sdi, idx);
 		ret |= jds6600_get_dutycycle(sdi, idx);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			break;
 	}
 	ret |= jds6600_get_phase_chans(sdi);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
 
 #if WITH_ARBWAVE_DOWNLOAD
 	/*
 	 * Development HACK, to see how waveform upload works.
 	 * How to forward the data to the application? Or the
-	 * sigrok session actually? Provide these as acquisition
+	 * opentracelab session actually? Provide these as acquisition
 	 * results?
 	 */
 	ret |= jds6600_get_arb_waveform(sdi, 13);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
 	ret |= jds6600_set_arb_waveform(sdi, 12);
 	ret |= jds6600_set_arb_waveform(sdi, 13);
-	if (ret != SR_OK)
-		return SR_ERR_DATA;
+	if (ret != OTC_OK)
+		return OTC_ERR_DATA;
 #endif
 
-	return SR_OK;
+	return OTC_OK;
 }

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  *
@@ -19,8 +19,8 @@
 
 #include <config.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "output/wav"
 
@@ -39,7 +39,7 @@ struct out_context {
 	float *fdata;
 };
 
-static int realloc_chanbufs(const struct sr_output *o, int size)
+static int realloc_chanbufs(const struct otc_output *o, int size)
 {
 	struct out_context *outc;
 	int i;
@@ -47,17 +47,17 @@ static int realloc_chanbufs(const struct sr_output *o, int size)
 	outc = o->priv;
 	for (i = 0; i < outc->num_channels; i++) {
 		if (!(outc->chanbuf[i] = g_try_realloc(outc->chanbuf[i], sizeof(float) * size))) {
-			sr_err("Unable to allocate enough output buffer memory.");
-			return SR_ERR;
+			otc_err("Unable to allocate enough output buffer memory.");
+			return OTC_ERR;
 		}
 		outc->chanbuf_used[i] = 0;
 	}
 	outc->chanbuf_size = size;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int flush_chanbufs(const struct sr_output *o, GString *out)
+static int flush_chanbufs(const struct otc_output *o, GString *out)
 {
 	struct out_context *outc;
 	int num_samples, i, j;
@@ -68,8 +68,8 @@ static int flush_chanbufs(const struct sr_output *o, GString *out)
 	/* Any one of them will do. */
 	num_samples = outc->chanbuf_used[0];
 	if (!(buf = g_try_malloc(4 * num_samples * outc->num_channels))) {
-		sr_err("Unable to allocate enough interleaved output buffer memory.");
-		return SR_ERR;
+		otc_err("Unable to allocate enough interleaved output buffer memory.");
+		return OTC_ERR;
 	}
 
 	bufp = buf;
@@ -85,13 +85,13 @@ static int flush_chanbufs(const struct sr_output *o, GString *out)
 	for (i = 0; i < outc->num_channels; i++)
 		outc->chanbuf_used[i] = 0;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int init(struct sr_output *o, GHashTable *options)
+static int init(struct otc_output *o, GHashTable *options)
 {
 	struct out_context *outc;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	GSList *l;
 
 	outc = g_malloc0(sizeof(struct out_context));
@@ -100,7 +100,7 @@ static int init(struct sr_output *o, GHashTable *options)
 
 	for (l = o->sdi->channels; l; l = l->next) {
 		ch = l->data;
-		if (ch->type != SR_CHANNEL_ANALOG)
+		if (ch->type != OTC_CHANNEL_ANALOG)
 			continue;
 		if (!ch->enabled)
 			continue;
@@ -114,10 +114,10 @@ static int init(struct sr_output *o, GHashTable *options)
 	/* Start off the interleaved buffer with 100 samples/channel. */
 	realloc_chanbufs(o, 100);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void add_data_chunk(const struct sr_output *o, GString *gs)
+static void add_data_chunk(const struct otc_output *o, GString *gs)
 {
 	struct out_context *outc;
 	char tmp[4];
@@ -154,7 +154,7 @@ static void add_data_chunk(const struct sr_output *o, GString *gs)
 	g_string_append_len(gs, tmp, 4);
 }
 
-static GString *gen_header(const struct sr_output *o)
+static GString *gen_header(const struct otc_output *o)
 {
 	struct out_context *outc;
 	GVariant *gvar;
@@ -163,8 +163,8 @@ static GString *gen_header(const struct sr_output *o)
 
 	outc = o->priv;
 	if (outc->samplerate == 0) {
-		if (sr_config_get(o->sdi->driver, o->sdi, NULL, SR_CONF_SAMPLERATE,
-				&gvar) == SR_OK) {
+		if (otc_config_get(o->sdi->driver, o->sdi, NULL, OTC_CONF_SAMPLERATE,
+				&gvar) == OTC_OK) {
 			outc->samplerate = g_variant_get_uint64(gvar);
 			g_variant_unref(gvar);
 		}
@@ -206,7 +206,7 @@ static void float_to_le(uint8_t *buf, float value)
  * Returns the number of samples used in the current channel buffers,
  * or -1 if they're not all the same.
  */
-static int check_chanbuf_size(const struct sr_output *o)
+static int check_chanbuf_size(const struct otc_output *o)
 {
 	struct out_context *outc;
 	int size, i;
@@ -233,14 +233,14 @@ static int check_chanbuf_size(const struct sr_output *o)
 	return size;
 }
 
-static int receive(const struct sr_output *o, const struct sr_datafeed_packet *packet,
+static int receive(const struct otc_output *o, const struct otc_datafeed_packet *packet,
 		GString **out)
 {
 	struct out_context *outc;
-	const struct sr_datafeed_meta *meta;
-	const struct sr_datafeed_analog *analog;
-	const struct sr_config *src;
-	struct sr_channel *ch;
+	const struct otc_datafeed_meta *meta;
+	const struct otc_datafeed_analog *analog;
+	const struct otc_config *src;
+	struct otc_channel *ch;
 	GSList *l;
 	const GSList *channels;
 	float f;
@@ -250,19 +250,19 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 
 	*out = NULL;
 	if (!o || !o->sdi || !(outc = o->priv))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	switch (packet->type) {
-	case SR_DF_META:
+	case OTC_DF_META:
 		meta = packet->payload;
 		for (l = meta->config; l; l = l->next) {
 			src = l->data;
-			if (src->key != SR_CONF_SAMPLERATE)
+			if (src->key != OTC_CONF_SAMPLERATE)
 				continue;
 			outc->samplerate = g_variant_get_uint64(src->data);
 		}
 		break;
-	case SR_DF_ANALOG:
+	case OTC_DF_ANALOG:
 		if (!outc->header_done) {
 			*out = gen_header(o);
 			outc->header_done = TRUE;
@@ -275,24 +275,24 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 		channels = analog->meaning->channels;
 		num_channels = g_slist_length(analog->meaning->channels);
 		if (!(data = g_try_realloc(outc->fdata, sizeof(float) * num_samples * num_channels)))
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		outc->fdata = data;
-		ret = sr_analog_to_float(analog, data);
-		if (ret != SR_OK)
+		ret = otc_analog_to_float(analog, data);
+		if (ret != OTC_OK)
 			return ret;
 
 		if (num_samples == 0)
-			return SR_OK;
+			return OTC_OK;
 
 		if (num_channels > outc->num_channels) {
-			sr_err("Packet has %d channels, but only %d were enabled.",
+			otc_err("Packet has %d channels, but only %d were enabled.",
 					num_channels, outc->num_channels);
-			return SR_ERR;
+			return OTC_ERR;
 		}
 
 		if (num_samples > outc->chanbuf_size) {
-			if (realloc_chanbufs(o, analog->num_samples) != SR_OK)
-				return SR_ERR_MALLOC;
+			if (realloc_chanbufs(o, analog->num_samples) != OTC_OK)
+				return OTC_ERR_MALLOC;
 		}
 
 		/* Index the channels in this packet, so we can interleave quicker. */
@@ -316,28 +316,28 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 
 		size = check_chanbuf_size(o);
 		if (size > MIN_DATA_CHUNK_SAMPLES)
-			if (flush_chanbufs(o, *out) != SR_OK)
-				return SR_ERR;
+			if (flush_chanbufs(o, *out) != OTC_OK)
+				return OTC_ERR;
 		break;
-	case SR_DF_END:
+	case OTC_DF_END:
 		size = check_chanbuf_size(o);
 		if (size > 0) {
 			*out = g_string_sized_new(4 * size * outc->num_channels);
-			if (flush_chanbufs(o, *out) != SR_OK)
-				return SR_ERR;
+			if (flush_chanbufs(o, *out) != OTC_OK)
+				return OTC_ERR;
 		}
 		break;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_option options[] = {
+static struct otc_option options[] = {
 	{ "scale", "Scale", "Scale values by factor", NULL, NULL },
 	ALL_ZERO
 };
 
-static const struct sr_option *get_options(void)
+static const struct otc_option *get_options(void)
 {
 	if (!options[0].def)
 		options[0].def = g_variant_ref_sink(g_variant_new_double(1.0));
@@ -345,7 +345,7 @@ static const struct sr_option *get_options(void)
 	return options;
 }
 
-static int cleanup(struct sr_output *o)
+static int cleanup(struct otc_output *o)
 {
 	struct out_context *outc;
 	int i;
@@ -361,10 +361,10 @@ static int cleanup(struct sr_output *o)
 	g_free(outc);
 	o->priv = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_output_module output_wav = {
+OTC_PRIV struct otc_output_module output_wav = {
 	.id = "wav",
 	.name = "WAV",
 	.desc = "Microsoft WAV file format data",

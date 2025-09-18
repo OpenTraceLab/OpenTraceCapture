@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -21,28 +21,28 @@
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_THERMOMETER,
+	OTC_CONF_THERMOMETER,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_SET,
 };
 
 static const char *channel_names[] = {
 	"T1", "T2", "T3", "T4",
 };
 
-static struct sr_dev_driver center_309_driver_info;
-static struct sr_dev_driver voltcraft_k204_driver_info;
+static struct otc_dev_driver center_309_driver_info;
+static struct otc_dev_driver voltcraft_k204_driver_info;
 
-SR_PRIV const struct center_dev_info center_devs[] = {
+OTC_PRIV const struct center_dev_info center_devs[] = {
 	{
 		"Center", "309", "9600/8n1", 4, 32000, 45,
 		center_3xx_packet_valid,
@@ -58,28 +58,28 @@ SR_PRIV const struct center_dev_info center_devs[] = {
 static GSList *center_scan(const char *conn, const char *serialcomm, int idx)
 {
 	int i;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
 
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
 		return NULL;
 
-	sr_info("Found device on port %s.", conn);
+	otc_info("Found device on port %s.", conn);
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup(center_devs[idx].vendor);
 	sdi->model = g_strdup(center_devs[idx].device);
 	devc = g_malloc0(sizeof(struct dev_context));
-	sdi->inst_type = SR_INST_SERIAL;
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->conn = serial;
 	sdi->priv = devc;
 
 	for (i = 0; i < center_devs[idx].num_channels; i++)
-		sr_channel_new(sdi, i, SR_CHANNEL_ANALOG, TRUE, channel_names[i]);
+		otc_channel_new(sdi, i, OTC_CHANNEL_ANALOG, TRUE, channel_names[i]);
 
 	serial_close(serial);
 
@@ -88,7 +88,7 @@ static GSList *center_scan(const char *conn, const char *serialcomm, int idx)
 
 static GSList *scan(GSList *options, int idx)
 {
-	struct sr_config *src;
+	struct otc_config *src;
 	GSList *l, *devices;
 	const char *conn, *serialcomm;
 
@@ -96,10 +96,10 @@ static GSList *scan(GSList *options, int idx)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -116,7 +116,7 @@ static GSList *scan(GSList *options, int idx)
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
@@ -124,23 +124,23 @@ static int config_set(uint32_t key, GVariant *data,
 
 	devc = sdi->priv;
 
-	return sr_sw_limits_config_set(&devc->sw_limits, key, data);
+	return otc_sw_limits_config_set(&devc->sw_limits, key, data);
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi, int idx)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi, int idx)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 
-	sr_sw_limits_acquisition_start(&devc->sw_limits);
+	otc_sw_limits_acquisition_start(&devc->sw_limits);
 
 	std_session_send_df_header(sdi);
 
@@ -148,22 +148,22 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi, int idx)
 	serial_source_add(sdi->session, serial, G_IO_IN, 500,
 		      center_devs[idx].receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Driver-specific API function wrappers */
 #define HW_SCAN(X) \
-static GSList *scan_##X(struct sr_dev_driver *d, GSList *options) { \
+static GSList *scan_##X(struct otc_dev_driver *d, GSList *options) { \
 	(void)d; return scan(options, X); }
 #define HW_DEV_ACQUISITION_START(X) \
-static int dev_acquisition_start_##X(const struct sr_dev_inst *sdi \
+static int dev_acquisition_start_##X(const struct otc_dev_inst *sdi \
 ) { return dev_acquisition_start(sdi, X); }
 
 /* Driver structs and API function wrappers */
 #define DRV(ID, ID_UPPER, NAME, LONGNAME) \
 HW_SCAN(ID_UPPER) \
 HW_DEV_ACQUISITION_START(ID_UPPER) \
-static struct sr_dev_driver ID##_driver_info = { \
+static struct otc_dev_driver ID##_driver_info = { \
 	.name = NAME, \
 	.longname = LONGNAME, \
 	.api_version = 1, \
@@ -181,7 +181,7 @@ static struct sr_dev_driver ID##_driver_info = { \
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop, \
 	.context = NULL, \
 }; \
-SR_REGISTER_DEV_DRIVER(ID##_driver_info);
+OTC_REGISTER_DEV_DRIVER(ID##_driver_info);
 
 DRV(center_309, CENTER_309, "center-309", "Center 309")
 DRV(voltcraft_k204, VOLTCRAFT_K204, "voltcraft-k204", "Voltcraft K204")

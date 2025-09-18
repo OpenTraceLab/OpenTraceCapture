@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Janne Huttunen <jahuttun@gmail.com>
  * Copyright (C) 2019 Gerhard Sittig <gerhard.sittig@gmx.net>
@@ -18,14 +18,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libsigrok/libsigrok.h>
-#include <libsigrok-internal.h>
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-static void send_frame_start(struct sr_dev_inst *sdi)
+static void send_frame_start(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct lcr_parse_info *info;
@@ -39,13 +39,13 @@ static void send_frame_start(struct sr_dev_inst *sdi)
 	freq = info->output_freq;
 	if (freq != devc->output_freq) {
 		devc->output_freq = freq;
-		sr_session_send_meta(sdi, SR_CONF_OUTPUT_FREQUENCY,
+		otc_session_send_meta(sdi, OTC_CONF_OUTPUT_FREQUENCY,
 			g_variant_new_double(freq));
 	}
 	model = info->circuit_model;
 	if (model && model != devc->circuit_model) {
 		devc->circuit_model = model;
-		sr_session_send_meta(sdi, SR_CONF_EQUIV_CIRCUIT_MODEL,
+		otc_session_send_meta(sdi, OTC_CONF_EQUIV_CIRCUIT_MODEL,
 			g_variant_new_string(model));
 	}
 
@@ -53,7 +53,7 @@ static void send_frame_start(struct sr_dev_inst *sdi)
 	std_session_send_df_frame_begin(sdi);
 }
 
-static int handle_packet(struct sr_dev_inst *sdi, const uint8_t *pkt)
+static int handle_packet(struct otc_dev_inst *sdi, const uint8_t *pkt)
 {
 	struct dev_context *devc;
 	struct lcr_parse_info *info;
@@ -61,20 +61,20 @@ static int handle_packet(struct sr_dev_inst *sdi, const uint8_t *pkt)
 	size_t ch_idx;
 	int rc;
 	float value;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	gboolean frame;
-	struct sr_channel *channel;
+	struct otc_channel *channel;
 
 	devc = sdi->priv;
 	info = &devc->parse_info;
 	lcr = devc->lcr_info;
 
 	/* Note: digits/spec_digits will be overridden later. */
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 	analog.num_samples = 1;
 	analog.data = &value;
 
@@ -84,29 +84,29 @@ static int handle_packet(struct sr_dev_inst *sdi, const uint8_t *pkt)
 		analog.meaning->channels = g_slist_append(NULL, channel);
 		info->ch_idx = ch_idx;
 		rc = lcr->packet_parse(pkt, &value, &analog, info);
-		if (sdi->session && rc == SR_OK && analog.meaning->mq && channel->enabled) {
+		if (sdi->session && rc == OTC_OK && analog.meaning->mq && channel->enabled) {
 			if (!frame) {
 				send_frame_start(sdi);
 				frame = TRUE;
 			}
-			packet.type = SR_DF_ANALOG;
+			packet.type = OTC_DF_ANALOG;
 			packet.payload = &analog;
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 		}
 		g_slist_free(analog.meaning->channels);
 	}
 	if (frame) {
 		std_session_send_df_frame_end(sdi);
-		sr_sw_limits_update_frames_read(&devc->limits, 1);
+		otc_sw_limits_update_frames_read(&devc->limits, 1);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int handle_new_data(struct sr_dev_inst *sdi)
+static int handle_new_data(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	ssize_t rdsize;
 	const struct lcr_info *lcr;
 	uint8_t *pkt;
@@ -119,7 +119,7 @@ static int handle_new_data(struct sr_dev_inst *sdi)
 	rdsize = sizeof(devc->buf) - devc->buf_rxpos;
 	rdsize = serial_read_nonblocking(serial, &devc->buf[devc->buf_rxpos], rdsize);
 	if (rdsize < 0)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	devc->buf_rxpos += rdsize;
 
 	/*
@@ -143,14 +143,14 @@ static int handle_new_data(struct sr_dev_inst *sdi)
 		devc->buf_rxpos -= lcr->packet_size;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int handle_timeout(struct sr_dev_inst *sdi)
+static int handle_timeout(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	const struct lcr_info *lcr;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int64_t now;
 	int ret;
 
@@ -158,28 +158,28 @@ static int handle_timeout(struct sr_dev_inst *sdi)
 	lcr = devc->lcr_info;
 
 	if (!lcr->packet_request)
-		return SR_OK;
+		return OTC_OK;
 
 	now = g_get_monotonic_time();
 	if (devc->req_next_at && now < devc->req_next_at)
-		return SR_OK;
+		return OTC_OK;
 
 	serial = sdi->conn;
 	ret = lcr->packet_request(serial);
 	if (ret < 0) {
-		sr_err("Failed to request packet: %d.", ret);
+		otc_err("Failed to request packet: %d.", ret);
 		return ret;
 	}
 
 	if (lcr->req_timeout_ms)
 		devc->req_next_at = now + lcr->req_timeout_ms * 1000;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int lcr_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int lcr_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	int ret;
 
@@ -194,9 +194,9 @@ SR_PRIV int lcr_receive_data(int fd, int revents, void *cb_data)
 		ret = handle_new_data(sdi);
 	else
 		ret = handle_timeout(sdi);
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
-	if (ret != SR_OK)
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
+	if (ret != OTC_OK)
 		return FALSE;
 
 	return TRUE;

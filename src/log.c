@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2011-2012 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -21,8 +21,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <glib/gprintf.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "log"
@@ -31,158 +31,158 @@
 /**
  * @file
  *
- * Controlling the libsigrok message logging functionality.
+ * Controlling the libopentracecapture message logging functionality.
  */
 
 /**
  * @defgroup grp_logging Logging
  *
- * Controlling the libsigrok message logging functionality.
+ * Controlling the libopentracecapture message logging functionality.
  *
  * @{
  */
 
-/* Currently selected libsigrok loglevel. Default: SR_LOG_WARN. */
-static int cur_loglevel = SR_LOG_WARN; /* Show errors+warnings per default. */
+/* Currently selected libopentracecapture loglevel. Default: OTC_LOG_WARN. */
+static int cur_loglevel = OTC_LOG_WARN; /* Show errors+warnings per default. */
 
 /* Function prototype. */
-static int sr_logv(void *cb_data, int loglevel, const char *format,
+static int otc_logv(void *cb_data, int loglevel, const char *format,
 		   va_list args);
 
-/* Pointer to the currently selected log callback. Default: sr_logv(). */
-static sr_log_callback sr_log_cb = sr_logv;
+/* Pointer to the currently selected log callback. Default: otc_logv(). */
+static otc_log_callback otc_log_cb = otc_logv;
 
 /*
  * Pointer to private data that can be passed to the log callback.
  * This can be used (for example) by C++ GUIs to pass a "this" pointer.
  */
-static void *sr_log_cb_data = NULL;
+static void *otc_log_cb_data = NULL;
 
 /** @cond PRIVATE */
-#define LOGLEVEL_TIMESTAMP SR_LOG_DBG
+#define LOGLEVEL_TIMESTAMP OTC_LOG_DBG
 /** @endcond */
-static int64_t sr_log_start_time = 0;
+static int64_t otc_log_start_time = 0;
 
 /**
- * Set the libsigrok loglevel.
+ * Set the libopentracecapture loglevel.
  *
  * This influences the amount of log messages (debug messages, error messages,
- * and so on) libsigrok will output. Using SR_LOG_NONE disables all messages.
+ * and so on) libopentracecapture will output. Using OTC_LOG_NONE disables all messages.
  *
  * Note that this function itself will also output log messages. After the
- * loglevel has changed, it will output a debug message with SR_LOG_DBG for
+ * loglevel has changed, it will output a debug message with OTC_LOG_DBG for
  * example. Whether this message is shown depends on the (new) loglevel.
  *
- * @param loglevel The loglevel to set (SR_LOG_NONE, SR_LOG_ERR, SR_LOG_WARN,
- *                 SR_LOG_INFO, SR_LOG_DBG, or SR_LOG_SPEW).
+ * @param loglevel The loglevel to set (OTC_LOG_NONE, OTC_LOG_ERR, OTC_LOG_WARN,
+ *                 OTC_LOG_INFO, OTC_LOG_DBG, or OTC_LOG_SPEW).
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid loglevel.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid loglevel.
  *
  * @since 0.1.0
  */
-SR_API int sr_log_loglevel_set(int loglevel)
+OTC_API int otc_log_loglevel_set(int loglevel)
 {
-	if (loglevel < SR_LOG_NONE || loglevel > SR_LOG_SPEW) {
-		sr_err("Invalid loglevel %d.", loglevel);
-		return SR_ERR_ARG;
+	if (loglevel < OTC_LOG_NONE || loglevel > OTC_LOG_SPEW) {
+		otc_err("Invalid loglevel %d.", loglevel);
+		return OTC_ERR_ARG;
 	}
 	/* Output time stamps relative to time at startup */
-	if (loglevel >= LOGLEVEL_TIMESTAMP && sr_log_start_time == 0)
-		sr_log_start_time = g_get_monotonic_time();
+	if (loglevel >= LOGLEVEL_TIMESTAMP && otc_log_start_time == 0)
+		otc_log_start_time = g_get_monotonic_time();
 
 	cur_loglevel = loglevel;
 
-	sr_dbg("libsigrok loglevel set to %d.", loglevel);
+	otc_dbg("libopentracecapture loglevel set to %d.", loglevel);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
- * Get the libsigrok loglevel.
+ * Get the libopentracecapture loglevel.
  *
- * @return The currently configured libsigrok loglevel.
+ * @return The currently configured libopentracecapture loglevel.
  *
  * @since 0.1.0
  */
-SR_API int sr_log_loglevel_get(void)
+OTC_API int otc_log_loglevel_get(void)
 {
 	return cur_loglevel;
 }
 
 /**
- * Set the libsigrok log callback to the specified function.
+ * Set the libopentracecapture log callback to the specified function.
  *
  * @param cb Function pointer to the log callback function to use.
  *           Must not be NULL.
  * @param cb_data Pointer to private data to be passed on. This can be used by
  *                the caller to pass arbitrary data to the log functions. This
- *                pointer is only stored or passed on by libsigrok, and is
+ *                pointer is only stored or passed on by libopentracecapture, and is
  *                never used or interpreted in any way. The pointer is allowed
  *                to be NULL if the caller doesn't need/want to pass any data.
  *
- * @return SR_OK upon success, SR_ERR_ARG upon invalid arguments.
+ * @return OTC_OK upon success, OTC_ERR_ARG upon invalid arguments.
  *
  * @since 0.3.0
  */
-SR_API int sr_log_callback_set(sr_log_callback cb, void *cb_data)
+OTC_API int otc_log_callback_set(otc_log_callback cb, void *cb_data)
 {
 	if (!cb) {
-		sr_err("%s: cb was NULL", __func__);
-		return SR_ERR_ARG;
+		otc_err("%s: cb was NULL", __func__);
+		return OTC_ERR_ARG;
 	}
 
 	/* Note: 'cb_data' is allowed to be NULL. */
 
-	sr_log_cb = cb;
-	sr_log_cb_data = cb_data;
+	otc_log_cb = cb;
+	otc_log_cb_data = cb_data;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
- * Set the libsigrok log callback to the default built-in one.
+ * Set the libopentracecapture log callback to the default built-in one.
  *
- * Additionally, the internal 'sr_log_cb_data' pointer is set to NULL.
+ * Additionally, the internal 'otc_log_cb_data' pointer is set to NULL.
  *
- * @return SR_OK upon success, a negative error code otherwise.
+ * @return OTC_OK upon success, a negative error code otherwise.
  *
  * @since 0.1.0
  */
-SR_API int sr_log_callback_set_default(void)
+OTC_API int otc_log_callback_set_default(void)
 {
 	/*
 	 * Note: No log output in this function, as it should safely work
 	 * even if the currently set log callback is buggy/broken.
 	 */
-	sr_log_cb = sr_logv;
-	sr_log_cb_data = NULL;
+	otc_log_cb = otc_logv;
+	otc_log_cb_data = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /**
- * Get the libsigrok log callback routine and callback data.
+ * Get the libopentracecapture log callback routine and callback data.
  *
  * @param[out] cb Pointer to a function pointer to receive the log callback
  * 	function. Optional, can be NULL.
  * @param[out] cb_data Pointer to a void pointer to receive the log callback's
  * 	additional arguments. Optional, can be NULL.
  *
- * @return SR_OK upon success.
+ * @return OTC_OK upon success.
  *
  * @since 0.6.0
  */
-SR_API int sr_log_callback_get(sr_log_callback *cb, void **cb_data)
+OTC_API int otc_log_callback_get(otc_log_callback *cb, void **cb_data)
 {
 	if (cb)
-		*cb = sr_log_cb;
+		*cb = otc_log_cb;
 	if (cb_data)
-		*cb_data = sr_log_cb_data;
+		*cb_data = otc_log_cb_data;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int sr_logv(void *cb_data, int loglevel, const char *format, va_list args)
+static int otc_logv(void *cb_data, int loglevel, const char *format, va_list args)
 {
 	int ret;
 	uint64_t elapsed_us, minutes;
@@ -201,9 +201,9 @@ static int sr_logv(void *cb_data, int loglevel, const char *format, va_list args
 	/* Prefix with 'sr:'. Optionally prefix with timestamp. */
 	ret = fputs("sr: ", stderr);
 	if (ret < 0)
-		return SR_ERR;
+		return OTC_ERR;
 	if (cur_loglevel >= LOGLEVEL_TIMESTAMP) {
-		elapsed_us = g_get_monotonic_time() - sr_log_start_time;
+		elapsed_us = g_get_monotonic_time() - otc_log_start_time;
 
 		minutes = elapsed_us / G_TIME_SPAN_MINUTE;
 		rest_us = elapsed_us % G_TIME_SPAN_MINUTE;
@@ -213,7 +213,7 @@ static int sr_logv(void *cb_data, int loglevel, const char *format, va_list args
 		ret = g_fprintf(stderr, "[%.2" PRIu64 ":%.2u.%.6u] ",
 				minutes, seconds, microseconds);
 		if (ret < 0)
-			return SR_ERR;
+			return OTC_ERR;
 	}
 
 	/* Print the caller's message into a local buffer. */
@@ -221,7 +221,7 @@ static int sr_logv(void *cb_data, int loglevel, const char *format, va_list args
 	print_len = g_vasprintf(&raw_output, format, args);
 	if (print_len < 0) {
 		g_free(raw_output);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	raw_len = (size_t)print_len;
 
@@ -229,7 +229,7 @@ static int sr_logv(void *cb_data, int loglevel, const char *format, va_list args
 	output = g_malloc(raw_len + 1);
 	if (!output) {
 		g_free(raw_output);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	out_ptr = output;
 	raw_ptr = raw_output;
@@ -247,25 +247,25 @@ static int sr_logv(void *cb_data, int loglevel, const char *format, va_list args
 	fflush(stderr);
 	g_free(output);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** @private */
-SR_PRIV int sr_log(int loglevel, const char *format, ...)
+OTC_PRIV int otc_log(int loglevel, const char *format, ...)
 {
 	int ret;
 	va_list args;
 
 	/* Only output messages of at least the selected loglevel(s). */
 	if (loglevel > cur_loglevel)
-		return SR_OK;
+		return OTC_OK;
 
 	/* Silently succeed when no logging callback is registered. */
-	if (!sr_log_cb)
-		return SR_OK;
+	if (!otc_log_cb)
+		return OTC_OK;
 
 	va_start(args, format);
-	ret = sr_log_cb(sr_log_cb_data, loglevel, format, args);
+	ret = otc_log_cb(otc_log_cb_data, loglevel, format, args);
 	va_end(args);
 
 	return ret;

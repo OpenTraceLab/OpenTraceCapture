@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  *
@@ -19,8 +19,8 @@
 
 #include <config.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "output"
@@ -37,13 +37,13 @@
  *
  * Output module handling.
  *
- * libsigrok supports several output modules for file formats such as binary,
+ * libopentracecapture supports several output modules for file formats such as binary,
  * VCD, csv, and so on. It provides an output API that frontends can use.
- * New output modules can be added/implemented in libsigrok without having
+ * New output modules can be added/implemented in libopentracecapture without having
  * to change the frontends at all.
  *
  * All output modules are fed data in a stream. Devices that can stream data
- * into libsigrok, instead of storing and then transferring the whole buffer,
+ * into libopentracecapture, instead of storing and then transferring the whole buffer,
  * can thus generate output live.
  *
  * Output modules generate a newly allocated GString. The caller is then
@@ -53,22 +53,22 @@
  */
 
 /** @cond PRIVATE */
-extern SR_PRIV struct sr_output_module output_bits;
-extern SR_PRIV struct sr_output_module output_hex;
-extern SR_PRIV struct sr_output_module output_ascii;
-extern SR_PRIV struct sr_output_module output_binary;
-extern SR_PRIV struct sr_output_module output_vcd;
-extern SR_PRIV struct sr_output_module output_ols;
-extern SR_PRIV struct sr_output_module output_chronovu_la8;
-extern SR_PRIV struct sr_output_module output_csv;
-extern SR_PRIV struct sr_output_module output_analog;
-extern SR_PRIV struct sr_output_module output_srzip;
-extern SR_PRIV struct sr_output_module output_wav;
-extern SR_PRIV struct sr_output_module output_wavedrom;
-extern SR_PRIV struct sr_output_module output_null;
+extern OTC_PRIV struct otc_output_module output_bits;
+extern OTC_PRIV struct otc_output_module output_hex;
+extern OTC_PRIV struct otc_output_module output_ascii;
+extern OTC_PRIV struct otc_output_module output_binary;
+extern OTC_PRIV struct otc_output_module output_vcd;
+extern OTC_PRIV struct otc_output_module output_ols;
+extern OTC_PRIV struct otc_output_module output_chronovu_la8;
+extern OTC_PRIV struct otc_output_module output_csv;
+extern OTC_PRIV struct otc_output_module output_analog;
+extern OTC_PRIV struct otc_output_module output_srzip;
+extern OTC_PRIV struct otc_output_module output_wav;
+extern OTC_PRIV struct otc_output_module output_wavedrom;
+extern OTC_PRIV struct otc_output_module output_null;
 /** @endcond */
 
-static const struct sr_output_module *output_module_list[] = {
+static const struct otc_output_module *output_module_list[] = {
 	&output_ascii,
 	&output_binary,
 	&output_bits,
@@ -90,7 +90,7 @@ static const struct sr_output_module *output_module_list[] = {
  *
  * @since 0.4.0
  */
-SR_API const struct sr_output_module **sr_output_list(void)
+OTC_API const struct otc_output_module **otc_output_list(void)
 {
 	return output_module_list;
 }
@@ -100,10 +100,10 @@ SR_API const struct sr_output_module **sr_output_list(void)
  *
  * @since 0.4.0
  */
-SR_API const char *sr_output_id_get(const struct sr_output_module *omod)
+OTC_API const char *otc_output_id_get(const struct otc_output_module *omod)
 {
 	if (!omod) {
-		sr_err("Invalid output module NULL!");
+		otc_err("Invalid output module NULL!");
 		return NULL;
 	}
 
@@ -115,10 +115,10 @@ SR_API const char *sr_output_id_get(const struct sr_output_module *omod)
  *
  * @since 0.4.0
  */
-SR_API const char *sr_output_name_get(const struct sr_output_module *omod)
+OTC_API const char *otc_output_name_get(const struct otc_output_module *omod)
 {
 	if (!omod) {
-		sr_err("Invalid output module NULL!");
+		otc_err("Invalid output module NULL!");
 		return NULL;
 	}
 
@@ -130,10 +130,10 @@ SR_API const char *sr_output_name_get(const struct sr_output_module *omod)
  *
  * @since 0.4.0
  */
-SR_API const char *sr_output_description_get(const struct sr_output_module *omod)
+OTC_API const char *otc_output_description_get(const struct otc_output_module *omod)
 {
 	if (!omod) {
-		sr_err("Invalid output module NULL!");
+		otc_err("Invalid output module NULL!");
 		return NULL;
 	}
 
@@ -148,11 +148,11 @@ SR_API const char *sr_output_description_get(const struct sr_output_module *omod
  *
  * @since 0.4.0
  */
-SR_API const char *const *sr_output_extensions_get(
-		const struct sr_output_module *omod)
+OTC_API const char *const *otc_output_extensions_get(
+		const struct otc_output_module *omod)
 {
 	if (!omod) {
-		sr_err("Invalid output module NULL!");
+		otc_err("Invalid output module NULL!");
 		return NULL;
 	}
 
@@ -162,10 +162,10 @@ SR_API const char *const *sr_output_extensions_get(
 /*
  * Checks whether a given flag is set.
  *
- * @see sr_output_flag
+ * @see otc_output_flag
  * @since 0.4.0
  */
-SR_API gboolean sr_output_test_flag(const struct sr_output_module *omod,
+OTC_API gboolean otc_output_test_flag(const struct otc_output_module *omod,
 		uint64_t flag)
 {
 	return (flag & omod->flags);
@@ -177,7 +177,7 @@ SR_API gboolean sr_output_test_flag(const struct sr_output_module *omod,
  *
  * @since 0.4.0
  */
-SR_API const struct sr_output_module *sr_output_find(char *id)
+OTC_API const struct otc_output_module *otc_output_find(char *id)
 {
 	int i;
 
@@ -190,17 +190,17 @@ SR_API const struct sr_output_module *sr_output_find(char *id)
 }
 
 /**
- * Returns a NULL-terminated array of struct sr_option, or NULL if the
+ * Returns a NULL-terminated array of struct otc_option, or NULL if the
  * module takes no options.
  *
  * Each call to this function must be followed by a call to
- * sr_output_options_free().
+ * otc_output_options_free().
  *
  * @since 0.4.0
  */
-SR_API const struct sr_option **sr_output_options_get(const struct sr_output_module *omod)
+OTC_API const struct otc_option **otc_output_options_get(const struct otc_output_module *omod)
 {
-	const struct sr_option *mod_opts, **opts;
+	const struct otc_option *mod_opts, **opts;
 	int size, i;
 
 	if (!omod || !omod->options)
@@ -210,7 +210,7 @@ SR_API const struct sr_option **sr_output_options_get(const struct sr_output_mod
 
 	for (size = 0; mod_opts[size].id; size++)
 		;
-	opts = g_malloc((size + 1) * sizeof(struct sr_option *));
+	opts = g_malloc((size + 1) * sizeof(struct otc_option *));
 
 	for (i = 0; i < size; i++)
 		opts[i] = &mod_opts[i];
@@ -220,12 +220,12 @@ SR_API const struct sr_option **sr_output_options_get(const struct sr_output_mod
 }
 
 /**
- * After a call to sr_output_options_get(), this function cleans up all
+ * After a call to otc_output_options_get(), this function cleans up all
  * resources returned by that call.
  *
  * @since 0.4.0
  */
-SR_API void sr_output_options_free(const struct sr_option **options)
+OTC_API void otc_output_options_free(const struct otc_option **options)
 {
 	int i;
 
@@ -235,12 +235,12 @@ SR_API void sr_output_options_free(const struct sr_option **options)
 	for (i = 0; options[i]; i++) {
 		if (options[i]->def) {
 			g_variant_unref(options[i]->def);
-			((struct sr_option *)options[i])->def = NULL;
+			((struct otc_option *)options[i])->def = NULL;
 		}
 
 		if (options[i]->values) {
 			g_slist_free_full(options[i]->values, (GDestroyNotify)g_variant_unref);
-			((struct sr_option *)options[i])->values = NULL;
+			((struct otc_option *)options[i])->values = NULL;
 		}
 	}
 	g_free(options);
@@ -254,24 +254,24 @@ SR_API void sr_output_options_free(const struct sr_option **options)
  * pointers with sunk * references, of the same GVariantType as the option's
  * default value.
  *
- * The sr_dev_inst passed in can be used by the instance to determine
+ * The otc_dev_inst passed in can be used by the instance to determine
  * channel names, samplerate, and so on.
  *
  * @since 0.4.0
  */
-SR_API const struct sr_output *sr_output_new(const struct sr_output_module *omod,
-		GHashTable *options, const struct sr_dev_inst *sdi,
+OTC_API const struct otc_output *otc_output_new(const struct otc_output_module *omod,
+		GHashTable *options, const struct otc_dev_inst *sdi,
 		const char *filename)
 {
-	struct sr_output *op;
-	const struct sr_option *mod_opts;
+	struct otc_output *op;
+	const struct otc_option *mod_opts;
 	const GVariantType *gvt;
 	GHashTable *new_opts;
 	GHashTableIter iter;
 	gpointer key, value;
 	int i;
 
-	op = g_malloc(sizeof(struct sr_output));
+	op = g_malloc(sizeof(struct otc_output));
 	op->module = omod;
 	op->sdi = sdi;
 	op->filename = g_strdup(filename);
@@ -286,7 +286,7 @@ SR_API const struct sr_output *sr_output_new(const struct sr_output_module *omod
 				/* Pass option along. */
 				gvt = g_variant_get_type(mod_opts[i].def);
 				if (!g_variant_is_of_type(value, gvt)) {
-					sr_err("Invalid type for '%s' option.",
+					otc_err("Invalid type for '%s' option.",
 						(char *)key);
 					g_free(op);
 					return NULL;
@@ -305,7 +305,7 @@ SR_API const struct sr_output *sr_output_new(const struct sr_output_module *omod
 			g_hash_table_iter_init(&iter, options);
 			while (g_hash_table_iter_next(&iter, &key, &value)) {
 				if (!g_hash_table_lookup(new_opts, key)) {
-					sr_err("Output module '%s' has no option '%s'",
+					otc_err("Output module '%s' has no option '%s'",
 						omod->id, (char *)key);
 					g_hash_table_destroy(new_opts);
 					g_free(op);
@@ -315,7 +315,7 @@ SR_API const struct sr_output *sr_output_new(const struct sr_output_module *omod
 		}
 	}
 
-	if (op->module->init && op->module->init(op, new_opts) != SR_OK) {
+	if (op->module->init && op->module->init(op, new_opts) != OTC_OK) {
 		g_free(op);
 		op = NULL;
 	}
@@ -333,8 +333,8 @@ SR_API const struct sr_output *sr_output_new(const struct sr_output_module *omod
  *
  * @since 0.4.0
  */
-SR_API int sr_output_send(const struct sr_output *o,
-		const struct sr_datafeed_packet *packet, GString **out)
+OTC_API int otc_output_send(const struct otc_output *o,
+		const struct otc_datafeed_packet *packet, GString **out)
 {
 	return o->module->receive(o, packet, out);
 }
@@ -344,16 +344,16 @@ SR_API int sr_output_send(const struct sr_output *o,
  *
  * @since 0.4.0
  */
-SR_API int sr_output_free(const struct sr_output *o)
+OTC_API int otc_output_free(const struct otc_output *o)
 {
 	int ret;
 
 	if (!o)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
-	ret = SR_OK;
+	ret = OTC_OK;
 	if (o->module->cleanup)
-		ret = o->module->cleanup((struct sr_output *)o);
+		ret = o->module->cleanup((struct otc_output *)o);
 	g_free((char *)o->filename);
 	g_free((gpointer)o);
 

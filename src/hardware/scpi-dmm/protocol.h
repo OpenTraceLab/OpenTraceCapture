@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -24,9 +24,9 @@
 #include <glib.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
-#include "scpi.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
+#include "../../scpi.h"
 
 #define LOG_PREFIX "scpi-dmm"
 
@@ -48,8 +48,8 @@ enum scpi_dmm_cmdcode {
 };
 
 struct mqopt_item {
-	enum sr_mq mq;
-	enum sr_mqflag mqflag;
+	enum otc_mq mq;
+	enum otc_mqflag mqflag;
 	const char *scpi_func_setup;
 	const char *scpi_func_query;
 	int default_precision;
@@ -69,7 +69,7 @@ struct scpi_dmm_model {
 	const struct scpi_command *cmdset;
 	const struct mqopt_item *mqopts;
 	size_t mqopt_size;
-	int (*get_measurement)(const struct sr_dev_inst *sdi, size_t ch);
+	int (*get_measurement)(const struct otc_dev_inst *sdi, size_t ch);
 	const uint32_t *devopts;
 	size_t devopts_size;
 	unsigned int read_timeout_us; /* If zero, use default from src/scpi/scpi.c. */
@@ -77,50 +77,50 @@ struct scpi_dmm_model {
 	unsigned int meas_delay_us;
 	float infinity_limit; /* If zero, use default from protocol.c */
 	gboolean check_opc;
-	const char *(*get_range_text)(const struct sr_dev_inst *sdi);
-	int (*set_range_from_text)(const struct sr_dev_inst *sdi,
+	const char *(*get_range_text)(const struct otc_dev_inst *sdi);
+	int (*set_range_from_text)(const struct otc_dev_inst *sdi,
 		const char *range);
-	GVariant *(*get_range_text_list)(const struct sr_dev_inst *sdi);
+	GVariant *(*get_range_text_list)(const struct otc_dev_inst *sdi);
 };
 
 struct dev_context {
 	size_t num_channels;
 	const struct scpi_command *cmdset;
 	const struct scpi_dmm_model *model;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	struct {
-		enum sr_mq curr_mq;
-		enum sr_mqflag curr_mqflag;
+		enum otc_mq curr_mq;
+		enum otc_mqflag curr_mqflag;
 	} start_acq_mq;
 	struct scpi_dmm_acq_info {
 		float f_value;
 		double d_value;
-		struct sr_datafeed_packet packet;
-		struct sr_datafeed_analog analog[SCPI_DMM_MAX_CHANNELS];
-		struct sr_analog_encoding encoding[SCPI_DMM_MAX_CHANNELS];
-		struct sr_analog_meaning meaning[SCPI_DMM_MAX_CHANNELS];
-		struct sr_analog_spec spec[SCPI_DMM_MAX_CHANNELS];
+		struct otc_datafeed_packet packet;
+		struct otc_datafeed_analog analog[SCPI_DMM_MAX_CHANNELS];
+		struct otc_analog_encoding encoding[SCPI_DMM_MAX_CHANNELS];
+		struct otc_analog_meaning meaning[SCPI_DMM_MAX_CHANNELS];
+		struct otc_analog_spec spec[SCPI_DMM_MAX_CHANNELS];
 	} run_acq_info;
 	gchar *precision;
 	char range_text[32];
 };
 
-SR_PRIV void scpi_dmm_cmd_delay(struct sr_scpi_dev_inst *scpi);
-SR_PRIV const struct mqopt_item *scpi_dmm_lookup_mq_number(
-	const struct sr_dev_inst *sdi, enum sr_mq mq, enum sr_mqflag flag);
-SR_PRIV const struct mqopt_item *scpi_dmm_lookup_mq_text(
-	const struct sr_dev_inst *sdi, const char *text);
-SR_PRIV int scpi_dmm_get_mq(const struct sr_dev_inst *sdi,
-	enum sr_mq *mq, enum sr_mqflag *flag, char **rsp,
+OTC_PRIV void scpi_dmm_cmd_delay(struct otc_scpi_dev_inst *scpi);
+OTC_PRIV const struct mqopt_item *scpi_dmm_lookup_mq_number(
+	const struct otc_dev_inst *sdi, enum otc_mq mq, enum otc_mqflag flag);
+OTC_PRIV const struct mqopt_item *scpi_dmm_lookup_mq_text(
+	const struct otc_dev_inst *sdi, const char *text);
+OTC_PRIV int scpi_dmm_get_mq(const struct otc_dev_inst *sdi,
+	enum otc_mq *mq, enum otc_mqflag *flag, char **rsp,
 	const struct mqopt_item **mqitem);
-SR_PRIV int scpi_dmm_set_mq(const struct sr_dev_inst *sdi,
-	enum sr_mq mq, enum sr_mqflag flag);
-SR_PRIV const char *scpi_dmm_get_range_text(const struct sr_dev_inst *sdi);
-SR_PRIV int scpi_dmm_set_range_from_text(const struct sr_dev_inst *sdi,
+OTC_PRIV int scpi_dmm_set_mq(const struct otc_dev_inst *sdi,
+	enum otc_mq mq, enum otc_mqflag flag);
+OTC_PRIV const char *scpi_dmm_get_range_text(const struct otc_dev_inst *sdi);
+OTC_PRIV int scpi_dmm_set_range_from_text(const struct otc_dev_inst *sdi,
 	const char *range);
-SR_PRIV GVariant *scpi_dmm_get_range_text_list(const struct sr_dev_inst *sdi);
-SR_PRIV int scpi_dmm_get_meas_agilent(const struct sr_dev_inst *sdi, size_t ch);
-SR_PRIV int scpi_dmm_get_meas_gwinstek(const struct sr_dev_inst *sdi, size_t ch);
-SR_PRIV int scpi_dmm_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV GVariant *scpi_dmm_get_range_text_list(const struct otc_dev_inst *sdi);
+OTC_PRIV int scpi_dmm_get_meas_agilent(const struct otc_dev_inst *sdi, size_t ch);
+OTC_PRIV int scpi_dmm_get_meas_gwinstek(const struct otc_dev_inst *sdi, size_t ch);
+OTC_PRIV int scpi_dmm_receive_data(int fd, int revents, void *cb_data);
 
 #endif

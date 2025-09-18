@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021 LUMERIIX
  * Copyright (C) 2024 Daniel Anselmi <danselmi@gmx.ch>
@@ -62,10 +62,10 @@ static struct gate_time_config_command gate_time_config_commands[] = {
     }
 };
 
-static void bkprecision_1856d_send_input_sel(const struct sr_dev_inst *sdi)
+static void bkprecision_1856d_send_input_sel(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	char *cmd;
 
 	if (!sdi)
@@ -77,23 +77,23 @@ static void bkprecision_1856d_send_input_sel(const struct sr_dev_inst *sdi)
 		return;
 
 	if (devc->sel_input == InputA) {
-		sr_spew("selecting input A");
+		otc_spew("selecting input A");
 		cmd = FUNCTION_A;
 	} else {
-		sr_spew("selecting input C");
+		otc_spew("selecting input C");
 		cmd = FUNCTION_C;
 	}
 
 	if (serial_write_blocking(serial, cmd, LENGHT_OF_CMD,
 			serial_timeout(serial, LENGHT_OF_CMD)) < 1) {
-		sr_err("unable to send function %c command",
+		otc_err("unable to send function %c command",
 				devc->sel_input == InputA ? 'A' : 'C' );
 	}
 
 	devc->curr_sel_input = devc->sel_input;
 }
 
-static void bkprecision_1856d_chk_select_input(const struct sr_dev_inst *sdi)
+static void bkprecision_1856d_chk_select_input(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -107,10 +107,10 @@ static void bkprecision_1856d_chk_select_input(const struct sr_dev_inst *sdi)
 		bkprecision_1856d_send_input_sel(sdi);
 }
 
-static void bkprecision_1856d_send_gate_time(const struct sr_dev_inst *sdi)
+static void bkprecision_1856d_send_gate_time(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	struct gate_time_config_command *cfg;
 
 	if (!sdi)
@@ -123,19 +123,19 @@ static void bkprecision_1856d_send_gate_time(const struct sr_dev_inst *sdi)
 
 	cfg = &(gate_time_config_commands[devc->gate_time]);
 
-	sr_info("%s", cfg->info);
+	otc_info("%s", cfg->info);
 
 	if (serial_write_blocking(serial, cfg->cmd, LENGHT_OF_CMD,
 			serial_timeout(serial, LENGHT_OF_CMD)) < 1) {
-		sr_err("unable to send gate time command");
+		otc_err("unable to send gate time command");
 	}
 	g_usleep(cfg->sleep_time);
 }
 
-static void bkprecision_1856d_request_data(const struct sr_dev_inst *sdi)
+static void bkprecision_1856d_request_data(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	if (!sdi)
 		return;
@@ -145,18 +145,18 @@ static void bkprecision_1856d_request_data(const struct sr_dev_inst *sdi)
 	if (!devc || !serial)
 		return;
 
-	sr_spew("requesting data");
+	otc_spew("requesting data");
 
 	if (serial_write_blocking(serial, DATA_REQ, LENGHT_OF_CMD,
 			serial_timeout(serial, LENGHT_OF_CMD)) < 1) {
-		sr_err("unable to send request data command");
+		otc_err("unable to send request data command");
 	}
 }
 
-SR_PRIV void bkprecision_1856d_init(const struct sr_dev_inst *sdi)
+OTC_PRIV void bkprecision_1856d_init(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	if (!sdi)
 		return;
@@ -167,7 +167,7 @@ SR_PRIV void bkprecision_1856d_init(const struct sr_dev_inst *sdi)
 		return;
 
 	devc->buffer_level = 0;
-	sr_sw_limits_acquisition_start(&(devc->sw_limits));
+	otc_sw_limits_acquisition_start(&(devc->sw_limits));
 	serial_flush(serial);
 
 	bkprecision_1856d_send_input_sel(sdi);
@@ -200,17 +200,17 @@ static int bkprecision_1856d_check_for_zero_message(struct dev_context *devc)
 }
 
 static void bkprecision_1856d_send_packet(
-	const struct sr_dev_inst *sdi, double freq_value, int digits)
+	const struct otc_dev_inst *sdi, double freq_value, int digits)
 {
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 
-	sr_analog_init(&analog, &encoding, &meaning, &spec, digits);
-	analog.meaning->mq = SR_MQ_FREQUENCY;
-	analog.meaning->unit = SR_UNIT_HERTZ;
+	otc_analog_init(&analog, &encoding, &meaning, &spec, digits);
+	analog.meaning->mq = OTC_MQ_FREQUENCY;
+	analog.meaning->unit = OTC_UNIT_HERTZ;
 	analog.meaning->channels = sdi->channels;
 	analog.num_samples = 1;
 	analog.data = &freq_value;
@@ -218,15 +218,15 @@ static void bkprecision_1856d_send_packet(
 	analog.encoding->is_float = TRUE;
 	analog.encoding->digits = digits;
 
-	packet.type = SR_DF_ANALOG;
+	packet.type = OTC_DF_ANALOG;
 	packet.payload = &analog;
-	sr_session_send(sdi, &packet);
+	otc_session_send(sdi, &packet);
 }
 
-static void bkprecision_1856d_parse_message(struct sr_dev_inst *sdi)
+static void bkprecision_1856d_parse_message(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	double freq_value;
 	int digits;
@@ -240,7 +240,7 @@ static void bkprecision_1856d_parse_message(struct sr_dev_inst *sdi)
 
 	/* check for cr at end of message */
 	if (devc->buffer[BKPRECISION1856D_MSG_SIZE - 1] != '\xD') {
-		sr_err("expected cr at end of message.");
+		otc_err("expected cr at end of message.");
 		devc->buffer_level = 0;
 		serial_flush(serial);
 		bkprecision_1856d_send_input_sel(sdi);
@@ -252,7 +252,7 @@ static void bkprecision_1856d_parse_message(struct sr_dev_inst *sdi)
 	devc->buffer[BKPRECISION1856D_MSG_SIZE - 1] = 0; /* set trailing zero */
 
 	if (bkprecision_1856d_check_for_zero_message(devc)) {
-		sr_spew("received an empty packet");
+		otc_spew("received an empty packet");
 		devc->buffer_level = 0;
 		bkprecision_1856d_request_data(sdi);
 		return;
@@ -261,7 +261,7 @@ static void bkprecision_1856d_parse_message(struct sr_dev_inst *sdi)
 	freq_value = strtod(devc->buffer, &endPtr);
 
 	if (strcmp(devc->buffer + BKPRECISION1856D_MSG_NUMBER_SIZE + 1, "Hz ")) {
-		sr_err("not a frequency returned");
+		otc_err("not a frequency returned");
 		devc->buffer_level = 0;
 		bkprecision_1856d_send_input_sel(sdi);
 		bkprecision_1856d_send_gate_time(sdi);
@@ -286,23 +286,23 @@ static void bkprecision_1856d_parse_message(struct sr_dev_inst *sdi)
 
 	bkprecision_1856d_send_packet(sdi, freq_value, digits);
 
-	sr_sw_limits_update_samples_read(&(devc->sw_limits), 1);
+	otc_sw_limits_update_samples_read(&(devc->sw_limits), 1);
 
-	if (!sr_sw_limits_check(&(devc->sw_limits))) {
+	if (!otc_sw_limits_check(&(devc->sw_limits))) {
 		devc->buffer_level = 0;
 		bkprecision_1856d_chk_select_input(sdi);
 		bkprecision_1856d_send_gate_time(sdi);
 		bkprecision_1856d_request_data(sdi);
 	}
 	else
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 }
 
-SR_PRIV int bkprecision_1856d_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int bkprecision_1856d_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	int len;
 
 	(void)fd;
@@ -339,12 +339,12 @@ SR_PRIV int bkprecision_1856d_receive_data(int fd, int revents, void *cb_data)
 	return TRUE;
 }
 
-SR_PRIV void bkprecision_1856d_set_gate_time(struct dev_context *devc, int time)
+OTC_PRIV void bkprecision_1856d_set_gate_time(struct dev_context *devc, int time)
 {
 	devc->gate_time = time;
 }
 
-SR_PRIV void bkprecision_1856d_select_input(struct dev_context *devc,
+OTC_PRIV void bkprecision_1856d_select_input(struct dev_context *devc,
 											int intput)
 {
 	devc->sel_input = intput;

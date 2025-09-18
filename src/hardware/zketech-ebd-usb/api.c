@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2018 Sven Bursch-Osewold <sb_git@bursch.com>
  * Copyright (C) 2019 King Kévin <kingkevin@cuvoodoo.info>
@@ -22,29 +22,29 @@
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_ELECTRONIC_LOAD,
+	OTC_CONF_ELECTRONIC_LOAD,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	struct dev_context *devc;
 	GSList *l;
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	const char *conn, *serialcomm;
-	struct sr_config *src;
-	struct sr_serial_dev_inst *serial;
+	struct otc_config *src;
+	struct otc_serial_dev_inst *serial;
 	uint8_t reply[MSG_MAX_LEN];
 
 	conn = NULL;
@@ -53,10 +53,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
 		}
@@ -67,21 +67,21 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	if (!serialcomm)
 		serialcomm = "9600/8e1";
 
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
 		return NULL;
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("ZKETECH");
 	sdi->model = g_strdup("EBD-USB");
-	sdi->inst_type = SR_INST_SERIAL;
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->conn = serial;
 
-	sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "V.VBUS");
-	sr_channel_new(sdi, 1, SR_CHANNEL_ANALOG, TRUE, "I.VBUS");
-	sr_channel_new(sdi, 2, SR_CHANNEL_ANALOG, TRUE, "V.D+");
-	sr_channel_new(sdi, 3, SR_CHANNEL_ANALOG, TRUE, "V.D-");
+	otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, "V.VBUS");
+	otc_channel_new(sdi, 1, OTC_CHANNEL_ANALOG, TRUE, "I.VBUS");
+	otc_channel_new(sdi, 2, OTC_CHANNEL_ANALOG, TRUE, "V.D+");
+	otc_channel_new(sdi, 3, OTC_CHANNEL_ANALOG, TRUE, "V.D-");
 
 	devc = g_malloc0(sizeof(struct dev_context));
 	g_mutex_init(&devc->rw_mutex);
@@ -89,18 +89,18 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	devc->uvc_threshold = 0;
 	devc->running = FALSE;
 	devc->load_activated = FALSE;
-	sr_sw_limits_init(&devc->limits);
+	otc_sw_limits_init(&devc->limits);
 	sdi->priv = devc;
 
 	/* Starting device. */
 	ebd_init(serial, devc);
 	int ret = ebd_read_message(serial, MSG_MAX_LEN, reply);
 	if (ret < 0) {
-		sr_warn("Could not receive message!");
-		ret = SR_ERR;
+		otc_warn("Could not receive message!");
+		ret = OTC_ERR;
 	} else if (ret == 0) {
-		sr_warn("No message received!");
-		ret = SR_ERR;
+		otc_warn("No message received!");
+		ret = OTC_ERR;
 	}
 	ebd_stop(serial, devc);
 
@@ -112,7 +112,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	return std_scan_complete(di, g_slist_append(NULL, sdi));
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -124,7 +124,7 @@ static int dev_close(struct sr_dev_inst *sdi)
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	int ret;
 	struct dev_context *devc;
@@ -133,31 +133,31 @@ static int config_get(uint32_t key, GVariant **data,
 	(void)cg;
 
 	if (!sdi || !data)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_get(&devc->limits, key, data);
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_get(&devc->limits, key, data);
+	case OTC_CONF_CURRENT_LIMIT:
 		ret = ebd_get_current_limit(sdi, &fvalue);
-		if (ret == SR_OK)
+		if (ret == OTC_OK)
 			*data = g_variant_new_double(fvalue);
 		return ret;
-	case SR_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD:
+	case OTC_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD:
 		ret = ebd_get_uvc_threshold(sdi, &fvalue);
-		if (ret == SR_OK)
+		if (ret == OTC_OK)
 			*data = g_variant_new_double(fvalue);
 		return ret;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	double value;
 	struct dev_context *devc;
@@ -168,54 +168,54 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_MSEC:
-	case SR_CONF_LIMIT_SAMPLES:
-		return sr_sw_limits_config_set(&devc->limits, key, data);
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_SAMPLES:
+		return otc_sw_limits_config_set(&devc->limits, key, data);
+	case OTC_CONF_CURRENT_LIMIT:
 		value = g_variant_get_double(data);
 		if (value < 0.0 || value > 4.0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		return ebd_set_current_limit(sdi, value);
-	case SR_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD:
+	case OTC_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD:
 		value = g_variant_get_double(data);
 		if (value < 0.0 || value > 21.0)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		return ebd_set_uvc_threshold(sdi, value);
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts,
 			devopts);
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		*data = std_gvar_min_max_step(0.0, 4.0, 0.001);
 		break;
-	case SR_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD:
+	case OTC_CONF_UNDER_VOLTAGE_CONDITION_THRESHOLD:
 		*data = std_gvar_min_max_step(0.0, 21.0, 0.01);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 	serial = sdi->conn;
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	std_session_send_df_header(sdi);
 
 	ebd_init(serial, devc);
@@ -223,10 +223,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	serial_source_add(sdi->session, serial, G_IO_IN, 100,
 		ebd_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
@@ -240,7 +240,7 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 	return std_serial_dev_acquisition_stop(sdi);
 }
 
-static struct sr_dev_driver zketech_ebd_usb_driver_info = {
+static struct otc_dev_driver zketech_ebd_usb_driver_info = {
 	.name = "zketech-ebd-usb",
 	.longname = "ZKETECH EBD-USB",
 	.api_version = 1,
@@ -258,4 +258,4 @@ static struct sr_dev_driver zketech_ebd_usb_driver_info = {
 	.dev_acquisition_stop = dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(zketech_ebd_usb_driver_info);
+OTC_REGISTER_DEV_DRIVER(zketech_ebd_usb_driver_info);

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010-2012 Håvard Espeland <gus@ping.uio.no>,
  * Copyright (C) 2010 Martin Stensgård <mastensg@ping.uio.no>
@@ -39,14 +39,14 @@
  */
 static const uint64_t samplerates[] = {
 	/* 50MHz and integer divider. 1/2/5 steps (where possible). */
-	SR_KHZ(200), SR_KHZ(500),
-	SR_MHZ(1), SR_MHZ(2), SR_MHZ(5),
-	SR_MHZ(10), SR_MHZ(25), SR_MHZ(50),
+	OTC_KHZ(200), OTC_KHZ(500),
+	OTC_MHZ(1), OTC_MHZ(2), OTC_MHZ(5),
+	OTC_MHZ(10), OTC_MHZ(25), OTC_MHZ(50),
 	/* 100MHz/200MHz, fixed rates in special firmware. */
-	SR_MHZ(100), SR_MHZ(200),
+	OTC_MHZ(100), OTC_MHZ(200),
 };
 
-SR_PRIV GVariant *sigma_get_samplerates_list(void)
+OTC_PRIV GVariant *sigma_get_samplerates_list(void)
 {
 	return std_gvar_samplerates(samplerates, ARRAY_SIZE(samplerates));
 }
@@ -61,7 +61,7 @@ static const char *firmware_files[] = {
 
 #define SIGMA_FIRMWARE_SIZE_LIMIT (256 * 1024)
 
-static int sigma_ftdi_open(const struct sr_dev_inst *sdi)
+static int sigma_ftdi_open(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int vid, pid;
@@ -70,33 +70,33 @@ static int sigma_ftdi_open(const struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (devc->ftdi.is_open)
-		return SR_OK;
+		return OTC_OK;
 
 	vid = devc->id.vid;
 	pid = devc->id.pid;
 	serno = sdi->serial_num;
 	if (!vid || !pid || !serno || !*serno)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ret = ftdi_init(&devc->ftdi.ctx);
 	if (ret < 0) {
-		sr_err("Cannot initialize FTDI context (%d): %s.",
+		otc_err("Cannot initialize FTDI context (%d): %s.",
 			ret, ftdi_get_error_string(&devc->ftdi.ctx));
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 	ret = ftdi_usb_open_desc_index(&devc->ftdi.ctx,
 		vid, pid, NULL, serno, 0);
 	if (ret < 0) {
-		sr_err("Cannot open device (%d): %s.",
+		otc_err("Cannot open device (%d): %s.",
 			ret, ftdi_get_error_string(&devc->ftdi.ctx));
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 	devc->ftdi.is_open = TRUE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int sigma_ftdi_close(struct dev_context *devc)
@@ -108,68 +108,68 @@ static int sigma_ftdi_close(struct dev_context *devc)
 	devc->ftdi.must_close = FALSE;
 	ftdi_deinit(&devc->ftdi.ctx);
 
-	return ret == 0 ? SR_OK : SR_ERR_IO;
+	return ret == 0 ? OTC_OK : OTC_ERR_IO;
 }
 
-SR_PRIV int sigma_check_open(const struct sr_dev_inst *sdi)
+OTC_PRIV int sigma_check_open(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (devc->ftdi.is_open)
-		return SR_OK;
+		return OTC_OK;
 
 	ret = sigma_ftdi_open(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	devc->ftdi.must_close = TRUE;
 
 	return ret;
 }
 
-SR_PRIV int sigma_check_close(struct dev_context *devc)
+OTC_PRIV int sigma_check_close(struct dev_context *devc)
 {
 	int ret;
 
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (devc->ftdi.must_close) {
 		ret = sigma_ftdi_close(devc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		devc->ftdi.must_close = FALSE;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int sigma_force_open(const struct sr_dev_inst *sdi)
+OTC_PRIV int sigma_force_open(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ret = sigma_ftdi_open(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	devc->ftdi.must_close = FALSE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int sigma_force_close(struct dev_context *devc)
+OTC_PRIV int sigma_force_close(struct dev_context *devc)
 {
 	return sigma_ftdi_close(devc);
 }
@@ -179,8 +179,8 @@ SR_PRIV int sigma_force_close(struct dev_context *devc)
  *
  * - Raw USB tranport communicates the number of sent or received bytes,
  *   or negative error codes in the external library's(!) range of codes.
- * - Internal routines at the "sigrok driver level" communicate success
- *   or failure in terms of SR_OK et al error codes.
+ * - Internal routines at the "opentracelab driver level" communicate success
+ *   or failure in terms of OTC_OK et al error codes.
  * - Main loop style receive callbacks communicate booleans which arrange
  *   for repeated calls to drive progress during acquisition.
  *
@@ -195,7 +195,7 @@ static int sigma_read_raw(struct dev_context *devc, void *buf, size_t size)
 
 	ret = ftdi_read_data(&devc->ftdi.ctx, (unsigned char *)buf, size);
 	if (ret < 0) {
-		sr_err("USB data read failed: %s",
+		otc_err("USB data read failed: %s",
 			ftdi_get_error_string(&devc->ftdi.ctx));
 	}
 
@@ -208,10 +208,10 @@ static int sigma_write_raw(struct dev_context *devc, const void *buf, size_t siz
 
 	ret = ftdi_write_data(&devc->ftdi.ctx, buf, size);
 	if (ret < 0) {
-		sr_err("USB data write failed: %s",
+		otc_err("USB data write failed: %s",
 			ftdi_get_error_string(&devc->ftdi.ctx));
 	} else if ((size_t)ret != size) {
-		sr_err("USB data write length mismatch.");
+		otc_err("USB data write length mismatch.");
 	}
 
 	return ret;
@@ -223,9 +223,9 @@ static int sigma_read_sr(struct dev_context *devc, void *buf, size_t size)
 
 	ret = sigma_read_raw(devc, buf, size);
 	if (ret < 0 || (size_t)ret != size)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int sigma_write_sr(struct dev_context *devc, const void *buf, size_t size)
@@ -234,15 +234,15 @@ static int sigma_write_sr(struct dev_context *devc, const void *buf, size_t size
 
 	ret = sigma_write_raw(devc, buf, size);
 	if (ret < 0 || (size_t)ret != size)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
  * Implementor's note: The local write buffer's size shall suffice for
  * any know FPGA register transaction that is involved in the supported
- * feature set of this sigrok device driver. If the length check trips,
+ * feature set of this opentracelab device driver. If the length check trips,
  * that's a programmer's error and needs adjustment in the complete call
  * stack of the respective code path.
  */
@@ -258,15 +258,15 @@ static int sigma_write_sr(struct dev_context *devc, const void *buf, size_t size
  */
 #define SIGMA_MAX_REG_COUNT	16
 
-SR_PRIV int sigma_write_register(struct dev_context *devc,
+OTC_PRIV int sigma_write_register(struct dev_context *devc,
 	uint8_t reg, uint8_t *data, size_t len)
 {
 	uint8_t buf[2 + SIGMA_MAX_REG_DEPTH * 2], *wrptr;
 	size_t idx;
 
 	if (len > SIGMA_MAX_REG_DEPTH) {
-		sr_err("Short write buffer for %zu bytes to reg %u.", len, reg);
-		return SR_ERR_BUG;
+		otc_err("Short write buffer for %zu bytes to reg %u.", len, reg);
+		return OTC_ERR_BUG;
 	}
 
 	wrptr = buf;
@@ -280,7 +280,7 @@ SR_PRIV int sigma_write_register(struct dev_context *devc,
 	return sigma_write_sr(devc, buf, wrptr - buf);
 }
 
-SR_PRIV int sigma_set_register(struct dev_context *devc,
+OTC_PRIV int sigma_set_register(struct dev_context *devc,
 	uint8_t reg, uint8_t value)
 {
 	return sigma_write_register(devc, reg, &value, sizeof(value));
@@ -297,7 +297,7 @@ static int sigma_read_register(struct dev_context *devc,
 	write_u8_inc(&wrptr, REG_ADDR_HIGH | HI4(reg));
 	write_u8_inc(&wrptr, REG_READ_ADDR);
 	ret = sigma_write_sr(devc, buf, wrptr - buf);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return sigma_read_sr(devc, data, len);
@@ -317,8 +317,8 @@ static int sigma_get_registers(struct dev_context *devc,
 	int ret;
 
 	if (count > SIGMA_MAX_REG_COUNT) {
-		sr_err("Short command buffer for %zu reg reads at %u.", count, reg);
-		return SR_ERR_BUG;
+		otc_err("Short command buffer for %zu reg reads at %u.", count, reg);
+		return OTC_ERR_BUG;
 	}
 
 	wrptr = buf;
@@ -327,7 +327,7 @@ static int sigma_get_registers(struct dev_context *devc,
 	for (idx = 0; idx < count; idx++)
 		write_u8_inc(&wrptr, REG_READ_ADDR | REG_ADDR_INC);
 	ret = sigma_write_sr(devc, buf, wrptr - buf);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return sigma_read_sr(devc, data, count);
@@ -348,7 +348,7 @@ static int sigma_read_pos(struct dev_context *devc,
 	 */
 	ret = sigma_get_registers(devc, READ_TRIGGER_POS_LOW,
 		result, sizeof(result));
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	rdptr = &result[0];
@@ -378,7 +378,7 @@ static int sigma_read_pos(struct dev_context *devc,
 	if (triggerpos && (--*triggerpos & ROW_MASK) == ROW_MASK)
 		*triggerpos -= CLUSTERS_PER_ROW;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int sigma_read_dram(struct dev_context *devc,
@@ -390,15 +390,15 @@ static int sigma_read_dram(struct dev_context *devc,
 	gboolean is_last;
 
 	if (2 + 3 * numchunks > ARRAY_SIZE(buf)) {
-		sr_err("Short write buffer for %zu DRAM row reads.", numchunks);
-		return SR_ERR_BUG;
+		otc_err("Short write buffer for %zu DRAM row reads.", numchunks);
+		return OTC_ERR_BUG;
 	}
 
 	/* Communicate DRAM start address (memory row, aka samples line). */
 	wrptr = buf;
 	write_u16be_inc(&wrptr, startchunk);
 	ret = sigma_write_register(devc, WRITE_MEMROW, buf, wrptr - buf);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -422,14 +422,14 @@ static int sigma_read_dram(struct dev_context *devc,
 			write_u8_inc(&wrptr, REG_DRAM_WAIT_ACK);
 	}
 	ret = sigma_write_sr(devc, buf, wrptr - buf);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return sigma_read_sr(devc, data, numchunks * ROW_LENGTH_BYTES);
 }
 
 /* Upload trigger look-up tables to Sigma. */
-SR_PRIV int sigma_write_trigger_lut(struct dev_context *devc,
+OTC_PRIV int sigma_write_trigger_lut(struct dev_context *devc,
 	struct triggerlut *lut)
 {
 	size_t lut_addr;
@@ -506,12 +506,12 @@ SR_PRIV int sigma_write_trigger_lut(struct dev_context *devc,
 		write_u16be_inc(&wrptr, lutreg);
 		ret = sigma_write_register(devc, WRITE_TRIGGER_SELECT,
 			buf, wrptr - buf);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 		trgsel2 = TRGSEL2_RESET | TRGSEL2_LUT_WRITE |
 			(lut_addr & TRGSEL2_LUT_ADDR_MASK);
 		ret = sigma_set_register(devc, WRITE_TRIGGER_SELECT2, trgsel2);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
@@ -530,10 +530,10 @@ SR_PRIV int sigma_write_trigger_lut(struct dev_context *devc,
 	write_u16be_inc(&wrptr, lut->params.cmpb);
 	write_u16be_inc(&wrptr, lut->params.cmpa);
 	ret = sigma_write_register(devc, WRITE_TRIGGER_SELECT, buf, wrptr - buf);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -611,18 +611,18 @@ static int sigma_fpga_init_bitbang_once(struct dev_context *devc)
 	uint8_t data;
 
 	/* Section 2. part 1), do the FPGA suicide. */
-	ret = SR_OK;
+	ret = OTC_OK;
 	ret |= sigma_write_sr(devc, suicide, sizeof(suicide));
 	ret |= sigma_write_sr(devc, suicide, sizeof(suicide));
 	ret |= sigma_write_sr(devc, suicide, sizeof(suicide));
 	ret |= sigma_write_sr(devc, suicide, sizeof(suicide));
-	if (ret != SR_OK)
-		return SR_ERR_IO;
+	if (ret != OTC_OK)
+		return OTC_ERR_IO;
 	g_usleep(10 * 1000);
 
 	/* Section 2. part 2), pulse PROG. */
 	ret = sigma_write_sr(devc, init_array, sizeof(init_array));
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	g_usleep(10 * 1000);
 	PURGE_FTDI_BOTH(&devc->ftdi.ctx);
@@ -642,15 +642,15 @@ static int sigma_fpga_init_bitbang_once(struct dev_context *devc)
 		do {
 			ret = sigma_read_raw(devc, &data, sizeof(data));
 			if (ret < 0)
-				return SR_ERR_IO;
+				return OTC_ERR_IO;
 			if (ret == sizeof(data) && (data & BB_PIN_INIT))
-				return SR_OK;
+				return OTC_OK;
 		} while (ret == sizeof(data));
 		if (retries)
 			g_usleep(10 * 1000);
 	}
 
-	return SR_ERR_TIMEOUT;
+	return OTC_ERR_TIMEOUT;
 }
 
 /*
@@ -666,9 +666,9 @@ static int sigma_fpga_init_bitbang(struct dev_context *devc)
 	retries = 10;
 	while (retries--) {
 		ret = sigma_fpga_init_bitbang_once(devc);
-		if (ret == SR_OK)
+		if (ret == OTC_OK)
 			return ret;
-		if (ret != SR_ERR_TIMEOUT)
+		if (ret != OTC_ERR_TIMEOUT)
 			return ret;
 	}
 	return ret;
@@ -720,30 +720,30 @@ static int sigma_fpga_init_la(struct dev_context *devc)
 	 * Expect to see the corresponding 3 response bytes.
 	 */
 	ret = sigma_write_sr(devc, buf, wrptr - buf);
-	if (ret != SR_OK) {
-		sr_err("Could not request LA start response.");
+	if (ret != OTC_OK) {
+		otc_err("Could not request LA start response.");
 		return ret;
 	}
 	ret = sigma_read_sr(devc, result, ARRAY_SIZE(result));
-	if (ret != SR_OK) {
-		sr_err("Could not receive LA start response.");
-		return SR_ERR_IO;
+	if (ret != OTC_OK) {
+		otc_err("Could not receive LA start response.");
+		return OTC_ERR_IO;
 	}
 	rdptr = result;
 	if (read_u8_inc(&rdptr) != 0xa6) {
-		sr_err("Unexpected ID response.");
-		return SR_ERR_DATA;
+		otc_err("Unexpected ID response.");
+		return OTC_ERR_DATA;
 	}
 	if (read_u8_inc(&rdptr) != data_55) {
-		sr_err("Unexpected scratch read-back (55).");
-		return SR_ERR_DATA;
+		otc_err("Unexpected scratch read-back (55).");
+		return OTC_ERR_DATA;
 	}
 	if (read_u8_inc(&rdptr) != data_aa) {
-		sr_err("Unexpected scratch read-back (aa).");
-		return SR_ERR_DATA;
+		otc_err("Unexpected scratch read-back (aa).");
+		return OTC_ERR_DATA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -751,7 +751,7 @@ static int sigma_fpga_init_la(struct dev_context *devc)
  * pulses used to program the FPGA. Note that the *bb_cmd must be free()'d
  * by the caller of this function.
  */
-static int sigma_fw_2_bitbang(struct sr_context *ctx, const char *name,
+static int sigma_fw_2_bitbang(struct otc_context *ctx, const char *name,
 	uint8_t **bb_cmd, size_t *bb_cmd_size)
 {
 	uint8_t *firmware;
@@ -763,10 +763,10 @@ static int sigma_fw_2_bitbang(struct sr_context *ctx, const char *name,
 	uint8_t *bb_stream, *bbs, byte, mask, v;
 
 	/* Retrieve the on-disk firmware file content. */
-	firmware = sr_resource_load(ctx, SR_RESOURCE_FIRMWARE, name,
+	firmware = otc_resource_load(ctx, OTC_RESOURCE_FIRMWARE, name,
 		&file_size, SIGMA_FIRMWARE_SIZE_LIMIT);
 	if (!firmware)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
 	/* Unscramble the file content (XOR with "random" sequence). */
 	p = firmware;
@@ -795,9 +795,9 @@ static int sigma_fw_2_bitbang(struct sr_context *ctx, const char *name,
 	bb_size = file_size * 8 * 2;
 	bb_stream = g_try_malloc(bb_size);
 	if (!bb_stream) {
-		sr_err("Memory allocation failed during firmware upload.");
+		otc_err("Memory allocation failed during firmware upload.");
 		g_free(firmware);
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	}
 	bbs = bb_stream;
 	p = firmware;
@@ -818,10 +818,10 @@ static int sigma_fw_2_bitbang(struct sr_context *ctx, const char *name,
 	*bb_cmd = bb_stream;
 	*bb_cmd_size = bb_size;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int upload_firmware(struct sr_context *ctx, struct dev_context *devc,
+static int upload_firmware(struct otc_context *ctx, struct dev_context *devc,
 	enum sigma_firmware_idx firmware_idx)
 {
 	int ret;
@@ -832,15 +832,15 @@ static int upload_firmware(struct sr_context *ctx, struct dev_context *devc,
 
 	/* Check for valid firmware file selection. */
 	if (firmware_idx >= ARRAY_SIZE(firmware_files))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	firmware = firmware_files[firmware_idx];
 	if (!firmware || !*firmware)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Avoid downloading the same firmware multiple times. */
 	if (devc->firmware_idx == firmware_idx) {
-		sr_info("Not uploading firmware file '%s' again.", firmware);
-		return SR_OK;
+		otc_info("Not uploading firmware file '%s' again.", firmware);
+		return OTC_OK;
 	}
 
 	devc->state = SIGMA_CONFIG;
@@ -848,46 +848,46 @@ static int upload_firmware(struct sr_context *ctx, struct dev_context *devc,
 	/* Set the cable to bitbang mode. */
 	ret = ftdi_set_bitmode(&devc->ftdi.ctx, BB_PINMASK, BITMODE_BITBANG);
 	if (ret < 0) {
-		sr_err("Could not setup cable mode for upload: %s",
+		otc_err("Could not setup cable mode for upload: %s",
 			ftdi_get_error_string(&devc->ftdi.ctx));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	ret = ftdi_set_baudrate(&devc->ftdi.ctx, BB_BITRATE);
 	if (ret < 0) {
-		sr_err("Could not setup bitrate for upload: %s",
+		otc_err("Could not setup bitrate for upload: %s",
 			ftdi_get_error_string(&devc->ftdi.ctx));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	/* Initiate FPGA configuration mode. */
 	ret = sigma_fpga_init_bitbang(devc);
 	if (ret) {
-		sr_err("Could not initiate firmware upload to hardware");
+		otc_err("Could not initiate firmware upload to hardware");
 		return ret;
 	}
 
 	/* Prepare wire format of the firmware image. */
 	ret = sigma_fw_2_bitbang(ctx, firmware, &buf, &buf_size);
-	if (ret != SR_OK) {
-		sr_err("Could not prepare file %s for upload.", firmware);
+	if (ret != OTC_OK) {
+		otc_err("Could not prepare file %s for upload.", firmware);
 		return ret;
 	}
 
 	/* Write the FPGA netlist to the cable. */
-	sr_info("Uploading firmware file '%s'.", firmware);
+	otc_info("Uploading firmware file '%s'.", firmware);
 	ret = sigma_write_sr(devc, buf, buf_size);
 	g_free(buf);
-	if (ret != SR_OK) {
-		sr_err("Could not upload firmware file '%s'.", firmware);
+	if (ret != OTC_OK) {
+		otc_err("Could not upload firmware file '%s'.", firmware);
 		return ret;
 	}
 
 	/* Leave bitbang mode and discard pending input data. */
 	ret = ftdi_set_bitmode(&devc->ftdi.ctx, 0, BITMODE_RESET);
 	if (ret < 0) {
-		sr_err("Could not setup cable mode after upload: %s",
+		otc_err("Could not setup cable mode after upload: %s",
 			ftdi_get_error_string(&devc->ftdi.ctx));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 	PURGE_FTDI_BOTH(&devc->ftdi.ctx);
 	while (sigma_read_raw(devc, &pins, sizeof(pins)) > 0)
@@ -895,17 +895,17 @@ static int upload_firmware(struct sr_context *ctx, struct dev_context *devc,
 
 	/* Initialize the FPGA for logic-analyzer mode. */
 	ret = sigma_fpga_init_la(devc);
-	if (ret != SR_OK) {
-		sr_err("Hardware response after firmware upload failed.");
+	if (ret != OTC_OK) {
+		otc_err("Hardware response after firmware upload failed.");
 		return ret;
 	}
 
 	/* Keep track of successful firmware download completion. */
 	devc->state = SIGMA_IDLE;
 	devc->firmware_idx = firmware_idx;
-	sr_info("Firmware uploaded.");
+	otc_info("Firmware uploaded.");
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -930,7 +930,7 @@ static int upload_firmware(struct sr_context *ctx, struct dev_context *devc,
  * times that period for good measure, one is not enough to flush the
  * hardware pipeline (observation from an earlier experiment).
  */
-SR_PRIV int sigma_set_acquire_timeout(struct dev_context *devc)
+OTC_PRIV int sigma_set_acquire_timeout(struct dev_context *devc)
 {
 	int ret;
 	GVariant *data;
@@ -938,13 +938,13 @@ SR_PRIV int sigma_set_acquire_timeout(struct dev_context *devc)
 	uint64_t worst_cluster_time_ms;
 	uint64_t count_msecs, acquire_msecs;
 
-	sr_sw_limits_init(&devc->limit.acquire);
+	otc_sw_limits_init(&devc->limit.acquire);
 	devc->late_trigger_timeout = FALSE;
 
 	/* Get sample count limit, convert to msecs. */
-	ret = sr_sw_limits_config_get(&devc->limit.config,
-		SR_CONF_LIMIT_SAMPLES, &data);
-	if (ret != SR_OK)
+	ret = otc_sw_limits_config_get(&devc->limit.config,
+		OTC_CONF_LIMIT_SAMPLES, &data);
+	if (ret != OTC_OK)
 		return ret;
 	user_count = g_variant_get_uint64(data);
 	g_variant_unref(data);
@@ -957,9 +957,9 @@ SR_PRIV int sigma_set_acquire_timeout(struct dev_context *devc)
 		count_msecs = 1000 * user_count / devc->clock.samplerate + 1;
 
 	/* Get time limit, which is in msecs. */
-	ret = sr_sw_limits_config_get(&devc->limit.config,
-		SR_CONF_LIMIT_MSEC, &data);
-	if (ret != SR_OK)
+	ret = otc_sw_limits_config_get(&devc->limit.config,
+		OTC_CONF_LIMIT_MSEC, &data);
+	if (ret != OTC_OK)
 		return ret;
 	user_msecs = g_variant_get_uint64(data);
 	g_variant_unref(data);
@@ -975,25 +975,25 @@ SR_PRIV int sigma_set_acquire_timeout(struct dev_context *devc)
 	if (user_msecs && user_msecs < acquire_msecs)
 		acquire_msecs = user_msecs;
 	if (acquire_msecs == ~UINT64_C(0))
-		return SR_OK;
+		return OTC_OK;
 
 	/* Add some slack, and use that timeout for acquisition. */
 	worst_cluster_time_ms = 1000 * 65536 / devc->clock.samplerate;
 	acquire_msecs += 2 * worst_cluster_time_ms;
 	data = g_variant_new_uint64(acquire_msecs);
-	ret = sr_sw_limits_config_set(&devc->limit.acquire,
-		SR_CONF_LIMIT_MSEC, data);
+	ret = otc_sw_limits_config_set(&devc->limit.acquire,
+		OTC_CONF_LIMIT_MSEC, data);
 	g_variant_unref(data);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Deferred or immediate (trigger-less) timeout period start. */
 	if (devc->use_triggers)
 		devc->late_trigger_timeout = TRUE;
 	else
-		sr_sw_limits_acquisition_start(&devc->limit.acquire);
+		otc_sw_limits_acquisition_start(&devc->limit.acquire);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1011,31 +1011,31 @@ SR_PRIV int sigma_set_acquire_timeout(struct dev_context *devc)
  * available channels, they are not suggested by this routine, instead
  * callers need to pick them consciously.
  */
-SR_PRIV int sigma_normalize_samplerate(uint64_t want_rate, uint64_t *have_rate)
+OTC_PRIV int sigma_normalize_samplerate(uint64_t want_rate, uint64_t *have_rate)
 {
 	uint64_t div, rate;
 
 	/* Accept exact matches for 100/200MHz. */
-	if (want_rate == SR_MHZ(200) || want_rate == SR_MHZ(100)) {
+	if (want_rate == OTC_MHZ(200) || want_rate == OTC_MHZ(100)) {
 		if (have_rate)
 			*have_rate = want_rate;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/* Accept 200kHz to 50MHz range, and map to near value. */
-	if (want_rate >= SR_KHZ(200) && want_rate <= SR_MHZ(50)) {
-		div = SR_MHZ(50) / want_rate;
-		rate = SR_MHZ(50) / div;
+	if (want_rate >= OTC_KHZ(200) && want_rate <= OTC_MHZ(50)) {
+		div = OTC_MHZ(50) / want_rate;
+		rate = OTC_MHZ(50) / div;
 		if (have_rate)
 			*have_rate = rate;
-		return SR_OK;
+		return OTC_OK;
 	}
 
-	return SR_ERR_ARG;
+	return OTC_ERR_ARG;
 }
 
 /* Gets called at probe time. Can seed software settings from hardware state. */
-SR_PRIV int sigma_fetch_hw_config(const struct sr_dev_inst *sdi)
+OTC_PRIV int sigma_fetch_hw_config(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -1043,7 +1043,7 @@ SR_PRIV int sigma_fetch_hw_config(const struct sr_dev_inst *sdi)
 
 	devc = sdi->priv;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Seed configuration values from defaults. */
 	devc->firmware_idx = SIGMA_FW_NONE;
@@ -1052,15 +1052,15 @@ SR_PRIV int sigma_fetch_hw_config(const struct sr_dev_inst *sdi)
 	/* TODO
 	 * Ideally the device driver could retrieve recently stored
 	 * details from hardware registers, thus re-use user specified
-	 * configuration values across sigrok sessions. Which could
+	 * configuration values across opentracelab sessions. Which could
 	 * avoid repeated expensive though unnecessary firmware uploads,
 	 * improve performance and usability. Unfortunately it appears
 	 * that the registers range which is documented as available for
 	 * application use keeps providing 0xff data content. At least
-	 * with the netlist version which ships with sigrok. The same
+	 * with the netlist version which ships with opentracelab. The same
 	 * was observed with unused registers in the first page.
 	 */
-	return SR_ERR_NA;
+	return OTC_ERR_NA;
 
 	/* This is for research, currently does not work yet. */
 	ret = sigma_check_open(sdi);
@@ -1068,20 +1068,20 @@ SR_PRIV int sigma_fetch_hw_config(const struct sr_dev_inst *sdi)
 	regaddr = 14;
 	ret = sigma_set_register(devc, regaddr, 'F');
 	ret = sigma_get_register(devc, regaddr, &regval);
-	sr_warn("%s() reg[%u] val[%u] rc[%d]", __func__, regaddr, regval, ret);
+	otc_warn("%s() reg[%u] val[%u] rc[%d]", __func__, regaddr, regval, ret);
 	ret = sigma_check_close(devc);
 	return ret;
 }
 
 /* Gets called after successful (volatile) hardware configuration. */
-SR_PRIV int sigma_store_hw_config(const struct sr_dev_inst *sdi)
+OTC_PRIV int sigma_store_hw_config(const struct otc_dev_inst *sdi)
 {
 	/* TODO See above, registers seem to not hold written data. */
 	(void)sdi;
-	return SR_ERR_NA;
+	return OTC_ERR_NA;
 }
 
-SR_PRIV int sigma_set_samplerate(const struct sr_dev_inst *sdi)
+OTC_PRIV int sigma_set_samplerate(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct drv_context *drvc;
@@ -1094,7 +1094,7 @@ SR_PRIV int sigma_set_samplerate(const struct sr_dev_inst *sdi)
 
 	/* Accept any caller specified rate which the hardware supports. */
 	ret = sigma_normalize_samplerate(devc->clock.samplerate, &samplerate);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/*
@@ -1103,14 +1103,14 @@ SR_PRIV int sigma_set_samplerate(const struct sr_dev_inst *sdi)
 	 * of available channels.
 	 */
 	num_channels = devc->interp.num_channels;
-	if (samplerate <= SR_MHZ(50)) {
-		ret = upload_firmware(drvc->sr_ctx, devc, SIGMA_FW_50MHZ);
+	if (samplerate <= OTC_MHZ(50)) {
+		ret = upload_firmware(drvc->otc_ctx, devc, SIGMA_FW_50MHZ);
 		num_channels = 16;
-	} else if (samplerate == SR_MHZ(100)) {
-		ret = upload_firmware(drvc->sr_ctx, devc, SIGMA_FW_100MHZ);
+	} else if (samplerate == OTC_MHZ(100)) {
+		ret = upload_firmware(drvc->otc_ctx, devc, SIGMA_FW_100MHZ);
 		num_channels = 8;
-	} else if (samplerate == SR_MHZ(200)) {
-		ret = upload_firmware(drvc->sr_ctx, devc, SIGMA_FW_200MHZ);
+	} else if (samplerate == OTC_MHZ(200)) {
+		ret = upload_firmware(drvc->otc_ctx, devc, SIGMA_FW_200MHZ);
 		num_channels = 4;
 	}
 
@@ -1119,7 +1119,7 @@ SR_PRIV int sigma_set_samplerate(const struct sr_dev_inst *sdi)
 	 * as well as a sample memory layout detail (the number of samples
 	 * which the device will communicate within an "event").
 	 */
-	if (ret == SR_OK) {
+	if (ret == OTC_OK) {
 		devc->interp.num_channels = num_channels;
 		devc->interp.samples_per_event = 16 / devc->interp.num_channels;
 	}
@@ -1129,7 +1129,7 @@ SR_PRIV int sigma_set_samplerate(const struct sr_dev_inst *sdi)
 	 * in hardware, such that subsequent sessions can start from there.
 	 * This is a "best effort" approach. Failure is non-fatal.
 	 */
-	if (ret == SR_OK)
+	if (ret == OTC_OK)
 		(void)sigma_store_hw_config(sdi);
 
 	return ret;
@@ -1151,12 +1151,12 @@ struct submit_buffer {
 	size_t max_samples, curr_samples;
 	uint8_t *sample_data;
 	uint8_t *write_pointer;
-	struct sr_dev_inst *sdi;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_dev_inst *sdi;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 };
 
-static int alloc_submit_buffer(struct sr_dev_inst *sdi)
+static int alloc_submit_buffer(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct submit_buffer *buffer;
@@ -1174,50 +1174,50 @@ static int alloc_submit_buffer(struct sr_dev_inst *sdi)
 	size *= buffer->unit_size;
 	buffer->sample_data = g_try_malloc0(size);
 	if (!buffer->sample_data)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	buffer->write_pointer = buffer->sample_data;
-	sr_sw_limits_init(&devc->limit.submit);
+	otc_sw_limits_init(&devc->limit.submit);
 
 	buffer->sdi = sdi;
 	memset(&buffer->logic, 0, sizeof(buffer->logic));
 	buffer->logic.unitsize = buffer->unit_size;
 	buffer->logic.data = buffer->sample_data;
 	memset(&buffer->packet, 0, sizeof(buffer->packet));
-	buffer->packet.type = SR_DF_LOGIC;
+	buffer->packet.type = OTC_DF_LOGIC;
 	buffer->packet.payload = &buffer->logic;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int setup_submit_limit(struct dev_context *devc)
 {
-	struct sr_sw_limits *limits;
+	struct otc_sw_limits *limits;
 	int ret;
 	GVariant *data;
 	uint64_t total;
 
 	limits = &devc->limit.submit;
 
-	ret = sr_sw_limits_config_get(&devc->limit.config,
-		SR_CONF_LIMIT_SAMPLES, &data);
-	if (ret != SR_OK)
+	ret = otc_sw_limits_config_get(&devc->limit.config,
+		OTC_CONF_LIMIT_SAMPLES, &data);
+	if (ret != OTC_OK)
 		return ret;
 	total = g_variant_get_uint64(data);
 	g_variant_unref(data);
 
-	sr_sw_limits_init(limits);
+	otc_sw_limits_init(limits);
 	if (total) {
 		data = g_variant_new_uint64(total);
-		ret = sr_sw_limits_config_set(limits,
-			SR_CONF_LIMIT_SAMPLES, data);
+		ret = otc_sw_limits_config_set(limits,
+			OTC_CONF_LIMIT_SAMPLES, data);
 		g_variant_unref(data);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	sr_sw_limits_acquisition_start(limits);
+	otc_sw_limits_acquisition_start(limits);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void free_submit_buffer(struct dev_context *devc)
@@ -1245,31 +1245,31 @@ static int flush_submit_buffer(struct dev_context *devc)
 
 	/* Is queued sample data available? */
 	if (!buffer->curr_samples)
-		return SR_OK;
+		return OTC_OK;
 
 	/* Submit to the session feed. */
 	buffer->logic.length = buffer->curr_samples * buffer->unit_size;
-	ret = sr_session_send(buffer->sdi, &buffer->packet);
-	if (ret != SR_OK)
+	ret = otc_session_send(buffer->sdi, &buffer->packet);
+	if (ret != OTC_OK)
 		return ret;
 
 	/* Rewind queue position. */
 	buffer->curr_samples = 0;
 	buffer->write_pointer = buffer->sample_data;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int addto_submit_buffer(struct dev_context *devc,
 	uint16_t sample, size_t count)
 {
 	struct submit_buffer *buffer;
-	struct sr_sw_limits *limits;
+	struct otc_sw_limits *limits;
 	int ret;
 
 	buffer = devc->buffer;
 	limits = &devc->limit.submit;
-	if (!devc->use_triggers && sr_sw_limits_check(limits))
+	if (!devc->use_triggers && otc_sw_limits_check(limits))
 		count = 0;
 
 	/*
@@ -1282,15 +1282,15 @@ static int addto_submit_buffer(struct dev_context *devc,
 		buffer->curr_samples++;
 		if (buffer->curr_samples == buffer->max_samples) {
 			ret = flush_submit_buffer(devc);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return ret;
 		}
-		sr_sw_limits_update_samples_read(limits, 1);
-		if (!devc->use_triggers && sr_sw_limits_check(limits))
+		otc_sw_limits_update_samples_read(limits, 1);
+		if (!devc->use_triggers && otc_sw_limits_check(limits))
 			break;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void sigma_location_break_down(struct sigma_location *loc)
@@ -1453,9 +1453,9 @@ static int alloc_sample_buffer(struct dev_context *devc,
 	alloc_size *= devc->interp.fetch.lines_per_read;
 	devc->interp.fetch.rcvd_lines = g_try_malloc0(alloc_size);
 	if (!devc->interp.fetch.rcvd_lines)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static uint16_t sigma_deinterlace_data_4x4(uint16_t indata, int idx);
@@ -1482,7 +1482,7 @@ static int fetch_sample_buffer(struct dev_context *devc)
 		count = interp->fetch.lines_per_read;
 	ret = sigma_read_dram(devc, interp->iter.line, count,
 		(uint8_t *)interp->fetch.rcvd_lines);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	interp->fetch.lines_rcvd = count;
 	interp->fetch.curr_line = &interp->fetch.rcvd_lines[0];
@@ -1501,7 +1501,7 @@ static int fetch_sample_buffer(struct dev_context *devc)
 		interp->last.sample = data;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void free_sample_buffer(struct dev_context *devc)
@@ -1537,16 +1537,16 @@ static void free_sample_buffer(struct dev_context *devc)
  * combinations).
  *
  * Implementor's note: This routine currently exclusively accepts input
- * in the form of sr_trigger stages, which results from "01rf-" choices
+ * in the form of otc_trigger stages, which results from "01rf-" choices
  * on a multitude of individual GUI traces, or the CLI's --trigger spec
  * which takes one list of <pin>=<value/edge> details.
  *
- * TODO Consider the addition of SR_CONF_TRIGGER_PATTERN support, which
+ * TODO Consider the addition of OTC_CONF_TRIGGER_PATTERN support, which
  * accepts a single free form string argument, and could describe a
  * multi-bit pattern without the tedious trace name/index selection.
  * Fortunately the number of channels is fixed for this device, we need
  * not come up with variable length support and counts beyond 64. _When_
- * --trigger as well as SR_CONF_TRIGGER_PATTERN are supported, then the
+ * --trigger as well as OTC_CONF_TRIGGER_PATTERN are supported, then the
  * implementation needs to come up with priorities for these sources of
  * input specs, or enforce exclusive use of either form (at one time,
  * per acquisition / invocation).
@@ -1563,7 +1563,7 @@ static void free_sample_buffer(struct dev_context *devc)
  * - Alternative bit pattern form, including wildcards in a single value.
  *   This cannot use common conversion support, needs special handling.
  *     triggerpattern=0b1010xxxx1111xxx0
- *   This is most similar to SR_CONF_TRIGGER_PATTERN as hameg-hmo uses
+ *   This is most similar to OTC_CONF_TRIGGER_PATTERN as hameg-hmo uses
  *   it. Passes the app's spec via SCPI to the device. See section 2.3.5
  *   "Pattern trigger" and :TRIG:A:PATT:SOUR in the Hameg document.
  * - Prefixed form to tell the above variants apart, and support both of
@@ -1585,7 +1585,7 @@ static void free_sample_buffer(struct dev_context *devc)
  *   mere unseparated values for value and mask, use common conversion.
  *   This results in transparent dec/bin/oct/hex support. Underscores?
  * - Accept 0/1 binary digits in 'bits=', as well as r/f/e edge specs.
- * - Only use --trigger (struct sr_trigger) when SR_CONF_TRIGGER_PATTERN
+ * - Only use --trigger (struct otc_trigger) when OTC_CONF_TRIGGER_PATTERN
  *   is absent? Or always accept --trigger in addition to the data pattern
  *   spec? Then only accept edge specs from --trigger, since data pattern
  *   was most importantly motivated by address/data bus inspection?
@@ -1600,12 +1600,12 @@ static void free_sample_buffer(struct dev_context *devc)
  *   It's desirable to have sigma_convert_trigger() do all the parsing,
  *   and constraint checking in a central location.
  */
-SR_PRIV int sigma_convert_trigger(const struct sr_dev_inst *sdi)
+OTC_PRIV int sigma_convert_trigger(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_trigger *trigger;
-	struct sr_trigger_stage *stage;
-	struct sr_trigger_match *match;
+	struct otc_trigger *trigger;
+	struct otc_trigger_stage *stage;
+	struct otc_trigger_match *match;
 	const GSList *l, *m;
 	uint16_t channelbit;
 	size_t edge_count;
@@ -1614,10 +1614,10 @@ SR_PRIV int sigma_convert_trigger(const struct sr_dev_inst *sdi)
 	memset(&devc->trigger, 0, sizeof(devc->trigger));
 	devc->use_triggers = FALSE;
 
-	/* TODO Consider additional SR_CONF_TRIGGER_PATTERN support. */
-	trigger = sr_session_trigger_get(sdi->session);
+	/* TODO Consider additional OTC_CONF_TRIGGER_PATTERN support. */
+	trigger = otc_session_trigger_get(sdi->session);
 	if (!trigger)
-		return SR_OK;
+		return OTC_OK;
 
 	edge_count = 0;
 	for (l = trigger->stages; l; l = l->next) {
@@ -1628,34 +1628,34 @@ SR_PRIV int sigma_convert_trigger(const struct sr_dev_inst *sdi)
 			if (!match->channel->enabled)
 				continue;
 			channelbit = BIT(match->channel->index);
-			if (devc->clock.samplerate >= SR_MHZ(100)) {
+			if (devc->clock.samplerate >= OTC_MHZ(100)) {
 				/* Fast trigger support. */
 				if (edge_count > 0) {
-					sr_err("100/200MHz modes limited to single trigger pin.");
-					return SR_ERR;
+					otc_err("100/200MHz modes limited to single trigger pin.");
+					return OTC_ERR;
 				}
-				if (match->match == SR_TRIGGER_FALLING) {
+				if (match->match == OTC_TRIGGER_FALLING) {
 					devc->trigger.fallingmask |= channelbit;
-				} else if (match->match == SR_TRIGGER_RISING) {
+				} else if (match->match == OTC_TRIGGER_RISING) {
 					devc->trigger.risingmask |= channelbit;
 				} else {
-					sr_err("100/200MHz modes limited to edge trigger.");
-					return SR_ERR;
+					otc_err("100/200MHz modes limited to edge trigger.");
+					return OTC_ERR;
 				}
 
 				edge_count++;
 			} else {
 				/* Simple trigger support (event). */
-				if (match->match == SR_TRIGGER_ONE) {
+				if (match->match == OTC_TRIGGER_ONE) {
 					devc->trigger.simplevalue |= channelbit;
 					devc->trigger.simplemask |= channelbit;
-				} else if (match->match == SR_TRIGGER_ZERO) {
+				} else if (match->match == OTC_TRIGGER_ZERO) {
 					devc->trigger.simplevalue &= ~channelbit;
 					devc->trigger.simplemask |= channelbit;
-				} else if (match->match == SR_TRIGGER_FALLING) {
+				} else if (match->match == OTC_TRIGGER_FALLING) {
 					devc->trigger.fallingmask |= channelbit;
 					edge_count++;
-				} else if (match->match == SR_TRIGGER_RISING) {
+				} else if (match->match == OTC_TRIGGER_RISING) {
 					devc->trigger.risingmask |= channelbit;
 					edge_count++;
 				}
@@ -1666,8 +1666,8 @@ SR_PRIV int sigma_convert_trigger(const struct sr_dev_inst *sdi)
 				 * does not permit ORed triggers.
 				 */
 				if (edge_count > 1) {
-					sr_err("Limited to 1 edge trigger.");
-					return SR_ERR;
+					otc_err("Limited to 1 edge trigger.");
+					return OTC_ERR;
 				}
 			}
 		}
@@ -1676,7 +1676,7 @@ SR_PRIV int sigma_convert_trigger(const struct sr_dev_inst *sdi)
 	/* Keep track whether triggers are involved during acquisition. */
 	devc->use_triggers = TRUE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static gboolean sample_matches_trigger(struct dev_context *devc, uint16_t sample)
@@ -1724,13 +1724,13 @@ static int send_trigger_marker(struct dev_context *devc)
 	int ret;
 
 	ret = flush_submit_buffer(devc);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 	ret = std_session_send_df_trigger(devc->buffer->sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int check_and_submit_sample(struct dev_context *devc,
@@ -1746,10 +1746,10 @@ static int check_and_submit_sample(struct dev_context *devc,
 	}
 
 	ret = addto_submit_buffer(devc, sample, count);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void sigma_location_check(struct dev_context *devc)
@@ -1859,7 +1859,7 @@ static void sigma_decode_dram_cluster(struct dev_context *devc,
 	/*
 	 * If this cluster is not adjacent to the previously received
 	 * cluster, then send the appropriate number of samples with the
-	 * previous values to the sigrok session. This "decodes RLE".
+	 * previous values to the opentracelab session. This "decodes RLE".
 	 *
 	 * These samples cannot match the trigger since they just repeat
 	 * the previously submitted data pattern. (This assumption holds
@@ -1953,10 +1953,10 @@ static int decode_chunk_ts(struct dev_context *devc,
 			events_in_cluster);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int download_capture(struct sr_dev_inst *sdi)
+static int download_capture(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct sigma_sample_interp *interp;
@@ -1980,22 +1980,22 @@ static int download_capture(struct sr_dev_inst *sdi)
 	 * raise the POSTTRIGGERED flag.
 	 */
 	ret = sigma_get_register(devc, READ_MODE, &modestatus);
-	if (ret != SR_OK) {
-		sr_err("Could not determine current device state.");
+	if (ret != OTC_OK) {
+		otc_err("Could not determine current device state.");
 		return FALSE;
 	}
 	if (!(modestatus & RMR_POSTTRIGGERED)) {
-		sr_info("Downloading sample data.");
+		otc_info("Downloading sample data.");
 		devc->state = SIGMA_DOWNLOAD;
 
 		modestatus = WMR_FORCESTOP | WMR_SDRAMWRITEEN;
 		ret = sigma_set_register(devc, WRITE_MODE, modestatus);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return FALSE;
 		do {
 			ret = sigma_get_register(devc, READ_MODE, &modestatus);
-			if (ret != SR_OK) {
-				sr_err("Could not poll for post-trigger state.");
+			if (ret != OTC_OK) {
+				otc_err("Could not poll for post-trigger state.");
 				return FALSE;
 			}
 		} while (!(modestatus & RMR_POSTTRIGGERED));
@@ -2015,12 +2015,12 @@ static int download_capture(struct sr_dev_inst *sdi)
 	 */
 	if (!interp->fetch.lines_per_read) {
 		ret = sigma_set_register(devc, WRITE_MODE, WMR_SDRAMREADEN);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return FALSE;
 
 		ret = sigma_read_pos(devc, &stoppos, &triggerpos, &modestatus);
-		if (ret != SR_OK) {
-			sr_err("Could not query capture positions/state.");
+		if (ret != OTC_OK) {
+			otc_err("Could not query capture positions/state.");
 			return FALSE;
 		}
 		if (!devc->use_triggers)
@@ -2029,14 +2029,14 @@ static int download_capture(struct sr_dev_inst *sdi)
 			triggerpos = ~0;
 
 		ret = alloc_sample_buffer(devc, stoppos, triggerpos, modestatus);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return FALSE;
 
 		ret = alloc_submit_buffer(sdi);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return FALSE;
 		ret = setup_submit_limit(devc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return FALSE;
 	}
 
@@ -2055,7 +2055,7 @@ static int download_capture(struct sr_dev_inst *sdi)
 
 		/* Read another chunk of sample memory (several lines). */
 		ret = fetch_sample_buffer(devc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return FALSE;
 
 		/* Process lines of sample data. Last line may be short. */
@@ -2073,7 +2073,7 @@ static int download_capture(struct sr_dev_inst *sdi)
 		/* Keep returning to application code for large data sets. */
 		if (!--chunks_per_receive_call) {
 			ret = flush_submit_buffer(devc);
-			if (ret != SR_OK)
+			if (ret != OTC_OK)
 				return FALSE;
 			break;
 		}
@@ -2086,17 +2086,17 @@ static int download_capture(struct sr_dev_inst *sdi)
 	 */
 	if (interp->fetch.lines_done >= interp->fetch.lines_total) {
 		ret = flush_submit_buffer(devc);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return FALSE;
 		free_submit_buffer(devc);
 		free_sample_buffer(devc);
 
 		ret = std_session_send_df_end(sdi);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return FALSE;
 
 		devc->state = SIGMA_IDLE;
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 	}
 
 	return TRUE;
@@ -2107,7 +2107,7 @@ static int download_capture(struct sr_dev_inst *sdi)
  * checks whether the configured sample count or sample time have passed,
  * and will stop acquisition and download the acquired samples.
  */
-static int sigma_capture_mode(struct sr_dev_inst *sdi)
+static int sigma_capture_mode(struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -2122,7 +2122,7 @@ static int sigma_capture_mode(struct sr_dev_inst *sdi)
 	 * thresholds are rather arbitrary.
 	 */
 	ret = sigma_read_pos(devc, &stoppos, &triggerpos, &mode);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return FALSE;
 	stoppos >>= ROW_SHIFT;
 	full = stoppos >= ROW_COUNT - 2;
@@ -2146,10 +2146,10 @@ static int sigma_capture_mode(struct sr_dev_inst *sdi)
 	 * are used (unknown period from acquisition start to trigger
 	 * match).
 	 */
-	if (sr_sw_limits_check(&devc->limit.acquire))
+	if (otc_sw_limits_check(&devc->limit.acquire))
 		return download_capture(sdi);
 	if (devc->late_trigger_timeout && triggered) {
-		sr_sw_limits_acquisition_start(&devc->limit.acquire);
+		otc_sw_limits_acquisition_start(&devc->limit.acquire);
 		devc->late_trigger_timeout = FALSE;
 	}
 
@@ -2167,9 +2167,9 @@ static int sigma_capture_mode(struct sr_dev_inst *sdi)
 	return TRUE;
 }
 
-SR_PRIV int sigma_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int sigma_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 
 	(void)fd;
@@ -2336,7 +2336,7 @@ static void add_trigger_function(enum triggerop oper, enum triggerfunc func,
  * simple pin change and state triggers. Only two transitions (rise/fall) can be
  * set at any time, but a full mask and value can be set (0/1).
  */
-SR_PRIV int sigma_build_basic_trigger(struct dev_context *devc,
+OTC_PRIV int sigma_build_basic_trigger(struct dev_context *devc,
 	struct triggerlut *lut)
 {
 	uint16_t masks[2];
@@ -2346,7 +2346,7 @@ SR_PRIV int sigma_build_basic_trigger(struct dev_context *devc,
 	/* Setup something that "won't match" in the absence of a spec. */
 	memset(lut, 0, sizeof(*lut));
 	if (!devc->use_triggers)
-		return SR_OK;
+		return OTC_OK;
 
 	/* Start assuming simple triggers. Edges are handled below. */
 	lut->m4 = 0xa000;
@@ -2393,5 +2393,5 @@ SR_PRIV int sigma_build_basic_trigger(struct dev_context *devc,
 	lut->params.sela = 0; /* Counter >= CMPA && LEVEL */
 	lut->params.cmpa = 0; /* Count 0 -> 1 already triggers. */
 
-	return SR_OK;
+	return OTC_OK;
 }

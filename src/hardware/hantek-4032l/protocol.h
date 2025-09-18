@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2016 Andreas Zschunke <andreas.zschunke@gmx.net>
  * Copyright (C) 2017 Andrej Valek <andy@skyrain.eu>
@@ -25,8 +25,8 @@
 #include <stdint.h>
 #include <glib.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "hantek-4032l"
 
@@ -173,14 +173,14 @@ struct dev_context {
 	uint32_t fpga_version;
 };
 
-SR_PRIV int h4032l_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV uint16_t h4032l_voltage2pwm(double voltage);
-SR_PRIV void LIBUSB_CALL h4032l_usb_callback(struct libusb_transfer *transfer);
-SR_PRIV void LIBUSB_CALL h4032l_data_transfer_callback(struct libusb_transfer *transfer);
-SR_PRIV int h4032l_start_data_transfers(const struct sr_dev_inst *sdi);
-SR_PRIV int h4032l_start(const struct sr_dev_inst *sdi);
-SR_PRIV int h4032l_stop(struct sr_dev_inst *sdi);
-SR_PRIV int h4032l_dev_open(struct sr_dev_inst *sdi);
-SR_PRIV int h4032l_get_fpga_version(const struct sr_dev_inst *sdi);
+OTC_PRIV int h4032l_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV uint16_t h4032l_voltage2pwm(double voltage);
+OTC_PRIV void LIBUSB_CALL h4032l_usb_callback(struct libusb_transfer *transfer);
+OTC_PRIV void LIBUSB_CALL h4032l_data_transfer_callback(struct libusb_transfer *transfer);
+OTC_PRIV int h4032l_start_data_transfers(const struct otc_dev_inst *sdi);
+OTC_PRIV int h4032l_start(const struct otc_dev_inst *sdi);
+OTC_PRIV int h4032l_stop(struct otc_dev_inst *sdi);
+OTC_PRIV int h4032l_dev_open(struct otc_dev_inst *sdi);
+OTC_PRIV int h4032l_get_fpga_version(const struct otc_dev_inst *sdi);
 
 #endif

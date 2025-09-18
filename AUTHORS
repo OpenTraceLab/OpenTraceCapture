@@ -2,6 +2,17 @@
 AUTHORS
 -------------------------------------------------------------------------------
 
+OpenTraceCapture Contributors
+-----------------------------
+
+This fork was created to enhance libsigrok with improved trace capture
+capabilities and modern signal analysis features.
+
+For OpenTraceCapture-specific contributions, see git history from the fork point.
+
+Original libsigrok Authors
+--------------------------
+
 Please check the source code files and/or git history and/or ChangeLog for
 a list of all authors and contributors.
 

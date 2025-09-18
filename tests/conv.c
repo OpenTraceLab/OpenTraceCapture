@@ -19,7 +19,7 @@
 
 #include <config.h>
 #include <check.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libsigrok.h>
 #include <stdlib.h>
 #include <string.h>
 #include "lib.h"

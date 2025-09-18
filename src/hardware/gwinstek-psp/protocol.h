@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2023 ettom <36895504+ettom@users.noreply.github.com>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "gwinstek-psp"
 
@@ -41,7 +41,7 @@ struct gwinstek_psp_model {
 struct dev_context {
 	const struct gwinstek_psp_model *model; /**< Model information. */
 
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	int64_t next_req_time;
 	int64_t last_status_query_time;
 	GMutex rw_mutex;
@@ -68,13 +68,13 @@ struct dev_context {
 	int msg_terminator_len; /** < 2 or 3, depending on the URPSP1/2 setting */
 };
 
-SR_PRIV int gwinstek_psp_send_cmd(struct sr_serial_dev_inst *serial,
+OTC_PRIV int gwinstek_psp_send_cmd(struct otc_serial_dev_inst *serial,
     struct dev_context *devc, const char* cmd, gboolean lock);
-SR_PRIV int gwinstek_psp_check_terminator(struct sr_serial_dev_inst *serial,
+OTC_PRIV int gwinstek_psp_check_terminator(struct otc_serial_dev_inst *serial,
     struct dev_context *devc);
-SR_PRIV int gwinstek_psp_get_initial_voltage_target(struct dev_context *devc);
-SR_PRIV int gwinstek_psp_get_all_values(struct sr_serial_dev_inst *serial,
+OTC_PRIV int gwinstek_psp_get_initial_voltage_target(struct dev_context *devc);
+OTC_PRIV int gwinstek_psp_get_all_values(struct otc_serial_dev_inst *serial,
 	struct dev_context *devc);
-SR_PRIV int gwinstek_psp_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int gwinstek_psp_receive_data(int fd, int revents, void *cb_data);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2010 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
@@ -34,8 +34,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "output/vcd"
 
@@ -45,7 +45,7 @@ static const int with_pool_stats = 0;
 struct vcd_channel_desc {
 	size_t index;
 	GString *name;
-	enum sr_channeltype type;
+	enum otc_channeltype type;
 	struct {
 		uint8_t logic;
 		double real;
@@ -76,7 +76,7 @@ struct context {
 };
 
 /*
- * Construct VCD signal identifiers from a sigrok channel index. The
+ * Construct VCD signal identifiers from a opentracelab channel index. The
  * routine returns a GString which the caller is supposed to release.
  *
  * There are 94 printable ASCII characters. For larger channel index
@@ -129,7 +129,7 @@ static GString *vcd_identifier(size_t idx)
 		c1 = VCD_IDENT_ALPHA_MIN + (idx % VCD_IDENT_COUNT_ALPHA);
 		idx /= VCD_IDENT_COUNT_ALPHA;
 		if (idx)
-			sr_dbg("VCD identifier creation BUG (two char).");
+			otc_dbg("VCD identifier creation BUG (two char).");
 		g_string_printf(symbol, "%c%c", c1, c2);
 		return symbol;
 	}
@@ -144,7 +144,7 @@ static GString *vcd_identifier(size_t idx)
 		c1 = VCD_IDENT_ALPHA_MIN + (idx % VCD_IDENT_COUNT_ALPHA);
 		idx /= VCD_IDENT_COUNT_ALPHA;
 		if (idx)
-			sr_dbg("VCD identifier creation BUG (three char).");
+			otc_dbg("VCD identifier creation BUG (three char).");
 		g_string_printf(symbol, "%c%c%c", c1, c2, c3);
 		return symbol;
 	}
@@ -155,7 +155,7 @@ static GString *vcd_identifier(size_t idx)
 	 * Add combinations with more positions or larger character sets
 	 * when support for more channels is required.
 	 */
-	sr_dbg("VCD identifier creation ENOTSUPP (need %zu more).", idx);
+	otc_dbg("VCD identifier creation ENOTSUPP (need %zu more).", idx);
 	g_string_free(symbol, TRUE);
 
 	return NULL;
@@ -202,11 +202,11 @@ static void format_vcd_value_real(GString *s, double real_value, GString *id)
 	g_string_append(s, id->str);
 }
 
-static int init(struct sr_output *o, GHashTable *options)
+static int init(struct otc_output *o, GHashTable *options)
 {
 	struct context *ctx;
 	size_t alloc_size;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	GSList *l;
 	size_t num_enabled, num_logic, num_analog, desc_idx;
 	struct vcd_channel_desc *desc;
@@ -221,9 +221,9 @@ static int init(struct sr_output *o, GHashTable *options)
 		ch = l->data;
 		if (!ch->enabled)
 			continue;
-		if (ch->type == SR_CHANNEL_LOGIC) {
+		if (ch->type == OTC_CHANNEL_LOGIC) {
 			num_logic++;
-		} else if (ch->type == SR_CHANNEL_ANALOG) {
+		} else if (ch->type == OTC_CHANNEL_ANALOG) {
 			num_analog++;
 		} else {
 			continue;
@@ -231,8 +231,8 @@ static int init(struct sr_output *o, GHashTable *options)
 		num_enabled++;
 	}
 	if (num_enabled > VCD_IDENT_COUNT) {
-		sr_err("Only up to %d VCD signals supported.", VCD_IDENT_COUNT);
-		return SR_ERR;
+		otc_err("Only up to %d VCD signals supported.", VCD_IDENT_COUNT);
+		return OTC_ERR;
 	}
 
 	/* Allocate space for channel descriptions. */
@@ -261,10 +261,10 @@ static int init(struct sr_output *o, GHashTable *options)
 		 * Make sure to _not_ match next time, to have initial
 		 * values dumped when the first sample gets received.
 		 */
-		if (desc->type == SR_CHANNEL_LOGIC && num_logic) {
+		if (desc->type == OTC_CHANNEL_LOGIC && num_logic) {
 			num_logic--;
 			desc->last.logic = ~0;
-		} else if (desc->type == SR_CHANNEL_ANALOG && num_analog) {
+		} else if (desc->type == OTC_CHANNEL_ANALOG && num_analog) {
 			num_analog--;
 			/* "Construct" NaN, avoid a compile time error. */
 			desc->last.real = 0.0;
@@ -296,9 +296,9 @@ static int init(struct sr_output *o, GHashTable *options)
 	alloc_size = (ctx->logic_count + 7) / 8;
 	ctx->last_logic = g_malloc0(alloc_size);
 	if (ctx->logic_count && !ctx->last_logic)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -334,10 +334,10 @@ static uint64_t get_timescale_freq(uint64_t samplerate)
 }
 
 /* Emit a VCD file header. */
-static GString *gen_header(const struct sr_output *o)
+static GString *gen_header(const struct otc_output *o)
 {
 	struct context *ctx;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	GVariant *gvar;
 	GString *header;
 	GSList *l;
@@ -353,9 +353,9 @@ static GString *gen_header(const struct sr_output *o)
 	/* Get channel count, and samplerate if not done yet. */
 	num_channels = g_slist_length(o->sdi->channels);
 	if (!ctx->samplerate) {
-		ret = sr_config_get(o->sdi->driver, o->sdi, NULL,
-			SR_CONF_SAMPLERATE, &gvar);
-		if (ret == SR_OK) {
+		ret = otc_config_get(o->sdi->driver, o->sdi, NULL,
+			OTC_CONF_SAMPLERATE, &gvar);
+		if (ret == OTC_OK) {
 			ctx->samplerate = g_variant_get_uint64(gvar);
 			g_variant_unref(gvar);
 		}
@@ -366,14 +366,14 @@ static GString *gen_header(const struct sr_output *o)
 	timestamp[strlen(timestamp) - 1] = '\0';
 	samplerate_s = NULL;
 	if (ctx->samplerate)
-		samplerate_s = sr_samplerate_string(ctx->samplerate);
-	frequency_s = sr_period_string(1, ctx->period);
+		samplerate_s = otc_samplerate_string(ctx->samplerate);
+	frequency_s = otc_period_string(1, ctx->period);
 
 	/* Construct the VCD output file header. */
 	header = g_string_sized_new(512);
 	g_string_printf(header, "$date %s $end\n", timestamp);
 	g_string_append_printf(header, "$version %s %s $end\n",
-		PACKAGE_NAME, sr_package_version_string_get());
+		PACKAGE_NAME, otc_package_version_string_get());
 	g_string_append_printf(header, "$comment\n");
 	g_string_append_printf(header,
 		"  Acquisition with %zu/%zu channels%s%s\n",
@@ -390,10 +390,10 @@ static GString *gen_header(const struct sr_output *o)
 		if (!ch->enabled)
 			continue;
 		desc = &ctx->channels[i++];
-		if (desc->type == SR_CHANNEL_LOGIC) {
+		if (desc->type == OTC_CHANNEL_LOGIC) {
 			type_text = "wire";
 			size_text = "1";
-		} else if (desc->type == SR_CHANNEL_ANALOG) {
+		} else if (desc->type == OTC_CHANNEL_ANALOG) {
 			type_text = "real";
 			size_text = "64";
 		} else {
@@ -420,7 +420,7 @@ static GString *gen_header(const struct sr_output *o)
  * GString. Callers will append the text representation of sample data
  * to that string as needed.
  */
-static GString *chk_header(const struct sr_output *o)
+static GString *chk_header(const struct otc_output *o)
 {
 	struct context *ctx;
 	GString *s;
@@ -605,7 +605,7 @@ static int queue_samplenum(struct context *ctx, uint64_t snum)
 	/* Already at that position? */
 	item = ctx->vcd_queue_last ? ctx->vcd_queue_last->data : NULL;
 	if (item && item->samplenum == snum)
-		return SR_OK;
+		return OTC_OK;
 
 	/*
 	 * Search after the current position in the remaining queue. The
@@ -624,7 +624,7 @@ static int queue_samplenum(struct context *ctx, uint64_t snum)
 			break;
 		if (item->samplenum == snum) {
 			ctx->vcd_queue_last = walk_list;
-			return SR_OK;
+			return OTC_OK;
 		}
 		last = walk_list;
 		if (item->samplenum < snum)
@@ -662,7 +662,7 @@ static int queue_samplenum(struct context *ctx, uint64_t snum)
 			break;
 		if (item->samplenum == snum) {
 			ctx->vcd_queue_last = walk_list;
-			return SR_OK;
+			return OTC_OK;
 		}
 		if (item->samplenum < snum)
 			before_snum = walk_list;
@@ -700,7 +700,7 @@ static int queue_samplenum(struct context *ctx, uint64_t snum)
 			break;
 		if (item->samplenum == snum) {
 			ctx->vcd_queue_last = walk_list;
-			return SR_OK;
+			return OTC_OK;
 		}
 		if (item->samplenum < snum)
 			before_snum = walk_list;
@@ -714,7 +714,7 @@ static int queue_samplenum(struct context *ctx, uint64_t snum)
 				break;
 			if (item->samplenum == snum) {
 				ctx->vcd_queue_last = walk_list;
-				return SR_OK;
+				return OTC_OK;
 			}
 			if (item->samplenum > snum) {
 				after_snum = walk_list;
@@ -726,7 +726,7 @@ static int queue_samplenum(struct context *ctx, uint64_t snum)
 	}
 	if (add_list && (item = add_list->data) && item->samplenum == snum) {
 		ctx->vcd_queue_last = add_list;
-		return SR_OK;
+		return OTC_OK;
 	}
 
 	/*
@@ -736,10 +736,10 @@ static int queue_samplenum(struct context *ctx, uint64_t snum)
 	 * cache that position for subsequent lookups.
 	 */
 	if (with_queue_stats)
-		sr_dbg("%s(), queue nr %" PRIu64, __func__, snum);
+		otc_dbg("%s(), queue nr %" PRIu64, __func__, snum);
 	add_item = queue_alloc_item(ctx, snum);
 	if (!add_item)
-		return SR_ERR_MALLOC;
+		return OTC_ERR_MALLOC;
 	if (!add_list)
 		add_list = ctx->vcd_queue_list;
 	if (add_list && add_list->prev)
@@ -752,7 +752,7 @@ static int queue_samplenum(struct context *ctx, uint64_t snum)
 	if (item && item->samplenum == snum) {
 		ctx->vcd_queue_last = walk_list;
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -810,7 +810,7 @@ static int unqueue_item(struct context *ctx,
 	 * Start the sample number's string with the timestamp. Append
 	 * all value changes. Terminate lines for items which have a
 	 * timestamp but no value changes, assuming this is the last
-	 * entry which corresponds to SR_DF_END.
+	 * entry which corresponds to OTC_DF_END.
 	 */
 	ts = snum_to_ts(ctx, item->samplenum);
 	buff = item->values;
@@ -819,7 +819,7 @@ static int unqueue_item(struct context *ctx,
 	if (!is_empty)
 		g_string_append(s, buff->str);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -834,7 +834,7 @@ static uint64_t get_last_snum_logic(struct context *ctx)
 
 	for (i = 0; i < ctx->enabled_count; i++) {
 		desc = &ctx->channels[i];
-		if (desc->type != SR_CHANNEL_LOGIC)
+		if (desc->type != OTC_CHANNEL_LOGIC)
 			continue;
 		return desc->last_rcvd_snum;
 	}
@@ -852,7 +852,7 @@ static void upd_last_snum_logic(struct context *ctx, uint64_t inc)
 
 	for (i = 0; i < ctx->enabled_count; i++) {
 		desc = &ctx->channels[i];
-		if (desc->type != SR_CHANNEL_LOGIC)
+		if (desc->type != OTC_CHANNEL_LOGIC)
 			continue;
 		desc->last_rcvd_snum += inc;
 	}
@@ -942,7 +942,7 @@ static int write_completed_changes(struct context *ctx, GString *out)
 	/* Determine the number which all data was received for so far. */
 	upto_snum = get_max_snum_export(ctx);
 	if (with_queue_stats)
-		sr_spew("%s(), check up to %" PRIu64, __func__, upto_snum);
+		otc_spew("%s(), check up to %" PRIu64, __func__, upto_snum);
 
 	/*
 	 * Forward and consume those items from the head of the list
@@ -965,29 +965,29 @@ static int write_completed_changes(struct context *ctx, GString *out)
 		 */
 		dumped++;
 		if (with_queue_stats)
-			sr_dbg("%s(), dump nr %" PRIu64,
+			otc_dbg("%s(), dump nr %" PRIu64,
 				__func__, item->samplenum);
 		if (ctx->vcd_queue_last == node)
 			ctx->vcd_queue_last = NULL;
 		*listref = g_list_remove_link(*listref, node);
 		rc = unqueue_item(ctx, item, out);
 		queue_free_item(ctx, item);
-		if (rc != SR_OK)
+		if (rc != OTC_OK)
 			return rc;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Get packets from the session feed, generate output text. */
-static int receive(const struct sr_output *o,
-	const struct sr_datafeed_packet *packet, GString **out)
+static int receive(const struct otc_output *o,
+	const struct otc_datafeed_packet *packet, GString **out)
 {
 	struct context *ctx;
-	const struct sr_datafeed_meta *meta;
-	const struct sr_datafeed_logic *logic;
-	const struct sr_datafeed_analog *analog;
-	const struct sr_config *src;
+	const struct otc_datafeed_meta *meta;
+	const struct otc_datafeed_logic *logic;
+	const struct otc_datafeed_analog *analog;
+	const struct otc_config *src;
 	GSList *l;
 	struct vcd_channel_desc *desc;
 	uint64_t snum_curr;
@@ -996,27 +996,27 @@ static int receive(const struct sr_output *o,
 	GString *s_val;
 	uint8_t *sample, *last_logic, prevbit, curbit;
 	GSList *channels;
-	struct sr_channel *channel;
+	struct otc_channel *channel;
 	int rc;
 	float *floats, value;
 	double ts;
 
 	*out = NULL;
 	if (!o || !o->priv)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 	ctx = o->priv;
 
 	switch (packet->type) {
-	case SR_DF_META:
+	case OTC_DF_META:
 		meta = packet->payload;
 		for (l = meta->config; l; l = l->next) {
 			src = l->data;
-			if (src->key != SR_CONF_SAMPLERATE)
+			if (src->key != OTC_CONF_SAMPLERATE)
 				continue;
 			ctx->samplerate = g_variant_get_uint64(src->data);
 		}
 		break;
-	case SR_DF_LOGIC:
+	case OTC_DF_LOGIC:
 		*out = chk_header(o);
 
 		logic = packet->payload;
@@ -1058,7 +1058,7 @@ static int receive(const struct sr_output *o,
 				 * room for positions of disabled channels.
 				 */
 				desc = &ctx->channels[p];
-				if (desc->type != SR_CHANNEL_LOGIC)
+				if (desc->type != OTC_CHANNEL_LOGIC)
 					continue;
 				index = desc->index;
 				prevbit = desc->last.logic;
@@ -1091,7 +1091,7 @@ static int receive(const struct sr_output *o,
 		}
 		write_completed_changes(ctx, *out);
 		break;
-	case SR_DF_ANALOG:
+	case OTC_DF_ANALOG:
 		*out = chk_header(o);
 
 		/*
@@ -1103,8 +1103,8 @@ static int receive(const struct sr_output *o,
 		count = analog->num_samples;
 		channels = analog->meaning->channels;
 		if (g_slist_length(channels) != 1) {
-			sr_err("Analog packets must be single-channel.");
-			return SR_ERR_ARG;
+			otc_err("Analog packets must be single-channel.");
+			return OTC_ERR_ARG;
 		}
 		channel = g_slist_nth_data(channels, 0);
 		desc = NULL;
@@ -1114,9 +1114,9 @@ static int receive(const struct sr_output *o,
 				break;
 		}
 		if (!desc)
-			return SR_OK;
-		if (desc->type != SR_CHANNEL_ANALOG)
-			return SR_ERR;
+			return OTC_OK;
+		if (desc->type != OTC_CHANNEL_ANALOG)
+			return OTC_ERR;
 		snum_curr = get_last_snum_analog(desc);
 		upd_last_snum_analog(desc, count);
 
@@ -1126,9 +1126,9 @@ static int receive(const struct sr_output *o,
 		 */
 		floats = g_try_malloc(sizeof(*floats) * analog->num_samples);
 		if (!floats)
-			return SR_ERR_MALLOC;
-		rc = sr_analog_to_float(analog, floats);
-		if (rc != SR_OK) {
+			return OTC_ERR_MALLOC;
+		rc = otc_analog_to_float(analog, floats);
+		if (rc != OTC_OK) {
 			g_free(floats);
 			return rc;
 		}
@@ -1162,7 +1162,7 @@ static int receive(const struct sr_output *o,
 		g_free(floats);
 		write_completed_changes(ctx, *out);
 		break;
-	case SR_DF_END:
+	case OTC_DF_END:
 		*out = chk_header(o);
 		/* Push the final timestamp as length indicator. */
 		snum_curr = get_max_snum_flush(ctx);
@@ -1172,25 +1172,25 @@ static int receive(const struct sr_output *o,
 		break;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int cleanup(struct sr_output *o)
+static int cleanup(struct otc_output *o)
 {
 	struct context *ctx;
 	struct vcd_channel_desc *desc;
 
 	if (!o || !o->priv)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ctx = o->priv;
 
 	if (with_pool_stats)
-		sr_info("STATS: alloc/reuse %zu/%zu, pool/free %zu/%zu",
+		otc_info("STATS: alloc/reuse %zu/%zu, pool/free %zu/%zu",
 			ctx->alloced, ctx->reused, ctx->pooled, ctx->freed);
 	queue_drain_pool(ctx);
 	if (with_pool_stats)
-		sr_info("STATS: alloc/reuse %zu/%zu, pool/free %zu/%zu",
+		otc_info("STATS: alloc/reuse %zu/%zu, pool/free %zu/%zu",
 			ctx->alloced, ctx->reused, ctx->pooled, ctx->freed);
 
 	while (ctx->enabled_count--) {
@@ -1200,10 +1200,10 @@ static int cleanup(struct sr_output *o)
 	g_free(ctx->channels);
 	g_free(ctx);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-struct sr_output_module output_vcd = {
+struct otc_output_module output_vcd = {
 	.id = "vcd",
 	.name = "VCD",
 	.desc = "Value Change Dump data",

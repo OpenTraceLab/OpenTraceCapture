@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2019 Vitaliy Vorobyov
  *
@@ -120,7 +120,7 @@
 #define FW_CHUNK_SIZE 250
 #define XILINX_SYNC_WORD 0xAA995566
 
-static int la_write_cmd_buf(const struct sr_usb_dev_inst *usb, uint8_t cmd,
+static int la_write_cmd_buf(const struct otc_usb_dev_inst *usb, uint8_t cmd,
 		unsigned int addr, unsigned int len, const void *data)
 {
 	uint8_t *cmd_pkt;
@@ -129,7 +129,7 @@ static int la_write_cmd_buf(const struct sr_usb_dev_inst *usb, uint8_t cmd,
 
 	cmd_pkt = g_try_malloc(len + 10);
 	if (!cmd_pkt) {
-		ret = SR_ERR_MALLOC;
+		ret = OTC_ERR_MALLOC;
 		goto exit;
 	}
 
@@ -171,14 +171,14 @@ static int la_write_cmd_buf(const struct sr_usb_dev_inst *usb, uint8_t cmd,
 	ret = libusb_bulk_transfer(usb->devhdl, EP_COMMAND, cmd_pkt, cmd_len,
 			&xfer_len, USB_CMD_TIMEOUT_MS);
 	if (ret != 0) {
-		sr_dbg("Failed to send command %d: %s.",
+		otc_dbg("Failed to send command %d: %s.",
 			   cmd, libusb_error_name(ret));
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	if (xfer_len != cmd_len) {
-		sr_dbg("Invalid send command response of length %d.", xfer_len);
-		return SR_ERR;
+		otc_dbg("Invalid send command response of length %d.", xfer_len);
+		return OTC_ERR;
 	}
 
 exit:
@@ -186,24 +186,24 @@ exit:
 	return ret;
 }
 
-static int la_read_reg(const struct sr_usb_dev_inst *usb, unsigned int reg, uint32_t *val)
+static int la_read_reg(const struct otc_usb_dev_inst *usb, unsigned int reg, uint32_t *val)
 {
 	int ret, xfer_len;
 	uint32_t reply;
 
 	ret = la_write_cmd_buf(usb, CMD_READ_REG, reg * sizeof(uint32_t),
 			sizeof(reply), NULL); /* rd reg */
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = libusb_bulk_transfer(usb->devhdl, EP_REPLY, (uint8_t *)&reply,
 			sizeof(reply), &xfer_len, USB_REPLY_TIMEOUT_MS);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (xfer_len != sizeof(uint32_t)) {
-		sr_dbg("Invalid register read response of length %d.", xfer_len);
-		return SR_ERR;
+		otc_dbg("Invalid register read response of length %d.", xfer_len);
+		return OTC_ERR;
 	}
 
 	*val = GUINT32_FROM_BE(reply);
@@ -211,7 +211,7 @@ static int la_read_reg(const struct sr_usb_dev_inst *usb, unsigned int reg, uint
 	return ret;
 }
 
-static int la_write_reg(const struct sr_usb_dev_inst *usb, unsigned int reg, uint32_t val)
+static int la_write_reg(const struct otc_usb_dev_inst *usb, unsigned int reg, uint32_t val)
 {
 	uint32_t val_be;
 
@@ -221,62 +221,62 @@ static int la_write_reg(const struct sr_usb_dev_inst *usb, unsigned int reg, uin
 			sizeof(val_be), &val_be); /* wr reg */
 }
 
-static int la_read_mem(const struct sr_usb_dev_inst *usb, unsigned int addr, unsigned int len, void *data)
+static int la_read_mem(const struct otc_usb_dev_inst *usb, unsigned int addr, unsigned int len, void *data)
 {
 	int ret, xfer_len;
 
 	ret = la_write_cmd_buf(usb, CMD_READ_MEM, addr, len, NULL); /* rd mem */
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	xfer_len = 0;
 	ret = libusb_bulk_transfer(usb->devhdl, EP_REPLY, (uint8_t *)data,
 			len, &xfer_len, USB_REPLY_TIMEOUT_MS);
 	if (xfer_len != (int)len) {
-		sr_dbg("Invalid memory read response of length %d.", xfer_len);
-		return SR_ERR;
+		otc_dbg("Invalid memory read response of length %d.", xfer_len);
+		return OTC_ERR;
 	}
 
 	return ret;
 }
 
-static int la_read_samples(const struct sr_usb_dev_inst *usb, unsigned int addr)
+static int la_read_samples(const struct otc_usb_dev_inst *usb, unsigned int addr)
 {
 	return la_write_cmd_buf(usb, CMD_READ_DATA, addr, 0, NULL); /* rd samples */
 }
 
-static int sla5032_set_depth(const struct sr_usb_dev_inst *usb, uint32_t pre, uint32_t post)
+static int sla5032_set_depth(const struct otc_usb_dev_inst *usb, uint32_t pre, uint32_t post)
 {
 	int ret;
 
 	/* (pre + 1)*256 + (post + 1)*256 <= 64*1024*1024 */
 	ret = la_write_reg(usb, 7, pre);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return la_write_reg(usb, 6, post);
 }
 
-static int sla5032_set_triggers(const struct sr_usb_dev_inst *usb,
+static int sla5032_set_triggers(const struct otc_usb_dev_inst *usb,
 		uint32_t trg_value, uint32_t trg_edge_mask, uint32_t trg_mask)
 {
 	int ret;
 
-	sr_dbg("set trigger: val: %08X, e_mask: %08X, mask: %08X.", trg_value,
+	otc_dbg("set trigger: val: %08X, e_mask: %08X, mask: %08X.", trg_value,
 		trg_edge_mask, trg_mask);
 
 	ret = la_write_reg(usb, 0, trg_value);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = la_write_reg(usb, 1, trg_edge_mask);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return la_write_reg(usb, 2, trg_mask);
 }
 
-static int la_set_res_reg_bit(const struct sr_usb_dev_inst *usb,
+static int la_set_res_reg_bit(const struct otc_usb_dev_inst *usb,
 		unsigned int reg, unsigned int bit, unsigned int set_bit)
 {
 	int ret;
@@ -284,7 +284,7 @@ static int la_set_res_reg_bit(const struct sr_usb_dev_inst *usb,
 
 	v = 0;
 	ret = la_read_reg(usb, reg, &v);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (set_bit)
@@ -330,7 +330,7 @@ static const struct pll_tbl_entry_t pll_tbl[] = {
 	{      2000, 99999, 0                      }, /*   2k = f/100000   */
 };
 
-static int sla5032_set_samplerate(const struct sr_usb_dev_inst *usb, unsigned int sr)
+static int sla5032_set_samplerate(const struct otc_usb_dev_inst *usb, unsigned int sr)
 {
 	int i, ret;
 	const struct pll_tbl_entry_t *e;
@@ -344,24 +344,24 @@ static int sla5032_set_samplerate(const struct sr_usb_dev_inst *usb, unsigned in
 	}
 
 	if (!e)
-		return SR_ERR_SAMPLERATE;
+		return OTC_ERR_SAMPLERATE;
 
-	sr_dbg("set sample rate: %u.", e->sr);
+	otc_dbg("set sample rate: %u.", e->sr);
 
 	ret = la_write_reg(usb, 4, e->pll_div_minus_1);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = la_set_res_reg_bit(usb, 5, 0,
 		(e->pll_mul_flags & PLL_MUL2) ? 1 : 0); /* bit0 (1=en_mul2) */
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return la_set_res_reg_bit(usb, 5, 7,
 		(e->pll_mul_flags & PLL_MUL1_25) ? 0 : 1); /* bit7 (0=en_mul_1.25) */
 }
 
-static int sla5032_start_sample(const struct sr_usb_dev_inst *usb)
+static int sla5032_start_sample(const struct otc_usb_dev_inst *usb)
 {
 	int ret;
 	const unsigned int bits[10][2] = {
@@ -370,41 +370,41 @@ static int sla5032_start_sample(const struct sr_usb_dev_inst *usb)
 	};
 
 	ret = la_write_reg(usb, 14, 1);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	for (size_t i = 0; i < ARRAY_SIZE(bits); i++) {
 		ret = la_set_res_reg_bit(usb, 5, bits[i][0], bits[i][1]);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
 	return ret;
 }
 
-static int sla5032_get_status(const struct sr_usb_dev_inst *usb, uint32_t status[3])
+static int sla5032_get_status(const struct otc_usb_dev_inst *usb, uint32_t status[3])
 {
 	int ret;
 	uint32_t v;
 
 	ret = la_read_reg(usb, 1, &status[0]);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	status[1] = 1; /* wait trigger */
 
 	ret = la_read_reg(usb, 0, &status[2]);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	v = 0;
 	ret = la_read_reg(usb, 2, &v);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (v & 8) {
 		status[1] = 3; /* sample done */
-		sr_dbg("get status, reg2: %08X.", v);
+		otc_dbg("get status, reg2: %08X.", v);
 	} else if (v & 2) {
 		status[1] = 2; /* triggered */
 	}
@@ -412,76 +412,76 @@ static int sla5032_get_status(const struct sr_usb_dev_inst *usb, uint32_t status
 	return ret;
 }
 
-static int la_read_samples_data(const struct sr_usb_dev_inst *usb, void *buf,
+static int la_read_samples_data(const struct otc_usb_dev_inst *usb, void *buf,
 		unsigned int len, int *xfer_len)
 {
 	return libusb_bulk_transfer(usb->devhdl, EP_DATA, (uint8_t *)buf, len,
 			xfer_len, USB_DATA_TIMEOUT_MS);
 }
 
-static int sla5032_read_data_chunk(const struct sr_usb_dev_inst *usb,
+static int sla5032_read_data_chunk(const struct otc_usb_dev_inst *usb,
 		void *buf, unsigned int len, int *xfer_len)
 {
 	int ret;
 
 	ret = la_read_samples(usb, 3);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = la_write_reg(usb, 3, 0x300000);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = la_set_res_reg_bit(usb, 5, 4, 0);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = la_set_res_reg_bit(usb, 5, 4, 1);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return la_read_samples_data(usb, buf, len, xfer_len);
 }
 
-static int sla5032_set_read_back(const struct sr_usb_dev_inst *usb)
+static int sla5032_set_read_back(const struct otc_usb_dev_inst *usb)
 {
 	int ret;
 
 	ret = la_write_reg(usb, 5, 0x08);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return la_write_reg(usb, 5, 0x28);
 }
 
-static int sla5032_set_pwm1(const struct sr_usb_dev_inst *usb, uint32_t hi, uint32_t lo)
+static int sla5032_set_pwm1(const struct otc_usb_dev_inst *usb, uint32_t hi, uint32_t lo)
 {
 	int ret;
 
 	ret = la_write_reg(usb, 9, hi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return la_write_reg(usb, 10, lo);
 }
 
-static int sla5032_set_pwm2(const struct sr_usb_dev_inst *usb, uint32_t hi, uint32_t lo)
+static int sla5032_set_pwm2(const struct otc_usb_dev_inst *usb, uint32_t hi, uint32_t lo)
 {
 	int ret;
 
 	ret = la_write_reg(usb, 11, hi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	return la_write_reg(usb, 12, lo);
 }
 
-static int sla5032_write_reg14_zero(const struct sr_usb_dev_inst *usb)
+static int sla5032_write_reg14_zero(const struct otc_usb_dev_inst *usb)
 {
 	return la_write_reg(usb, 14, 0);
 }
 
-static int la_cfg_fpga_done(const struct sr_usb_dev_inst *usb, unsigned int addr)
+static int la_cfg_fpga_done(const struct otc_usb_dev_inst *usb, unsigned int addr)
 {
 	uint8_t done_key[8];
 	uint32_t k0, k1;
@@ -491,26 +491,26 @@ static int la_cfg_fpga_done(const struct sr_usb_dev_inst *usb, unsigned int addr
 	memset(done_key, 0, sizeof(done_key));
 
 	ret = la_read_mem(usb, addr, sizeof(done_key), done_key); /* read key from eeprom */
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	k0 = RL32(done_key);	 /* 0x641381F6 */
 	k1 = RL32(done_key + 4); /* 0x00000000 */
 
-	sr_dbg("cfg fpga done, k0: %08X, k1: %08X.", k0, k1);
+	otc_dbg("cfg fpga done, k0: %08X, k1: %08X.", k0, k1);
 
 	ret = la_write_reg(usb, 16, k0);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = la_write_reg(usb, 17, k1);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	reg2 = 0;
 	ret = la_read_reg(usb, 2, &reg2);
 
-	sr_dbg("cfg fpga done, reg2: %08X.", reg2);
+	otc_dbg("cfg fpga done, reg2: %08X.", reg2);
 
 	return ret;
 }
@@ -519,41 +519,41 @@ static int la_cfg_fpga_done(const struct sr_usb_dev_inst *usb, unsigned int addr
  * Load a bitstream file into memory. Returns a newly allocated array
  * consisting of a 32-bit length field followed by the bitstream data.
  */
-static unsigned char *load_bitstream(struct sr_context *ctx,
+static unsigned char *load_bitstream(struct otc_context *ctx,
 					const char *name, int *length_p)
 {
-	struct sr_resource fw;
+	struct otc_resource fw;
 	unsigned char *stream, *fw_data;
 	ssize_t length, count;
 
-	if (sr_resource_open(ctx, &fw, SR_RESOURCE_FIRMWARE, name) != SR_OK)
+	if (otc_resource_open(ctx, &fw, OTC_RESOURCE_FIRMWARE, name) != OTC_OK)
 		return NULL;
 
 	if (fw.size <= BITSTREAM_HEADER_SIZE || fw.size > BITSTREAM_MAX_SIZE) {
-		sr_err("Refusing to load bitstream of unreasonable size "
+		otc_err("Refusing to load bitstream of unreasonable size "
 			   "(%" PRIu64 " bytes).", fw.size);
-		sr_resource_close(ctx, &fw);
+		otc_resource_close(ctx, &fw);
 		return NULL;
 	}
 
 	stream = g_try_malloc(fw.size);
 	if (!stream) {
-		sr_err("Failed to allocate bitstream buffer.");
-		sr_resource_close(ctx, &fw);
+		otc_err("Failed to allocate bitstream buffer.");
+		otc_resource_close(ctx, &fw);
 		return NULL;
 	}
 
-	count = sr_resource_read(ctx, &fw, stream, fw.size);
-	sr_resource_close(ctx, &fw);
+	count = otc_resource_read(ctx, &fw, stream, fw.size);
+	otc_resource_close(ctx, &fw);
 
 	if (count != (ssize_t)fw.size) {
-		sr_err("Failed to read bitstream '%s'.", name);
+		otc_err("Failed to read bitstream '%s'.", name);
 		g_free(stream);
 		return NULL;
 	}
 
 	if (RB32(stream + BITSTREAM_HEADER_SIZE) != XILINX_SYNC_WORD) {
-		sr_err("Invalid bitstream signature.");
+		otc_err("Invalid bitstream signature.");
 		g_free(stream);
 		return NULL;
 	}
@@ -561,7 +561,7 @@ static unsigned char *load_bitstream(struct sr_context *ctx,
 	length = fw.size - BITSTREAM_HEADER_SIZE + 0x100;
 	fw_data = g_try_malloc(length);
 	if (!fw_data) {
-		sr_err("Failed to allocate bitstream aligned buffer.");
+		otc_err("Failed to allocate bitstream aligned buffer.");
 		return NULL;
 	}
 
@@ -575,43 +575,43 @@ static unsigned char *load_bitstream(struct sr_context *ctx,
 	return fw_data;
 }
 
-static int sla5032_is_configured(const struct sr_usb_dev_inst *usb, gboolean *is_configured)
+static int sla5032_is_configured(const struct otc_usb_dev_inst *usb, gboolean *is_configured)
 {
 	int ret;
 	uint32_t reg2;
 
 	reg2 = 0;
 	ret = la_read_reg(usb, 2, &reg2);
-	if (ret == SR_OK)
+	if (ret == OTC_OK)
 		*is_configured = (reg2 & 0xFFFFFFF1) == 0xA5A5A5A1 ? TRUE : FALSE;
 
 	return ret;
 }
 
 /* Load a Binary File from the firmware directory, transfer it to the device. */
-static int sla5032_send_bitstream(struct sr_context *ctx,
-		const struct sr_usb_dev_inst *usb, const char *name)
+static int sla5032_send_bitstream(struct otc_context *ctx,
+		const struct otc_usb_dev_inst *usb, const char *name)
 {
 	unsigned char *stream;
 	int ret, length, i, n, m;
 	uint32_t reg2;
 
 	if (!ctx || !usb || !name)
-		return SR_ERR_BUG;
+		return OTC_ERR_BUG;
 
 	stream = load_bitstream(ctx, name, &length);
 	if (!stream)
-		return SR_ERR;
+		return OTC_ERR;
 
-	sr_dbg("Downloading FPGA bitstream '%s'.", name);
+	otc_dbg("Downloading FPGA bitstream '%s'.", name);
 
 	reg2 = 0;
 	ret = la_read_reg(usb, 2, &reg2);
-	sr_dbg("send bitstream, reg2: %08X.", reg2);
+	otc_dbg("send bitstream, reg2: %08X.", reg2);
 
 	/* Transfer the entire bitstream in one URB. */
 	ret = la_write_cmd_buf(usb, CMD_INIT_FW_UPLOAD, 0, 0, NULL); /* init firmware upload */
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		g_free(stream);
 		return ret;
 	}
@@ -624,7 +624,7 @@ static int sla5032_send_bitstream(struct sr_context *ctx,
 		ret = la_write_cmd_buf(usb, CMD_UPLOAD_FW_CHUNK, 0,
 				FW_CHUNK_SIZE, &stream[i * FW_CHUNK_SIZE]);
 
-		if (ret != SR_OK) {
+		if (ret != OTC_OK) {
 			g_free(stream);
 			return ret;
 		}
@@ -635,7 +635,7 @@ static int sla5032_send_bitstream(struct sr_context *ctx,
 		ret = la_write_cmd_buf(usb, CMD_UPLOAD_FW_CHUNK, 0, m,
 				&stream[n * FW_CHUNK_SIZE]);
 
-		if (ret != SR_OK) {
+		if (ret != OTC_OK) {
 			g_free(stream);
 			return ret;
 		}
@@ -647,13 +647,13 @@ static int sla5032_send_bitstream(struct sr_context *ctx,
 
 	sla5032_write_reg14_zero(usb);
 
-	sr_dbg("FPGA bitstream download of %d bytes done.", length);
+	otc_dbg("FPGA bitstream download of %d bytes done.", length);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Select and transfer FPGA bitstream for the current configuration. */
-SR_PRIV int sla5032_apply_fpga_config(const struct sr_dev_inst *sdi)
+OTC_PRIV int sla5032_apply_fpga_config(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct drv_context *drvc;
@@ -664,11 +664,11 @@ SR_PRIV int sla5032_apply_fpga_config(const struct sr_dev_inst *sdi)
 	drvc = sdi->driver->context;
 
 	if (FPGA_NOCONF != devc->active_fpga_config)
-		return SR_OK; /* No change. */
+		return OTC_OK; /* No change. */
 
 	is_configured = FALSE;
 	ret = sla5032_is_configured(sdi->conn, &is_configured);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (is_configured) {
@@ -676,9 +676,9 @@ SR_PRIV int sla5032_apply_fpga_config(const struct sr_dev_inst *sdi)
 		return ret;
 	}
 
-	sr_dbg("FPGA not configured, send bitstream.");
-	ret = sla5032_send_bitstream(drvc->sr_ctx, sdi->conn, BITSTREAM_NAME);
-	devc->active_fpga_config = (ret == SR_OK) ? FPGA_CONF : FPGA_NOCONF;
+	otc_dbg("FPGA not configured, send bitstream.");
+	ret = sla5032_send_bitstream(drvc->otc_ctx, sdi->conn, BITSTREAM_NAME);
+	devc->active_fpga_config = (ret == OTC_OK) ? FPGA_CONF : FPGA_NOCONF;
 
 	return ret;
 }
@@ -686,17 +686,17 @@ SR_PRIV int sla5032_apply_fpga_config(const struct sr_dev_inst *sdi)
 /* Callback handling data */
 static int la_prepare_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	int i, j, ret, xfer_len;
 	uint8_t *rle_buf, *samples;
 	const uint8_t *p, *q;
 	uint16_t rle_count;
 	int samples_count, rle_samples_count;
 	uint32_t status[3];
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
 	uint32_t value;
 	int trigger_offset;
 
@@ -716,9 +716,9 @@ static int la_prepare_data(int fd, int revents, void *cb_data)
 
 	memset(status, 0, sizeof(status));
 	ret = sla5032_get_status(usb, status);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		sla5032_write_reg14_zero(usb);
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 		return G_SOURCE_CONTINUE;
 	}
 
@@ -726,41 +726,41 @@ static int la_prepare_data(int fd, int revents, void *cb_data)
 	if (status[1] != 3)
 		return G_SOURCE_CONTINUE;
 
-	sr_dbg("acquision done, status: %u.", (unsigned int)status[2]);
+	otc_dbg("acquision done, status: %u.", (unsigned int)status[2]);
 
-	/* data ready (download, decode and send to sigrok) */
+	/* data ready (download, decode and send to opentracelab) */
 	ret = sla5032_set_read_back(usb);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		sla5032_write_reg14_zero(usb);
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 		return G_SOURCE_CONTINUE;
 	}
 
 	rle_buf = g_try_malloc(RLE_BUF_SIZE);
 	if (rle_buf == NULL) {
 		sla5032_write_reg14_zero(usb);
-		sr_dev_acquisition_stop(sdi);
+		otc_dev_acquisition_stop(sdi);
 		return G_SOURCE_CONTINUE;
 	}
 
 	do {
 		xfer_len = 0;
 		ret = sla5032_read_data_chunk(usb, rle_buf, RLE_BUF_SIZE, &xfer_len);
-		if (ret != SR_OK) {
+		if (ret != OTC_OK) {
 			sla5032_write_reg14_zero(usb);
 			g_free(rle_buf);
-			sr_dev_acquisition_stop(sdi);
+			otc_dev_acquisition_stop(sdi);
 
-			sr_dbg("acquision done, ret: %d.", ret);
+			otc_dbg("acquision done, ret: %d.", ret);
 			return G_SOURCE_CONTINUE;
 		}
 
-		sr_dbg("acquision done, xfer_len: %d.", xfer_len);
+		otc_dbg("acquision done, xfer_len: %d.", xfer_len);
 
 		if (xfer_len == 0) {
 			sla5032_write_reg14_zero(usb);
 			g_free(rle_buf);
-			sr_dev_acquisition_stop(sdi);
+			otc_dev_acquisition_stop(sdi);
 			return G_SOURCE_CONTINUE;
 		}
 
@@ -768,7 +768,7 @@ static int la_prepare_data(int fd, int revents, void *cb_data)
 		samples_count = 0;
 		rle_samples_count = xfer_len / RLE_SAMPLE_SIZE;
 
-		sr_dbg("acquision done, rle_samples_count: %d.", rle_samples_count);
+		otc_dbg("acquision done, rle_samples_count: %d.", rle_samples_count);
 
 		for (i = 0; i < rle_samples_count; i++) {
 			p += sizeof(uint32_t); /* skip sample value */
@@ -781,23 +781,23 @@ static int la_prepare_data(int fd, int revents, void *cb_data)
 			}
 			samples_count += rle_count + 1;
 		}
-		sr_dbg("acquision done, samples_count: %d.", samples_count);
+		otc_dbg("acquision done, samples_count: %d.", samples_count);
 
 		if (samples_count == 0) {
-			sr_dbg("acquision done, no samples.");
+			otc_dbg("acquision done, no samples.");
 			sla5032_write_reg14_zero(usb);
 			g_free(rle_buf);
-			sr_dev_acquisition_stop(sdi);
+			otc_dev_acquisition_stop(sdi);
 			return G_SOURCE_CONTINUE;
 		}
 
 		/* Decode RLE */
 		samples = g_try_malloc(samples_count * sizeof(uint32_t));
 		if (!samples) {
-			sr_dbg("memory allocation error.");
+			otc_dbg("memory allocation error.");
 			sla5032_write_reg14_zero(usb);
 			g_free(rle_buf);
-			sr_dev_acquisition_stop(sdi);
+			otc_dev_acquisition_stop(sdi);
 			return G_SOURCE_CONTINUE;
 		}
 
@@ -811,7 +811,7 @@ static int la_prepare_data(int fd, int revents, void *cb_data)
 			p += sizeof(uint16_t);
 
 			if (rle_count == RLE_END_MARKER) {
-				sr_dbg("RLE end marker found.");
+				otc_dbg("RLE end marker found.");
 				break;
 			}
 
@@ -823,25 +823,25 @@ static int la_prepare_data(int fd, int revents, void *cb_data)
 
 		if (devc->trigger_fired) {
 			/* Send the incoming transfer to the session bus. */
-			packet.type = SR_DF_LOGIC;
+			packet.type = OTC_DF_LOGIC;
 			packet.payload = &logic;
 
 			logic.length = samples_count * sizeof(uint32_t);
 			logic.unitsize = sizeof(uint32_t);
 			logic.data = samples;
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 		} else {
 			trigger_offset = soft_trigger_logic_check(devc->stl,
 				samples, samples_count * sizeof(uint32_t), NULL);
 			if (trigger_offset > -1) {
-				packet.type = SR_DF_LOGIC;
+				packet.type = OTC_DF_LOGIC;
 				packet.payload = &logic;
 				int num_samples = samples_count - trigger_offset;
 
 				logic.length = num_samples * sizeof(uint32_t);
 				logic.unitsize = sizeof(uint32_t);
 				logic.data = samples + trigger_offset * sizeof(uint32_t);
-				sr_session_send(sdi, &packet);
+				otc_session_send(sdi, &packet);
 
 				devc->trigger_fired = TRUE;
 			}
@@ -850,11 +850,11 @@ static int la_prepare_data(int fd, int revents, void *cb_data)
 		g_free(samples);
 	} while (rle_samples_count == RLE_SAMPLES_COUNT);
 
-	sr_dbg("acquision stop, rle_samples_count < RLE_SAMPLES_COUNT.");
+	otc_dbg("acquision stop, rle_samples_count < RLE_SAMPLES_COUNT.");
 
 	sla5032_write_reg14_zero(usb);
 
-	sr_dev_acquisition_stop(sdi); /* if all data transfered */
+	otc_dev_acquisition_stop(sdi); /* if all data transfered */
 
 	g_free(rle_buf);
 
@@ -866,11 +866,11 @@ static int la_prepare_data(int fd, int revents, void *cb_data)
 	return G_SOURCE_CONTINUE;
 }
 
-SR_PRIV int sla5032_start_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int sla5032_start_acquisition(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
-	struct sr_trigger *trigger;
+	struct otc_usb_dev_inst *usb;
+	struct otc_trigger *trigger;
 	int ret;
 	enum { poll_interval_ms = 100 };
 	uint64_t pre, post;
@@ -879,28 +879,28 @@ SR_PRIV int sla5032_start_acquisition(const struct sr_dev_inst *sdi)
 	usb = sdi->conn;
 
 	if (devc->state != STATE_IDLE) {
-		sr_err("Not in idle state, cannot start acquisition.");
-		return SR_ERR;
+		otc_err("Not in idle state, cannot start acquisition.");
+		return OTC_ERR;
 	}
 
 	pre = (devc->limit_samples * devc->capture_ratio) / 100;
 	post = devc->limit_samples - pre;
 
-	if ((trigger = sr_session_trigger_get(sdi->session))) {
+	if ((trigger = otc_session_trigger_get(sdi->session))) {
 		devc->stl = soft_trigger_logic_new(sdi, trigger, pre);
 		if (!devc->stl) {
-			sr_err("stl alloc error.");
-			return SR_ERR_MALLOC;
+			otc_err("stl alloc error.");
+			return OTC_ERR_MALLOC;
 		}
 		devc->trigger_fired = FALSE;
 	}
 	else
 		devc->trigger_fired = TRUE;
 
-	sr_dbg("start acquision, smp lim: %" PRIu64 ", cap ratio: %" PRIu64
+	otc_dbg("start acquision, smp lim: %" PRIu64 ", cap ratio: %" PRIu64
 	       ".", devc->limit_samples, devc->capture_ratio);
 
-	sr_dbg("start acquision, pre: %" PRIu64 ", post: %" PRIu64 ".", pre, post);
+	otc_dbg("start acquision, pre: %" PRIu64 ", post: %" PRIu64 ".", pre, post);
 	pre /= 256;
 	pre = MAX(pre, 2);
 	pre--;
@@ -909,19 +909,19 @@ SR_PRIV int sla5032_start_acquisition(const struct sr_dev_inst *sdi)
 	post = MAX(post, 2);
 	post--;
 
-	sr_dbg("start acquision, pre: %" PRIx64 ", post: %" PRIx64 ".", pre, post);
+	otc_dbg("start acquision, pre: %" PRIx64 ", post: %" PRIx64 ".", pre, post);
 
 	/* (x + 1) * 256 (samples)  pre, post */
 	ret = sla5032_set_depth(usb, pre, post);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = sla5032_set_triggers(usb, devc->trigger_values, devc->trigger_edge_mask, devc->trigger_mask);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = sla5032_set_samplerate(usb, devc->samplerate);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	/* TODO: make PWM generator as separate configurable subdevice */
@@ -933,19 +933,19 @@ SR_PRIV int sla5032_start_acquisition(const struct sr_dev_inst *sdi)
 	};
 
 	ret = sla5032_set_pwm1(usb, pwm1_hi, pwm1_lo);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = sla5032_set_pwm2(usb, pwm2_hi, pwm2_lo);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = sla5032_start_sample(usb);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	sr_session_source_add(sdi->session, -1, 0, poll_interval_ms,
-			la_prepare_data, (struct sr_dev_inst *)sdi);
+	otc_session_source_add(sdi->session, -1, 0, poll_interval_ms,
+			la_prepare_data, (struct otc_dev_inst *)sdi);
 
 	std_session_send_df_header(sdi);
 

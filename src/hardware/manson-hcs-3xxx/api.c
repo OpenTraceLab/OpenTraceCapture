@@ -1,8 +1,8 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Uwe Hermann <uwe@hermann-uwe.de>
- * Copyright (C) 2014 Matthias Heidbrink <m-sigrok@heidbrink.biz>
+ * Copyright (C) 2014 Matthias Heidbrink <m-opentracelab@heidbrink.biz>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,23 +22,23 @@
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
-	SR_CONF_CONN,
-	SR_CONF_SERIALCOMM,
+	OTC_CONF_CONN,
+	OTC_CONF_SERIALCOMM,
 };
 
 static const uint32_t drvopts[] = {
-	SR_CONF_POWER_SUPPLY,
+	OTC_CONF_POWER_SUPPLY,
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
-	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_LIMIT_MSEC | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_VOLTAGE | SR_CONF_GET,
-	SR_CONF_VOLTAGE_TARGET | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_CURRENT | SR_CONF_GET,
-	SR_CONF_CURRENT_LIMIT | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
-	SR_CONF_ENABLED | SR_CONF_GET | SR_CONF_SET,
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
 };
 
 /* Note: All models have one power supply output only. */
@@ -78,15 +78,15 @@ static const struct hcs_model models[] = {
 	ALL_ZERO
 };
 
-static GSList *scan(struct sr_dev_driver *di, GSList *options)
+static GSList *scan(struct otc_dev_driver *di, GSList *options)
 {
 	int i, model_id;
 	struct dev_context *devc;
-	struct sr_dev_inst *sdi;
-	struct sr_config *src;
+	struct otc_dev_inst *sdi;
+	struct otc_config *src;
 	GSList *l;
 	const char *conn, *serialcomm;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 	char reply[50], **tokens, *dummy;
 
 	conn = NULL;
@@ -96,14 +96,14 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	for (l = options; l; l = l->next) {
 		src = l->data;
 		switch (src->key) {
-		case SR_CONF_CONN:
+		case OTC_CONF_CONN:
 			conn = g_variant_get_string(src->data, NULL);
 			break;
-		case SR_CONF_SERIALCOMM:
+		case OTC_CONF_SERIALCOMM:
 			serialcomm = g_variant_get_string(src->data, NULL);
 			break;
 		default:
-			sr_err("Unknown option %d, skipping.", src->key);
+			otc_err("Unknown option %d, skipping.", src->key);
 			break;
 		}
 	}
@@ -113,12 +113,12 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	if (!serialcomm)
 		serialcomm = "9600/8n1";
 
-	serial = sr_serial_dev_inst_new(conn, serialcomm);
+	serial = otc_serial_dev_inst_new(conn, serialcomm);
 
-	if (serial_open(serial, SERIAL_RDWR) != SR_OK)
+	if (serial_open(serial, SERIAL_RDWR) != OTC_OK)
 		return NULL;
 
-	sr_info("Probing serial port %s.", conn);
+	otc_info("Probing serial port %s.", conn);
 
 	/* Get the device model. */
 	memset(&reply, 0, sizeof(reply));
@@ -133,23 +133,23 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			model_id = i;
 	}
 	if (model_id < 0) {
-		sr_err("Unknown model ID '%s' detected, aborting.", tokens[0]);
+		otc_err("Unknown model ID '%s' detected, aborting.", tokens[0]);
 		g_strfreev(tokens);
 		return NULL;
 	}
 	g_strfreev(tokens);
 
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
-	sdi->status = SR_ST_INACTIVE;
+	sdi = g_malloc0(sizeof(struct otc_dev_inst));
+	sdi->status = OTC_ST_INACTIVE;
 	sdi->vendor = g_strdup("Manson");
 	sdi->model = g_strdup(models[model_id].name);
-	sdi->inst_type = SR_INST_SERIAL;
+	sdi->inst_type = OTC_INST_SERIAL;
 	sdi->conn = serial;
 
-	sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "CH1");
+	otc_channel_new(sdi, 0, OTC_CHANNEL_ANALOG, TRUE, "CH1");
 
 	devc = g_malloc0(sizeof(struct dev_context));
-	sr_sw_limits_init(&devc->limits);
+	otc_sw_limits_init(&devc->limits);
 	devc->model = &models[model_id];
 
 	sdi->priv = devc;
@@ -180,52 +180,52 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	return std_scan_complete(di, g_slist_append(NULL, sdi));
 
 exit_err:
-	sr_dev_inst_free(sdi);
+	otc_dev_inst_free(sdi);
 	g_free(devc);
 
 	return NULL;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_SAMPLES:
-	case SR_CONF_LIMIT_MSEC:
-		return sr_sw_limits_config_get(&devc->limits, key, data);
-	case SR_CONF_VOLTAGE:
+	case OTC_CONF_LIMIT_SAMPLES:
+	case OTC_CONF_LIMIT_MSEC:
+		return otc_sw_limits_config_get(&devc->limits, key, data);
+	case OTC_CONF_VOLTAGE:
 		*data = g_variant_new_double(devc->voltage);
 		break;
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		*data = g_variant_new_double(devc->voltage_max);
 		break;
-	case SR_CONF_CURRENT:
+	case OTC_CONF_CURRENT:
 		*data = g_variant_new_double(devc->current);
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		*data = g_variant_new_double(devc->current_max);
 		break;
-	case SR_CONF_ENABLED:
+	case OTC_CONF_ENABLED:
 		*data = g_variant_new_boolean(devc->output_enabled);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct dev_context *devc;
 	gboolean bval;
@@ -236,53 +236,53 @@ static int config_set(uint32_t key, GVariant *data,
 	devc = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_LIMIT_MSEC:
-	case SR_CONF_LIMIT_SAMPLES:
-		return sr_sw_limits_config_set(&devc->limits, key, data);
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_LIMIT_MSEC:
+	case OTC_CONF_LIMIT_SAMPLES:
+		return otc_sw_limits_config_set(&devc->limits, key, data);
+	case OTC_CONF_VOLTAGE_TARGET:
 		dval = g_variant_get_double(data);
 		if (dval < devc->model->voltage[0] || dval > devc->voltage_max_device)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 
 		if ((hcs_send_cmd(sdi->conn, "VOLT%03.0f\r",
 			(dval / devc->model->voltage[2])) < 0) ||
 		    (hcs_read_reply(sdi->conn, 1, devc->buf, sizeof(devc->buf)) < 0))
-			return SR_ERR;
+			return OTC_ERR;
 		devc->voltage_max = dval;
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		dval = g_variant_get_double(data);
 		if (dval < devc->model->current[0] || dval > devc->current_max_device)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 
 		if ((hcs_send_cmd(sdi->conn, "CURR%03.0f\r",
 			(dval / devc->model->current[2])) < 0) ||
 		    (hcs_read_reply(sdi->conn, 1, devc->buf, sizeof(devc->buf)) < 0))
-			return SR_ERR;
+			return OTC_ERR;
 		devc->current_max = dval;
 		break;
-	case SR_CONF_ENABLED:
+	case OTC_CONF_ENABLED:
 		bval = g_variant_get_boolean(data);
 
 		if (hcs_send_cmd(sdi->conn, "SOUT%1d\r", !bval) < 0) {
-			sr_err("Could not send SR_CONF_ENABLED command.");
-			return SR_ERR;
+			otc_err("Could not send OTC_CONF_ENABLED command.");
+			return OTC_ERR;
 		}
 		if (hcs_read_reply(sdi->conn, 1, devc->buf, sizeof(devc->buf)) < 0) {
-			sr_err("Could not read SR_CONF_ENABLED reply.");
-			return SR_ERR;
+			otc_err("Could not read OTC_CONF_ENABLED reply.");
+			return OTC_ERR;
 		}
 		devc->output_enabled = bval;
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	const double *a;
 	struct dev_context *devc;
@@ -290,36 +290,36 @@ static int config_list(uint32_t key, GVariant **data,
 	devc = (sdi) ? sdi->priv : NULL;
 
 	switch (key) {
-	case SR_CONF_SCAN_OPTIONS:
-	case SR_CONF_DEVICE_OPTIONS:
+	case OTC_CONF_SCAN_OPTIONS:
+	case OTC_CONF_DEVICE_OPTIONS:
 		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_VOLTAGE_TARGET:
+	case OTC_CONF_VOLTAGE_TARGET:
 		if (!devc || !devc->model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		a = devc->model->voltage;
 		*data = std_gvar_min_max_step(a[0], devc->voltage_max_device, a[2]);
 		break;
-	case SR_CONF_CURRENT_LIMIT:
+	case OTC_CONF_CURRENT_LIMIT:
 		if (!devc || !devc->model)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		a = devc->model->current;
 		*data = std_gvar_min_max_step(a[0], devc->current_max_device, a[2]);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	devc = sdi->priv;
 
-	sr_sw_limits_acquisition_start(&devc->limits);
+	otc_sw_limits_acquisition_start(&devc->limits);
 	std_session_send_df_header(sdi);
 
 	devc->reply_pending = FALSE;
@@ -329,10 +329,10 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 	serial_source_add(sdi->session, serial, G_IO_IN, 10,
 			hcs_receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static struct sr_dev_driver manson_hcs_3xxx_driver_info = {
+static struct otc_dev_driver manson_hcs_3xxx_driver_info = {
 	.name = "manson-hcs-3xxx",
 	.longname = "Manson HCS-3xxx",
 	.api_version = 1,
@@ -350,4 +350,4 @@ static struct sr_dev_driver manson_hcs_3xxx_driver_info = {
 	.dev_acquisition_stop = std_serial_dev_acquisition_stop,
 	.context = NULL,
 };
-SR_REGISTER_DEV_DRIVER(manson_hcs_3xxx_driver_info);
+OTC_REGISTER_DEV_DRIVER(manson_hcs_3xxx_driver_info);

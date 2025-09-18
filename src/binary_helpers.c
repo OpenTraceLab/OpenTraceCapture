@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2020 Andreas Sandberg <andreas@sandberg.pp.se>
  *
@@ -19,21 +19,21 @@
 
 #include <config.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
-SR_PRIV int bv_get_value_len(float *out, const struct binary_value_spec *spec,
+OTC_PRIV int bv_get_value_len(float *out, const struct binary_value_spec *spec,
 	const uint8_t *data, size_t length)
 {
 	float value;
 
 	if (!out || !spec || !data)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 #define VALUE_TYPE(T, R, L)				\
 	case T:						\
 		if (spec->offset + (L) > length)	\
-			return SR_ERR_DATA;		\
+			return OTC_ERR_DATA;		\
 		value = R(data + spec->offset);		\
 		break
 
@@ -49,17 +49,17 @@ SR_PRIV int bv_get_value_len(float *out, const struct binary_value_spec *spec,
 	VALUE_TYPE(BVT_LE_UINT32, read_u32le, sizeof(uint32_t));
 
 	default:
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
 #undef VALUE_TYPE
 
 	if (out)
 		*out = value;
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int bv_get_value(float *out, const struct binary_value_spec *spec,
+OTC_PRIV int bv_get_value(float *out, const struct binary_value_spec *spec,
 	const uint8_t *data)
 {
 	float value;
@@ -90,10 +90,10 @@ SR_PRIV int bv_get_value(float *out, const struct binary_value_spec *spec,
 		value = read_u32le(ptr);
 		break;
 	default:
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 
 	if (out)
 		*out = value;
-	return SR_OK;
+	return OTC_OK;
 }

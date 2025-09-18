@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Bartosz Golaszewski <bgolaszewski@baylibre.com>
  *
@@ -30,12 +30,12 @@ enum {
 	GPIO_DIR_OUT,
 };
 
-SR_PRIV int sr_gpio_export(unsigned gpio);
-SR_PRIV int sr_gpio_set_direction(unsigned gpio, unsigned direction);
-SR_PRIV int sr_gpio_set_value(unsigned gpio, unsigned value);
-SR_PRIV int sr_gpio_get_value(int gpio);
+OTC_PRIV int otc_gpio_export(unsigned gpio);
+OTC_PRIV int otc_gpio_set_direction(unsigned gpio, unsigned direction);
+OTC_PRIV int otc_gpio_set_value(unsigned gpio, unsigned value);
+OTC_PRIV int otc_gpio_get_value(int gpio);
 /* These functions export given GPIO if it's not already exported. */
-SR_PRIV int sr_gpio_setval_export(int gpio, int value);
-SR_PRIV int sr_gpio_getval_export(int gpio);
+OTC_PRIV int otc_gpio_setval_export(int gpio, int value);
+OTC_PRIV int otc_gpio_getval_export(int gpio);
 
 #endif

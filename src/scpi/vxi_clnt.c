@@ -7,7 +7,7 @@
 #include "vxi.h"
 #include <memory.h> /* for memset */
 
-#define SR_XDRPROC_CALLBACK(f) ((xdrproc_t) (void (*)(void)) (f))
+#define OTC_XDRPROC_CALLBACK(f) ((xdrproc_t) (void (*)(void)) (f))
 
 /* Default timeout can be changed using clnt_control() */
 static struct timeval TIMEOUT = { 25, 0 };
@@ -244,7 +244,7 @@ destroy_intr_chan_1(void *argp, CLIENT *clnt)
 
 	memset((char *)&clnt_res, 0, sizeof(clnt_res));
 	if (clnt_call (clnt, destroy_intr_chan,
-		SR_XDRPROC_CALLBACK(xdr_void), (caddr_t) argp,
+		OTC_XDRPROC_CALLBACK(xdr_void), (caddr_t) argp,
 		(xdrproc_t) xdr_Device_Error, (caddr_t) &clnt_res,
 		TIMEOUT) != RPC_SUCCESS) {
 		return (NULL);
@@ -260,7 +260,7 @@ device_intr_srq_1(Device_SrqParms *argp, CLIENT *clnt)
 	memset((char *)&clnt_res, 0, sizeof(clnt_res));
 	if (clnt_call (clnt, device_intr_srq,
 		(xdrproc_t) xdr_Device_SrqParms, (caddr_t) argp,
-		SR_XDRPROC_CALLBACK(xdr_void), (caddr_t) &clnt_res,
+		OTC_XDRPROC_CALLBACK(xdr_void), (caddr_t) &clnt_res,
 		TIMEOUT) != RPC_SUCCESS) {
 		return (NULL);
 	}

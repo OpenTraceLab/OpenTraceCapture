@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2022 Gerhard Sittig <gerhard.sittig@gmx.net>
  * Copyright (C) 2020 Florian Schmidt <schmidt_florian@gmx.de>
@@ -23,10 +23,10 @@
 
 #include <config.h>
 
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <string.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 /* USB PID dependent MCU firmware. Model dependent FPGA bitstream. */
@@ -43,21 +43,21 @@
  * TODO Verify the identification of models that were not tested before.
  */
 static const struct kingst_model models[] = {
-	{ 0x02, 0x01, "LA2016", "la2016a1", SR_MHZ(200), 16, 1, 0, },
-	{ 0x02, 0x00, "LA2016", "la2016",   SR_MHZ(200), 16, 1, 0, },
-	{ 0x03, 0x01, "LA1016", "la1016a1", SR_MHZ(100), 16, 1, 0, },
-	{ 0x03, 0x00, "LA1016", "la1016",   SR_MHZ(100), 16, 1, 0, },
-	{ 0x04, 0x00, "LA1010", "la1010a0", SR_MHZ(100), 16, 0, SR_MHZ(800), },
-	{ 0x05, 0x00, "LA5016", "la5016a1", SR_MHZ(500), 16, 2, SR_MHZ(800), },
-	{ 0x06, 0x00, "LA5032", "la5032a0", SR_MHZ(500), 32, 4, SR_MHZ(800), },
-	{ 0x07, 0x00, "LA1010", "la1010a1", SR_MHZ(100), 16, 0, SR_MHZ(800), },
-	{ 0x08, 0x00, "LA2016", "la2016a1", SR_MHZ(200), 16, 1, 0, },
-	{ 0x09, 0x00, "LA1016", "la1016a1", SR_MHZ(100), 16, 1, 0, },
-	{ 0x0a, 0x00, "LA1010", "la1010a2", SR_MHZ(100), 16, 0, SR_MHZ(800), },
-	{ 0x0b, 0x10, "LA2016", "la2016a2", SR_MHZ(200), 16, 1, 0, },
-	{ 0x0c, 0x10, "LA5016", "la5016a2", SR_MHZ(500), 16, 2, SR_MHZ(800), },
-	{ 0x0c, 0x00, "LA5016", "la5016a2", SR_MHZ(500), 16, 2, SR_MHZ(800), },
-	{ 0x41, 0x00, "LA5016", "la5016a1", SR_MHZ(500), 16, 2, SR_MHZ(800), },
+	{ 0x02, 0x01, "LA2016", "la2016a1", OTC_MHZ(200), 16, 1, 0, },
+	{ 0x02, 0x00, "LA2016", "la2016",   OTC_MHZ(200), 16, 1, 0, },
+	{ 0x03, 0x01, "LA1016", "la1016a1", OTC_MHZ(100), 16, 1, 0, },
+	{ 0x03, 0x00, "LA1016", "la1016",   OTC_MHZ(100), 16, 1, 0, },
+	{ 0x04, 0x00, "LA1010", "la1010a0", OTC_MHZ(100), 16, 0, OTC_MHZ(800), },
+	{ 0x05, 0x00, "LA5016", "la5016a1", OTC_MHZ(500), 16, 2, OTC_MHZ(800), },
+	{ 0x06, 0x00, "LA5032", "la5032a0", OTC_MHZ(500), 32, 4, OTC_MHZ(800), },
+	{ 0x07, 0x00, "LA1010", "la1010a1", OTC_MHZ(100), 16, 0, OTC_MHZ(800), },
+	{ 0x08, 0x00, "LA2016", "la2016a1", OTC_MHZ(200), 16, 1, 0, },
+	{ 0x09, 0x00, "LA1016", "la1016a1", OTC_MHZ(100), 16, 1, 0, },
+	{ 0x0a, 0x00, "LA1010", "la1010a2", OTC_MHZ(100), 16, 0, OTC_MHZ(800), },
+	{ 0x0b, 0x10, "LA2016", "la2016a2", OTC_MHZ(200), 16, 1, 0, },
+	{ 0x0c, 0x10, "LA5016", "la5016a2", OTC_MHZ(500), 16, 2, OTC_MHZ(800), },
+	{ 0x0c, 0x00, "LA5016", "la5016a2", OTC_MHZ(500), 16, 2, OTC_MHZ(800), },
+	{ 0x41, 0x00, "LA5016", "la5016a1", OTC_MHZ(500), 16, 2, OTC_MHZ(800), },
 };
 
 /* USB vendor class control requests, executed by the Cypress FX2 MCU. */
@@ -79,7 +79,7 @@ static const struct kingst_model models[] = {
  * Unfortunately the FPGA registers change their meaning between the
  * read and write directions of access, or exclusively provide one of
  * these directions and not the other. This is an arbitrary vendor's
- * choice, there is nothing which the sigrok driver could do about it.
+ * choice, there is nothing which the opentracelab driver could do about it.
  * Values written to registers typically cannot get read back, neither
  * verified after writing a configuration, nor queried upon startup for
  * automatic detection of the current configuration. Neither appear to
@@ -112,11 +112,11 @@ static const struct kingst_model models[] = {
 #define RUNSTATE_TRGD_BIT	(1UL << 2)
 #define RUNSTATE_POST_BIT	(1UL << 3)
 
-static int ctrl_in(const struct sr_dev_inst *sdi,
+static int ctrl_in(const struct otc_dev_inst *sdi,
 	uint8_t bRequest, uint16_t wValue, uint16_t wIndex,
 	void *data, uint16_t wLength)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	int ret;
 
 	usb = sdi->conn;
@@ -126,22 +126,22 @@ static int ctrl_in(const struct sr_dev_inst *sdi,
 		bRequest, wValue, wIndex, data, wLength,
 		DEFAULT_TIMEOUT_MS);
 	if (ret != wLength) {
-		sr_dbg("USB ctrl in: %d bytes, req %d val %#x idx %d: %s.",
+		otc_dbg("USB ctrl in: %d bytes, req %d val %#x idx %d: %s.",
 			wLength, bRequest, wValue, wIndex,
 			libusb_error_name(ret));
-		sr_err("Cannot read %d bytes from USB: %s.",
+		otc_err("Cannot read %d bytes from USB: %s.",
 			wLength, libusb_error_name(ret));
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int ctrl_out(const struct sr_dev_inst *sdi,
+static int ctrl_out(const struct otc_dev_inst *sdi,
 	uint8_t bRequest, uint16_t wValue, uint16_t wIndex,
 	void *data, uint16_t wLength)
 {
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	int ret;
 
 	usb = sdi->conn;
@@ -151,19 +151,19 @@ static int ctrl_out(const struct sr_dev_inst *sdi,
 		bRequest, wValue, wIndex, data, wLength,
 		DEFAULT_TIMEOUT_MS);
 	if (ret != wLength) {
-		sr_dbg("USB ctrl out: %d bytes, req %d val %#x idx %d: %s.",
+		otc_dbg("USB ctrl out: %d bytes, req %d val %#x idx %d: %s.",
 			wLength, bRequest, wValue, wIndex,
 			libusb_error_name(ret));
-		sr_err("Cannot write %d bytes to USB: %s.",
+		otc_err("Cannot write %d bytes to USB: %s.",
 			wLength, libusb_error_name(ret));
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* HACK Experiment to spot FPGA registers of interest. */
-static void la2016_dump_fpga_registers(const struct sr_dev_inst *sdi,
+static void la2016_dump_fpga_registers(const struct otc_dev_inst *sdi,
 	const char *caption, size_t reg_lower, size_t reg_upper)
 {
 	static const size_t dump_chunk_len = 16;
@@ -175,7 +175,7 @@ static void la2016_dump_fpga_registers(const struct sr_dev_inst *sdi,
 	size_t dump_addr, indent, dump_len;
 	GString *txt;
 
-	if (sr_log_loglevel_get() < SR_LOG_SPEW)
+	if (otc_log_loglevel_get() < OTC_LOG_SPEW)
 		return;
 
 	if (!reg_lower && !reg_upper) {
@@ -187,13 +187,13 @@ static void la2016_dump_fpga_registers(const struct sr_dev_inst *sdi,
 
 	rdlen = reg_upper - reg_lower;
 	ret = ctrl_in(sdi, CMD_FPGA_SPI, reg_lower, 0, rdbuf, rdlen);
-	if (ret != SR_OK) {
-		sr_err("Cannot get registers space.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot get registers space.");
 		return;
 	}
 	rdptr = rdbuf;
 
-	sr_spew("FPGA registers dump: %s", caption ? : "for fun");
+	otc_spew("FPGA registers dump: %s", caption ? : "for fun");
 	dump_addr = reg_lower;
 	while (rdlen) {
 		dump_len = rdlen;
@@ -202,10 +202,10 @@ static void la2016_dump_fpga_registers(const struct sr_dev_inst *sdi,
 			dump_len = dump_chunk_len;
 		if (dump_len + indent > dump_chunk_len)
 			dump_len = dump_chunk_len - indent;
-		txt = sr_hexdump_new(rdptr, dump_len);
-		sr_spew("  %04zx  %*s%s",
+		txt = otc_hexdump_new(rdptr, dump_len);
+		otc_spew("  %04zx  %*s%s",
 			dump_addr, (int)(3 * indent), "", txt->str);
-		sr_hexdump_free(txt);
+		otc_hexdump_free(txt);
 		dump_addr += dump_len;
 		rdptr += dump_len;
 		rdlen -= dump_len;
@@ -221,14 +221,14 @@ static void la2016_dump_fpga_registers(const struct sr_dev_inst *sdi,
  * currently active bitstream) should be conservative. Accessing multiple
  * registers is considered cheap compared to the cost of bitstream upload.
  *
- * It helps though that both the vendor software and the sigrok driver
+ * It helps though that both the vendor software and the opentracelab driver
  * use the same bundle of MCU firmware and FPGA bitstream for any of the
  * supported models. We don't expect to successfully communicate to the
  * device yet disagree on its protocol. Ideally we would access version
  * identifying registers for improved robustness, but are not aware of
  * any. A bitstream reload can always be forced by a power cycle.
  */
-static int check_fpga_bitstream(const struct sr_dev_inst *sdi)
+static int check_fpga_bitstream(const struct otc_dev_inst *sdi)
 {
 	uint8_t init_rsp;
 	uint8_t buff[REG_PWM_EN - REG_RUN]; /* Larger of REG_RUN, REG_PWM_EN. */
@@ -238,58 +238,58 @@ static int check_fpga_bitstream(const struct sr_dev_inst *sdi)
 	size_t read_len;
 	const uint8_t *rdptr;
 
-	sr_dbg("Checking operation of the FPGA bitstream.");
+	otc_dbg("Checking operation of the FPGA bitstream.");
 	la2016_dump_fpga_registers(sdi, "bitstream check", 0, 0);
 
 	init_rsp = ~0;
 	ret = ctrl_in(sdi, CMD_FPGA_INIT, 0x00, 0, &init_rsp, sizeof(init_rsp));
-	if (ret != SR_OK || init_rsp != 0) {
-		sr_dbg("FPGA init query failed, or unexpected response.");
-		return SR_ERR_IO;
+	if (ret != OTC_OK || init_rsp != 0) {
+		otc_dbg("FPGA init query failed, or unexpected response.");
+		return OTC_ERR_IO;
 	}
 
 	read_len = sizeof(run_state);
 	ret = ctrl_in(sdi, CMD_FPGA_SPI, REG_RUN, 0, buff, read_len);
-	if (ret != SR_OK) {
-		sr_dbg("FPGA register access failed (run state).");
-		return SR_ERR_IO;
+	if (ret != OTC_OK) {
+		otc_dbg("FPGA register access failed (run state).");
+		return OTC_ERR_IO;
 	}
 	rdptr = buff;
 	run_state = read_u16le_inc(&rdptr);
-	sr_spew("FPGA register: run state 0x%04x.", run_state);
+	otc_spew("FPGA register: run state 0x%04x.", run_state);
 	if (run_state && (run_state & 0x3) != 0x1) {
-		sr_dbg("Unexpected FPGA register content (run state).");
-		return SR_ERR_DATA;
+		otc_dbg("Unexpected FPGA register content (run state).");
+		return OTC_ERR_DATA;
 	}
 	if (run_state && (run_state & ~0xf) != 0x85e0) {
-		sr_dbg("Unexpected FPGA register content (run state).");
-		return SR_ERR_DATA;
+		otc_dbg("Unexpected FPGA register content (run state).");
+		return OTC_ERR_DATA;
 	}
 
 	read_len = sizeof(pwm_en);
 	ret = ctrl_in(sdi, CMD_FPGA_SPI, REG_PWM_EN, 0, buff, read_len);
-	if (ret != SR_OK) {
-		sr_dbg("FPGA register access failed (PWM enable).");
-		return SR_ERR_IO;
+	if (ret != OTC_OK) {
+		otc_dbg("FPGA register access failed (PWM enable).");
+		return OTC_ERR_IO;
 	}
 	rdptr = buff;
 	pwm_en = read_u8_inc(&rdptr);
-	sr_spew("FPGA register: PWM enable 0x%02x.", pwm_en);
+	otc_spew("FPGA register: PWM enable 0x%02x.", pwm_en);
 	if ((pwm_en & 0x3) != 0x0) {
-		sr_dbg("Unexpected FPGA register content (PWM enable).");
-		return SR_ERR_DATA;
+		otc_dbg("Unexpected FPGA register content (PWM enable).");
+		return OTC_ERR_DATA;
 	}
 
-	sr_info("Could re-use current FPGA bitstream. No upload required.");
-	return SR_OK;
+	otc_info("Could re-use current FPGA bitstream. No upload required.");
+	return OTC_OK;
 }
 
-static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
+static int upload_fpga_bitstream(const struct otc_dev_inst *sdi,
 	const char *bitstream_fname)
 {
 	struct drv_context *drvc;
-	struct sr_usb_dev_inst *usb;
-	struct sr_resource bitstream;
+	struct otc_usb_dev_inst *usb;
+	struct otc_resource bitstream;
 	uint32_t bitstream_size;
 	uint8_t buffer[sizeof(uint32_t)];
 	uint8_t *wrptr;
@@ -302,12 +302,12 @@ static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
 	drvc = sdi->driver->context;
 	usb = sdi->conn;
 
-	sr_info("Uploading FPGA bitstream '%s'.", bitstream_fname);
+	otc_info("Uploading FPGA bitstream '%s'.", bitstream_fname);
 
-	ret = sr_resource_open(drvc->sr_ctx, &bitstream,
-		SR_RESOURCE_FIRMWARE, bitstream_fname);
-	if (ret != SR_OK) {
-		sr_err("Cannot find FPGA bitstream %s.", bitstream_fname);
+	ret = otc_resource_open(drvc->otc_ctx, &bitstream,
+		OTC_RESOURCE_FIRMWARE, bitstream_fname);
+	if (ret != OTC_OK) {
+		otc_err("Cannot find FPGA bitstream %s.", bitstream_fname);
 		return ret;
 	}
 
@@ -315,9 +315,9 @@ static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
 	wrptr = buffer;
 	write_u32le_inc(&wrptr, bitstream_size);
 	ret = ctrl_out(sdi, CMD_FPGA_INIT, 0x00, 0, buffer, wrptr - buffer);
-	if (ret != SR_OK) {
-		sr_err("Cannot initiate FPGA bitstream upload.");
-		sr_resource_close(drvc->sr_ctx, &bitstream);
+	if (ret != OTC_OK) {
+		otc_err("Cannot initiate FPGA bitstream upload.");
+		otc_resource_close(drvc->otc_ctx, &bitstream);
 		return ret;
 	}
 	zero_pad_to = bitstream_size;
@@ -328,12 +328,12 @@ static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
 	pos = 0;
 	while (1) {
 		if (pos < bitstream.size) {
-			len = (int)sr_resource_read(drvc->sr_ctx, &bitstream,
+			len = (int)otc_resource_read(drvc->otc_ctx, &bitstream,
 				block, sizeof(block));
 			if (len < 0) {
-				sr_err("Cannot read FPGA bitstream.");
-				sr_resource_close(drvc->sr_ctx, &bitstream);
-				return SR_ERR_IO;
+				otc_err("Cannot read FPGA bitstream.");
+				otc_resource_close(drvc->otc_ctx, &bitstream);
+				return OTC_ERR_IO;
 			}
 		} else {
 			/*  Zero-pad until 'zero_pad_to'. */
@@ -348,56 +348,56 @@ static int upload_fpga_bitstream(const struct sr_dev_inst *sdi,
 		ret = libusb_bulk_transfer(usb->devhdl, USB_EP_FPGA_BITSTREAM,
 			&block[0], len, &act_len, DEFAULT_TIMEOUT_MS);
 		if (ret != 0) {
-			sr_dbg("Cannot write FPGA bitstream, block %#x len %d: %s.",
+			otc_dbg("Cannot write FPGA bitstream, block %#x len %d: %s.",
 				pos, (int)len, libusb_error_name(ret));
-			ret = SR_ERR_IO;
+			ret = OTC_ERR_IO;
 			break;
 		}
 		if (act_len != len) {
-			sr_dbg("Short write for FPGA bitstream, block %#x len %d: got %d.",
+			otc_dbg("Short write for FPGA bitstream, block %#x len %d: got %d.",
 				pos, (int)len, act_len);
-			ret = SR_ERR_IO;
+			ret = OTC_ERR_IO;
 			break;
 		}
 		pos += len;
 	}
-	sr_resource_close(drvc->sr_ctx, &bitstream);
-	if (ret != SR_OK)
+	otc_resource_close(drvc->otc_ctx, &bitstream);
+	if (ret != OTC_OK)
 		return ret;
-	sr_info("FPGA bitstream upload (%" PRIu64 " bytes) done.",
+	otc_info("FPGA bitstream upload (%" PRIu64 " bytes) done.",
 		bitstream.size);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int enable_fpga_bitstream(const struct sr_dev_inst *sdi)
+static int enable_fpga_bitstream(const struct otc_dev_inst *sdi)
 {
 	int ret;
 	uint8_t resp;
 
 	ret = ctrl_in(sdi, CMD_FPGA_INIT, 0x00, 0, &resp, sizeof(resp));
-	if (ret != SR_OK) {
-		sr_err("Cannot read response after FPGA bitstream upload.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot read response after FPGA bitstream upload.");
 		return ret;
 	}
 	if (resp != 0) {
-		sr_err("Unexpected FPGA bitstream upload response, got 0x%02x, want 0.",
+		otc_err("Unexpected FPGA bitstream upload response, got 0x%02x, want 0.",
 			resp);
-		return SR_ERR_DATA;
+		return OTC_ERR_DATA;
 	}
 	g_usleep(30 * 1000);
 
 	ret = ctrl_out(sdi, CMD_FPGA_ENABLE, 0x01, 0, NULL, 0);
-	if (ret != SR_OK) {
-		sr_err("Cannot enable FPGA after bitstream upload.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot enable FPGA after bitstream upload.");
 		return ret;
 	}
 	g_usleep(40 * 1000);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int set_threshold_voltage(const struct sr_dev_inst *sdi, float voltage)
+static int set_threshold_voltage(const struct otc_dev_inst *sdi, float voltage)
 {
 	int ret;
 	uint16_t duty_R79, duty_R56;
@@ -440,20 +440,20 @@ static int set_threshold_voltage(const struct sr_dev_inst *sdi, float voltage)
 		duty_R56 = 1100;
 	}
 
-	sr_dbg("Set threshold voltage %.2fV.", voltage);
-	sr_dbg("Duty cycle values: R56 0x%04x, R79 0x%04x.", duty_R56, duty_R79);
+	otc_dbg("Set threshold voltage %.2fV.", voltage);
+	otc_dbg("Duty cycle values: R56 0x%04x, R79 0x%04x.", duty_R56, duty_R79);
 
 	wrptr = buf;
 	write_u16le_inc(&wrptr, duty_R56);
 	write_u16le_inc(&wrptr, duty_R79);
 
 	ret = ctrl_out(sdi, CMD_FPGA_SPI, REG_THRESHOLD, 0, buf, wrptr - buf);
-	if (ret != SR_OK) {
-		sr_err("Cannot set threshold voltage %.2fV.", voltage);
+	if (ret != OTC_OK) {
+		otc_err("Cannot set threshold voltage %.2fV.", voltage);
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -461,7 +461,7 @@ static int set_threshold_voltage(const struct sr_dev_inst *sdi, float voltage)
  * parameters may have changed. Configuration of one channel may
  * interfere with other channels since they share FPGA registers.
  */
-static int set_pwm_config(const struct sr_dev_inst *sdi, size_t idx)
+static int set_pwm_config(const struct otc_dev_inst *sdi, size_t idx)
 {
 	static uint8_t reg_bases[] = { REG_PWM1, REG_PWM2, };
 
@@ -479,17 +479,17 @@ static int set_pwm_config(const struct sr_dev_inst *sdi, size_t idx)
 
 	devc = sdi->priv;
 	if (idx >= ARRAY_SIZE(devc->pwm_setting))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	params = &devc->pwm_setting[idx];
 	if (idx >= ARRAY_SIZE(reg_bases))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	reg_base = reg_bases[idx];
 
 	/*
 	 * Map application's specs to hardware register values. Do math
 	 * in floating point initially, but convert to u32 eventually.
 	 */
-	sr_dbg("PWM config, app spec, ch %zu, en %d, freq %.1f, duty %.1f.",
+	otc_dbg("PWM config, app spec, ch %zu, en %d, freq %.1f, duty %.1f.",
 		idx, params->enabled ? 1 : 0, params->freq, params->duty);
 	val_f = PWM_CLOCK;
 	val_f /= params->freq;
@@ -501,7 +501,7 @@ static int set_pwm_config(const struct sr_dev_inst *sdi, size_t idx)
 	val_f += 0.5;
 	val_u = val_f;
 	duty = val_u;
-	sr_dbg("PWM config, reg 0x%04x, freq %u, duty %u.",
+	otc_dbg("PWM config, reg 0x%04x, freq %u, duty %u.",
 		(unsigned)reg_base, (unsigned)period, (unsigned)duty);
 
 	/* Get the "enabled" state of all supported PWM channels. */
@@ -512,7 +512,7 @@ static int set_pwm_config(const struct sr_dev_inst *sdi, size_t idx)
 		enable_all |= 1U << ch;
 	}
 	enable_cfg = 1U << idx;
-	sr_spew("PWM config, enable all 0x%02hhx, cfg 0x%02hhx.",
+	otc_spew("PWM config, enable all 0x%02hhx, cfg 0x%02hhx.",
 		enable_all, enable_cfg);
 
 	/*
@@ -520,39 +520,39 @@ static int set_pwm_config(const struct sr_dev_inst *sdi, size_t idx)
 	 * will change. Or disable and exit when the channel is supposed
 	 * to get turned off.
 	 */
-	sr_spew("PWM config, disabling before param change.");
+	otc_spew("PWM config, disabling before param change.");
 	reg_val = enable_all & ~enable_cfg;
 	ret = ctrl_out(sdi, CMD_FPGA_SPI, REG_PWM_EN, 0,
 		&reg_val, sizeof(reg_val));
-	if (ret != SR_OK) {
-		sr_err("Cannot adjust PWM enabled state.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot adjust PWM enabled state.");
 		return ret;
 	}
 	if (!params->enabled)
-		return SR_OK;
+		return OTC_OK;
 
 	/* Write register values to device. */
-	sr_spew("PWM config, sending new parameters.");
+	otc_spew("PWM config, sending new parameters.");
 	wrptr = buf;
 	write_u32le_inc(&wrptr, period);
 	write_u32le_inc(&wrptr, duty);
 	ret = ctrl_out(sdi, CMD_FPGA_SPI, reg_base, 0, buf, wrptr - buf);
-	if (ret != SR_OK) {
-		sr_err("Cannot change PWM parameters.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot change PWM parameters.");
 		return ret;
 	}
 
 	/* Enable configured channel after write completion. */
-	sr_spew("PWM config, enabling after param change.");
+	otc_spew("PWM config, enabling after param change.");
 	reg_val = enable_all | enable_cfg;
 	ret = ctrl_out(sdi, CMD_FPGA_SPI, REG_PWM_EN, 0,
 		&reg_val, sizeof(reg_val));
-	if (ret != SR_OK) {
-		sr_err("Cannot adjust PWM enabled state.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot adjust PWM enabled state.");
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -560,13 +560,13 @@ static int set_pwm_config(const struct sr_dev_inst *sdi, size_t idx)
  * representation. Derive data here which later simplifies processing
  * of raw capture data memory content in streaming mode.
  */
-static void la2016_prepare_stream(const struct sr_dev_inst *sdi)
+static void la2016_prepare_stream(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	struct stream_state_t *stream;
 	size_t channel_mask;
 	GSList *l;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 
 	devc = sdi->priv;
 	stream = &devc->stream;
@@ -575,7 +575,7 @@ static void la2016_prepare_stream(const struct sr_dev_inst *sdi)
 	stream->enabled_count = 0;
 	for (l = sdi->channels; l; l = l->next) {
 		ch = l->data;
-		if (ch->type != SR_CHANNEL_LOGIC)
+		if (ch->type != OTC_CHANNEL_LOGIC)
 			continue;
 		if (!ch->enabled)
 			continue;
@@ -592,10 +592,10 @@ static void la2016_prepare_stream(const struct sr_dev_inst *sdi)
  * data processing in stream mode, where the memory layout dramatically
  * differs from normal mode.
  */
-static int set_trigger_config(const struct sr_dev_inst *sdi)
+static int set_trigger_config(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
-	struct sr_trigger *trigger;
+	struct otc_trigger *trigger;
 	struct trigger_cfg {
 		uint32_t channels;	/* Actually: Enabled channels? */
 		uint32_t enabled;	/* Actually: Triggering channels? */
@@ -604,8 +604,8 @@ static int set_trigger_config(const struct sr_dev_inst *sdi)
 	} cfg;
 	GSList *stages;
 	GSList *channel;
-	struct sr_trigger_stage *stage1;
-	struct sr_trigger_match *match;
+	struct otc_trigger_stage *stage1;
+	struct otc_trigger_match *match;
 	uint32_t ch_mask;
 	int ret;
 	uint8_t buf[REG_UNKNOWN_30 - REG_TRIGGER]; /* Width of REG_TRIGGER. */
@@ -618,16 +618,16 @@ static int set_trigger_config(const struct sr_dev_inst *sdi)
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.channels = devc->stream.enabled_mask;
 	if (!cfg.channels) {
-		sr_err("Need at least one enabled logic channel.");
-		return SR_ERR_ARG;
+		otc_err("Need at least one enabled logic channel.");
+		return OTC_ERR_ARG;
 	}
-	trigger = sr_session_trigger_get(sdi->session);
+	trigger = otc_session_trigger_get(sdi->session);
 	if (trigger && trigger->stages) {
 		stages = trigger->stages;
 		stage1 = stages->data;
 		if (stages->next) {
-			sr_err("Only one trigger stage supported for now.");
-			return SR_ERR_ARG;
+			otc_err("Only one trigger stage supported for now.");
+			return OTC_ERR_ARG;
 		}
 		channel = stage1->matches;
 		while (channel) {
@@ -635,39 +635,39 @@ static int set_trigger_config(const struct sr_dev_inst *sdi)
 			ch_mask = 1UL << match->channel->index;
 
 			switch (match->match) {
-			case SR_TRIGGER_ZERO:
+			case OTC_TRIGGER_ZERO:
 				cfg.level |= ch_mask;
 				cfg.high_or_falling &= ~ch_mask;
 				break;
-			case SR_TRIGGER_ONE:
+			case OTC_TRIGGER_ONE:
 				cfg.level |= ch_mask;
 				cfg.high_or_falling |= ch_mask;
 				break;
-			case SR_TRIGGER_RISING:
+			case OTC_TRIGGER_RISING:
 				if ((cfg.enabled & ~cfg.level)) {
-					sr_err("Device only supports one edge trigger.");
-					return SR_ERR_ARG;
+					otc_err("Device only supports one edge trigger.");
+					return OTC_ERR_ARG;
 				}
 				cfg.level &= ~ch_mask;
 				cfg.high_or_falling &= ~ch_mask;
 				break;
-			case SR_TRIGGER_FALLING:
+			case OTC_TRIGGER_FALLING:
 				if ((cfg.enabled & ~cfg.level)) {
-					sr_err("Device only supports one edge trigger.");
-					return SR_ERR_ARG;
+					otc_err("Device only supports one edge trigger.");
+					return OTC_ERR_ARG;
 				}
 				cfg.level &= ~ch_mask;
 				cfg.high_or_falling |= ch_mask;
 				break;
 			default:
-				sr_err("Unknown trigger condition.");
-				return SR_ERR_ARG;
+				otc_err("Unknown trigger condition.");
+				return OTC_ERR_ARG;
 			}
 			cfg.enabled |= ch_mask;
 			channel = channel->next;
 		}
 	}
-	sr_dbg("Set trigger config: "
+	otc_dbg("Set trigger config: "
 		"enabled-channels 0x%04x, triggering-channels 0x%04x, "
 		"level-triggered 0x%04x, high/falling 0x%04x.",
 		cfg.channels, cfg.enabled, cfg.level, cfg.high_or_falling);
@@ -682,9 +682,9 @@ static int set_trigger_config(const struct sr_dev_inst *sdi)
 	 */
 	if (!devc->model->memory_bits || devc->continuous) {
 		if (!devc->model->memory_bits)
-			sr_dbg("Device without memory. No hardware triggers.");
+			otc_dbg("Device without memory. No hardware triggers.");
 		else if (devc->continuous)
-			sr_dbg("Streaming mode. No hardware triggers.");
+			otc_dbg("Streaming mode. No hardware triggers.");
 		cfg.enabled = 0;
 		cfg.level = 0;
 		cfg.high_or_falling = 0;
@@ -704,19 +704,19 @@ static int set_trigger_config(const struct sr_dev_inst *sdi)
 	 * an obsolete experiment?
 	 */
 	ret = ctrl_out(sdi, CMD_FPGA_SPI, REG_TRIGGER, 16, buf, wrptr - buf);
-	if (ret != SR_OK) {
-		sr_err("Cannot setup trigger configuration.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot setup trigger configuration.");
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
  * This routine communicates the sample configuration to the device:
  * Total samples count and samplerate, pre-trigger configuration.
  */
-static int set_sample_config(const struct sr_dev_inst *sdi)
+static int set_sample_config(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	uint64_t baseclock;
@@ -740,9 +740,9 @@ static int set_sample_config(const struct sr_dev_inst *sdi)
 	 * a 200MHz samplerate which uses divider 4.
 	 */
 	if (devc->samplerate > devc->model->samplerate) {
-		sr_err("Too high a sample rate: %" PRIu64 ".",
+		otc_err("Too high a sample rate: %" PRIu64 ".",
 			devc->samplerate);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	baseclock = devc->model->baseclock;
 	if (!baseclock)
@@ -750,35 +750,35 @@ static int set_sample_config(const struct sr_dev_inst *sdi)
 	min_samplerate = baseclock;
 	min_samplerate /= 65536;
 	if (devc->samplerate < min_samplerate) {
-		sr_err("Too low a sample rate: %" PRIu64 ".",
+		otc_err("Too low a sample rate: %" PRIu64 ".",
 			devc->samplerate);
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	}
 	divider_u16 = baseclock / devc->samplerate;
 	eff_samplerate = baseclock / divider_u16;
 	if (eff_samplerate > devc->model->samplerate)
 		eff_samplerate = devc->model->samplerate;
 
-	ret = sr_sw_limits_get_remain(&devc->sw_limits,
+	ret = otc_sw_limits_get_remain(&devc->sw_limits,
 		&limit_samples, NULL, NULL, NULL);
-	if (ret != SR_OK) {
-		sr_err("Cannot get acquisition limits.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot get acquisition limits.");
 		return ret;
 	}
 	if (limit_samples > LA2016_NUM_SAMPLES_MAX) {
-		sr_warn("Too high a sample depth: %" PRIu64 ", capping.",
+		otc_warn("Too high a sample depth: %" PRIu64 ", capping.",
 			limit_samples);
 		limit_samples = LA2016_NUM_SAMPLES_MAX;
 	}
 	if (limit_samples == 0) {
 		limit_samples = LA2016_NUM_SAMPLES_MAX;
-		sr_dbg("Passing %" PRIu64 " to HW for unlimited samples.",
+		otc_dbg("Passing %" PRIu64 " to HW for unlimited samples.",
 			limit_samples);
 	}
 
 	/*
 	 * The acquisition configuration communicates "pre-trigger"
-	 * specs in several formats. sigrok users provide a percentage
+	 * specs in several formats. opentracelab users provide a percentage
 	 * (0-100%), which translates to a pre-trigger samples count
 	 * (assuming that a total samples count limit was specified).
 	 * The device supports hardware compression, which depends on
@@ -790,7 +790,7 @@ static int set_sample_config(const struct sr_dev_inst *sdi)
 	 * communicated to the device (written to its FPGA register).
 	 */
 	if (!devc->model->memory_bits) {
-		sr_dbg("Memory-less device, skipping pre-trigger config.");
+		otc_dbg("Memory-less device, skipping pre-trigger config.");
 		pre_trigger_samples = 0;
 		pre_trigger_memory = 0;
 	} else if (devc->trigger_involved) {
@@ -803,7 +803,7 @@ static int set_sample_config(const struct sr_dev_inst *sdi)
 		pre_trigger_memory *= devc->capture_ratio;
 		pre_trigger_memory /= 100;
 	} else {
-		sr_dbg("No trigger setup, skipping pre-trigger config.");
+		otc_dbg("No trigger setup, skipping pre-trigger config.");
 		pre_trigger_samples = 0;
 		pre_trigger_memory = 0;
 	}
@@ -811,23 +811,23 @@ static int set_sample_config(const struct sr_dev_inst *sdi)
 	if (pre_trigger_memory < 0x100)
 		pre_trigger_memory = 0x100;
 
-	sr_dbg("Set sample config: %" PRIu64 "kHz (div %" PRIu16 "), %" PRIu64 " samples.",
-		eff_samplerate / SR_KHZ(1), divider_u16, limit_samples);
-	sr_dbg("Capture ratio %" PRIu64 "%%, count %" PRIu64 ", mem %" PRIu64 ".",
+	otc_dbg("Set sample config: %" PRIu64 "kHz (div %" PRIu16 "), %" PRIu64 " samples.",
+		eff_samplerate / OTC_KHZ(1), divider_u16, limit_samples);
+	otc_dbg("Capture ratio %" PRIu64 "%%, count %" PRIu64 ", mem %" PRIu64 ".",
 		devc->capture_ratio, pre_trigger_samples, pre_trigger_memory);
 
 	if (devc->continuous) {
 		stream_bandwidth = eff_samplerate;
 		stream_bandwidth *= devc->stream.enabled_count;
-		sr_dbg("Streaming: channel count %zu, product %" PRIu64 ".",
+		otc_dbg("Streaming: channel count %zu, product %" PRIu64 ".",
 			devc->stream.enabled_count, stream_bandwidth);
 		stream_bandwidth /= 1000 * 1000;
 		if (stream_bandwidth >= LA2016_STREAM_MBPS_MAX) {
-			sr_warn("High USB stream bandwidth: %" PRIu64 "Mbps.",
+			otc_warn("High USB stream bandwidth: %" PRIu64 "Mbps.",
 				stream_bandwidth);
 		}
 		if (stream_bandwidth < LA2016_STREAM_PUSH_THR) {
-			sr_dbg("Streaming: low Mbps, suggest periodic flush.");
+			otc_dbg("Streaming: low Mbps, suggest periodic flush.");
 			devc->stream.flush_period_ms = LA2016_STREAM_PUSH_IVAL;
 		}
 	}
@@ -851,12 +851,12 @@ static int set_sample_config(const struct sr_dev_inst *sdi)
 	write_u16le_inc(&wrptr, divider_u16);
 	write_u8_inc(&wrptr, 0);
 	ret = ctrl_out(sdi, CMD_FPGA_SPI, REG_SAMPLING, 0, buf, wrptr - buf);
-	if (ret != SR_OK) {
-		sr_err("Cannot setup acquisition configuration.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot setup acquisition configuration.");
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -896,7 +896,7 @@ static const uint16_t runstate_patt_wait_trig = RUNSTATE_POST_BIT;
 static const uint16_t runstate_patt_post_trig =
 	RUNSTATE_TRGD_BIT | RUNSTATE_POST_BIT;
 
-static uint16_t run_state(const struct sr_dev_inst *sdi)
+static uint16_t run_state(const struct otc_dev_inst *sdi)
 {
 	static uint16_t previous_state;
 
@@ -907,8 +907,8 @@ static uint16_t run_state(const struct sr_dev_inst *sdi)
 	const char *label;
 
 	ret = ctrl_in(sdi, CMD_FPGA_SPI, REG_RUN, 0, buff, sizeof(state));
-	if (ret != SR_OK) {
-		sr_err("Cannot read run state.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot read run state.");
 		return ret;
 	}
 	rdptr = buff;
@@ -932,14 +932,14 @@ static uint16_t run_state(const struct sr_dev_inst *sdi)
 	if ((state & runstate_mask_step) == runstate_patt_post_trig)
 		label = "post-trigger sampling";
 	if (label && *label)
-		sr_dbg("Run state: 0x%04x (%s).", state, label);
+		otc_dbg("Run state: 0x%04x (%s).", state, label);
 	else
-		sr_dbg("Run state: 0x%04x.", state);
+		otc_dbg("Run state: 0x%04x.", state);
 
 	return state;
 }
 
-static gboolean la2016_is_idle(const struct sr_dev_inst *sdi)
+static gboolean la2016_is_idle(const struct otc_dev_inst *sdi)
 {
 	uint16_t state;
 
@@ -950,20 +950,20 @@ static gboolean la2016_is_idle(const struct sr_dev_inst *sdi)
 	return FALSE;
 }
 
-static int set_run_mode(const struct sr_dev_inst *sdi, uint8_t mode)
+static int set_run_mode(const struct otc_dev_inst *sdi, uint8_t mode)
 {
 	int ret;
 
 	ret = ctrl_out(sdi, CMD_FPGA_SPI, REG_RUN, 0, &mode, sizeof(mode));
-	if (ret != SR_OK) {
-		sr_err("Cannot configure run mode %d.", mode);
+	if (ret != OTC_OK) {
+		otc_err("Cannot configure run mode %d.", mode);
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int get_capture_info(const struct sr_dev_inst *sdi)
+static int get_capture_info(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -973,8 +973,8 @@ static int get_capture_info(const struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	ret = ctrl_in(sdi, CMD_FPGA_SPI, REG_SAMPLING, 0, buf, sizeof(buf));
-	if (ret != SR_OK) {
-		sr_err("Cannot read capture info.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot read capture info.");
 		return ret;
 	}
 
@@ -983,23 +983,23 @@ static int get_capture_info(const struct sr_dev_inst *sdi)
 	devc->info.n_rep_packets_before_trigger = read_u32le_inc(&rdptr);
 	devc->info.write_pos = read_u32le_inc(&rdptr);
 
-	sr_dbg("Capture info: n_rep_packets: 0x%08x/%d, before_trigger: 0x%08x/%d, write_pos: 0x%08x/%d.",
+	otc_dbg("Capture info: n_rep_packets: 0x%08x/%d, before_trigger: 0x%08x/%d, write_pos: 0x%08x/%d.",
 		devc->info.n_rep_packets, devc->info.n_rep_packets,
 		devc->info.n_rep_packets_before_trigger,
 		devc->info.n_rep_packets_before_trigger,
 		devc->info.write_pos, devc->info.write_pos);
 
 	if (devc->info.n_rep_packets % devc->packets_per_chunk) {
-		sr_warn("Unexpected packets count %lu, not a multiple of %lu.",
+		otc_warn("Unexpected packets count %lu, not a multiple of %lu.",
 			(unsigned long)devc->info.n_rep_packets,
 			(unsigned long)devc->packets_per_chunk);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int la2016_upload_firmware(const struct sr_dev_inst *sdi,
-	struct sr_context *sr_ctx, libusb_device *dev, gboolean skip_upload)
+OTC_PRIV int la2016_upload_firmware(const struct otc_dev_inst *sdi,
+	struct otc_context *otc_ctx, libusb_device *dev, gboolean skip_upload)
 {
 	struct dev_context *devc;
 	uint16_t pid;
@@ -1008,22 +1008,22 @@ SR_PRIV int la2016_upload_firmware(const struct sr_dev_inst *sdi,
 
 	devc = sdi ? sdi->priv : NULL;
 	if (!devc || !devc->usb_pid)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	pid = devc->usb_pid;
 
 	fw = g_strdup_printf(MCU_FWFILE_FMT, pid);
-	sr_info("USB PID %04hx, MCU firmware '%s'.", pid, fw);
+	otc_info("USB PID %04hx, MCU firmware '%s'.", pid, fw);
 	devc->mcu_firmware = g_strdup(fw);
 
 	if (skip_upload)
-		ret = SR_OK;
+		ret = OTC_OK;
 	else
-		ret = ezusb_upload_firmware(sr_ctx, dev, USB_CONFIGURATION, fw);
+		ret = ezusb_upload_firmware(otc_ctx, dev, USB_CONFIGURATION, fw);
 	g_free(fw);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static void LIBUSB_CALL receive_transfer(struct libusb_transfer *xfer);
@@ -1037,22 +1037,22 @@ static void la2016_usbxfer_release_cb(gpointer p)
 	libusb_free_transfer(xfer);
 }
 
-static int la2016_usbxfer_release(const struct sr_dev_inst *sdi)
+static int la2016_usbxfer_release(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 
 	devc = sdi ? sdi->priv : NULL;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Release all USB transfers. */
 	g_slist_free_full(devc->transfers, la2016_usbxfer_release_cb);
 	devc->transfers = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int la2016_usbxfer_allocate(const struct sr_dev_inst *sdi)
+static int la2016_usbxfer_allocate(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	size_t bufsize, xfercount;
@@ -1061,11 +1061,11 @@ static int la2016_usbxfer_allocate(const struct sr_dev_inst *sdi)
 
 	devc = sdi ? sdi->priv : NULL;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Transfers were already allocated before? */
 	if (devc->transfers)
-		return SR_OK;
+		return OTC_OK;
 
 	/*
 	 * Allocate all USB transfers and their buffers. Arrange for a
@@ -1082,24 +1082,24 @@ static int la2016_usbxfer_allocate(const struct sr_dev_inst *sdi)
 	while (xfercount--) {
 		buffer = g_try_malloc(bufsize);
 		if (!buffer) {
-			sr_err("Cannot allocate USB transfer buffer.");
-			return SR_ERR_MALLOC;
+			otc_err("Cannot allocate USB transfer buffer.");
+			return OTC_ERR_MALLOC;
 		}
 		xfer = libusb_alloc_transfer(0);
 		if (!xfer) {
-			sr_err("Cannot allocate USB transfer.");
+			otc_err("Cannot allocate USB transfer.");
 			g_free(buffer);
-			return SR_ERR_MALLOC;
+			return OTC_ERR_MALLOC;
 		}
 		xfer->buffer = buffer;
 		devc->transfers = g_slist_append(devc->transfers, xfer);
 	}
 	devc->transfer_bufsize = bufsize;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int la2016_usbxfer_cancel_all(const struct sr_dev_inst *sdi)
+static int la2016_usbxfer_cancel_all(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	GSList *l;
@@ -1107,7 +1107,7 @@ static int la2016_usbxfer_cancel_all(const struct sr_dev_inst *sdi)
 
 	devc = sdi ? sdi->priv : NULL;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/* Unconditionally cancel the transfer. Ignore errors. */
 	for (l = devc->transfers; l; l = l->next) {
@@ -1117,24 +1117,24 @@ static int la2016_usbxfer_cancel_all(const struct sr_dev_inst *sdi)
 		libusb_cancel_transfer(xfer);
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int la2016_usbxfer_resubmit(const struct sr_dev_inst *sdi,
+static int la2016_usbxfer_resubmit(const struct otc_dev_inst *sdi,
 	struct libusb_transfer *xfer)
 {
 	struct dev_context *devc;
-	struct sr_usb_dev_inst *usb;
+	struct otc_usb_dev_inst *usb;
 	libusb_transfer_cb_fn cb;
 	int ret;
 
 	devc = sdi ? sdi->priv : NULL;
 	usb = sdi ? sdi->conn : NULL;
 	if (!devc || !usb)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (!xfer)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	cb = receive_transfer;
 	libusb_fill_bulk_transfer(xfer, usb->devhdl,
@@ -1143,15 +1143,15 @@ static int la2016_usbxfer_resubmit(const struct sr_dev_inst *sdi,
 		cb, (void *)sdi, CAPTURE_TIMEOUT_MS);
 	ret = libusb_submit_transfer(xfer);
 	if (ret != 0) {
-		sr_err("Cannot submit USB transfer: %s.",
+		otc_err("Cannot submit USB transfer: %s.",
 			libusb_error_name(ret));
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int la2016_usbxfer_submit_all(const struct sr_dev_inst *sdi)
+static int la2016_usbxfer_submit_all(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	GSList *l;
@@ -1160,21 +1160,21 @@ static int la2016_usbxfer_submit_all(const struct sr_dev_inst *sdi)
 
 	devc = sdi ? sdi->priv : NULL;
 	if (!devc)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	for (l = devc->transfers; l; l = l->next) {
 		xfer = l->data;
 		if (!xfer)
-			return SR_ERR_ARG;
+			return OTC_ERR_ARG;
 		ret = la2016_usbxfer_resubmit(sdi, xfer);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int la2016_setup_acquisition(const struct sr_dev_inst *sdi,
+OTC_PRIV int la2016_setup_acquisition(const struct otc_dev_inst *sdi,
 	double voltage)
 {
 	struct dev_context *devc;
@@ -1184,28 +1184,28 @@ SR_PRIV int la2016_setup_acquisition(const struct sr_dev_inst *sdi,
 	devc = sdi->priv;
 
 	ret = set_threshold_voltage(sdi, voltage);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	cmd = devc->continuous ? CAPTMODE_STREAM : CAPTMODE_TO_RAM;
 	ret = ctrl_out(sdi, CMD_FPGA_SPI, REG_CAPT_MODE, 0, &cmd, sizeof(cmd));
-	if (ret != SR_OK) {
-		sr_err("Cannot send command to stop sampling.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot send command to stop sampling.");
 		return ret;
 	}
 
 	ret = set_trigger_config(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	ret = set_sample_config(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int la2016_start_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int la2016_start_acquisition(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -1213,16 +1213,16 @@ SR_PRIV int la2016_start_acquisition(const struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	ret = la2016_usbxfer_allocate(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	if (devc->continuous) {
 		ret = ctrl_out(sdi, CMD_BULK_RESET, 0x00, 0, NULL, 0);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		ret = la2016_usbxfer_submit_all(sdi);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 
 		/*
@@ -1232,43 +1232,43 @@ SR_PRIV int la2016_start_acquisition(const struct sr_dev_inst *sdi)
 		 */
 	} else {
 		ret = set_run_mode(sdi, RUNMODE_RUN);
-		if (ret != SR_OK)
+		if (ret != OTC_OK)
 			return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int la2016_stop_acquisition(const struct sr_dev_inst *sdi)
+static int la2016_stop_acquisition(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
 
 	ret = set_run_mode(sdi, RUNMODE_HALT);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	devc = sdi->priv;
 	if (devc->continuous)
 		devc->download_finished = TRUE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int la2016_abort_acquisition(const struct sr_dev_inst *sdi)
+OTC_PRIV int la2016_abort_acquisition(const struct otc_dev_inst *sdi)
 {
 	int ret;
 
 	ret = la2016_stop_acquisition(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	(void)la2016_usbxfer_cancel_all(sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int la2016_start_download(const struct sr_dev_inst *sdi)
+static int la2016_start_download(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	int ret;
@@ -1278,7 +1278,7 @@ static int la2016_start_download(const struct sr_dev_inst *sdi)
 	devc = sdi->priv;
 
 	ret = get_capture_info(sdi);
-	if (ret != SR_OK)
+	if (ret != OTC_OK)
 		return ret;
 
 	devc->n_transfer_packets_to_read = devc->info.n_rep_packets;
@@ -1288,38 +1288,38 @@ static int la2016_start_download(const struct sr_dev_inst *sdi)
 	devc->read_pos = devc->info.write_pos - devc->n_bytes_to_read;
 	devc->n_reps_until_trigger = devc->info.n_rep_packets_before_trigger;
 
-	sr_dbg("Want to read %u xfer-packets starting from pos %" PRIu32 ".",
+	otc_dbg("Want to read %u xfer-packets starting from pos %" PRIu32 ".",
 		devc->n_transfer_packets_to_read, devc->read_pos);
 
 	ret = ctrl_out(sdi, CMD_BULK_RESET, 0x00, 0, NULL, 0);
-	if (ret != SR_OK) {
-		sr_err("Cannot reset USB bulk state.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot reset USB bulk state.");
 		return ret;
 	}
-	sr_dbg("Will read from 0x%08lx, 0x%08x bytes.",
+	otc_dbg("Will read from 0x%08lx, 0x%08x bytes.",
 		(unsigned long)devc->read_pos, devc->n_bytes_to_read);
 	wrptr = wrbuf;
 	write_u32le_inc(&wrptr, devc->read_pos);
 	write_u32le_inc(&wrptr, devc->n_bytes_to_read);
 	ret = ctrl_out(sdi, CMD_FPGA_SPI, REG_BULK, 0, wrbuf, wrptr - wrbuf);
-	if (ret != SR_OK) {
-		sr_err("Cannot send USB bulk config.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot send USB bulk config.");
 		return ret;
 	}
 
 	ret = la2016_usbxfer_submit_all(sdi);
-	if (ret != SR_OK) {
-		sr_err("Cannot submit USB bulk transfers.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot submit USB bulk transfers.");
 		return ret;
 	}
 
 	ret = ctrl_out(sdi, CMD_BULK_START, 0x00, 0, NULL, 0);
-	if (ret != SR_OK) {
-		sr_err("Cannot start USB bulk transfers.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot start USB bulk transfers.");
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /*
@@ -1343,7 +1343,7 @@ static int la2016_start_download(const struct sr_dev_inst *sdi)
  *
  * This implementation silently ignores the (weak) sequence number.
  */
-static void send_chunk(struct sr_dev_inst *sdi,
+static void send_chunk(struct otc_dev_inst *sdi,
 	const uint8_t *data_buffer, size_t data_length)
 {
 	struct dev_context *devc;
@@ -1393,14 +1393,14 @@ static void send_chunk(struct sr_dev_inst *sdi,
 			write_u32le(sample_buff, sample_value);
 			feed_queue_logic_submit_one(devc->feed_queue,
 				sample_buff, repetitions);
-			sr_sw_limits_update_samples_read(&devc->sw_limits,
+			otc_sw_limits_update_samples_read(&devc->sw_limits,
 				repetitions);
 
 			if (devc->trigger_involved && !devc->trigger_marked) {
 				if (!--devc->n_reps_until_trigger) {
 					feed_queue_logic_send_trigger(devc->feed_queue);
 					devc->trigger_marked = TRUE;
-					sr_dbg("Trigger position after %" PRIu64 " samples, %.6fms.",
+					otc_dbg("Trigger position after %" PRIu64 " samples, %.6fms.",
 						devc->total_samples,
 						(double)devc->total_samples / devc->samplerate * 1e3);
 				}
@@ -1421,18 +1421,18 @@ static void send_chunk(struct sr_dev_inst *sdi,
 	if (!devc->n_bytes_to_read) {
 		devc->download_finished = TRUE;
 	} else {
-		sr_dbg("%" PRIu32 " more bytes to download from the device.",
+		otc_dbg("%" PRIu32 " more bytes to download from the device.",
 			devc->n_bytes_to_read);
 	}
-	if (!devc->download_finished && sr_sw_limits_check(&devc->sw_limits)) {
-		sr_dbg("Acquisition limit reached.");
+	if (!devc->download_finished && otc_sw_limits_check(&devc->sw_limits)) {
+		otc_dbg("Acquisition limit reached.");
 		devc->download_finished = TRUE;
 	}
 	if (devc->download_finished) {
-		sr_dbg("Download finished, flushing session feed queue.");
+		otc_dbg("Download finished, flushing session feed queue.");
 		feed_queue_logic_flush(devc->feed_queue);
 	}
-	sr_dbg("Total samples after chunk: %" PRIu64 ".", devc->total_samples);
+	otc_dbg("Total samples after chunk: %" PRIu64 ".", devc->total_samples);
 }
 
 /*
@@ -1450,15 +1450,15 @@ static void send_chunk(struct sr_dev_inst *sdi,
  * were seen, the first enabled channel's next chunk follows.
  *
  * Implementor's note: This routine is inspired by convert_sample_data()
- * in the https://github.com/AlexUg/sigrok implementation. Which in turn
- * appears to have been derived from the saleae-logic16 sigrok driver.
+ * in the https://github.com/AlexUg/opentracelab implementation. Which in turn
+ * appears to have been derived from the saleae-logic16 opentracelab driver.
  * The code is phrased conservatively to verify the layout as discussed
  * above, performance was not a priority. Operation was verified with an
  * LA2016 device. The LA5032 reportedly shares the 16 samples per channel
  * layout, just round-robins through a potentially larger set of enabled
  * channels before returning to the first of the channels.
  */
-static void stream_data(struct sr_dev_inst *sdi,
+static void stream_data(struct otc_dev_inst *sdi,
 	const uint8_t *data_buffer, size_t data_length)
 {
 	struct dev_context *devc;
@@ -1476,7 +1476,7 @@ static void stream_data(struct sr_dev_inst *sdi,
 	/* Ignore incoming USB data after complete sample data download. */
 	if (devc->download_finished)
 		return;
-	sr_dbg("Stream mode, got another chunk: %p, length %zu.",
+	otc_dbg("Stream mode, got another chunk: %p, length %zu.",
 		data_buffer, data_length);
 
 	/* TODO Add soft trigger support when in stream mode? */
@@ -1511,7 +1511,7 @@ static void stream_data(struct sr_dev_inst *sdi,
 			feed_queue_logic_submit_one(devc->feed_queue,
 				sample_buff, 1);
 		}
-		sr_sw_limits_update_samples_read(&devc->sw_limits, bit_count);
+		otc_sw_limits_update_samples_read(&devc->sw_limits, bit_count);
 		devc->total_samples += bit_count;
 		memset(stream->sample_data, 0, sizeof(stream->sample_data));
 		stream->channel_index = 0;
@@ -1529,20 +1529,20 @@ static void stream_data(struct sr_dev_inst *sdi,
 	 * We have observed these when "runmode" is set early but bulk
 	 * transfers start late with a pause after setting the runmode.
 	 */
-	if (sr_sw_limits_check(&devc->sw_limits)) {
-		sr_dbg("Acquisition end reached (sw limits).");
+	if (otc_sw_limits_check(&devc->sw_limits)) {
+		otc_dbg("Acquisition end reached (sw limits).");
 		devc->download_finished = TRUE;
 	}
 	if (devc->download_finished) {
-		sr_dbg("Stream receive done, flushing session feed queue.");
+		otc_dbg("Stream receive done, flushing session feed queue.");
 		feed_queue_logic_flush(devc->feed_queue);
 	}
-	sr_dbg("Total samples after chunk: %" PRIu64 ".", devc->total_samples);
+	otc_dbg("Total samples after chunk: %" PRIu64 ".", devc->total_samples);
 }
 
 static void LIBUSB_CALL receive_transfer(struct libusb_transfer *transfer)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	gboolean was_cancelled, device_gone;
 	int ret;
@@ -1552,10 +1552,10 @@ static void LIBUSB_CALL receive_transfer(struct libusb_transfer *transfer)
 
 	was_cancelled = transfer->status == LIBUSB_TRANSFER_CANCELLED;
 	device_gone = transfer->status == LIBUSB_TRANSFER_NO_DEVICE;
-	sr_dbg("receive_transfer(): status %s received %d bytes.",
+	otc_dbg("receive_transfer(): status %s received %d bytes.",
 		libusb_error_name(transfer->status), transfer->actual_length);
 	if (device_gone) {
-		sr_warn("Lost communication to USB device.");
+		otc_warn("Lost communication to USB device.");
 		devc->download_finished = TRUE;
 		return;
 	}
@@ -1579,15 +1579,15 @@ static void LIBUSB_CALL receive_transfer(struct libusb_transfer *transfer)
 	 */
 	if (!was_cancelled && !devc->download_finished) {
 		ret = la2016_usbxfer_resubmit(sdi, transfer);
-		if (ret == SR_OK)
+		if (ret == OTC_OK)
 			return;
 		devc->download_finished = TRUE;
 	}
 }
 
-SR_PRIV int la2016_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int la2016_receive_data(int fd, int revents, void *cb_data)
 {
-	const struct sr_dev_inst *sdi;
+	const struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct drv_context *drvc;
 	struct timeval tv;
@@ -1602,7 +1602,7 @@ SR_PRIV int la2016_receive_data(int fd, int revents, void *cb_data)
 
 	/* Arrange for the start of stream mode when requested. */
 	if (devc->continuous && !devc->frame_begin_sent) {
-		sr_dbg("First receive callback in stream mode.");
+		otc_dbg("First receive callback in stream mode.");
 		devc->download_finished = FALSE;
 		devc->trigger_marked = FALSE;
 		devc->total_samples = 0;
@@ -1611,17 +1611,17 @@ SR_PRIV int la2016_receive_data(int fd, int revents, void *cb_data)
 		devc->frame_begin_sent = TRUE;
 
 		ret = set_run_mode(sdi, RUNMODE_RUN);
-		if (ret != SR_OK) {
-			sr_err("Cannot set 'runmode' to 'run'.");
+		if (ret != OTC_OK) {
+			otc_err("Cannot set 'runmode' to 'run'.");
 			return FALSE;
 		}
 
 		ret = ctrl_out(sdi, CMD_BULK_START, 0x00, 0, NULL, 0);
-		if (ret != SR_OK) {
-			sr_err("Cannot start USB bulk transfers.");
+		if (ret != OTC_OK) {
+			otc_err("Cannot start USB bulk transfers.");
 			return FALSE;
 		}
-		sr_dbg("Stream data reception initiated.");
+		otc_dbg("Stream data reception initiated.");
 	}
 
 	/*
@@ -1630,15 +1630,15 @@ SR_PRIV int la2016_receive_data(int fd, int revents, void *cb_data)
 	 */
 	if (!devc->continuous && !devc->completion_seen) {
 		if (!la2016_is_idle(sdi)) {
-			if (sr_sw_limits_check(&devc->sw_limits)) {
+			if (otc_sw_limits_check(&devc->sw_limits)) {
 				devc->sw_limits.limit_msec = 0;
-				sr_dbg("Limit reached. Stopping acquisition.");
+				otc_dbg("Limit reached. Stopping acquisition.");
 				la2016_stop_acquisition(sdi);
 			}
 			/* Not yet ready for sample data download. */
 			return TRUE;
 		}
-		sr_dbg("Acquisition completion seen (hardware).");
+		otc_dbg("Acquisition completion seen (hardware).");
 		devc->sw_limits.limit_msec = 0;
 		devc->completion_seen = TRUE;
 		devc->download_finished = FALSE;
@@ -1651,18 +1651,18 @@ SR_PRIV int la2016_receive_data(int fd, int revents, void *cb_data)
 		std_session_send_df_frame_begin(sdi);
 		devc->frame_begin_sent = TRUE;
 		ret = la2016_start_download(sdi);
-		if (ret != SR_OK) {
-			sr_err("Cannot start acquisition data download.");
+		if (ret != OTC_OK) {
+			otc_err("Cannot start acquisition data download.");
 			return FALSE;
 		}
-		sr_dbg("Acquisition data download started.");
+		otc_dbg("Acquisition data download started.");
 
 		return TRUE;
 	}
 
 	/* Handle USB reception. Drives sample data download. */
 	memset(&tv, 0, sizeof(tv));
-	libusb_handle_events_timeout(drvc->sr_ctx->libusb_ctx, &tv);
+	libusb_handle_events_timeout(drvc->otc_ctx->libusb_ctx, &tv);
 
 	/*
 	 * Periodically flush acquisition data in streaming mode.
@@ -1677,7 +1677,7 @@ SR_PRIV int la2016_receive_data(int fd, int revents, void *cb_data)
 		elapsed = now - devc->stream.last_flushed;
 		elapsed /= 1000;
 		if (elapsed >= devc->stream.flush_period_ms) {
-			sr_dbg("Stream mode, flushing.");
+			otc_dbg("Stream mode, flushing.");
 			feed_queue_logic_flush(devc->feed_queue);
 			devc->stream.last_flushed = now;
 		}
@@ -1685,14 +1685,14 @@ SR_PRIV int la2016_receive_data(int fd, int revents, void *cb_data)
 
 	/* Postprocess completion of sample data download. */
 	if (devc->download_finished) {
-		sr_dbg("Download finished, post processing.");
+		otc_dbg("Download finished, post processing.");
 
 		la2016_stop_acquisition(sdi);
-		usb_source_remove(sdi->session, drvc->sr_ctx);
+		usb_source_remove(sdi->session, drvc->otc_ctx);
 
 		la2016_usbxfer_cancel_all(sdi);
 		memset(&tv, 0, sizeof(tv));
-		libusb_handle_events_timeout(drvc->sr_ctx->libusb_ctx, &tv);
+		libusb_handle_events_timeout(drvc->otc_ctx->libusb_ctx, &tv);
 
 		feed_queue_logic_flush(devc->feed_queue);
 		feed_queue_logic_free(devc->feed_queue);
@@ -1703,13 +1703,13 @@ SR_PRIV int la2016_receive_data(int fd, int revents, void *cb_data)
 		}
 		std_session_send_df_end(sdi);
 
-		sr_dbg("Download finished, done post processing.");
+		otc_dbg("Download finished, done post processing.");
 	}
 
 	return TRUE;
 }
 
-SR_PRIV int la2016_identify_device(const struct sr_dev_inst *sdi,
+OTC_PRIV int la2016_identify_device(const struct otc_dev_inst *sdi,
 	gboolean show_message)
 {
 	struct dev_context *devc;
@@ -1735,28 +1735,28 @@ SR_PRIV int la2016_identify_device(const struct sr_dev_inst *sdi,
 	rdoff = 0x20;
 	rdlen = 4 * sizeof(uint8_t);
 	ret = ctrl_in(sdi, CMD_EEPROM, rdoff, 0, buf, rdlen);
-	if (ret != SR_OK && !show_message) {
+	if (ret != OTC_OK && !show_message) {
 		/* Non-fatal weak attempt during probe. Not worth logging. */
-		sr_dbg("Cannot access EEPROM.");
-		return SR_ERR_IO;
-	} else if (ret != SR_OK) {
+		otc_dbg("Cannot access EEPROM.");
+		return OTC_ERR_IO;
+	} else if (ret != OTC_OK) {
 		/* Failed attempt in regular use. Non-fatal. Worth logging. */
-		sr_err("Cannot read manufacture date in EEPROM.");
+		otc_err("Cannot read manufacture date in EEPROM.");
 	} else {
-		if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
+		if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
 			GString *txt;
-			txt = sr_hexdump_new(buf, rdlen);
-			sr_spew("Manufacture date bytes %s.", txt->str);
-			sr_hexdump_free(txt);
+			txt = otc_hexdump_new(buf, rdlen);
+			otc_spew("Manufacture date bytes %s.", txt->str);
+			otc_hexdump_free(txt);
 		}
 		rdptr = &buf[0];
 		date_yy = read_u8_inc(&rdptr);
 		date_mm = read_u8_inc(&rdptr);
 		dinv_yy = read_u8_inc(&rdptr);
 		dinv_mm = read_u8_inc(&rdptr);
-		sr_info("Manufacture date: 20%02hx-%02hx.", date_yy, date_mm);
+		otc_info("Manufacture date: 20%02hx-%02hx.", date_yy, date_mm);
 		if ((date_mm ^ dinv_mm) != 0xff || (date_yy ^ dinv_yy) != 0xff)
-			sr_warn("Manufacture date fails checksum test.");
+			otc_warn("Manufacture date fails checksum test.");
 	}
 
 	/*
@@ -1801,15 +1801,15 @@ SR_PRIV int la2016_identify_device(const struct sr_dev_inst *sdi,
 	rdoff = 0x08;
 	rdlen = 8 * sizeof(uint8_t);
 	ret = ctrl_in(sdi, CMD_EEPROM, rdoff, 0, &buf, rdlen);
-	if (ret != SR_OK) {
-		sr_err("Cannot read EEPROM device identifier bytes.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot read EEPROM device identifier bytes.");
 		return ret;
 	}
-	if (sr_log_loglevel_get() >= SR_LOG_SPEW) {
+	if (otc_log_loglevel_get() >= OTC_LOG_SPEW) {
 		GString *txt;
-		txt = sr_hexdump_new(buf, rdlen);
-		sr_spew("EEPROM magic bytes %s.", txt->str);
-		sr_hexdump_free(txt);
+		txt = otc_hexdump_new(buf, rdlen);
+		otc_spew("EEPROM magic bytes %s.", txt->str);
+		otc_hexdump_free(txt);
 	}
 	magic = 0;
 	magic2 = 0;
@@ -1817,22 +1817,22 @@ SR_PRIV int la2016_identify_device(const struct sr_dev_inst *sdi,
 		/* Primary copy of magic passes complement check (4 bytes). */
 		magic = buf[0];
 		magic2 = buf[2];
-		sr_dbg("Using primary magic 0x%hhx (0x%hhx).", magic, magic2);
+		otc_dbg("Using primary magic 0x%hhx (0x%hhx).", magic, magic2);
 	} else if ((buf[4] ^ buf[5]) == 0xff && (buf[6] ^ buf[7]) == 0xff) {
 		/* Backup copy of magic passes complement check (4 bytes). */
 		magic = buf[4];
 		magic2 = buf[6];
-		sr_dbg("Using secondary magic 0x%hhx (0x%hhx).", magic, magic2);
+		otc_dbg("Using secondary magic 0x%hhx (0x%hhx).", magic, magic2);
 	} else if ((buf[0] ^ buf[1]) == 0xff) {
 		/* Primary copy of magic passes complement check (2 bytes). */
 		magic = buf[0];
-		sr_dbg("Using primary magic 0x%hhx.", magic);
+		otc_dbg("Using primary magic 0x%hhx.", magic);
 	} else if ((buf[4] ^ buf[5]) == 0xff) {
 		/* Backup copy of magic passes complement check (2 bytes). */
 		magic = buf[4];
-		sr_dbg("Using secondary magic 0x%hhx.", magic);
+		otc_dbg("Using secondary magic 0x%hhx.", magic);
 	} else {
-		sr_err("Cannot find consistent device type identification.");
+		otc_err("Cannot find consistent device type identification.");
 	}
 	devc->identify_magic = magic;
 	devc->identify_magic2 = magic2;
@@ -1845,27 +1845,27 @@ SR_PRIV int la2016_identify_device(const struct sr_dev_inst *sdi,
 		if (model->magic2 && model->magic2 != magic2)
 			continue;
 		devc->model = model;
-		sr_info("Model '%s', %zu channels, max %" PRIu64 "MHz.",
+		otc_info("Model '%s', %zu channels, max %" PRIu64 "MHz.",
 			model->name, model->channel_count,
-			model->samplerate / SR_MHZ(1));
+			model->samplerate / OTC_MHZ(1));
 		devc->fpga_bitstream = g_strdup_printf(FPGA_FWFILE_FMT,
 			model->fpga_stem);
-		sr_info("FPGA bitstream file '%s'.", devc->fpga_bitstream);
+		otc_info("FPGA bitstream file '%s'.", devc->fpga_bitstream);
 		if (!model->channel_count) {
-			sr_warn("Device lacks logic channels. Not supported.");
+			otc_warn("Device lacks logic channels. Not supported.");
 			devc->model = NULL;
 		}
 		break;
 	}
 	if (!devc->model) {
-		sr_err("Cannot identify as one of the supported models.");
-		return SR_ERR_DATA;
+		otc_err("Cannot identify as one of the supported models.");
+		return OTC_ERR_DATA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int la2016_init_hardware(const struct sr_dev_inst *sdi)
+OTC_PRIV int la2016_init_hardware(const struct otc_dev_inst *sdi)
 {
 	struct dev_context *devc;
 	const char *bitstream_fn;
@@ -1876,54 +1876,54 @@ SR_PRIV int la2016_init_hardware(const struct sr_dev_inst *sdi)
 	bitstream_fn = devc ? devc->fpga_bitstream : "";
 
 	ret = check_fpga_bitstream(sdi);
-	if (ret != SR_OK) {
+	if (ret != OTC_OK) {
 		ret = upload_fpga_bitstream(sdi, bitstream_fn);
-		if (ret != SR_OK) {
-			sr_err("Cannot upload FPGA bitstream.");
+		if (ret != OTC_OK) {
+			otc_err("Cannot upload FPGA bitstream.");
 			return ret;
 		}
 	}
 	ret = enable_fpga_bitstream(sdi);
-	if (ret != SR_OK) {
-		sr_err("Cannot enable FPGA bitstream after upload.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot enable FPGA bitstream after upload.");
 		return ret;
 	}
 
 	state = run_state(sdi);
 	if ((state & 0xfff0) != 0x85e0) {
-		sr_warn("Unexpected run state, want 0x85eX, got 0x%04x.", state);
+		otc_warn("Unexpected run state, want 0x85eX, got 0x%04x.", state);
 	}
 
 	ret = ctrl_out(sdi, CMD_BULK_RESET, 0x00, 0, NULL, 0);
-	if (ret != SR_OK) {
-		sr_err("Cannot reset USB bulk transfer.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot reset USB bulk transfer.");
 		return ret;
 	}
 
-	sr_dbg("Device should be initialized.");
+	otc_dbg("Device should be initialized.");
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int la2016_deinit_hardware(const struct sr_dev_inst *sdi)
+OTC_PRIV int la2016_deinit_hardware(const struct otc_dev_inst *sdi)
 {
 	int ret;
 
 	ret = ctrl_out(sdi, CMD_FPGA_ENABLE, 0x00, 0, NULL, 0);
-	if (ret != SR_OK) {
-		sr_err("Cannot deinitialize device's FPGA.");
+	if (ret != OTC_OK) {
+		otc_err("Cannot deinitialize device's FPGA.");
 		return ret;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV void la2016_release_resources(const struct sr_dev_inst *sdi)
+OTC_PRIV void la2016_release_resources(const struct otc_dev_inst *sdi)
 {
 	(void)la2016_usbxfer_release(sdi);
 }
 
-SR_PRIV int la2016_write_pwm_config(const struct sr_dev_inst *sdi, size_t idx)
+OTC_PRIV int la2016_write_pwm_config(const struct otc_dev_inst *sdi, size_t idx)
 {
 	return set_pwm_config(sdi, idx);
 }

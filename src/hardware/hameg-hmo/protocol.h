@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 poljar (Damir Jelić) <poljarinho@gmail.com>
  *
@@ -23,8 +23,8 @@
 #include <glib.h>
 #include <stdint.h>
 #include <string.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "hameg-hmo"
 
@@ -118,8 +118,8 @@ struct dev_context {
 	const void *model_config;
 	void *model_state;
 
-	struct sr_channel_group **analog_groups;
-	struct sr_channel_group **digital_groups;
+	struct otc_channel_group **analog_groups;
+	struct otc_channel_group **digital_groups;
 
 	GSList *enabled_channels;
 	GSList *current_channel;
@@ -133,13 +133,13 @@ struct dev_context {
 	GByteArray *logic_data;
 };
 
-SR_PRIV int hmo_init_device(struct sr_dev_inst *sdi);
-SR_PRIV int hmo_request_data(const struct sr_dev_inst *sdi);
-SR_PRIV int hmo_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int hmo_init_device(struct otc_dev_inst *sdi);
+OTC_PRIV int hmo_request_data(const struct otc_dev_inst *sdi);
+OTC_PRIV int hmo_receive_data(int fd, int revents, void *cb_data);
 
-SR_PRIV struct scope_state *hmo_scope_state_new(struct scope_config *config);
-SR_PRIV void hmo_scope_state_free(struct scope_state *state);
-SR_PRIV int hmo_scope_state_get(struct sr_dev_inst *sdi);
-SR_PRIV int hmo_update_sample_rate(const struct sr_dev_inst *sdi);
+OTC_PRIV struct scope_state *hmo_scope_state_new(struct scope_config *config);
+OTC_PRIV void hmo_scope_state_free(struct scope_state *state);
+OTC_PRIV int hmo_scope_state_get(struct otc_dev_inst *sdi);
+OTC_PRIV int hmo_update_sample_rate(const struct otc_dev_inst *sdi);
 
 #endif

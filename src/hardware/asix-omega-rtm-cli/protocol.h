@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2021 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -21,10 +21,10 @@
 #define LIBSIGROK_HARDWARE_ASIX_OMEGA_RTM_CLI_PROTOCOL_H
 
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 #include <stdint.h>
 
-#include "libsigrok-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "asix-omega-rtm-cli"
 
@@ -33,7 +33,7 @@
 
 struct dev_context {
 	char **channel_names;
-	struct sr_sw_limits limits;
+	struct otc_sw_limits limits;
 	struct {
 		gchar **argv;
 		GSpawnFlags flags;
@@ -54,8 +54,8 @@ struct dev_context {
 	} samples;
 };
 
-SR_PRIV int omega_rtm_cli_open(const struct sr_dev_inst *sdi);
-SR_PRIV int omega_rtm_cli_close(const struct sr_dev_inst *sdi);
-SR_PRIV int omega_rtm_cli_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int omega_rtm_cli_open(const struct otc_dev_inst *sdi);
+OTC_PRIV int omega_rtm_cli_close(const struct otc_dev_inst *sdi);
+OTC_PRIV int omega_rtm_cli_receive_data(int fd, int revents, void *cb_data);
 
 #endif

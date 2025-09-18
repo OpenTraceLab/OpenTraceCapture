@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2012 Joel Holdsworth <joel@airwebreathe.org.uk>
@@ -26,8 +26,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libusb.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "fx2lafw"
 
@@ -43,8 +43,8 @@
 
 #define FX2LAFW_REQUIRED_VERSION_MAJOR	1
 
-#define MAX_8BIT_SAMPLE_RATE	SR_MHZ(24)
-#define MAX_16BIT_SAMPLE_RATE	SR_MHZ(12)
+#define MAX_8BIT_SAMPLE_RATE	OTC_MHZ(24)
+#define MAX_16BIT_SAMPLE_RATE	OTC_MHZ(12)
 
 /* 6 delay states of up to 256 clock ticks */
 #define MAX_SAMPLE_DELAY	(6 * 256)
@@ -119,16 +119,16 @@ struct dev_context {
 
 	unsigned int num_transfers;
 	struct libusb_transfer **transfers;
-	struct sr_context *ctx;
-	void (*send_data_proc)(struct sr_dev_inst *sdi,
+	struct otc_context *ctx;
+	void (*send_data_proc)(struct otc_dev_inst *sdi,
 		uint8_t *data, size_t length, size_t sample_width);
 	uint8_t *logic_buffer;
 	float *analog_buffer;
 };
 
-SR_PRIV int fx2lafw_dev_open(struct sr_dev_inst *sdi, struct sr_dev_driver *di);
-SR_PRIV struct dev_context *fx2lafw_dev_new(void);
-SR_PRIV int fx2lafw_start_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV void fx2lafw_abort_acquisition(struct dev_context *devc);
+OTC_PRIV int fx2lafw_dev_open(struct otc_dev_inst *sdi, struct otc_dev_driver *di);
+OTC_PRIV struct dev_context *fx2lafw_dev_new(void);
+OTC_PRIV int fx2lafw_start_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV void fx2lafw_abort_acquisition(struct dev_context *devc);
 
 #endif

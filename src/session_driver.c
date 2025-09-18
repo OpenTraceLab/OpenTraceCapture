@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Bert Vermeulen <bert@biot.com>
  *
@@ -24,8 +24,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <zip.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 
 #define LOG_PREFIX "virtual-session"
 
@@ -34,7 +34,7 @@
 #define CHUNKSIZE (4 * 1024 * 1024)
 /** @endcond */
 
-SR_PRIV struct sr_dev_driver session_driver_info;
+OTC_PRIV struct otc_dev_driver session_driver_info;
 
 struct session_vdev {
 	char *sessionfile;
@@ -53,23 +53,23 @@ struct session_vdev {
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CAPTUREFILE | SR_CONF_SET,
-	SR_CONF_CAPTURE_UNITSIZE | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_NUM_LOGIC_CHANNELS | SR_CONF_SET,
-	SR_CONF_NUM_ANALOG_CHANNELS | SR_CONF_SET,
-	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET,
-	SR_CONF_SESSIONFILE | SR_CONF_SET,
+	OTC_CONF_CAPTUREFILE | OTC_CONF_SET,
+	OTC_CONF_CAPTURE_UNITSIZE | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_NUM_LOGIC_CHANNELS | OTC_CONF_SET,
+	OTC_CONF_NUM_ANALOG_CHANNELS | OTC_CONF_SET,
+	OTC_CONF_SAMPLERATE | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_SESSIONFILE | OTC_CONF_SET,
 };
 
-static gboolean stream_session_data(struct sr_dev_inst *sdi)
+static gboolean stream_session_data(struct otc_dev_inst *sdi)
 {
 	struct session_vdev *vdev;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_logic logic;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_logic logic;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	struct zip_stat zs;
 	int ret, got_data;
 	char capturefile[128];
@@ -89,7 +89,7 @@ static gboolean stream_session_data(struct sr_dev_inst *sdi)
 				if (!(vdev->capfile = zip_fopen(vdev->archive,
 						vdev->capturefile, 0)))
 					return FALSE;
-				sr_dbg("Opened %s.", vdev->capturefile);
+				otc_dbg("Opened %s.", vdev->capturefile);
 			} else {
 				/* Try as first chunk filename. */
 				snprintf(capturefile, sizeof(capturefile) - 1, "%s-1", vdev->capturefile);
@@ -98,9 +98,9 @@ static gboolean stream_session_data(struct sr_dev_inst *sdi)
 					if (!(vdev->capfile = zip_fopen(vdev->archive,
 							capturefile, 0)))
 						return FALSE;
-					sr_dbg("Opened %s.", capturefile);
+					otc_dbg("Opened %s.", capturefile);
 				} else {
-					sr_err("No capture file '%s' in " "session file '%s'.",
+					otc_err("No capture file '%s' in " "session file '%s'.",
 							vdev->capturefile, vdev->sessionfile);
 					return FALSE;
 				}
@@ -114,7 +114,7 @@ static gboolean stream_session_data(struct sr_dev_inst *sdi)
 				if (!(vdev->capfile = zip_fopen(vdev->archive,
 						capturefile, 0)))
 					return FALSE;
-				sr_dbg("Opened %s.", capturefile);
+				otc_dbg("Opened %s.", capturefile);
 			} else if (vdev->cur_analog_channel < vdev->num_analog_channels) {
 				vdev->capturefile = g_strdup_printf("analog-1-%d",
 						vdev->num_logic_channels + vdev->cur_analog_channel + 1);
@@ -152,24 +152,24 @@ static gboolean stream_session_data(struct sr_dev_inst *sdi)
 	if (ret > 0) {
 		if (vdev->cur_analog_channel != 0) {
 			got_data = TRUE;
-			packet.type = SR_DF_ANALOG;
+			packet.type = OTC_DF_ANALOG;
 			packet.payload = &analog;
 			/* TODO: Use proper 'digits' value for this device (and its modes). */
-			sr_analog_init(&analog, &encoding, &meaning, &spec, 2);
+			otc_analog_init(&analog, &encoding, &meaning, &spec, 2);
 			analog.meaning->channels = g_slist_prepend(NULL,
 					g_array_index(vdev->analog_channels,
-						struct sr_channel *, vdev->cur_analog_channel - 1));
+						struct otc_channel *, vdev->cur_analog_channel - 1));
 			analog.num_samples = ret / sizeof(float);
-			analog.meaning->mq = SR_MQ_VOLTAGE;
-			analog.meaning->unit = SR_UNIT_VOLT;
-			analog.meaning->mqflags = SR_MQFLAG_DC;
+			analog.meaning->mq = OTC_MQ_VOLTAGE;
+			analog.meaning->unit = OTC_UNIT_VOLT;
+			analog.meaning->mqflags = OTC_MQFLAG_DC;
 			analog.data = (float *) buf;
 		} else if (vdev->unitsize) {
 			got_data = TRUE;
 			if (ret % vdev->unitsize != 0)
-				sr_warn("Read size %d not a multiple of the"
+				otc_warn("Read size %d not a multiple of the"
 					" unit size %d.", ret, vdev->unitsize);
-			packet.type = SR_DF_LOGIC;
+			packet.type = OTC_DF_LOGIC;
 			packet.payload = &logic;
 			logic.length = ret;
 			logic.unitsize = vdev->unitsize;
@@ -179,11 +179,11 @@ static gboolean stream_session_data(struct sr_dev_inst *sdi)
 			 * Neither analog data, nor logic which has
 			 * unitsize, must be an unexpected API use.
 			 */
-			sr_warn("Neither analog nor logic data. Ignoring.");
+			otc_warn("Neither analog nor logic data. Ignoring.");
 		}
 		if (got_data) {
 			vdev->bytes_read += ret;
-			sr_session_send(sdi, &packet);
+			otc_session_send(sdi, &packet);
 		}
 	} else {
 		/* done with this capture file */
@@ -191,7 +191,7 @@ static gboolean stream_session_data(struct sr_dev_inst *sdi)
 		vdev->capfile = NULL;
 		if (vdev->cur_chunk != 0) {
 			/* There might be more chunks, so don't fall through
-			 * to the SR_DF_END here. */
+			 * to the OTC_DF_END here. */
 			got_data = TRUE;
 		}
 	}
@@ -202,7 +202,7 @@ static gboolean stream_session_data(struct sr_dev_inst *sdi)
 
 static int receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct session_vdev *vdev;
 
 	(void)fd;
@@ -232,9 +232,9 @@ static int receive_data(int fd, int revents, void *cb_data)
 
 /* driver callbacks */
 
-static int dev_open(struct sr_dev_inst *sdi)
+static int dev_open(struct otc_dev_inst *sdi)
 {
-	struct sr_dev_driver *di;
+	struct otc_dev_driver *di;
 	struct drv_context *drvc;
 	struct session_vdev *vdev;
 
@@ -244,10 +244,10 @@ static int dev_open(struct sr_dev_inst *sdi)
 	sdi->priv = vdev;
 	drvc->instances = g_slist_append(drvc->instances, sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_close(struct sr_dev_inst *sdi)
+static int dev_close(struct otc_dev_inst *sdi)
 {
 	const struct session_vdev *const vdev = sdi->priv;
 	g_free(vdev->sessionfile);
@@ -256,37 +256,37 @@ static int dev_close(struct sr_dev_inst *sdi)
 	g_free(sdi->priv);
 	sdi->priv = NULL;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct session_vdev *vdev;
 
 	(void)cg;
 
 	if (!sdi)
-		return SR_ERR;
+		return OTC_ERR;
 
 	vdev = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		*data = g_variant_new_uint64(vdev->samplerate);
 		break;
-	case SR_CONF_CAPTURE_UNITSIZE:
+	case OTC_CONF_CAPTURE_UNITSIZE:
 		*data = g_variant_new_uint64(vdev->unitsize);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_set(uint32_t key, GVariant *data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	struct session_vdev *vdev;
 
@@ -295,80 +295,80 @@ static int config_set(uint32_t key, GVariant *data,
 	vdev = sdi->priv;
 
 	switch (key) {
-	case SR_CONF_SAMPLERATE:
+	case OTC_CONF_SAMPLERATE:
 		vdev->samplerate = g_variant_get_uint64(data);
-		sr_info("Setting samplerate to %" PRIu64 ".", vdev->samplerate);
+		otc_info("Setting samplerate to %" PRIu64 ".", vdev->samplerate);
 		break;
-	case SR_CONF_SESSIONFILE:
+	case OTC_CONF_SESSIONFILE:
 		g_free(vdev->sessionfile);
 		vdev->sessionfile = g_strdup(g_variant_get_string(data, NULL));
-		sr_info("Setting sessionfile to '%s'.", vdev->sessionfile);
+		otc_info("Setting sessionfile to '%s'.", vdev->sessionfile);
 		break;
-	case SR_CONF_CAPTUREFILE:
+	case OTC_CONF_CAPTUREFILE:
 		g_free(vdev->capturefile);
 		vdev->capturefile = g_strdup(g_variant_get_string(data, NULL));
-		sr_info("Setting capturefile to '%s'.", vdev->capturefile);
+		otc_info("Setting capturefile to '%s'.", vdev->capturefile);
 		break;
-	case SR_CONF_CAPTURE_UNITSIZE:
+	case OTC_CONF_CAPTURE_UNITSIZE:
 		vdev->unitsize = g_variant_get_uint64(data);
 		break;
-	case SR_CONF_NUM_LOGIC_CHANNELS:
+	case OTC_CONF_NUM_LOGIC_CHANNELS:
 		vdev->num_logic_channels = g_variant_get_int32(data);
 		break;
-	case SR_CONF_NUM_ANALOG_CHANNELS:
+	case OTC_CONF_NUM_ANALOG_CHANNELS:
 		vdev->num_analog_channels = g_variant_get_int32(data);
 		break;
 	default:
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 static int config_list(uint32_t key, GVariant **data,
-	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
+	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
 	return STD_CONFIG_LIST(key, data, sdi, cg, NO_OPTS, NO_OPTS, devopts);
 }
 
-static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 {
 	struct session_vdev *vdev;
 	int ret;
 	GSList *l;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 
 	vdev = sdi->priv;
 	vdev->bytes_read = 0;
 	vdev->cur_analog_channel = 0;
 	vdev->analog_channels = g_array_sized_new(FALSE, FALSE,
-			sizeof(struct sr_channel *), vdev->num_analog_channels);
+			sizeof(struct otc_channel *), vdev->num_analog_channels);
 	for (l = sdi->channels; l; l = l->next) {
 		ch = l->data;
-		if (ch->type == SR_CHANNEL_ANALOG)
+		if (ch->type == OTC_CHANNEL_ANALOG)
 			g_array_append_val(vdev->analog_channels, ch);
 	}
 	vdev->cur_chunk = 0;
 	vdev->finished = FALSE;
 
-	sr_info("Opening archive %s file %s", vdev->sessionfile,
+	otc_info("Opening archive %s file %s", vdev->sessionfile,
 		vdev->capturefile);
 
 	if (!(vdev->archive = zip_open(vdev->sessionfile, 0, &ret))) {
-		sr_err("Failed to open session file '%s': "
+		otc_err("Failed to open session file '%s': "
 		       "zip error %d.", vdev->sessionfile, ret);
-		return SR_ERR;
+		return OTC_ERR;
 	}
 
 	std_session_send_df_header(sdi);
 
 	/* freewheeling source */
-	sr_session_source_add(sdi->session, -1, 0, 0, receive_data, (void *)sdi);
+	otc_session_source_add(sdi->session, -1, 0, 0, receive_data, (void *)sdi);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
 	struct session_vdev *vdev;
 
@@ -376,11 +376,11 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi)
 
 	vdev->finished = TRUE;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /** @private */
-SR_PRIV struct sr_dev_driver session_driver = {
+OTC_PRIV struct otc_dev_driver session_driver = {
 	.name = "virtual-session",
 	.longname = "Session-emulating driver",
 	.api_version = 1,

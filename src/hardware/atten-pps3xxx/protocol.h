@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "atten-pps3xxx"
 
@@ -92,8 +92,8 @@ struct dev_context {
 
 };
 
-SR_PRIV int atten_pps3xxx_receive_data(int fd, int revents, void *cb_data);
-SR_PRIV void send_packet(const struct sr_dev_inst *sdi, uint8_t *packet);
-SR_PRIV void send_config(const struct sr_dev_inst *sdi);
+OTC_PRIV int atten_pps3xxx_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV void send_packet(const struct otc_dev_inst *sdi, uint8_t *packet);
+OTC_PRIV void send_config(const struct otc_dev_inst *sdi);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2011 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
@@ -22,8 +22,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "output/chronovu-la8"
 
@@ -48,7 +48,7 @@ static gboolean is_valid_samplerate(uint64_t samplerate)
 	unsigned int i;
 
 	for (i = 0; i < 255; i++) {
-		if (samplerate == (SR_MHZ(100) / (i + 1)))
+		if (samplerate == (OTC_MHZ(100) / (i + 1)))
 			return TRUE;
 	}
 
@@ -69,30 +69,30 @@ static gboolean is_valid_samplerate(uint64_t samplerate)
 static uint8_t samplerate_to_divcount(uint64_t samplerate)
 {
 	if (samplerate == 0 || !is_valid_samplerate(samplerate)) {
-		sr_warn("Invalid samplerate (%" PRIu64 "Hz)", samplerate);
+		otc_warn("Invalid samplerate (%" PRIu64 "Hz)", samplerate);
 		return 0xff;
 	}
 
-	return (SR_MHZ(100) / samplerate) - 1;
+	return (OTC_MHZ(100) / samplerate) - 1;
 }
 
-static int init(struct sr_output *o, GHashTable *options)
+static int init(struct otc_output *o, GHashTable *options)
 {
 	struct context *ctx;
-	struct sr_channel *ch;
+	struct otc_channel *ch;
 	GSList *l;
 
 	(void)options;
 
 	if (!o || !o->sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	ctx = g_malloc0(sizeof(struct context));
 	o->priv = ctx;
 
 	for (l = o->sdi->channels; l; l = l->next) {
 		ch = l->data;
-		if (ch->type != SR_CHANNEL_LOGIC)
+		if (ch->type != OTC_CHANNEL_LOGIC)
 			continue;
 		if (!ch->enabled)
 			continue;
@@ -101,13 +101,13 @@ static int init(struct sr_output *o, GHashTable *options)
 	ctx->channel_index = g_malloc(sizeof(int) * ctx->num_enabled_channels);
 	ctx->pretrig_buf = g_string_sized_new(1024);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int receive(const struct sr_output *o, const struct sr_datafeed_packet *packet,
+static int receive(const struct otc_output *o, const struct otc_datafeed_packet *packet,
 		GString **out)
 {
-	const struct sr_datafeed_logic *logic;
+	const struct otc_datafeed_logic *logic;
 	struct context *ctx;
 	GVariant *gvar;
 	uint64_t samplerate;
@@ -115,15 +115,15 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 
 	*out = NULL;
 	if (!o || !o->sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	if (!(ctx = o->priv))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	switch (packet->type) {
-	case SR_DF_HEADER:
+	case OTC_DF_HEADER:
 		/* One byte for the 'divcount' value. */
-		if (sr_config_get(o->sdi->driver, o->sdi, NULL, SR_CONF_SAMPLERATE,
-				&gvar) == SR_OK) {
+		if (otc_config_get(o->sdi->driver, o->sdi, NULL, OTC_CONF_SAMPLERATE,
+				&gvar) == OTC_OK) {
 			samplerate = g_variant_get_uint64(gvar);
 			g_variant_unref(gvar);
 		} else
@@ -132,7 +132,7 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 		*out = g_string_new_len(c, 1);
 		ctx->triggered = FALSE;
 		break;
-	case SR_DF_TRIGGER:
+	case OTC_DF_TRIGGER:
 		/* Four bytes (little endian) for the trigger point. */
 		c[0] = ctx->samplecount & 0xff;
 		c[1] = (ctx->samplecount >> 8) & 0xff;
@@ -145,7 +145,7 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 					ctx->pretrig_buf->len);
 		ctx->triggered = TRUE;
 		break;
-	case SR_DF_LOGIC:
+	case OTC_DF_LOGIC:
 		logic = packet->payload;
 		if (!ctx->triggered)
 			g_string_append_len(ctx->pretrig_buf, logic->data, logic->length);
@@ -153,7 +153,7 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 			*out = g_string_new_len(logic->data, logic->length);
 		ctx->samplecount += logic->length / logic->unitsize;
 		break;
-	case SR_DF_END:
+	case OTC_DF_END:
 		if (!ctx->triggered && ctx->pretrig_buf->len) {
 			/* We never got a trigger, submit an empty one. */
 			*out = g_string_sized_new(ctx->pretrig_buf->len + 4);
@@ -163,15 +163,15 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
 		break;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int cleanup(struct sr_output *o)
+static int cleanup(struct otc_output *o)
 {
 	struct context *ctx;
 
 	if (!o || !o->sdi)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	if (o->priv) {
 		ctx = o->priv;
@@ -181,10 +181,10 @@ static int cleanup(struct sr_output *o)
 		o->priv = NULL;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV struct sr_output_module output_chronovu_la8 = {
+OTC_PRIV struct otc_output_module output_chronovu_la8 = {
 	.id = "chronovu-la8",
 	.name = "ChronoVu LA8",
 	.desc = "ChronoVu LA8 native file format data",

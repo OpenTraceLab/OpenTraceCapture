@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  * Copyright (C) 2017,2019 Frank Stettner <frank-stettner@gmx.net>
@@ -23,9 +23,9 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
-#include "scpi.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
+#include "../../scpi.h"
 
 #define LOG_PREFIX "scpi-pps"
 
@@ -108,11 +108,11 @@ struct scpi_pps {
 	const struct channel_group_spec *channel_groups;
 	unsigned int num_channel_groups;
 	const struct scpi_command *commands;
-	int (*probe_channels) (struct sr_dev_inst *sdi, struct sr_scpi_hw_info *hwinfo,
+	int (*probe_channels) (struct otc_dev_inst *sdi, struct otc_scpi_hw_info *hwinfo,
 		struct channel_spec **channels, unsigned int *num_channels,
 		struct channel_group_spec **channel_groups, unsigned int *num_channel_groups);
-	int (*init_acquisition) (const struct sr_dev_inst *sdi);
-	int (*update_status) (const struct sr_dev_inst *sdi);
+	int (*init_acquisition) (const struct otc_dev_inst *sdi);
+	int (*update_status) (const struct otc_dev_inst *sdi);
 };
 
 struct channel_spec {
@@ -132,19 +132,19 @@ struct channel_group_spec {
 	uint64_t channel_index_mask;
 	uint64_t features;
 	/* The mqflags will only be applied to voltage and current channels! */
-	enum sr_mqflag mqflags;
+	enum otc_mqflag mqflags;
 };
 
 struct pps_channel {
-	enum sr_mq mq;
-	enum sr_mqflag mqflags;
+	enum otc_mq mq;
+	enum otc_mqflag mqflags;
 	unsigned int hw_output_idx;
 	const char *hwname;
 	int digits;
 };
 
 struct pps_channel_instance {
-	enum sr_mq mq;
+	enum otc_mq mq;
 	int command;
 	const char *prefix;
 };
@@ -166,14 +166,14 @@ struct dev_context {
 	struct channel_spec *channels;
 	struct channel_group_spec *channel_groups;
 
-	struct sr_channel *cur_acquisition_channel;
-	struct sr_sw_limits limits;
+	struct otc_channel *cur_acquisition_channel;
+	struct otc_sw_limits limits;
 };
 
-SR_PRIV extern unsigned int num_pps_profiles;
-SR_PRIV extern const struct scpi_pps pps_profiles[];
+OTC_PRIV extern unsigned int num_pps_profiles;
+OTC_PRIV extern const struct scpi_pps pps_profiles[];
 
-SR_PRIV int select_channel(const struct sr_dev_inst *sdi, struct sr_channel *ch);
-SR_PRIV int scpi_pps_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int select_channel(const struct otc_dev_inst *sdi, struct otc_channel *ch);
+OTC_PRIV int scpi_pps_receive_data(int fd, int revents, void *cb_data);
 
 #endif

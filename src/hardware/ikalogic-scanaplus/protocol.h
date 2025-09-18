@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2013 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -24,8 +24,8 @@
 #include <string.h>
 #include <glib.h>
 #include <ftdi.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "ikalogic-scanaplus"
 
@@ -46,10 +46,10 @@ struct dev_context {
 	uint8_t devid[3];
 };
 
-SR_PRIV int scanaplus_close(struct dev_context *devc);
-SR_PRIV int scanaplus_get_device_id(struct dev_context *devc);
-SR_PRIV int scanaplus_init(struct dev_context *devc);
-SR_PRIV int scanaplus_start_acquisition(struct dev_context *devc);
-SR_PRIV int scanaplus_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int scanaplus_close(struct dev_context *devc);
+OTC_PRIV int scanaplus_get_device_id(struct dev_context *devc);
+OTC_PRIV int scanaplus_init(struct dev_context *devc);
+OTC_PRIV int scanaplus_start_acquisition(struct dev_context *devc);
+OTC_PRIV int scanaplus_receive_data(int fd, int revents, void *cb_data);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Tilman Sauerbeck <tilman@code-monkey.de>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "lecroy-logicstudio"
 
@@ -94,13 +94,13 @@ struct dev_context {
 	uint8_t intr_buf[INTR_BUF_SIZE];
 };
 
-SR_PRIV void lls_update_channel_mask(const struct sr_dev_inst *sdi);
+OTC_PRIV void lls_update_channel_mask(const struct otc_dev_inst *sdi);
 
-SR_PRIV int lls_set_samplerate(const struct sr_dev_inst *sdi, uint64_t samplerate);
-SR_PRIV uint64_t lls_get_samplerate(const struct sr_dev_inst *sdi);
+OTC_PRIV int lls_set_samplerate(const struct otc_dev_inst *sdi, uint64_t samplerate);
+OTC_PRIV uint64_t lls_get_samplerate(const struct otc_dev_inst *sdi);
 
-SR_PRIV int lls_setup_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV int lls_start_acquisition(const struct sr_dev_inst *sdi);
-SR_PRIV int lls_stop_acquisition(const struct sr_dev_inst *sdi);
+OTC_PRIV int lls_setup_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV int lls_start_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV int lls_stop_acquisition(const struct otc_dev_inst *sdi);
 
 #endif

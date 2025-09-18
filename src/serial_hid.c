@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2017-2019 Gerhard Sittig <gerhard.sittig@gmx.net>
  *
@@ -22,8 +22,8 @@
 #ifdef HAVE_LIBHIDAPI
 #include <hidapi.h>
 #endif
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapture-internal.h"
 #include "serial_hid.h"
 #include <stdlib.h>
 #include <string.h>
@@ -53,7 +53,7 @@
 /* {{{ helper routines */
 
 /* Strip off parity bits for "odd" data bit counts like in 7e1 frames. */
-static void ser_hid_mask_databits(struct sr_serial_dev_inst *serial,
+static void ser_hid_mask_databits(struct otc_serial_dev_inst *serial,
 	uint8_t *data, size_t len)
 {
 	uint32_t mask32;
@@ -86,7 +86,7 @@ static void ser_hid_mask_databits(struct sr_serial_dev_inst *serial,
  * hidapi-libusb implementation, bus/address/interface). Prefix the
  * HIDAPI path in the complex cases (Linux hidapi-hidraw, Windows, Mac).
  * Paths with colons outside of libusb based implementations are unhandled
- * here, but were not yet seen on any sigrok supported platform either.
+ * here, but were not yet seen on any opentracelab supported platform either.
  * So just reject them.
  */
 static char *get_hidapi_path_copy(const char *path)
@@ -137,7 +137,7 @@ static char *get_hidapi_path_copy(const char *path)
 	 * resulting port name. Ideally users remain able to recognize
 	 * their device or cable or port after the manipulation.
 	 */
-	sr_err("Unsupported HIDAPI path format: %s", path);
+	otc_err("Unsupported HIDAPI path format: %s", path);
 	return NULL;
 }
 
@@ -186,7 +186,7 @@ static char *extract_hidapi_path(const char *copy)
  * involve supported chip types, because mice and keyboards etc are not
  * too useful to communicate to measurement equipment.
  */
-static GSList *ser_hid_hidapi_list(GSList *list, sr_ser_list_append_t append)
+static GSList *ser_hid_hidapi_list(GSList *list, otc_ser_list_append_t append)
 {
 	struct hid_device_info *devs, *curdev;
 	const char *chipname;
@@ -255,7 +255,7 @@ static GSList *ser_hid_hidapi_list(GSList *list, sr_ser_list_append_t append)
  * callback with 'path' for found devices. Exclusively finds supported
  * chip types, skips unknown VID:PID pairs (even if caller specified).
  */
-static GSList *ser_hid_hidapi_find_usb(GSList *list, sr_ser_find_append_t append,
+static GSList *ser_hid_hidapi_find_usb(GSList *list, otc_ser_find_append_t append,
 		uint16_t vendor_id, uint16_t product_id)
 {
 	const char *caller_chip;
@@ -297,25 +297,25 @@ static int ser_hid_hidapi_get_serno(const char *path, char *buf, size_t blen)
 	int rc;
 
 	if (!path || !*path)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	hidpath = extract_hidapi_path(path);
 	dev = hidpath ? hid_open_path(hidpath) : NULL;
 	g_free(hidpath);
 	if (!dev)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
 	serno_wch = g_malloc0(blen * sizeof(*serno_wch));
 	rc = hid_get_serial_number_string(dev, serno_wch, blen - 1);
 	hid_close(dev);
 	if (rc != 0) {
 		g_free(serno_wch);
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
 	snprintf(buf, blen, "%ls", serno_wch);
 	g_free(serno_wch);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Get the VID and PID of a device specified by path. */
@@ -333,17 +333,17 @@ static int ser_hid_hidapi_get_vid_pid(const char *path,
 	hid_device *dev;
 
 	if (!path || !*path)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	dev = hid_open_path(path);
 	if (!dev)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	if (vid)
 		*vid = dev->vendor_id;
 	if (pid)
 		*pid = dev->product_id;
 	hid_close(dev);
 
-	return SR_OK;
+	return OTC_OK;
 #else
 	/*
 	 * The fallback approach. Enumerate all devices, compare the
@@ -360,7 +360,7 @@ static int ser_hid_hidapi_get_vid_pid(const char *path,
 
 	hidpath = extract_hidapi_path(path);
 	if (!hidpath)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	devs = hid_enumerate(0x0000, 0x0000);
 	found = 0;
@@ -377,16 +377,16 @@ static int ser_hid_hidapi_get_vid_pid(const char *path,
 	hid_free_enumeration(devs);
 	g_free(hidpath);
 
-	return found ? SR_OK : SR_ERR_NA;
+	return found ? OTC_OK : OTC_ERR_NA;
 #endif
 }
 
-static int ser_hid_hidapi_open_dev(struct sr_serial_dev_inst *serial)
+static int ser_hid_hidapi_open_dev(struct otc_serial_dev_inst *serial)
 {
 	hid_device *hid_dev;
 
 	if (!serial->usb_path || !*serial->usb_path)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 
 	/*
 	 * A path is available, assume that either a GUI or a
@@ -399,16 +399,16 @@ static int ser_hid_hidapi_open_dev(struct sr_serial_dev_inst *serial)
 	if (!hid_dev) {
 		g_free((void *)serial->hid_path);
 		serial->hid_path = NULL;
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
 	serial->hid_dev = hid_dev;
 	hid_set_nonblocking(hid_dev, 1);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static void ser_hid_hidapi_close_dev(struct sr_serial_dev_inst *serial)
+static void ser_hid_hidapi_close_dev(struct otc_serial_dev_inst *serial)
 {
 	if (serial->hid_dev) {
 		hid_close(serial->hid_dev);
@@ -422,10 +422,10 @@ static void ser_hid_hidapi_close_dev(struct sr_serial_dev_inst *serial)
 
 struct hidapi_source_args_t {
 	/* Application callback. */
-	sr_receive_data_callback cb;
+	otc_receive_data_callback cb;
 	void *cb_data;
 	/* The serial device, to store RX data. */
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 };
 
 /*
@@ -453,7 +453,7 @@ static int hidapi_source_cb(int fd, int revents, void *cb_data)
 				rx_buf, sizeof(rx_buf), 0);
 		if (rc > 0) {
 			ser_hid_mask_databits(args->serial, rx_buf, rc);
-			sr_ser_queue_rx_data(args->serial, rx_buf, rc);
+			otc_ser_queue_rx_data(args->serial, rx_buf, rc);
 		}
 	} while (rc > 0);
 
@@ -463,7 +463,7 @@ static int hidapi_source_cb(int fd, int revents, void *cb_data)
 	 * run the application callback, since it handles timeouts and
 	 * might carry out other tasks as well like signalling progress.
 	 */
-	if (sr_ser_has_queued_data(args->serial))
+	if (otc_ser_has_queued_data(args->serial))
 		revents |= G_IO_IN;
 	rc = args->cb(fd, revents, args->cb_data);
 
@@ -471,9 +471,9 @@ static int hidapi_source_cb(int fd, int revents, void *cb_data)
 }
 
 #define WITH_MAXIMUM_TIMEOUT_VALUE	10
-static int ser_hid_hidapi_setup_source_add(struct sr_session *session,
-	struct sr_serial_dev_inst *serial, int events, int timeout,
-	sr_receive_data_callback cb, void *cb_data)
+static int ser_hid_hidapi_setup_source_add(struct otc_session *session,
+	struct otc_serial_dev_inst *serial, int events, int timeout,
+	otc_receive_data_callback cb, void *cb_data)
 {
 	struct hidapi_source_args_t *args;
 	int rc;
@@ -496,45 +496,45 @@ static int ser_hid_hidapi_setup_source_add(struct sr_session *session,
 	 * free the memory, and we haven't bothered to create a custom
 	 * HIDAPI specific GSource.
 	 */
-	rc = sr_session_source_add(session, -1, events, timeout,
+	rc = otc_session_source_add(session, -1, events, timeout,
 			hidapi_source_cb, args);
-	if (rc != SR_OK) {
+	if (rc != OTC_OK) {
 		g_free(args);
 		return rc;
 	}
 	serial->hid_source_args = g_slist_append(serial->hid_source_args, args);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int ser_hid_hidapi_setup_source_remove(struct sr_session *session,
-	struct sr_serial_dev_inst *serial)
+static int ser_hid_hidapi_setup_source_remove(struct otc_session *session,
+	struct otc_serial_dev_inst *serial)
 {
 	(void)serial;
 
-	(void)sr_session_source_remove(session, -1);
+	(void)otc_session_source_remove(session, -1);
 	/*
 	 * Release callback args here already? Can there be more than
 	 * one source registered at any time, given that we pass fd -1
 	 * which is used as the key for the session?
 	 */
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int ser_hid_hidapi_get_report(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ser_hid_hidapi_get_report(struct otc_serial_dev_inst *serial,
 	uint8_t *data, size_t len)
 {
 	int rc;
 
 	rc = hid_get_feature_report(serial->hid_dev, data, len);
 	if (rc < 0)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
 	return rc;
 }
 
-SR_PRIV int ser_hid_hidapi_set_report(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ser_hid_hidapi_set_report(struct otc_serial_dev_inst *serial,
 	const uint8_t *data, size_t len)
 {
 	int rc;
@@ -543,14 +543,14 @@ SR_PRIV int ser_hid_hidapi_set_report(struct sr_serial_dev_inst *serial,
 	rc = hid_send_feature_report(serial->hid_dev, data, len);
 	if (rc < 0) {
 		err_text = hid_error(serial->hid_dev);
-		sr_dbg("%s() hidapi error: %ls", __func__, err_text);
-		return SR_ERR_IO;
+		otc_dbg("%s() hidapi error: %ls", __func__, err_text);
+		return OTC_ERR_IO;
 	}
 
 	return rc;
 }
 
-SR_PRIV int ser_hid_hidapi_get_data(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ser_hid_hidapi_get_data(struct otc_serial_dev_inst *serial,
 	uint8_t ep, uint8_t *data, size_t len, int timeout)
 {
 	int rc;
@@ -562,14 +562,14 @@ SR_PRIV int ser_hid_hidapi_get_data(struct sr_serial_dev_inst *serial,
 	else
 		rc = hid_read(serial->hid_dev, data, len);
 	if (rc < 0)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	if (rc == 0)
 		return 0;
 
 	return rc;
 }
 
-SR_PRIV int ser_hid_hidapi_set_data(struct sr_serial_dev_inst *serial,
+OTC_PRIV int ser_hid_hidapi_set_data(struct otc_serial_dev_inst *serial,
 	uint8_t ep, const uint8_t *data, size_t len, int timeout)
 {
 	int rc;
@@ -579,7 +579,7 @@ SR_PRIV int ser_hid_hidapi_set_data(struct sr_serial_dev_inst *serial,
 
 	rc = hid_write(serial->hid_dev, data, len);
 	if (rc < 0)
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 
 	return rc;
 }
@@ -610,7 +610,7 @@ static struct ser_hid_chip_functions *get_hid_chip_funcs(enum ser_hid_chip_t chi
 	return funcs;
 }
 
-static int ser_hid_setup_funcs(struct sr_serial_dev_inst *serial)
+static int ser_hid_setup_funcs(struct otc_serial_dev_inst *serial)
 {
 
 	if (!serial)
@@ -658,7 +658,7 @@ static enum ser_hid_chip_t ser_hid_chip_find_enum(const char **spec_p)
 }
 
 /* See if we can find a chip name for a VID:PID spec. */
-SR_PRIV const char *ser_hid_chip_find_name_vid_pid(uint16_t vid, uint16_t pid)
+OTC_PRIV const char *ser_hid_chip_find_name_vid_pid(uint16_t vid, uint16_t pid)
 {
 	size_t chip_idx;
 	struct ser_hid_chip_functions *desc;
@@ -687,9 +687,9 @@ SR_PRIV const char *ser_hid_chip_find_name_vid_pid(uint16_t vid, uint16_t pid)
  * See if a text string is a valid USB path for a HID device.
  * @param[in] serial The serial port that is about to get opened.
  * @param[in] path The (assumed) USB path specification.
- * @return SR_OK upon success, SR_ERR* upon failure.
+ * @return OTC_OK upon success, OTC_ERR* upon failure.
  */
-static int try_open_path(struct sr_serial_dev_inst *serial, const char *path)
+static int try_open_path(struct otc_serial_dev_inst *serial, const char *path)
 {
 	int rc;
 
@@ -740,7 +740,7 @@ static int try_open_path(struct sr_serial_dev_inst *serial, const char *path)
  * not-yet-supported VID:PID items when automatic chip detection fails.
  */
 static int ser_hid_parse_conn_spec(
-	struct sr_serial_dev_inst *serial, const char *spec,
+	struct otc_serial_dev_inst *serial, const char *spec,
 	enum ser_hid_chip_t *chip_ref, char **path_ref, char **serno_ref)
 {
 	const char *p;
@@ -758,12 +758,12 @@ static int ser_hid_parse_conn_spec(
 	path = serno = NULL;
 
 	if (!serial || !spec || !*spec)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	p = spec;
 
 	/* The "hid" prefix is mandatory. */
 	if (!g_str_has_prefix(p, SER_HID_CONN_PREFIX))
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	p += strlen(SER_HID_CONN_PREFIX);
 
 	/*
@@ -779,19 +779,19 @@ static int ser_hid_parse_conn_spec(
 			break;
 		if (g_str_has_prefix(p, SER_HID_USB_PREFIX)) {
 			rc = try_open_path(serial, p);
-			if (rc != SR_OK)
+			if (rc != OTC_OK)
 				return rc;
 			path = g_strdup(p);
 			p += strlen(p);
 		} else if (g_str_has_prefix(p, SER_HID_IOKIT_PREFIX)) {
 			rc = try_open_path(serial, p);
-			if (rc != SR_OK)
+			if (rc != OTC_OK)
 				return rc;
 			path = g_strdup(p);
 			p += strlen(p);
 		} else if (g_str_has_prefix(p, SER_HID_RAW_PREFIX)) {
 			rc = try_open_path(serial, p);
-			if (rc != SR_OK)
+			if (rc != OTC_OK)
 				return rc;
 			path = g_strdup(p);
 			p += strlen(p);
@@ -807,13 +807,13 @@ static int ser_hid_parse_conn_spec(
 			chip = ser_hid_chip_find_enum(&endptr);
 			if (!chip) {
 				g_free(copy);
-				return SR_ERR_ARG;
+				return OTC_ERR_ARG;
 			}
 			p += endptr - copy;
 			g_free(copy);
 		} else {
-			sr_err("unsupported conn= spec %s, error at %s", spec, p);
-			return SR_ERR_ARG;
+			otc_err("unsupported conn= spec %s, error at %s", spec, p);
+			return OTC_ERR_ARG;
 		}
 		if (*p == '/')
 			p++;
@@ -828,7 +828,7 @@ static int ser_hid_parse_conn_spec(
 	if (serno_ref && serno)
 		*serno_ref = serno;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* Get and compare serial number. Boolean return value. */
@@ -842,7 +842,7 @@ static int check_serno(const char *path, const char *serno_want)
 	rc = ser_hid_hidapi_get_serno(hid_path, serno_got, sizeof(serno_got));
 	g_free(hid_path);
 	if (rc) {
-		sr_dbg("DBG: %s(), could not get serial number", __func__);
+		otc_dbg("DBG: %s(), could not get serial number", __func__);
 		return 0;
 	}
 
@@ -893,8 +893,8 @@ static GSList *list_paths_for_vids_pids(const struct vid_pid_item *vid_pids)
  * @param[inout] usbpath The USB path for the device (string).
  * @param[in] serno The serial number to search for.
  *
- * @retval SR_OK upon success
- * @retval SR_ERR_* upon failure.
+ * @retval OTC_OK upon success
+ * @retval OTC_ERR_* upon failure.
  *
  * This routine fills in blanks which the conn= spec parser left open.
  * When not specified yet, the HID chip type gets determined. When a
@@ -917,10 +917,10 @@ static int ser_hid_chip_search(enum ser_hid_chip_t *chip_ref,
 	GSList *list, *matched, *matched2, *tmplist;
 
 	if (!chip_ref)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	chip = *chip_ref;
 	if (!path_ref)
-		return SR_ERR_ARG;
+		return OTC_ERR_ARG;
 	path = *path_ref;
 
 	/*
@@ -946,32 +946,32 @@ static int ser_hid_chip_search(enum ser_hid_chip_t *chip_ref,
 	have_path = (path && *path) ? 1 : 0;
 	have_serno = (serno && *serno) ? 1 : 0;
 	if (have_path && have_serno) {
-		sr_err("Unsupported combination of USB path and serno");
-		return SR_ERR_ARG;
+		otc_err("Unsupported combination of USB path and serno");
+		return OTC_ERR_ARG;
 	}
 	chip_funcs = have_chip ? get_hid_chip_funcs(chip) : NULL;
 	if (have_chip && !chip_funcs)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	if (have_chip && !chip_funcs->vid_pid_items)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	if (have_path && !have_chip) {
 		vid = pid = 0;
 		rc = ser_hid_hidapi_get_vid_pid(path, &vid, &pid);
-		if (rc != SR_OK)
+		if (rc != OTC_OK)
 			return rc;
 		name = ser_hid_chip_find_name_vid_pid(vid, pid);
 		if (!name || !*name)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		chip = ser_hid_chip_find_enum(&name);
 		if (chip == SER_HID_CHIP_UNKNOWN)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		have_chip = 1;
 	}
 	if (have_serno) {
 		vid_pids = have_chip ? chip_funcs->vid_pid_items : NULL;
 		list = list_paths_for_vids_pids(vid_pids);
 		if (!list)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		matched = NULL;
 		for (tmplist = list; tmplist; tmplist = tmplist->next) {
 			path = get_hidapi_path_copy(tmplist->data);
@@ -983,7 +983,7 @@ static int ser_hid_chip_search(enum ser_hid_chip_t *chip_ref,
 			break;
 		}
 		if (!matched)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		path = g_strdup(matched->data);
 		have_path = 1;
 		g_slist_free_full(list, g_free);
@@ -992,7 +992,7 @@ static int ser_hid_chip_search(enum ser_hid_chip_t *chip_ref,
 		vid_pids = have_chip ? chip_funcs->vid_pid_items : NULL;
 		list = list_paths_for_vids_pids(vid_pids);
 		if (!list)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		matched = matched2 = NULL;
 		if (have_chip) {
 			/* List already only contains specified chip. */
@@ -1018,14 +1018,14 @@ static int ser_hid_chip_search(enum ser_hid_chip_t *chip_ref,
 		}
 		if (!matched) {
 			g_slist_free_full(list, g_free);
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		}
 		/*
 		 * TODO Optionally fail harder, expect users to provide
 		 * unambiguous cable specs.
 		 */
 		if (matched2)
-			sr_info("More than one cable matches, random pick.");
+			otc_info("More than one cable matches, random pick.");
 		path = get_hidapi_path_copy(matched->data);
 		have_path = 1;
 		g_slist_free_full(list, g_free);
@@ -1033,14 +1033,14 @@ static int ser_hid_chip_search(enum ser_hid_chip_t *chip_ref,
 	if (have_path && !have_chip) {
 		vid = pid = 0;
 		rc = ser_hid_hidapi_get_vid_pid(path, &vid, &pid);
-		if (rc != SR_OK)
+		if (rc != OTC_OK)
 			return rc;
 		name = ser_hid_chip_find_name_vid_pid(vid, pid);
 		if (!name || !*name)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		chip = ser_hid_chip_find_enum(&name);
 		if (chip == SER_HID_CHIP_UNKNOWN)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 		have_chip = 1;
 	}
 	(void)have_chip;
@@ -1050,14 +1050,14 @@ static int ser_hid_chip_search(enum ser_hid_chip_t *chip_ref,
 	if (path_ref)
 		*path_ref = path;
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 /* }}} */
 /* {{{ transport methods called by the common serial.c code */
 
 /* See if a serial port's name refers to an HID type. */
-SR_PRIV int ser_name_is_hid(struct sr_serial_dev_inst *serial)
+OTC_PRIV int ser_name_is_hid(struct otc_serial_dev_inst *serial)
 {
 	size_t off;
 	char sep;
@@ -1078,7 +1078,7 @@ SR_PRIV int ser_name_is_hid(struct sr_serial_dev_inst *serial)
 	return 1;
 }
 
-static int ser_hid_open(struct sr_serial_dev_inst *serial, int flags)
+static int ser_hid_open(struct otc_serial_dev_inst *serial, int flags)
 {
 	enum ser_hid_chip_t chip;
 	char *usbpath, *serno;
@@ -1087,14 +1087,14 @@ static int ser_hid_open(struct sr_serial_dev_inst *serial, int flags)
 	(void)flags;
 
 	if (ser_hid_setup_funcs(serial) != 0) {
-		sr_err("Cannot determine HID communication library.");
-		return SR_ERR_NA;
+		otc_err("Cannot determine HID communication library.");
+		return OTC_ERR_NA;
 	}
 
 	rc = ser_hid_parse_conn_spec(serial, serial->port,
 			&chip, &usbpath, &serno);
-	if (rc != SR_OK)
-		return SR_ERR_ARG;
+	if (rc != OTC_OK)
+		return OTC_ERR_ARG;
 
 	/*
 	 * When a serial number was specified, or when the chip type or
@@ -1104,7 +1104,7 @@ static int ser_hid_open(struct sr_serial_dev_inst *serial, int flags)
 	if (!chip || !usbpath || serno) {
 		rc = ser_hid_chip_search(&chip, &usbpath, serno);
 		if (rc != 0)
-			return SR_ERR_NA;
+			return OTC_ERR_NA;
 	}
 
 	/*
@@ -1113,8 +1113,8 @@ static int ser_hid_open(struct sr_serial_dev_inst *serial, int flags)
 	 */
 	serial->hid_chip = chip;
 	if (ser_hid_setup_funcs(serial) != 0) {
-		sr_err("Cannot determine HID chip specific routines.");
-		return SR_ERR_NA;
+		otc_err("Cannot determine HID chip specific routines.");
+		return OTC_ERR_NA;
 	}
 	if (usbpath && *usbpath)
 		serial->usb_path = usbpath;
@@ -1123,84 +1123,84 @@ static int ser_hid_open(struct sr_serial_dev_inst *serial, int flags)
 
 	rc = ser_hid_hidapi_open_dev(serial);
 	if (rc) {
-		sr_err("Failed to open HID device.");
+		otc_err("Failed to open HID device.");
 		serial->hid_chip = 0;
 		g_free(serial->usb_path);
 		serial->usb_path = NULL;
 		g_free(serial->usb_serno);
 		serial->usb_serno = NULL;
-		return SR_ERR_IO;
+		return OTC_ERR_IO;
 	}
 
 	if (!serial->rcv_buffer)
 		serial->rcv_buffer = g_string_sized_new(SER_HID_CHUNK_SIZE);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int ser_hid_close(struct sr_serial_dev_inst *serial)
+static int ser_hid_close(struct otc_serial_dev_inst *serial)
 {
 	ser_hid_hidapi_close_dev(serial);
 
-	return SR_OK;
+	return OTC_OK;
 }
 
-static int ser_hid_set_params(struct sr_serial_dev_inst *serial,
+static int ser_hid_set_params(struct otc_serial_dev_inst *serial,
 	int baudrate, int bits, int parity, int stopbits,
 	int flowcontrol, int rts, int dtr)
 {
 	if (ser_hid_setup_funcs(serial) != 0)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	if (!serial->hid_chip_funcs || !serial->hid_chip_funcs->set_params)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	return serial->hid_chip_funcs->set_params(serial,
 		baudrate, bits, parity, stopbits,
 		flowcontrol, rts, dtr);
 }
 
-static int ser_hid_setup_source_add(struct sr_session *session,
-	struct sr_serial_dev_inst *serial, int events, int timeout,
-	sr_receive_data_callback cb, void *cb_data)
+static int ser_hid_setup_source_add(struct otc_session *session,
+	struct otc_serial_dev_inst *serial, int events, int timeout,
+	otc_receive_data_callback cb, void *cb_data)
 {
 	return ser_hid_hidapi_setup_source_add(session, serial,
 		events, timeout, cb, cb_data);
 }
 
-static int ser_hid_setup_source_remove(struct sr_session *session,
-	struct sr_serial_dev_inst *serial)
+static int ser_hid_setup_source_remove(struct otc_session *session,
+	struct otc_serial_dev_inst *serial)
 {
 	return ser_hid_hidapi_setup_source_remove(session, serial);
 }
 
-static GSList *ser_hid_list(GSList *list, sr_ser_list_append_t append)
+static GSList *ser_hid_list(GSList *list, otc_ser_list_append_t append)
 {
 	return ser_hid_hidapi_list(list, append);
 }
 
-static GSList *ser_hid_find_usb(GSList *list, sr_ser_find_append_t append,
+static GSList *ser_hid_find_usb(GSList *list, otc_ser_find_append_t append,
 	uint16_t vendor_id, uint16_t product_id)
 {
 	return ser_hid_hidapi_find_usb(list, append, vendor_id, product_id);
 }
 
-static int ser_hid_flush(struct sr_serial_dev_inst *serial)
+static int ser_hid_flush(struct otc_serial_dev_inst *serial)
 {
 	if (!serial->hid_chip_funcs || !serial->hid_chip_funcs->flush)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	return serial->hid_chip_funcs->flush(serial);
 }
 
-static int ser_hid_drain(struct sr_serial_dev_inst *serial)
+static int ser_hid_drain(struct otc_serial_dev_inst *serial)
 {
 	if (!serial->hid_chip_funcs || !serial->hid_chip_funcs->drain)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	return serial->hid_chip_funcs->drain(serial);
 }
 
-static int ser_hid_write(struct sr_serial_dev_inst *serial,
+static int ser_hid_write(struct otc_serial_dev_inst *serial,
 	const void *buf, size_t count,
 	int nonblocking, unsigned int timeout_ms)
 {
@@ -1208,9 +1208,9 @@ static int ser_hid_write(struct sr_serial_dev_inst *serial,
 	int rc;
 
 	if (!serial->hid_chip_funcs || !serial->hid_chip_funcs->write_bytes)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	if (!serial->hid_chip_funcs->max_bytes_per_request)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	total = 0;
 	max_chunk = serial->hid_chip_funcs->max_bytes_per_request;
@@ -1220,11 +1220,11 @@ static int ser_hid_write(struct sr_serial_dev_inst *serial,
 			chunk_len = max_chunk;
 		rc = serial->hid_chip_funcs->write_bytes(serial, buf, chunk_len);
 		if (rc < 0) {
-			sr_err("Error sending transmit data to HID device.");
+			otc_err("Error sending transmit data to HID device.");
 			return total;
 		}
 		if (rc != chunk_len) {
-			sr_warn("Short transmission to HID device (%d/%d bytes)?",
+			otc_warn("Short transmission to HID device (%d/%d bytes)?",
 					rc, chunk_len);
 			return total;
 		}
@@ -1244,7 +1244,7 @@ static int ser_hid_write(struct sr_serial_dev_inst *serial,
 	return total;
 }
 
-static int ser_hid_read(struct sr_serial_dev_inst *serial,
+static int ser_hid_read(struct otc_serial_dev_inst *serial,
 	void *buf, size_t count,
 	int nonblocking, unsigned int timeout_ms)
 {
@@ -1254,16 +1254,16 @@ static int ser_hid_read(struct sr_serial_dev_inst *serial,
 	unsigned int got;
 
 	if (!serial->hid_chip_funcs || !serial->hid_chip_funcs->read_bytes)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 	if (!serial->hid_chip_funcs->max_bytes_per_request)
-		return SR_ERR_NA;
+		return OTC_ERR_NA;
 
 	/*
 	 * Immediately satisfy the caller's request from the RX buffer
 	 * if the requested amount of data is available already.
 	 */
-	if (sr_ser_has_queued_data(serial) >= count)
-		return sr_ser_unqueue_rx_data(serial, buf, count);
+	if (otc_ser_has_queued_data(serial) >= count)
+		return otc_ser_unqueue_rx_data(serial, buf, count);
 
 	/*
 	 * When a timeout was specified, then determine the deadline
@@ -1311,14 +1311,14 @@ static int ser_hid_read(struct sr_serial_dev_inst *serial,
 		rc = serial->hid_chip_funcs->read_bytes(serial,
 				buffer, sizeof(buffer), timeout_ms);
 		if (rc < 0) {
-			sr_dbg("DBG: %s() read error %d.", __func__, rc);
-			return SR_ERR;
+			otc_dbg("DBG: %s() read error %d.", __func__, rc);
+			return OTC_ERR;
 		}
 		if (rc) {
 			ser_hid_mask_databits(serial, buffer, rc);
-			sr_ser_queue_rx_data(serial, buffer, rc);
+			otc_ser_queue_rx_data(serial, buffer, rc);
 		}
-		got = sr_ser_has_queued_data(serial);
+		got = otc_ser_has_queued_data(serial);
 
 		/*
 		 * Stop reading when the requested amount is available,
@@ -1335,7 +1335,7 @@ static int ser_hid_read(struct sr_serial_dev_inst *serial,
 		if (deadline_us) {
 			now_us = g_get_monotonic_time();
 			if (now_us >= deadline_us) {
-				sr_dbg("DBG: %s() read loop timeout.", __func__);
+				otc_dbg("DBG: %s() read loop timeout.", __func__);
 				break;
 			}
 		}
@@ -1348,7 +1348,7 @@ static int ser_hid_read(struct sr_serial_dev_inst *serial,
 	if (got > count)
 		got = count;
 
-	return sr_ser_unqueue_rx_data(serial, buf, count);
+	return otc_ser_unqueue_rx_data(serial, buf, count);
 }
 
 static struct ser_lib_functions serlib_hid = {
@@ -1366,19 +1366,19 @@ static struct ser_lib_functions serlib_hid = {
 	.find_usb = ser_hid_find_usb,
 	.get_frame_format = NULL,
 };
-SR_PRIV struct ser_lib_functions *ser_lib_funcs_hid = &serlib_hid;
+OTC_PRIV struct ser_lib_functions *ser_lib_funcs_hid = &serlib_hid;
 
 /* }}} */
 #else
 
-SR_PRIV int ser_name_is_hid(struct sr_serial_dev_inst *serial)
+OTC_PRIV int ser_name_is_hid(struct otc_serial_dev_inst *serial)
 {
 	(void)serial;
 
 	return 0;
 }
 
-SR_PRIV struct ser_lib_functions *ser_lib_funcs_hid = NULL;
+OTC_PRIV struct ser_lib_functions *ser_lib_funcs_hid = NULL;
 
 #endif
 #endif

@@ -20,38 +20,38 @@
 #include <config.h>
 #include <stdlib.h>
 #include <check.h>
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture/libsigrok.h>
 #include "lib.h"
 
 /*
  * Check the version number API calls and macros.
  *
- * The numbers returned by the sr_*_version*get() calls must match the
- * respective SR_*_VERSION* macro values, must be >= 0, and must not be
+ * The numbers returned by the otc_*_version*get() calls must match the
+ * respective OTC_*_VERSION* macro values, must be >= 0, and must not be
  * unreasonably high (> 20), otherwise something is probably wrong.
  */
 START_TEST(test_version_numbers)
 {
 	int ver;
 
-	ver = sr_package_version_major_get();
-	fail_unless(ver == SR_PACKAGE_VERSION_MAJOR);
+	ver = otc_package_version_major_get();
+	fail_unless(ver == OTC_PACKAGE_VERSION_MAJOR);
 	fail_unless(ver >= 0 && ver <= 20);
-	ver = sr_package_version_minor_get();
-	fail_unless(ver == SR_PACKAGE_VERSION_MINOR);
+	ver = otc_package_version_minor_get();
+	fail_unless(ver == OTC_PACKAGE_VERSION_MINOR);
 	fail_unless(ver >= 0 && ver <= 20);
-	ver = sr_package_version_micro_get();
-	fail_unless(ver == SR_PACKAGE_VERSION_MICRO);
+	ver = otc_package_version_micro_get();
+	fail_unless(ver == OTC_PACKAGE_VERSION_MICRO);
 	fail_unless(ver >= 0 && ver <= 20);
 
-	ver = sr_lib_version_current_get();
-	fail_unless(ver == SR_LIB_VERSION_CURRENT);
+	ver = otc_lib_version_current_get();
+	fail_unless(ver == OTC_LIB_VERSION_CURRENT);
 	fail_unless(ver >= 0 && ver <= 20);
-	ver = sr_lib_version_revision_get();
-	fail_unless(ver == SR_LIB_VERSION_REVISION);
+	ver = otc_lib_version_revision_get();
+	fail_unless(ver == OTC_LIB_VERSION_REVISION);
 	fail_unless(ver >= 0 && ver <= 20);
-	ver = sr_lib_version_age_get();
-	fail_unless(ver == SR_LIB_VERSION_AGE);
+	ver = otc_lib_version_age_get();
+	fail_unless(ver == OTC_LIB_VERSION_AGE);
 	fail_unless(ver >= 0 && ver <= 20);
 }
 END_TEST
@@ -85,12 +85,12 @@ START_TEST(test_version_strings)
 	const size_t len_min = 5;
 	const size_t len_max = 2 + 1 + 2 + 1 + 2 + 5 + 12 + 6;
 
-	str = sr_package_version_string_get();
+	str = otc_package_version_string_get();
 	fail_unless(str != NULL);
 	fail_unless(strlen(str) >= len_min);
 	fail_unless(strlen(str) <= len_max,
 		"Max len exceeded, max %zu, text %s", len_max, str);
-	str = sr_lib_version_string_get();
+	str = otc_lib_version_string_get();
 	fail_unless(str != NULL);
 	fail_unless(strlen(str) >= len_min);
 	fail_unless(strlen(str) <= len_max,

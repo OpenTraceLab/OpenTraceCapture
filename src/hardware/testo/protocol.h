@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2014 Bert Vermeulen <bert@biot.com>
  *
@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "testo"
 
@@ -53,7 +53,7 @@ struct testo_model {
 
 struct dev_context {
 	const struct testo_model *model;
-	struct sr_sw_limits sw_limits;
+	struct otc_sw_limits sw_limits;
 
 	uint8_t channel_units[MAX_CHANNELS];
 	int num_channels;
@@ -63,12 +63,12 @@ struct dev_context {
 	int reply_size;
 };
 
-SR_PRIV int testo_set_serial_params(struct sr_usb_dev_inst *usb);
-SR_PRIV int testo_probe_channels(struct sr_dev_inst *sdi);
-SR_PRIV void LIBUSB_CALL receive_transfer(struct libusb_transfer *transfer);
-SR_PRIV int testo_request_packet(const struct sr_dev_inst *sdi);
-SR_PRIV gboolean testo_check_packet_prefix(uint8_t *buf, int len);
-SR_PRIV uint16_t crc16_mcrf4xx(uint16_t crc, uint8_t *data, size_t len);
-SR_PRIV void testo_receive_packet(const struct sr_dev_inst *sdi);
+OTC_PRIV int testo_set_serial_params(struct otc_usb_dev_inst *usb);
+OTC_PRIV int testo_probe_channels(struct otc_dev_inst *sdi);
+OTC_PRIV void LIBUSB_CALL receive_transfer(struct libusb_transfer *transfer);
+OTC_PRIV int testo_request_packet(const struct otc_dev_inst *sdi);
+OTC_PRIV gboolean testo_check_packet_prefix(uint8_t *buf, int len);
+OTC_PRIV uint16_t crc16_mcrf4xx(uint16_t crc, uint8_t *data, size_t len);
+OTC_PRIV void testo_receive_packet(const struct otc_dev_inst *sdi);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Uwe Hermann <uwe@hermann-uwe.de>
  *
@@ -22,20 +22,20 @@
 #include <math.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
-static void handle_packet(const uint8_t *buf, struct sr_dev_inst *sdi,
+static void handle_packet(const uint8_t *buf, struct otc_dev_inst *sdi,
 			  void *info)
 {
 	struct scale_info *scale;
 	float floatval;
-	struct sr_datafeed_packet packet;
-	struct sr_datafeed_analog analog;
-	struct sr_analog_encoding encoding;
-	struct sr_analog_meaning meaning;
-	struct sr_analog_spec spec;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
 	struct dev_context *devc;
 
 	scale = (struct scale_info *)sdi->driver;
@@ -43,7 +43,7 @@ static void handle_packet(const uint8_t *buf, struct sr_dev_inst *sdi,
 	devc = sdi->priv;
 
 	/* Note: digits/spec_digits will be overridden later. */
-	sr_analog_init(&analog, &encoding, &meaning, &spec, 0);
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
 
 	analog.meaning->channels = sdi->channels;
 	analog.num_samples = 1;
@@ -54,19 +54,19 @@ static void handle_packet(const uint8_t *buf, struct sr_dev_inst *sdi,
 
 	if (analog.meaning->mq != 0) {
 		/* Got a measurement. */
-		packet.type = SR_DF_ANALOG;
+		packet.type = OTC_DF_ANALOG;
 		packet.payload = &analog;
-		sr_session_send(sdi, &packet);
-		sr_sw_limits_update_samples_read(&devc->limits, 1);
+		otc_session_send(sdi, &packet);
+		otc_sw_limits_update_samples_read(&devc->limits, 1);
 	}
 }
 
-static void handle_new_data(struct sr_dev_inst *sdi, void *info)
+static void handle_new_data(struct otc_dev_inst *sdi, void *info)
 {
 	struct scale_info *scale;
 	struct dev_context *devc;
 	int len, offset;
-	struct sr_serial_dev_inst *serial;
+	struct otc_serial_dev_inst *serial;
 
 	scale = (struct scale_info *)sdi->driver;
 
@@ -79,7 +79,7 @@ static void handle_new_data(struct sr_dev_inst *sdi, void *info)
 	if (len == 0)
 		return; /* No new bytes, nothing to do. */
 	if (len < 0) {
-		sr_err("Serial port read error: %d.", len);
+		otc_err("Serial port read error: %d.", len);
 		return;
 	}
 	devc->buflen += len;
@@ -101,9 +101,9 @@ static void handle_new_data(struct sr_dev_inst *sdi, void *info)
 	devc->buflen -= offset;
 }
 
-SR_PRIV int kern_scale_receive_data(int fd, int revents, void *cb_data)
+OTC_PRIV int kern_scale_receive_data(int fd, int revents, void *cb_data)
 {
-	struct sr_dev_inst *sdi;
+	struct otc_dev_inst *sdi;
 	struct dev_context *devc;
 	struct scale_info *scale;
 	void *info;
@@ -125,8 +125,8 @@ SR_PRIV int kern_scale_receive_data(int fd, int revents, void *cb_data)
 		g_free(info);
 	}
 
-	if (sr_sw_limits_check(&devc->limits))
-		sr_dev_acquisition_stop(sdi);
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
 
 	return TRUE;
 }

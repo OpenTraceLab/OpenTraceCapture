@@ -1,5 +1,5 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Christer Ekholm <christerekholm@gmail.com>
  *
@@ -23,8 +23,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "hantek-6xxx"
 
@@ -32,15 +32,15 @@
 
 #define DEFAULT_VOLTAGE		2
 #define DEFAULT_COUPLING	COUPLING_DC
-#define DEFAULT_SAMPLERATE	SR_MHZ(8)
+#define DEFAULT_SAMPLERATE	OTC_MHZ(8)
 
 #define NUM_CHANNELS		2
 
 #define SAMPLERATE_VALUES \
-	SR_MHZ(48), SR_MHZ(30), SR_MHZ(24), \
-	SR_MHZ(16), SR_MHZ(8), SR_MHZ(4), \
-	SR_MHZ(1), SR_KHZ(500), SR_KHZ(200), \
-	SR_KHZ(100),
+	OTC_MHZ(48), OTC_MHZ(30), OTC_MHZ(24), \
+	OTC_MHZ(16), OTC_MHZ(8), OTC_MHZ(4), \
+	OTC_MHZ(1), OTC_KHZ(500), OTC_KHZ(200), \
+	OTC_KHZ(100),
 
 #define SAMPLERATE_REGS \
 	48, 30, 24, 16, 8, 4, 1, 50, 20, 10,
@@ -147,18 +147,18 @@ struct dev_context {
 	uint64_t limit_samples;
 };
 
-SR_PRIV int hantek_6xxx_open(struct sr_dev_inst *sdi);
-SR_PRIV void hantek_6xxx_close(struct sr_dev_inst *sdi);
-SR_PRIV int hantek_6xxx_get_channeldata(const struct sr_dev_inst *sdi,
+OTC_PRIV int hantek_6xxx_open(struct otc_dev_inst *sdi);
+OTC_PRIV void hantek_6xxx_close(struct otc_dev_inst *sdi);
+OTC_PRIV int hantek_6xxx_get_channeldata(const struct otc_dev_inst *sdi,
 		libusb_transfer_cb_fn cb, uint32_t data_amount);
 
-SR_PRIV int hantek_6xxx_start_data_collecting(const struct sr_dev_inst *sdi);
-SR_PRIV int hantek_6xxx_stop_data_collecting(const struct sr_dev_inst *sdi);
+OTC_PRIV int hantek_6xxx_start_data_collecting(const struct otc_dev_inst *sdi);
+OTC_PRIV int hantek_6xxx_stop_data_collecting(const struct otc_dev_inst *sdi);
 
-SR_PRIV int hantek_6xxx_update_coupling(const struct sr_dev_inst *sdi);
-SR_PRIV int hantek_6xxx_update_samplerate(const struct sr_dev_inst *sdi);
-SR_PRIV int hantek_6xxx_update_vdiv(const struct sr_dev_inst *sdi);
-SR_PRIV int hantek_6xxx_update_channels(const struct sr_dev_inst *sdi);
-SR_PRIV int hantek_6xxx_init(const struct sr_dev_inst *sdi);
+OTC_PRIV int hantek_6xxx_update_coupling(const struct otc_dev_inst *sdi);
+OTC_PRIV int hantek_6xxx_update_samplerate(const struct otc_dev_inst *sdi);
+OTC_PRIV int hantek_6xxx_update_vdiv(const struct otc_dev_inst *sdi);
+OTC_PRIV int hantek_6xxx_update_channels(const struct otc_dev_inst *sdi);
+OTC_PRIV int hantek_6xxx_init(const struct otc_dev_inst *sdi);
 
 #endif

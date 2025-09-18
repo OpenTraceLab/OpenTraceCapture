@@ -1,7 +1,7 @@
 /*
- * This file is part of the libsigrok project.
+ * This file is part of the libopentracecapture project.
  *
- * Copyright (C) 2013 Matthias Heidbrink <m-sigrok@heidbrink.biz>
+ * Copyright (C) 2013 Matthias Heidbrink <m-opentracelab@heidbrink.biz>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,12 +29,12 @@
 #include <string.h>
 #include <math.h>
 #include <glib.h>
-#include <libsigrok/libsigrok.h>
-#include "libsigrok-internal.h"
+#include <opentracecapture/libopentracecapture.h>
+#include "../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "m2110"
 
-SR_PRIV gboolean sr_m2110_packet_valid(const uint8_t *buf)
+OTC_PRIV gboolean otc_m2110_packet_valid(const uint8_t *buf)
 {
 	float val;
 
@@ -44,14 +44,14 @@ SR_PRIV gboolean sr_m2110_packet_valid(const uint8_t *buf)
 	if (!strncmp((const char *)buf, "OVERRNG", 7))
 		return TRUE;
 
-	if (sr_atof_ascii((const char *)buf, &val) == SR_OK)
+	if (otc_atof_ascii((const char *)buf, &val) == OTC_OK)
 		return TRUE;
 	else
 		return FALSE;
 }
 
-SR_PRIV int sr_m2110_parse(const uint8_t *buf, float *floatval,
-				struct sr_datafeed_analog *analog, void *info)
+OTC_PRIV int otc_m2110_parse(const uint8_t *buf, float *floatval,
+				struct otc_datafeed_analog *analog, void *info)
 {
 	int dot_pos, digits = 0;
 	float val;
@@ -59,13 +59,13 @@ SR_PRIV int sr_m2110_parse(const uint8_t *buf, float *floatval,
 	(void)info;
 
 	/* We don't know the unit, so that's the best we can do. */
-	analog->meaning->mq = SR_MQ_GAIN;
-	analog->meaning->unit = SR_UNIT_UNITLESS;
+	analog->meaning->mq = OTC_MQ_GAIN;
+	analog->meaning->unit = OTC_UNIT_UNITLESS;
 	analog->meaning->mqflags = 0;
 
 	if (!strncmp((const char *)buf, "OVERRNG", 7))
 		*floatval = INFINITY;
-	else if (sr_atof_ascii((const char *)buf, &val) == SR_OK) {
+	else if (otc_atof_ascii((const char *)buf, &val) == OTC_OK) {
 		*floatval = val;
 		dot_pos = strcspn((const char *)buf, ".");
 		if (dot_pos < 7)
@@ -75,5 +75,5 @@ SR_PRIV int sr_m2110_parse(const uint8_t *buf, float *floatval,
 	analog->encoding->digits  = digits;
 	analog->spec->spec_digits = digits;
 
-	return SR_OK;
+	return OTC_OK;
 }
