@@ -138,7 +138,7 @@ test('smoke', test_exe)
 
 # Generate config header
 configure_file(
-  output: 'otc_config.h',
+  output: 'config.h',
   configuration: conf
 )
 
