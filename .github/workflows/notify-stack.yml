@@ -1,0 +1,25 @@
+name: Notify Stack Builder on Tag
+on:
+  push:
+    tags:
+      - '*'
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+          repository: OpenTraceLab/stack-build
+          event-type: component-release
+          client-payload: >-
+            {
+              "component": "${{ github.repository }}",
+              "opentraceview_ref": "${{ startsWith(github.repository, 'OpenTraceLab/OpenTraceView') && github.ref_name || '' }}",
+              "opentracecapture_ref": "${{ startsWith(github.repository, 'OpenTraceLab/OpenTraceCapture') && github.ref_name || '' }}",
+              "opentracedecode_ref": "${{ startsWith(github.repository, 'OpenTraceLab/OpenTraceDecode') && github.ref_name || '' }}",
+              "libserialport_ref": "${{ startsWith(github.repository, 'OpenTraceLab/libserialport') && github.ref_name || '' }}",
+              "sigrok_firmware_ref": "${{ startsWith(github.repository, 'OpenTraceLab/sigrok-firmware') && github.ref_name || '' }}",
+              "fx2lafw_ref": "${{ startsWith(github.repository, 'OpenTraceLab/sigrok-firmware-fx2lafw') && github.ref_name || '' }}",
+              "sigrok_cli_ref": "${{ startsWith(github.repository, 'OpenTraceLab/sigrok-cli') && github.ref_name || '' }}"
+            }
