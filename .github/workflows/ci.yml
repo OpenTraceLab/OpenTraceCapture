@@ -73,7 +73,6 @@ jobs:
             libglib2.0-dev libusb-1.0-0-dev libzip-dev libftdi1-dev libserialport-dev libhidapi-dev libieee1284-3-dev
           echo "/usr/lib/ccache" >> "$GITHUB_PATH"
           mkdir -p "$HOME/.cache/ccache" "$HOME/.cache/meson"
-          ccache -M 1G
 
       - name: macOS deps
         if: runner.os == 'macOS'
@@ -84,7 +83,6 @@ jobs:
           echo "XDG_CACHE_HOME=$HOME/.cache"   >> "$GITHUB_ENV"
           echo "CCACHE_DIR=$HOME/.cache/ccache" >> "$GITHUB_ENV"
           mkdir -p "$HOME/.cache/ccache" "$HOME/.cache/meson"
-          ccache -M 1G
 
       - name: MSYS2 setup
         if: runner.os == 'Windows'
@@ -118,8 +116,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
-          export PATH=/mingw64/lib/ccache:$PATH
-          mkdir -p "$HOME/.ccache" || true
+          # Use the GitHub-Windows cache paths so the cache action can see them
+          export CCACHE_DIR=/c/Users/runneradmin/.ccache
+          export XDG_CACHE_HOME=/c/Users/runneradmin/AppData/Local
+          mkdir -p "$CCACHE_DIR"
           meson setup build --buildtype=release
           meson configure build
           meson compile -C build
