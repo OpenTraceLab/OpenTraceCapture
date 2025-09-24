@@ -24,6 +24,16 @@ env:
   APP: OpenTraceCapture
 
 jobs:
+  preflight:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: |
+          echo "event=${{ github.event_name }}"
+          echo "ref=${{ github.ref }}"
+          echo "branch=${{ github.ref_name }}"
+          echo "tag_input='${{ inputs.tag_name }}'"
+          echo "actor=${{ github.actor }}"
+
   build-and-upload:
     strategy:
       fail-fast: false
