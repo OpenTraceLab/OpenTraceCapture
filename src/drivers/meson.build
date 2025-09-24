@@ -12,7 +12,7 @@ always_available = [
   'agilent-dmm', 'center-3xx', 'uni-t-ut32x', 'rigol-ds', 'hameg-hmo',
   'siglent-sds', 'asix-omega-rtm-cli', 'uni-t-ut181a', 'rdtech-dps',
   'raspberrypi-pico', 'arachnid-labs-re-load-pro', 'pce-322a', 'hp-59306a',
-  'teleinfo', 'link-mso19', 'baylibre-acme', 'rigol-dg', 'gwinstek-psp',
+  'teleinfo', 'baylibre-acme', 'rigol-dg', 'gwinstek-psp',
   'norma-dmm', 'cem-dt-885x', 'rdtech-um', 'itech-it8500', 'devantech-eth008',
   'motech-lps-30x', 'zketech-ebd-usb', 'tondaj-sl-814', 'icstation-usbrelay',
   'conrad-digi-35-cpu', 'bkprecision-1856d', 'juntek-jds6600', 'gwinstek-gpd',
@@ -30,7 +30,7 @@ always_available = [
   'agilent-dmm', 'center-3xx', 'uni-t-ut32x', 'rigol-ds', 'hameg-hmo',
   'siglent-sds', 'asix-omega-rtm-cli', 'uni-t-ut181a', 'rdtech-dps',
   'raspberrypi-pico', 'arachnid-labs-re-load-pro', 'pce-322a', 'hp-59306a',
-  'teleinfo', 'link-mso19', 'rigol-dg', 'gwinstek-psp',
+  'teleinfo', 'rigol-dg', 'gwinstek-psp',
   'norma-dmm', 'cem-dt-885x', 'rdtech-um', 'itech-it8500', 'devantech-eth008',
   'motech-lps-30x', 'zketech-ebd-usb', 'tondaj-sl-814', 'icstation-usbrelay',
   'conrad-digi-35-cpu', 'bkprecision-1856d', 'juntek-jds6600', 'gwinstek-gpd',
@@ -47,6 +47,23 @@ foreach driver : always_available
     enabled_drivers += driver
   endif
 endforeach
+
+# libserialport-specific drivers (need libserialport, not just serial_comm)
+if dep_libserialport.found()
+  libserialport_drivers = ['link-mso19']
+  foreach driver : libserialport_drivers
+    if fs.is_dir('../hardware/' + driver)
+      driver_sources += files('../hardware/' + driver + '/api.c')
+      if fs.is_file('../hardware/' + driver + '/protocol.c')
+        driver_sources += files('../hardware/' + driver + '/protocol.c')
+      endif
+      conf.set10('HAVE_DRIVER_' + driver.underscorify().to_upper(), true)
+      enabled_drivers += driver
+    endif
+  endforeach
+else
+  disabled_drivers += 'link-mso19 (needs libserialport)'
+endif
 
 # Linux-specific drivers (need GPIO/sysfs)
 if host_machine.system() == 'linux'
