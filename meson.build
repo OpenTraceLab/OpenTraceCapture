@@ -27,18 +27,21 @@ if not dep_hidapi.found()
 endif
 
 # nettle (crypto) - optional
-dep_nettle = dependency('nettle', required: false)
+opt_nettle = get_option('with_nettle')
+dep_nettle = dependency('nettle', required: opt_nettle.enabled())
 have_nettle = dep_nettle.found() and cc.has_header('nettle/aes.h', dependencies: dep_nettle)
 
 # ieee1284 (parallel port) - optional, Linux only
+opt_ieee1284 = get_option('with_ieee1284')
 dep_ieee1284 = dependency('ieee1284', required: false, method: 'pkg-config')
 if not dep_ieee1284.found()
-  dep_ieee1284 = cc.find_library('ieee1284', required: false)
+  dep_ieee1284 = cc.find_library('ieee1284', required: opt_ieee1284.enabled())
 endif
 have_ieee1284 = dep_ieee1284.found() and cc.has_header('ieee1284.h', dependencies: dep_ieee1284)
 
 # gpib - optional, Linux only
-dep_gpib = cc.find_library('gpib', required: false)
+opt_gpib = get_option('with_gpib')
+dep_gpib = cc.find_library('gpib', required: opt_gpib.enabled())
 have_gpib = dep_gpib.found() and cc.has_header('gpib/ib.h', dependencies: dep_gpib)
 
 # Configuration and driver tracking
