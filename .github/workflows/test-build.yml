@@ -26,7 +26,7 @@ jobs:
           install: >-
             mingw-w64-x86_64-toolchain mingw-w64-x86_64-meson mingw-w64-x86_64-ninja
             mingw-w64-x86_64-pkg-config mingw-w64-x86_64-glib2 mingw-w64-x86_64-libusb
-            mingw-w64-x86_64-libftdi mingw-w64-x86_64-libserialport mingw-w64-x86_64-hidapi
+            mingw-w64-x86_64-libzip mingw-w64-x86_64-libftdi mingw-w64-x86_64-libserialport mingw-w64-x86_64-hidapi
       
       - name: Install deps (macOS)
         if: matrix.os == 'macos-14'
