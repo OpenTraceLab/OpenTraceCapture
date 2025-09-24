@@ -76,6 +76,11 @@ inc = include_directories('include')
 all_deps = deps_core
 compile_args = []
 
+# Windows-specific dependencies
+if host_machine.system() == 'windows'
+  all_deps += cc.find_library('ws2_32', required: true)
+endif
+
 # Add optional dependencies when available
 if dep_hidapi.found()
   all_deps += dep_hidapi
