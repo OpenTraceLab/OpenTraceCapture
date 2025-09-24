@@ -16,7 +16,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y meson ninja-build pkg-config gcc g++ \
-            libglib2.0-dev libusb-1.0-0-dev libzip-dev libftdi1-dev libserialport-dev libhidapi-dev
+            libglib2.0-dev libusb-1.0-0-dev libzip-dev libftdi1-dev libserialport-dev libhidapi-dev \
+            libnettle8-dev libieee1284-3-dev libgpib-dev
       
       - name: Install deps (Windows)
         if: matrix.os == 'windows-latest'
