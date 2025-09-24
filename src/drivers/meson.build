@@ -102,7 +102,7 @@ else
 endif
 
 # IEEE1284-dependent drivers (parallel port)
-if have_ieee1284 and not opt_1284.disabled()
+if have_ieee1284 and not opt_ieee1284.disabled()
   ieee1284_drivers = ['hung-chang-dso-2100xl']
   foreach driver : ieee1284_drivers
     if fs.is_dir('../hardware/' + driver)
