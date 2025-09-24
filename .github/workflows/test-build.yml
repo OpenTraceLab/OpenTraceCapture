@@ -1,0 +1,46 @@
+name: Test Build OpenTraceCapture
+on:
+  workflow_dispatch:
+
+jobs:
+  test-build:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install deps (Linux)
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build pkg-config gcc g++ \
+            libglib2.0-dev libusb-1.0-0-dev libftdi1-dev libserialport-dev libhidapi-dev
+      
+      - name: Install deps (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            mingw-w64-x86_64-toolchain mingw-w64-x86_64-meson mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-pkg-config mingw-w64-x86_64-glib2 mingw-w64-x86_64-libusb
+            mingw-w64-x86_64-libftdi mingw-w64-x86_64-libserialport mingw-w64-x86_64-hidapi
+      
+      - name: Install deps (macOS)
+        if: matrix.os == 'macos-14'
+        run: brew install meson ninja pkg-config glib libusb libftdi hidapi
+      
+      - name: Build (Linux/macOS)
+        if: matrix.os != 'windows-latest'
+        run: |
+          meson setup build --buildtype=release
+          meson compile -C build
+      
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          meson setup build --buildtype=release
+          meson compile -C build
