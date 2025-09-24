@@ -48,6 +48,22 @@ have_gpib = dep_gpib.found() and cc.has_header('gpib/ib.h', dependencies: dep_gp
 
 # Configuration and driver tracking
 conf = configuration_data()
+
+# Basic configuration
+conf.set_quoted('PACKAGE_NAME', 'opentracecapture')
+conf.set_quoted('CONF_HOST', host_machine.system() + '-' + host_machine.cpu_family())
+conf.set_quoted('CONF_LIBZIP_VERSION', dep_libzip.found() ? dep_libzip.version() : 'none')
+
+# Feature flags
+conf.set('HAVE_LIBUSB_1_0', true)
+conf.set('HAVE_LIBFTDI1', dep_libftdi1.found())
+conf.set('HAVE_LIBSERIALPORT', dep_libserialport.found())
+conf.set('HAVE_LIBZIP', dep_libzip.found())
+conf.set('HAVE_HIDAPI', dep_hidapi.found())
+conf.set('HAVE_NETTLE', have_nettle)
+conf.set('HAVE_IEEE1284', have_ieee1284)
+conf.set('HAVE_GPIB', have_gpib)
+
 enabled_drivers = []
 disabled_drivers = []
 
