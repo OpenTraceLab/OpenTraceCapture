@@ -5,45 +5,40 @@ project('opentracecapture', 'c',
 cc = meson.get_compiler('c')
 fs = import('fs')
 
-# Core dependencies (always required)
+# Core dependencies (always required) - matching original libsigrok
 deps_core = [
   dependency('glib-2.0', version: '>= 2.32.0'),
   dependency('libusb-1.0', version: '>= 1.0.16'),
+  dependency('libzip', version: '>= 0.10'),  # MANDATORY in original libsigrok
   cc.find_library('m', required: false),
 ]
 
-# Optional dependencies with proper detection
-dep_libftdi1 = dependency('libftdi1', required: false)
-dep_libserialport = dependency('libserialport', required: false)
-dep_libzip = dependency('libzip', required: false)
+# Optional dependencies with proper detection (matching original)
+dep_libftdi1 = dependency('libftdi1', version: '>= 1.0', required: false)
+dep_libserialport = dependency('libserialport', version: '>= 0.1.1', required: false)
 
-# HID API detection
-opt_hidapi = get_option('hidapi')
-dep_hidapi = dependency('hidapi-hidraw', required: false)
+# HID API detection (matching original logic)
+dep_hidapi = dependency('hidapi-hidraw', version: '>= 0.8.0', required: false)
 if not dep_hidapi.found()
-  dep_hidapi = dependency('hidapi-libusb', required: false)
+  dep_hidapi = dependency('hidapi-libusb', version: '>= 0.8.0', required: false)
 endif
 if not dep_hidapi.found()
-  dep_hidapi = dependency('hidapi', required: opt_hidapi.enabled())
+  dep_hidapi = dependency('hidapi', version: '>= 0.8.0', required: false)
 endif
 
-# --- Tricky dependencies ---
-# nettle (crypto)
-opt_nettle = get_option('with_nettle')
-dep_nettle = dependency('nettle', required: opt_nettle.enabled(), method: 'auto')
+# nettle (crypto) - optional
+dep_nettle = dependency('nettle', required: false)
 have_nettle = dep_nettle.found() and cc.has_header('nettle/aes.h', dependencies: dep_nettle)
 
-# ieee1284 (parallel port)
-opt_1284 = get_option('with_ieee1284')
+# ieee1284 (parallel port) - optional, Linux only
 dep_ieee1284 = dependency('ieee1284', required: false, method: 'pkg-config')
 if not dep_ieee1284.found()
-  dep_ieee1284 = cc.find_library('ieee1284', required: opt_1284.enabled())
+  dep_ieee1284 = cc.find_library('ieee1284', required: false)
 endif
 have_ieee1284 = dep_ieee1284.found() and cc.has_header('ieee1284.h', dependencies: dep_ieee1284)
 
-# gpib
-opt_gpib = get_option('with_gpib')
-dep_gpib = cc.find_library('gpib', required: opt_gpib.enabled())
+# gpib - optional, Linux only
+dep_gpib = cc.find_library('gpib', required: false)
 have_gpib = dep_gpib.found() and cc.has_header('gpib/ib.h', dependencies: dep_gpib)
 
 # Configuration and driver tracking
@@ -52,17 +47,21 @@ conf = configuration_data()
 # Basic configuration
 conf.set_quoted('PACKAGE_NAME', 'opentracecapture')
 conf.set_quoted('CONF_HOST', host_machine.system() + '-' + host_machine.cpu_family())
-conf.set_quoted('CONF_LIBZIP_VERSION', dep_libzip.found() ? dep_libzip.version() : 'none')
+conf.set_quoted('CONF_LIBZIP_VERSION', deps_core[2].version())  # libzip is always available
 
-# Feature flags
-conf.set('HAVE_LIBUSB_1_0', true)
+# Feature flags (matching original libsigrok logic)
+conf.set('HAVE_LIBUSB_1_0', true)  # Always true since it's mandatory
 conf.set('HAVE_LIBFTDI1', dep_libftdi1.found())
 conf.set('HAVE_LIBSERIALPORT', dep_libserialport.found())
-conf.set('HAVE_LIBZIP', dep_libzip.found())
+conf.set('HAVE_LIBZIP', true)  # Always true since it's mandatory
 conf.set('HAVE_HIDAPI', dep_hidapi.found())
 conf.set('HAVE_NETTLE', have_nettle)
 conf.set('HAVE_IEEE1284', have_ieee1284)
 conf.set('HAVE_GPIB', have_gpib)
+
+# Serial communication support (matches original logic)
+have_serial_comm = dep_libserialport.found() or dep_hidapi.found()
+conf.set('HAVE_SERIAL_COMM', have_serial_comm)
 
 enabled_drivers = []
 disabled_drivers = []
@@ -70,9 +69,11 @@ disabled_drivers = []
 # Include directories
 inc = include_directories('include')
 
-# Build final dependency list
+# Build final dependency list (core deps are always included)
 all_deps = deps_core
 compile_args = []
+
+# Add optional dependencies when available
 if dep_hidapi.found()
   all_deps += dep_hidapi
 endif
@@ -81,10 +82,6 @@ if dep_libftdi1.found()
 endif
 if dep_libserialport.found()
   all_deps += dep_libserialport
-  compile_args += '-DHAVE_SERIAL_COMM'
-endif
-if dep_libzip.found()
-  all_deps += dep_libzip
 endif
 if have_nettle
   all_deps += dep_nettle
@@ -166,7 +163,7 @@ summary({
   'hidapi': dep_hidapi.found(),
   'libserialport': dep_libserialport.found(),
   'libftdi1': dep_libftdi1.found(),
-  'libzip': dep_libzip.found(),
+  'libzip': true,  # Always available since it's mandatory
 }, section: 'Dependencies', bool_yn: true)
 
 summary({
