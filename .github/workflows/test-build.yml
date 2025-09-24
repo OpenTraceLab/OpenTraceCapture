@@ -30,7 +30,7 @@ jobs:
       
       - name: Install deps (macOS)
         if: matrix.os == 'macos-14'
-        run: brew install meson ninja pkg-config glib libusb libzip libftdi hidapi
+        run: brew install meson ninja pkg-config glib libusb libzip libftdi hidapi libserialport
       
       - name: Build (Linux/macOS)
         if: matrix.os != 'windows-latest'
