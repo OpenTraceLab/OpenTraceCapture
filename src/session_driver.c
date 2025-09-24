@@ -23,9 +23,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/time.h>
-#ifdef HAVE_LIBZIP
 #include <zip.h>
-#endif
 #include <opentracecapture/libopentracecapture.h>
 #include "libopentracecapture-internal.h"
 
@@ -41,10 +39,8 @@ OTC_PRIV struct otc_dev_driver session_driver_info;
 struct session_vdev {
 	char *sessionfile;
 	char *capturefile;
-#ifdef HAVE_LIBZIP
 	struct zip *archive;
 	struct zip_file *capfile;
-#endif
 	int bytes_read;
 	uint64_t samplerate;
 	int unitsize;
@@ -206,10 +202,6 @@ static gboolean stream_session_data(struct otc_dev_inst *sdi)
 
 static int receive_data(int fd, int revents, void *cb_data)
 {
-#ifndef HAVE_LIBZIP
-	(void)fd; (void)revents; (void)cb_data;
-	return FALSE;
-#else
 	struct otc_dev_inst *sdi;
 	struct session_vdev *vdev;
 
@@ -236,18 +228,12 @@ static int receive_data(int fd, int revents, void *cb_data)
 	std_session_send_df_end(sdi);
 
 	return G_SOURCE_REMOVE;
-#endif
 }
 
 /* driver callbacks */
 
 static int dev_open(struct otc_dev_inst *sdi)
 {
-#ifndef HAVE_LIBZIP
-	(void)sdi;
-	otc_err("Session driver requires libzip, which was not found at build time.");
-	return OTC_ERR_NA;
-#else
 	struct otc_dev_driver *di;
 	struct drv_context *drvc;
 	struct session_vdev *vdev;
@@ -380,15 +366,10 @@ static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 	otc_session_source_add(sdi->session, -1, 0, 0, receive_data, (void *)sdi);
 
 	return OTC_OK;
-#endif
 }
 
 static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 {
-#ifndef HAVE_LIBZIP
-	(void)sdi;
-	return OTC_OK;
-#else
 	struct session_vdev *vdev;
 
 	vdev = sdi->priv;
@@ -396,7 +377,6 @@ static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 	vdev->finished = TRUE;
 
 	return OTC_OK;
-#endif
 }
 
 /** @private */
