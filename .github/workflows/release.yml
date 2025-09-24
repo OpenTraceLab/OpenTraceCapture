@@ -53,6 +53,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y meson ninja-build pkg-config gcc g++ ccache \
             libglib2.0-dev libusb-1.0-0-dev libzip-dev libftdi1-dev libserialport-dev libhidapi-dev libieee1284-3-dev
+          echo 'PATH=/usr/lib/ccache:$PATH' >> $GITHUB_ENV
           ccache -M 1G
 
       - name: macOS deps
@@ -60,6 +61,7 @@ jobs:
         run: |
           brew update
           brew install meson ninja pkg-config ccache glib libusb libzip libftdi hidapi libserialport
+          echo "PATH=$(brew --prefix ccache)/libexec:$PATH" >> $GITHUB_ENV
           ccache -M 1G
 
       - name: MSYS2 setup (Windows)
@@ -82,11 +84,21 @@ jobs:
             mingw-w64-x86_64-libserialport
             mingw-w64-x86_64-hidapi
 
+      - name: Enable ccache shims (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          echo "export PATH=/mingw64/lib/ccache:\$PATH" >> ~/.bashrc
+          source ~/.bashrc
+
+
       # --------- Build + stage install ----------
       - name: Build (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          meson setup build --buildtype=release -Db_compiler_launcher=ccache
+          which gcc || true
+          gcc --version | head -n1 || true
+          meson setup build --buildtype=release
           meson configure build
           meson compile -C build
           meson test -C build --print-errorlogs
@@ -96,8 +108,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
-          ccache -M 1G
-          meson setup build --buildtype=release -Db_compiler_launcher=ccache
+          which gcc || true
+          gcc --version | head -n1 || true
+          meson setup build --buildtype=release
           meson configure build
           meson compile -C build
           meson test -C build --print-errorlogs
