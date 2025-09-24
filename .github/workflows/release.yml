@@ -34,17 +34,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --------- Cache (ccache + meson) ----------
-      - name: Cache (ccache + meson)
+      # Linux cache
+      - name: Cache (Linux)
+        if: runner.os == 'Linux'
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/ccache
-            ~/.cache/meson
+            $HOME/.cache/ccache
+            $HOME/.cache/meson
+          key: linux-${{ hashFiles('**/meson.build','**/meson_options.txt') }}
+          restore-keys: linux-
+
+      # macOS cache
+      - name: Cache (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/cache@v4
+        with:
+          path: |
+            $HOME/.cache/ccache
+            $HOME/.cache/meson
+          key: mac-${{ hashFiles('**/meson.build','**/meson_options.txt') }}
+          restore-keys: mac-
+
+      # Windows cache
+      - name: Cache (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
             C:\Users\runneradmin\.ccache
             C:\Users\runneradmin\AppData\Local\meson
-          key: ${{ runner.os }}-meson-${{ hashFiles('**/meson.build','**/meson_options.txt') }}
-          restore-keys: ${{ runner.os }}-meson-
+          key: win-${{ hashFiles('**/meson.build','**/meson_options.txt') }}
+          restore-keys: win-
 
       # --------- Deps per OS ----------
       - name: Linux deps
@@ -53,8 +74,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y meson ninja-build pkg-config gcc g++ ccache \
             libglib2.0-dev libusb-1.0-0-dev libzip-dev libftdi1-dev libserialport-dev libhidapi-dev libieee1284-3-dev
-          # ✅ Use GITHUB_PATH to prepend ccache shims; do NOT overwrite PATH in $GITHUB_ENV
           echo "/usr/lib/ccache" >> "$GITHUB_PATH"
+          mkdir -p "$HOME/.cache/ccache" "$HOME/.cache/meson"
           ccache -M 1G
 
       - name: macOS deps
@@ -62,8 +83,10 @@ jobs:
         run: |
           brew update
           brew install meson ninja pkg-config ccache glib libusb libzip libftdi hidapi libserialport
-          # ✅ Homebrew ccache shims
           echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
+          echo "XDG_CACHE_HOME=$HOME/.cache"   >> "$GITHUB_ENV"
+          echo "CCACHE_DIR=$HOME/.cache/ccache" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/.cache/ccache" "$HOME/.cache/meson"
           ccache -M 1G
 
       - name: MSYS2 setup (Windows)
@@ -101,6 +124,7 @@ jobs:
         shell: msys2 {0}
         run: |
           export PATH=/mingw64/lib/ccache:$PATH
+          mkdir -p "$HOME/.ccache" || true
           meson setup build --buildtype=release
           meson configure build
           meson compile -C build
