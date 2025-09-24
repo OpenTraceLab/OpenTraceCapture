@@ -7,7 +7,7 @@ on:
     inputs:
       tag_name:
         description: 'Tag to create/update (e.g. v0.1.0 or draft-<anything>)'
-        default: draft-${{ github.run_id }}
+        default: ""
       draft:
         description: 'Create as draft when manually run?'
         type: boolean
@@ -151,6 +151,8 @@ jobs:
             TAG="${{ github.event.release.tag_name }}"
           else
             TAG="${{ inputs.tag_name }}"
+            # Auto-generate if none provided in the form
+            if [ -z "$TAG" ]; then TAG="draft-${GITHUB_RUN_ID}"; fi
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           case "${{ runner.os }}" in
@@ -175,9 +177,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.meta.outputs.outfile }}
-          # When event = release:published, action uploads to that release.
-          # When manual, we create/update a draft prerelease with given tag:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || '' }}
-          draft:    ${{ github.event_name == 'workflow_dispatch' && inputs.draft    || false }}
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name:     ${{ format('{0} {1}', env.APP, steps.meta.outputs.tag) }}
+          draft:    ${{ github.event_name == 'workflow_dispatch' && inputs.draft || false }}
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
-          name: ${{ github.event_name == 'workflow_dispatch' && format('{0} {1}', env.APP, inputs.tag_name) || '' }}
+          target_commitish: ${{ github.sha }}
