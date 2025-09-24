@@ -1,49 +1,94 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "meson.build"
+      - "meson_options.txt"
+      - "bindings/**"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "meson.build"
+      - "meson_options.txt"
+      - "bindings/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-22.04, windows-2022, macos-14]
     runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Linux/macOS deps
-        if: runner.os != 'Windows'
-        run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo apt-get update
-            sudo apt-get install -y ninja-build meson pkg-config \
-              libglib2.0-dev libusb-1.0-0-dev libhidapi-dev libftdi1-dev libzip-dev libserialport-dev
-          else
-            brew update
-            brew install meson ninja pkg-config glib libusb hidapi libftdi libzip libserialport
-          fi
+      - name: Cache (ccache + meson)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/.cache/meson
+            C:\Users\runneradmin\.ccache
+            C:\Users\runneradmin\AppData\Local\meson
+          key: ${{ runner.os }}-meson-${{ hashFiles('**/meson.build','**/meson_options.txt') }}
+          restore-keys: ${{ runner.os }}-meson-
 
-      - name: Windows deps
+      - name: Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build pkg-config gcc g++ ccache \
+            libglib2.0-dev libusb-1.0-0-dev libzip-dev libftdi1-dev libserialport-dev libhidapi-dev libieee1284-3-dev
+          echo 'CC="ccache gcc"'  >> $GITHUB_ENV
+          echo 'CXX="ccache g++"' >> $GITHUB_ENV
+
+      - name: macOS deps
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install meson ninja pkg-config ccache glib libusb libzip libftdi hidapi libserialport
+          echo 'CC="ccache clang"'    >> $GITHUB_ENV
+          echo 'CXX="ccache clang++"' >> $GITHUB_ENV
+
+      - name: MSYS2 setup
         if: runner.os == 'Windows'
-        shell: msys2 {0}
         uses: msys2/setup-msys2@v2
         with:
+          msystem: MINGW64
           update: true
           install: >-
-            mingw-w64-x86_64-meson mingw-w64-x86_64-ninja
-            mingw-w64-x86_64-cc mingw-w64-x86_64-pkg-config
-            mingw-w64-x86_64-glib2 mingw-w64-x86_64-libusb
-            mingw-w64-x86_64-libftdi mingw-w64-x86_64-hidapi
-            mingw-w64-x86_64-libzip mingw-w64-x86_64-libserialport
+            git
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-ccache
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-glib2
+            mingw-w64-x86_64-libusb
+            mingw-w64-x86_64-libzip
+            mingw-w64-x86_64-libftdi
+            mingw-w64-x86_64-libserialport
+            mingw-w64-x86_64-hidapi
 
-      - name: Configure
-        shell: bash
-        run: meson setup build
+      - name: Build & test (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          meson setup build --buildtype=release -Dgpib=auto -Dieee1284=auto
+          meson compile -C build
+          meson test -C build --print-errorlogs
 
-      - name: Build
-        shell: bash
-        run: meson compile -C build
-
-      - name: Test
-        shell: bash
-        run: meson test -C build --print-errorlogs
+      - name: Build & test (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          meson setup build --buildtype=release
+          meson compile -C build
+          meson test -C build --print-errorlogs
