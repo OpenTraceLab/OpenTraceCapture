@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  release:
+    types: [published]   # from the GitHub UI or API
+  workflow_dispatch:     # manual "Run workflow" -> creates/updates a DRAFT release
+    inputs:
+      tag_name:
+        description: 'Tag to create/update (e.g. v0.1.0 or draft-<anything>)'
+        default: draft-${{ github.run_id }}
+      draft:
+        description: 'Create as draft when manually run?'
+        type: boolean
+        default: true
+      prerelease:
+        description: 'Mark as prerelease when manually run?'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write  # needed to create/update releases
+
+env:
+  APP: OpenTraceCapture
+
+jobs:
+  build-and-upload:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022, macos-14]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --------- Cache (ccache + meson) ----------
+      - name: Cache (ccache + meson)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/.cache/meson
+            C:\Users\runneradmin\.ccache
+            C:\Users\runneradmin\AppData\Local\meson
+          key: ${{ runner.os }}-meson-${{ hashFiles('**/meson.build','**/meson_options.txt') }}
+          restore-keys: ${{ runner.os }}-meson-
+
+      # --------- Deps per OS ----------
+      - name: Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build pkg-config gcc g++ ccache \
+            libglib2.0-dev libusb-1.0-0-dev libzip-dev libftdi1-dev libserialport-dev libhidapi-dev libieee1284-3-dev
+          echo 'CC=ccache gcc'  >> $GITHUB_ENV
+          echo 'CXX=ccache g++' >> $GITHUB_ENV
+          ccache -M 1G
+
+      - name: macOS deps
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install meson ninja pkg-config ccache glib libusb libzip libftdi hidapi libserialport
+          echo 'CC=ccache clang'    >> $GITHUB_ENV
+          echo 'CXX=ccache clang++' >> $GITHUB_ENV
+          ccache -M 1G
+
+      - name: MSYS2 setup (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-ccache
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-glib2
+            mingw-w64-x86_64-libzip
+            mingw-w64-x86_64-libusb
+            mingw-w64-x86_64-libftdi
+            mingw-w64-x86_64-libserialport
+            mingw-w64-x86_64-hidapi
+
+      # --------- Build + stage install ----------
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          meson setup build --buildtype=release
+          meson configure build
+          meson compile -C build
+          meson test -C build --print-errorlogs
+          meson install -C build --destdir pkg
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          export CC="ccache gcc"; export CXX="ccache g++"; ccache -M 1G
+          meson setup build --buildtype=release
+          meson configure build
+          meson compile -C build
+          meson test -C build --print-errorlogs
+          meson install -C build --destdir pkg
+
+      # --------- Name files per OS ----------
+      - name: Compute tag + filenames
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="${{ inputs.tag_name }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          case "${{ runner.os }}" in
+            Linux)   OUT="${{ env.APP }}-${TAG}-linux.tar.gz" ;;
+            macOS)   OUT="${{ env.APP }}-${TAG}-macos.tar.gz" ;;
+            Windows) OUT="${{ env.APP }}-${TAG}-windows.zip" ;;
+          esac
+          echo "outfile=$OUT" >> $GITHUB_OUTPUT
+
+      # --------- Package ----------
+      - name: Package (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: tar -C pkg -czf "${{ steps.meta.outputs.outfile }}" .
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: 7z a "${{ steps.meta.outputs.outfile }}" pkg\*
+
+      # --------- Upload to GitHub Release (creates draft on manual) ----------
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.meta.outputs.outfile }}
+          # When event = release:published, action uploads to that release.
+          # When manual, we create/update a draft prerelease with given tag:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || '' }}
+          draft:    ${{ github.event_name == 'workflow_dispatch' && inputs.draft    || false }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
+          name: ${{ github.event_name == 'workflow_dispatch' && format('{0} {1}', env.APP, inputs.tag_name) || '' }}

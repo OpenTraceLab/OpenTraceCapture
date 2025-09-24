@@ -83,7 +83,8 @@ jobs:
       - name: Build & test (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          meson setup build --buildtype=release -Dgpib=auto -Dieee1284=auto
+          meson setup build --buildtype=release
+          meson configure build
           meson compile -C build
           meson test -C build --print-errorlogs
 
@@ -92,5 +93,6 @@ jobs:
         shell: msys2 {0}
         run: |
           meson setup build --buildtype=release
+          meson configure build
           meson compile -C build
           meson test -C build --print-errorlogs
