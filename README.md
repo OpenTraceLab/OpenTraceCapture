@@ -18,16 +18,6 @@ meson compile -C builddir
 meson install -C builddir
 ```
 
-### Using Autotools (Legacy)
-
-```bash
-git clone <repository-url>
-cd OpenTraceCapture
-./autogen.sh
-./configure
-make
-make install
-```
 
 ## Requirements
 
