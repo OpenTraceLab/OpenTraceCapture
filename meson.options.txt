@@ -1,7 +1,0 @@
-option('hidapi', type: 'feature', value: 'auto',
-  description: 'Enable HIDAPI-based support (needed for HID devices)')
-
-option('hidapi_backend', type: 'combo', value: 'auto',
-  choices: ['auto', 'hidraw', 'libusb', 'generic'],
-  description: 'Preferred HIDAPI backend (Linux: hidraw/libusb; others: generic)')
-

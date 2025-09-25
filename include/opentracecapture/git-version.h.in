@@ -6,6 +6,6 @@
 #define OPENTRACECAPTURE_GIT_VERSION_H
 
 /* Git version suffix (empty for release builds) */
-#define OTC_PACKAGE_VERSION_STRING_SUFFIX ""
+#define OTC_PACKAGE_VERSION_STRING_SUFFIX "@GIT_SUFFIX@"
 
 #endif /* OPENTRACECAPTURE_GIT_VERSION_H */

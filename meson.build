@@ -2,6 +2,63 @@ project('opentracecapture', 'c',
   version: '0.1.0',
   default_options: ['c_std=c11', 'warning_level=2'])
 
+# Version handling - allow CI to override version from Git tags
+otc_version_opt = get_option('version_override')
+otc_version = otc_version_opt != '' ? otc_version_opt : meson.project_version()
+
+# Split version into major/minor/micro
+vparts = otc_version.split('.')
+vmaj = (vparts.length() >= 1) ? vparts[0] : '0'
+vmin = (vparts.length() >= 2) ? vparts[1] : '0'
+vmic = (vparts.length() >= 3) ? vparts[2] : '0'
+
+# Whether to append git describe suffix (dev builds)
+embed_git_suffix = get_option('embed_git_suffix')
+
+git_suffix = ''
+if embed_git_suffix
+  r = run_command('git', 'describe', '--tags', '--always', '--dirty', check: false)
+  if r.returncode() == 0
+    git_suffix = '-' + r.stdout().strip()
+  endif
+endif
+
+# Generate git-version.h (installed header so apps see the same suffix if included)
+git_version_h = configure_file(
+  input: 'include/opentracecapture/git-version.h.in',
+  output: 'git-version.h',
+  configuration: { 'GIT_SUFFIX': git_suffix },
+  install: true,
+  install_dir: 'include/opentracecapture',
+)
+
+# Generate version.h from template
+confv = configuration_data()
+confv.set('OTC_PACKAGE_VERSION_MAJOR', vmaj)
+confv.set('OTC_PACKAGE_VERSION_MINOR', vmin)
+confv.set('OTC_PACKAGE_VERSION_MICRO', vmic)
+confv.set('OTC_PACKAGE_VERSION_STRING_PREFIX', '@0@.@1@.@2@'.format(vmaj, vmin, vmic))
+
+# Keep these in Meson (you bump on ABI changes)
+confv.set('OTC_LIB_VERSION_CURRENT',  '4')
+confv.set('OTC_LIB_VERSION_REVISION', '0')
+confv.set('OTC_LIB_VERSION_AGE',      '0')
+
+version_h = configure_file(
+  input: 'include/opentracecapture/version.h.in',
+  output: 'version.h',
+  configuration: confv,
+  install: true,
+  install_dir: 'include/opentracecapture',
+)
+
+# Create symlinks in build directory for proper include paths
+run_command('mkdir', '-p', meson.current_build_dir() / 'opentracecapture', check: true)
+run_command('ln', '-sf', meson.current_build_dir() / 'version.h', 
+            meson.current_build_dir() / 'opentracecapture' / 'version.h', check: false)
+run_command('ln', '-sf', meson.current_build_dir() / 'git-version.h', 
+            meson.current_build_dir() / 'opentracecapture' / 'git-version.h', check: false)
+
 cc = meson.get_compiler('c')
 fs = import('fs')
 
@@ -70,7 +127,7 @@ enabled_drivers = []
 disabled_drivers = []
 
 # Include directories
-inc = include_directories('include')
+inc = include_directories('include', '.')
 
 # Build final dependency list (core deps are always included)
 all_deps = deps_core
