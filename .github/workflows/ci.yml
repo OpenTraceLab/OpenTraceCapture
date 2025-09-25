@@ -107,7 +107,7 @@ jobs:
       - name: Build & test (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          meson setup build --buildtype=release
+          meson setup build --buildtype=release -Dembed_git_suffix=true
           meson configure build
           meson compile -C build
           meson test -C build --print-errorlogs
@@ -120,7 +120,7 @@ jobs:
           export CCACHE_DIR=/c/Users/runneradmin/.ccache
           export XDG_CACHE_HOME=/c/Users/runneradmin/AppData/Local
           mkdir -p "$CCACHE_DIR"
-          meson setup build --buildtype=release
+          meson setup build --buildtype=release -Dembed_git_suffix=true
           meson configure build
           meson compile -C build
           meson test -C build --print-errorlogs

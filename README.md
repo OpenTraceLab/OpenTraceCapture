@@ -8,8 +8,6 @@ This project extends the original libsigrok functionality with enhanced trace ca
 
 ## Build Instructions
 
-### Using Meson (Recommended)
-
 ```bash
 git clone <repository-url>
 cd OpenTraceCapture
@@ -18,13 +16,13 @@ meson compile -C builddir
 meson install -C builddir
 ```
 
-
 ## Requirements
 
-- Meson >= 0.60.0 (for Meson builds)
+- Meson >= 0.60.0
 - gcc (>= 4.0) or clang
 - pkg-config >= 0.22
 - libglib >= 2.32.0
+- libusb >= 1.0.16
 - libzip >= 0.10
 - Additional optional dependencies (see original README for full list)
 

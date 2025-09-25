@@ -6,8 +6,6 @@ Thank you for your interest in contributing to OpenTraceCapture!
 
 ### Building from Source
 
-**Using Meson (Recommended):**
-
 ```bash
 git clone <repository-url>
 cd OpenTraceCapture
@@ -15,26 +13,12 @@ meson setup builddir
 meson compile -C builddir
 ```
 
-**Using Autotools (Legacy):**
-
-```bash
-git clone <repository-url>
-cd OpenTraceCapture
-./autogen.sh
-./configure
-make
-```
-
 ### Testing Changes
 
 Run the test suite to ensure your changes don't break existing functionality:
 
 ```bash
-# With Meson
 meson test -C builddir
-
-# With Autotools
-make check
 ```
 
 ## Contribution Guidelines

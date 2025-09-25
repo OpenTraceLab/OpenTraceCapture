@@ -118,10 +118,33 @@ jobs:
             mingw-w64-x86_64-hidapi
 
       # --------- Build + stage install ----------
+      - name: Compute tag + version
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="${{ inputs.tag_name }}"
+            # Auto-generate if none provided in the form
+            if [ -z "$TAG" ]; then TAG="draft-${GITHUB_RUN_ID}"; fi
+          fi
+          NUMVER="${TAG#v}"   # strip leading v if present
+          echo "tag=$TAG"     >> $GITHUB_OUTPUT
+          echo "numver=$NUMVER" >> $GITHUB_OUTPUT
+          case "${{ runner.os }}" in
+            Linux)   OUT="${{ env.APP }}-${TAG}-linux.tar.gz" ;;
+            macOS)   OUT="${{ env.APP }}-${TAG}-macos.tar.gz" ;;
+            Windows) OUT="${{ env.APP }}-${TAG}-windows.zip" ;;
+          esac
+          echo "outfile=$OUT" >> $GITHUB_OUTPUT
+
       - name: Build (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          meson setup build --buildtype=release
+          meson setup build --buildtype=release \
+            -Dversion_override="${{ steps.meta.outputs.numver }}" \
+            -Dembed_git_suffix=false
           meson configure build
           meson compile -C build
           meson test -C build --print-errorlogs
@@ -136,31 +159,13 @@ jobs:
           export XDG_CACHE_HOME=/c/Users/runneradmin/AppData/Local
           mkdir -p "$CCACHE_DIR"
           export PATH=/mingw64/lib/ccache:$PATH
-          meson setup build --buildtype=release
+          meson setup build --buildtype=release \
+            -Dversion_override="${{ steps.meta.outputs.numver }}" \
+            -Dembed_git_suffix=false
           meson configure build
           meson compile -C build
           meson test -C build --print-errorlogs
           meson install -C build --destdir "$PWD/pkg"
-
-      # --------- Name files per OS ----------
-      - name: Compute tag + filenames
-        id: meta
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            TAG="${{ github.event.release.tag_name }}"
-          else
-            TAG="${{ inputs.tag_name }}"
-            # Auto-generate if none provided in the form
-            if [ -z "$TAG" ]; then TAG="draft-${GITHUB_RUN_ID}"; fi
-          fi
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          case "${{ runner.os }}" in
-            Linux)   OUT="${{ env.APP }}-${TAG}-linux.tar.gz" ;;
-            macOS)   OUT="${{ env.APP }}-${TAG}-macos.tar.gz" ;;
-            Windows) OUT="${{ env.APP }}-${TAG}-windows.zip" ;;
-          esac
-          echo "outfile=$OUT" >> $GITHUB_OUTPUT
 
       # --------- Package ----------
       - name: Package (Linux/macOS)
