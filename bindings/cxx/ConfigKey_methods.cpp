@@ -1,4 +1,9 @@
 #include <config.h>
+#include <string>
+#include <glibmm.h>
+#include "libsigrokcxx/libsigrokcxx.hpp"
+
+using namespace std;
 
 const DataType *ConfigKey::data_type() const
 {
