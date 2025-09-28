@@ -1381,8 +1381,8 @@ struct otc_serial_port {
 	char *description;
 };
 
-#include <libopentracecapture/proto.h>
-#include <libopentracecapture/version.h>
+#include <opentracecapture/proto.h>
+#include <opentracecapture/version.h>
 
 #ifdef __cplusplus
 }
