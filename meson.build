@@ -244,3 +244,8 @@ endif
 if disabled_drivers.length() > 0
   summary({'disabled': '\n  - ' + '\n  - '.join(disabled_drivers)}, section: 'Drivers')
 endif
+
+# C++ bindings
+if get_option('bindings_cxx')
+  subdir('bindings/cxx')
+endif

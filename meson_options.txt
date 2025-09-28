@@ -21,3 +21,6 @@ option('udevdir', type: 'string', value: '', description: 'udev base dir (…/ud
 option('version_override', type: 'string', value: '', description: 'Override package version (e.g. 0.2.0)')
 option('embed_git_suffix', type: 'boolean', value: false, description: 'Append git describe to version string')
 
+# Bindings
+option('bindings_cxx', type: 'boolean', value: true, description: 'Build C++ bindings')
+
