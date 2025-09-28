@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lib.h"
-#include "libsigrok-internal.h"
+#include "libopentracecapture-internal.h"
 
 static const uint8_t buff1234[] = {
 	0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,

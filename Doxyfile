@@ -870,7 +870,7 @@ RECURSIVE              = YES
 # run.
 
 EXCLUDE                = config.h \
-                         src/libsigrok-internal.h \
+                         src/libopentracecapture-internal.h \
                          src/session_driver.c \
                          src/std.c \
                          src/drivers.c \
