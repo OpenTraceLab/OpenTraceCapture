@@ -22,5 +22,5 @@ option('version_override', type: 'string', value: '', description: 'Override pac
 option('embed_git_suffix', type: 'boolean', value: false, description: 'Append git describe to version string')
 
 # Bindings
-option('bindings_cxx', type: 'boolean', value: true, description: 'Build C++ bindings')
+option('bindings_cxx', type: 'boolean', value: false, description: 'Build C++ bindings')
 

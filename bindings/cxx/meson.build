@@ -4,9 +4,14 @@ cpp = meson.get_compiler('cpp')
 
 # Dependencies
 glib_dep = dependency('glib-2.0', version: '>= 2.32.0')
+
+# Try different versions of glibmm
 glibmm_dep = dependency('glibmm-2.4', version: '>= 2.32.0', required: false)
 if not glibmm_dep.found()
-  glibmm_dep = dependency('glibmm-2.68', version: '>= 2.68.0')
+  glibmm_dep = dependency('glibmm-2.68', version: '>= 2.68.0', required: false)
+endif
+if not glibmm_dep.found()
+  error('glibmm not found. Install libglibmm-2.4-dev or libglibmm-2.68-dev')
 endif
 
 # Include directories
