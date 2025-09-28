@@ -1,0 +1,159 @@
+README
+-------------------------------------------------------------------------------
+
+OpenTraceCapture is a fork of libsigrok, providing a portable, cross-platform
+signal analysis library for various hardware devices including logic analyzers,
+oscilloscopes, and multimeters.
+
+This project extends the original libsigrok functionality with enhanced trace
+capture capabilities and improved hardware support. OpenTraceCapture maintains
+compatibility with the libsigrok API while adding new features for modern
+signal analysis workflows.
+
+
+Status
+------
+
+OpenTraceCapture is actively developed and maintained as a fork of libsigrok.
+It provides enhanced functionality while maintaining API compatibility with
+the original libsigrok library.
+
+While the API maintains compatibility with libsigrok, new features and
+enhancements may introduce additional APIs. Version numbers follow semantic
+versioning principles.
+
+However, there are _NO_ guarantees at all for stable APIs in git snapshots!
+Distro packagers should only use released tarballs (no git snapshots).
+
+
+Requirements
+------------
+
+Requirements for the C library:
+
+ - git (only needed when building from git)
+ - gcc (>= 4.0) or clang
+ - meson >= 0.60.0
+ - pkg-config >= 0.22
+ - libglib >= 2.32.0
+ - libusb >= 1.0.16
+ - libzip >= 0.10
+ - zlib (optional, used for CRC32 calculation in STF input)
+ - libtirpc (optional, used by VXI, fallback when glibc >= 2.26)
+ - libserialport >= 0.1.1 (optional, used by some drivers)
+ - librevisa >= 0.0.20130412 (optional, used by some drivers)
+ - hidapi >= 0.8.0 (optional, used for some HID based "serial cables")
+ - bluez/libbluetooth >= 4.0 (optional, used for Bluetooth/BLE communication)
+ - libftdi1 >= 1.0 (optional, used by some drivers)
+ - libgpib (optional, used by some drivers)
+ - libieee1284 (optional, used by some drivers)
+ - libgio >= 2.32.0 (optional, used by some drivers)
+ - nettle (optional, used by some drivers)
+ - check >= 0.9.4 (optional, only needed to run unit tests)
+ - doxygen (optional, only needed for the C API docs)
+ - graphviz (optional, only needed for the C API docs)
+
+Requirements for the C++ bindings:
+
+ - OpenTraceCapture >= 0.4.0 (the OpenTraceCapture C library, see above)
+ - A C++ compiler with C++11 support (-std=c++11 option), e.g.
+   - g++ (>= 4.8.1)
+   - clang++ (>= 3.3)
+ - meson >= 0.60.0
+ - doxygen (required for building the bindings, not only for C++ API docs!)
+ - graphviz (optional, only needed for the C++ API docs)
+ - Python (2 or 3) executable (development files are not needed)
+ - glibmm-2.4 (>= 2.32.0) or glibmm-2.68 (>= 2.68.0)
+
+Requirements for the Python bindings:
+
+ - OpenTraceCapture C++ bindings >= 0.4.0 (see above)
+ - Python >= 2.7 or Python >= 3 (including development files!)
+ - Python setuptools (for Python 2 or 3)
+ - pygobject >= 3.0.0 (for Python 2 or 3), a.k.a python-gi
+ - numpy (for Python 2 or 3)
+ - SWIG >= 2.0.0
+ - doxygen (optional, only needed for the Python API docs)
+ - graphviz (optional, only needed for the Python API docs)
+ - doxypy (optional, only needed for the Python API docs)
+
+Requirements for the Ruby bindings:
+
+ - OpenTraceCapture C++ bindings >= 0.4.0 (see above)
+ - Ruby >= 2.5.0 (including development files!)
+ - SWIG >= 3.0.8
+ - YARD (optional, only needed for the Ruby API docs)
+
+Requirements for the Java bindings:
+
+ - OpenTraceCapture C++ bindings >= 0.4.0 (see above)
+ - SWIG >= 2.0.0
+ - Java JDK (for JNI includes and the javac/jar binaries)
+ - doxygen (optional, only needed for the Java API docs)
+ - graphviz (optional, only needed for the Java API docs)
+
+
+Building and installing
+-----------------------
+
+In order to get the OpenTraceCapture source code and build it, run:
+
+ $ git clone <repository-url>
+ $ cd OpenTraceCapture
+ $ meson setup builddir
+ $ meson compile -C builddir
+
+For installing OpenTraceCapture:
+
+ $ meson install -C builddir
+
+See INSTALL or the project documentation for more (OS-specific) instructions.
+
+
+Device-specific issues
+----------------------
+
+Please check README.devices for some notes and hints about device- or
+driver-specific issues to be aware of. OpenTraceCapture maintains
+compatibility with libsigrok-supported devices while adding support
+for additional hardware.
+
+
+Firmware
+--------
+
+Some devices supported by OpenTraceCapture need a firmware to be uploaded
+before the device can be used. See README.devices for details.
+
+
+Copyright and license
+---------------------
+
+OpenTraceCapture is licensed under the terms of the GNU General Public
+License (GPL), version 3 or later.
+
+While some individual source code files are licensed under the GPLv2+, and
+some files are licensed under the GPLv3+, this doesn't change the fact that
+the library as a whole is licensed under the terms of the GPLv3+.
+
+Please see the individual source files for the full list of copyright holders.
+
+
+Contributing
+------------
+
+See CONTRIBUTING.md for contribution guidelines.
+
+
+Code of Conduct
+---------------
+
+This project follows our Code of Conduct. See CODE_OF_CONDUCT.md for details.
+
+
+Original Project
+----------------
+
+This is a fork of libsigrok (http://sigrok.org/wiki/Libsigrok). See the
+original README file for detailed information about supported hardware
+and additional features from the upstream project.
