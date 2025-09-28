@@ -7,12 +7,15 @@ on:
       - "meson.build"
       - "meson_options.txt"
       - "bindings/**"
+      - ".github/workflows/**"
   push:
     branches: [main]
     paths:
       - "src/**"
       - "meson.build"
       - "meson_options.txt"
+      - "bindings/**"
+      - ".github/workflows/**"
       - "bindings/**"
   workflow_dispatch: {}   # 👈 this adds “Run workflow” in the Actions UI
 
