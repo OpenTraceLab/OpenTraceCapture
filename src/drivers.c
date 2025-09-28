@@ -25,7 +25,7 @@
 #include "libopentracecapture-internal.h"
 
 /*
- * The special __sr_driver_list section contains pointers to all hardware
+ * The special __otc_driver_list section contains pointers to all hardware
  * drivers which were built into the library according to its configuration
  * (will depend on the availability of dependencies, as well as user provided
  * specs). The __start and __stop symbols point to the start and end of the
