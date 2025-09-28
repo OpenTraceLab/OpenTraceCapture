@@ -189,21 +189,23 @@ pkg.generate(
   requires: ['glib-2.0', 'libusb-1.0']
 )
 
-# Install udev rules
-udev_dep = dependency('udev', required: false)
-if udev_dep.found()
-  _udevbase = udev_dep.get_pkgconfig_variable('udevdir')
-  if _udevbase == ''
+# Install udev rules (Linux only)
+if host_machine.system() == 'linux'
+  udev_dep = dependency('udev', required: false)
+  if udev_dep.found()
+    _udevbase = udev_dep.get_pkgconfig_variable('udevdir')
+    if _udevbase == ''
+      _udevbase = '/usr/lib/udev'
+    endif
+  else
     _udevbase = '/usr/lib/udev'
   endif
-else
-  _udevbase = '/usr/lib/udev'
+
+  udev_base = get_option('udevdir') != '' ? get_option('udevdir') : _udevbase
+  udev_rulesdir = join_paths(udev_base, 'rules.d')
+
+  install_data('contrib/60-opentracecapture.rules', install_dir: udev_rulesdir)
 endif
-
-udev_base = get_option('udevdir') != '' ? get_option('udevdir') : _udevbase
-udev_rulesdir = join_paths(udev_base, 'rules.d')
-
-install_data('contrib/60-opentracecapture.rules', install_dir: udev_rulesdir)
 
 # Test executable
 test_exe = executable('otc-smoke',
