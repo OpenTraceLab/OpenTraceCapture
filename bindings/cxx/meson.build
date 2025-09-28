@@ -32,12 +32,12 @@ libopentracecapturecxx = library('opentracecapturecxx',
 )
 
 # Headers
-install_subdir('include/libsigrokcxx', install_dir: get_option('includedir'))
+install_subdir('include/libsigrokcxx', install_dir: get_option('includedir'), strip_directory: true, install_tag: 'devel')
 
 # pkg-config
 pkg = import('pkgconfig')
 pkg.generate(
-  name: 'libsigrokcxx',
+  name: 'libopentracecapturecxx',
   description: 'OpenTraceCapture C++ bindings',
   version: meson.project_version(),
   libraries: libopentracecapturecxx,
