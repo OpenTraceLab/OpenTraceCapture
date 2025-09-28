@@ -1128,9 +1128,9 @@ static inline void write_dblle_inc(uint8_t **p, double x)
 #endif
 
 #ifdef __APPLE__
-#define OTC_DRIVER_LIST_SECTION "__DATA,__otc_driver_list"
+#define OTC_DRIVER_LIST_SECTION "__DATA,__otc_drivers"
 #else
-#define OTC_DRIVER_LIST_SECTION "__otc_driver_list"
+#define OTC_DRIVER_LIST_SECTION "__otc_drivers"
 #endif
 
 #if !defined OTC_DRIVER_LIST_NOREORDER && defined __has_attribute
