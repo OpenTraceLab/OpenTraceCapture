@@ -254,7 +254,7 @@ struct context {
 	size_t line_number;
 
 	/* List of previously created opentracelab channels. */
-	GSList *prev_sr_channels;
+	GSList *prev_otc_channels;
 	GSList **prev_df_channels;
 };
 
@@ -1287,8 +1287,8 @@ static void keep_header_for_reread(const struct otc_input *in)
 
 	inc = in->priv;
 
-	g_slist_free_full(inc->prev_sr_channels, otc_channel_free_cb);
-	inc->prev_sr_channels = in->sdi->channels;
+	g_slist_free_full(inc->prev_otc_channels, otc_channel_free_cb);
+	inc->prev_otc_channels = in->sdi->channels;
 	in->sdi->channels = NULL;
 
 	release_df_channels(inc, inc->prev_df_channels);
@@ -1305,17 +1305,17 @@ static int check_header_in_reread(const struct otc_input *in)
 	inc = in->priv;
 	if (!inc)
 		return FALSE;
-	if (!inc->prev_sr_channels)
+	if (!inc->prev_otc_channels)
 		return TRUE;
 
-	if (otc_channel_lists_differ(inc->prev_sr_channels, in->sdi->channels)) {
+	if (otc_channel_lists_differ(inc->prev_otc_channels, in->sdi->channels)) {
 		otc_err("Channel list change not supported for file re-read.");
 		return FALSE;
 	}
 
 	g_slist_free_full(in->sdi->channels, otc_channel_free_cb);
-	in->sdi->channels = inc->prev_sr_channels;
-	inc->prev_sr_channels = NULL;
+	in->sdi->channels = inc->prev_otc_channels;
+	inc->prev_otc_channels = NULL;
 
 	release_df_channels(inc, inc->analog_datafeed_channels);
 	inc->analog_datafeed_channels = inc->prev_df_channels;
@@ -1734,7 +1734,7 @@ static void cleanup(struct otc_input *in)
 	inc->column_formats = save_ctx.column_formats;
 	inc->start_line = save_ctx.start_line;
 	inc->use_header = save_ctx.use_header;
-	inc->prev_sr_channels = save_ctx.prev_sr_channels;
+	inc->prev_otc_channels = save_ctx.prev_otc_channels;
 	inc->prev_df_channels = save_ctx.prev_df_channels;
 }
 

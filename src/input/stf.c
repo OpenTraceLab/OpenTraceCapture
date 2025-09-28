@@ -190,7 +190,7 @@ struct context {
 	} record_data;
 	struct keep_specs {
 		uint64_t sample_rate;
-		GSList *prev_sr_channels;
+		GSList *prev_otc_channels;
 	} keep;
 	struct {
 		uint64_t sample_rate;	/* User specified or from header. */
@@ -211,8 +211,8 @@ static void keep_header_for_reread(const struct otc_input *in)
 
 	inc = in->priv;
 
-	g_slist_free_full(inc->keep.prev_sr_channels, otc_channel_free_cb);
-	inc->keep.prev_sr_channels = in->sdi->channels;
+	g_slist_free_full(inc->keep.prev_otc_channels, otc_channel_free_cb);
+	inc->keep.prev_otc_channels = in->sdi->channels;
 	in->sdi->channels = NULL;
 }
 
@@ -226,10 +226,10 @@ static gboolean check_header_in_reread(const struct otc_input *in)
 	inc = in->priv;
 	if (!inc)
 		return FALSE;
-	if (!inc->keep.prev_sr_channels)
+	if (!inc->keep.prev_otc_channels)
 		return TRUE;
 
-	prev = inc->keep.prev_sr_channels;
+	prev = inc->keep.prev_otc_channels;
 	curr = in->sdi->channels;
 	if (otc_channel_lists_differ(prev, curr)) {
 		otc_err("Channel list change not supported for file re-read.");
@@ -238,7 +238,7 @@ static gboolean check_header_in_reread(const struct otc_input *in)
 
 	g_slist_free_full(curr, otc_channel_free_cb);
 	in->sdi->channels = prev;
-	inc->keep.prev_sr_channels = NULL;
+	inc->keep.prev_otc_channels = NULL;
 
 	return TRUE;
 }

@@ -51,7 +51,7 @@ struct context {
 	int num_channels;
 	int unitsize;
 	gboolean found_data;
-	GSList *prev_sr_channels;
+	GSList *prev_otc_channels;
 };
 
 static int parse_wav_header(GString *buf, struct context *inc)
@@ -311,8 +311,8 @@ static void keep_header_for_reread(const struct otc_input *in)
 	struct context *inc;
 
 	inc = in->priv;
-	g_slist_free_full(inc->prev_sr_channels, otc_channel_free_cb);
-	inc->prev_sr_channels = in->sdi->channels;
+	g_slist_free_full(inc->prev_otc_channels, otc_channel_free_cb);
+	inc->prev_otc_channels = in->sdi->channels;
 	in->sdi->channels = NULL;
 }
 
@@ -325,16 +325,16 @@ static int check_header_in_reread(const struct otc_input *in)
 	inc = in->priv;
 	if (!inc)
 		return FALSE;
-	if (!inc->prev_sr_channels)
+	if (!inc->prev_otc_channels)
 		return TRUE;
 
-	if (otc_channel_lists_differ(inc->prev_sr_channels, in->sdi->channels)) {
+	if (otc_channel_lists_differ(inc->prev_otc_channels, in->sdi->channels)) {
 		otc_err("Channel list change not supported for file re-read.");
 		return FALSE;
 	}
 	g_slist_free_full(in->sdi->channels, otc_channel_free_cb);
-	in->sdi->channels = inc->prev_sr_channels;
-	inc->prev_sr_channels = NULL;
+	in->sdi->channels = inc->prev_otc_channels;
+	inc->prev_otc_channels = NULL;
 
 	return TRUE;
 }
