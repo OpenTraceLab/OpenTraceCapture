@@ -70,7 +70,7 @@ raised, which provides access to the error code and description.
 #ifndef LIBSIGROKCXX_HPP
 #define LIBSIGROKCXX_HPP
 
-#include <libsigrok/libsigrok.h>
+#include <opentracecapture-compat/libsigrok.h>
 
 /* Suppress warnings due to glibmm's use of std::auto_ptr<> in a public
  * header file. To be removed once glibmm is fixed. */

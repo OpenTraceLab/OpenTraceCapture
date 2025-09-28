@@ -99,7 +99,7 @@ Random notes
    and check the return value.
 
  - Endianness conversion: Prefer the common helpers that are provided in
-   libsigrok-internal.h, such as read_u16be() etc.
+   libopentracecapture-internal.h, such as read_u16be() etc.
 
  - You should never print any messages (neither to stdout nor stderr nor
    elsewhere) "manually" via e.g. printf() or g_log() or similar functions.
