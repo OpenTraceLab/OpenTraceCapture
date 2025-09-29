@@ -1,39 +1,38 @@
 #include <config.h>
 #include <string>
 #include <glibmm.h>
-#include "libsigrokcxx/libsigrokcxx.hpp"
+#include "libopentracecapturecxx/libopentracecapturecxx.hpp"
 
-using namespace std;
 
 const DataType *ConfigKey::data_type() const
 {
-	const struct sr_key_info *info = sr_key_info_get(SR_KEY_CONFIG, id());
+	const struct otc_key_info *info = otc_key_info_get(OTC_KEY_CONFIG, id());
 	if (!info)
-		throw Error(SR_ERR_NA);
+		throw Error(OTC_ERR_NA);
 	return DataType::get(info->datatype);
 }
 
 std::string ConfigKey::identifier() const
 {
-	const struct sr_key_info *info = sr_key_info_get(SR_KEY_CONFIG, id());
+	const struct otc_key_info *info = otc_key_info_get(OTC_KEY_CONFIG, id());
 	if (!info)
-		throw Error(SR_ERR_NA);
+		throw Error(OTC_ERR_NA);
 	return valid_string(info->id);
 }
 
 std::string ConfigKey::description() const
 {
-	const struct sr_key_info *info = sr_key_info_get(SR_KEY_CONFIG, id());
+	const struct otc_key_info *info = otc_key_info_get(OTC_KEY_CONFIG, id());
 	if (!info)
-		throw Error(SR_ERR_NA);
+		throw Error(OTC_ERR_NA);
 	return valid_string(info->name);
 }
 
 const ConfigKey *ConfigKey::get_by_identifier(std::string identifier)
 {
-	const struct sr_key_info *info = sr_key_info_name_get(SR_KEY_CONFIG, identifier.c_str());
+	const struct otc_key_info *info = otc_key_info_name_get(OTC_KEY_CONFIG, identifier.c_str());
 	if (!info)
-		throw Error(SR_ERR_ARG);
+		throw Error(OTC_ERR_ARG);
 	return get(info->key);
 }
 
@@ -119,54 +118,54 @@ static uint32_t stou32(const std::string &str)
 	return ret;
 }
 
-Glib::VariantBase ConfigKey::parse_string(std::string value, enum sr_datatype dt)
+Glib::VariantBase ConfigKey::parse_string(std::string value, enum otc_datatype dt)
 {
 	GVariant *variant;
 	uint64_t p, q;
 
 	switch (dt)
 	{
-		case SR_T_UINT64:
-			check(sr_parse_sizestring(value.c_str(), &p));
+		case OTC_T_UINT64:
+			check(otc_parse_sizestring(value.c_str(), &p));
 			variant = g_variant_new_uint64(p);
 			break;
-		case SR_T_STRING:
+		case OTC_T_STRING:
 			variant = g_variant_new_string(value.c_str());
 			break;
-		case SR_T_BOOL:
-			variant = g_variant_new_boolean(sr_parse_boolstring(value.c_str()));
+		case OTC_T_BOOL:
+			variant = g_variant_new_boolean(otc_parse_boolstring(value.c_str()));
 			break;
-		case SR_T_FLOAT:
+		case OTC_T_FLOAT:
 			try {
 				variant = g_variant_new_double(stod(value));
 			} catch (invalid_argument&) {
-				throw Error(SR_ERR_ARG);
+				throw Error(OTC_ERR_ARG);
 			}
 			break;
-		case SR_T_RATIONAL_PERIOD:
-			check(sr_parse_period(value.c_str(), &p, &q));
+		case OTC_T_RATIONAL_PERIOD:
+			check(otc_parse_period(value.c_str(), &p, &q));
 			variant = g_variant_new("(tt)", p, q);
 			break;
-		case SR_T_RATIONAL_VOLT:
-			check(sr_parse_voltage(value.c_str(), &p, &q));
+		case OTC_T_RATIONAL_VOLT:
+			check(otc_parse_voltage(value.c_str(), &p, &q));
 			variant = g_variant_new("(tt)", p, q);
 			break;
-		case SR_T_INT32:
+		case OTC_T_INT32:
 			try {
 				variant = g_variant_new_int32(stoi(value));
 			} catch (invalid_argument&) {
-				throw Error(SR_ERR_ARG);
+				throw Error(OTC_ERR_ARG);
 			}
 			break;
-		case SR_T_UINT32:
+		case OTC_T_UINT32:
 			try {
 				variant = g_variant_new_uint32(stou32(value));
 			} catch (invalid_argument&) {
-				throw Error(SR_ERR_ARG);
+				throw Error(OTC_ERR_ARG);
 			}
 			break;
 		default:
-			throw Error(SR_ERR_BUG);
+			throw Error(OTC_ERR_BUG);
 	}
 
 	return Glib::VariantBase(variant, false);
@@ -174,6 +173,6 @@ Glib::VariantBase ConfigKey::parse_string(std::string value, enum sr_datatype dt
 
 Glib::VariantBase ConfigKey::parse_string(std::string value) const
 {
-	enum sr_datatype dt = (enum sr_datatype)(data_type()->id());
+	enum otc_datatype dt = (enum otc_datatype)(data_type()->id());
 	return parse_string(value, dt);
 }

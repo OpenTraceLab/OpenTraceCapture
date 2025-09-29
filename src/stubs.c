@@ -20,8 +20,3 @@ int __lzo_init_v2(unsigned v, int s1, int s2, int s3, int s4, int s5, int s6, in
 }
 
 /* ZIP stub */
-OTC_PRIV void otc_zip_discard(struct zip *archive)
-{
-    if (archive)
-        zip_discard(archive);
-}

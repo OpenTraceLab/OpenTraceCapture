@@ -109,6 +109,15 @@ conf.set_quoted('PACKAGE_NAME', 'opentracecapture')
 conf.set_quoted('CONF_HOST', host_machine.system() + '-' + host_machine.cpu_family())
 conf.set_quoted('CONF_LIBZIP_VERSION', deps_core[2].version())  # libzip is always available
 
+# C++ standard library feature detection
+cpp = meson.get_compiler('cpp')
+if cpp.compiles('#include <string>\nint main() { std::stoi("1"); return 0; }', name: 'stoi function')
+  conf.set('HAVE_STOI_STOD', 1)
+endif
+if cpp.compiles('#include <string>\nint main() { std::stoul("1"); return 0; }', name: 'stoul function')
+  conf.set('HAVE_STOUL', 1)
+endif
+
 # Feature flags (matching original libsigrok logic)
 conf.set('HAVE_LIBUSB_1_0', true)  # Always true since it's mandatory
 conf.set('HAVE_LIBFTDI1', dep_libftdi1.found())
@@ -165,9 +174,12 @@ compile_args += '-D_GNU_SOURCE'
 subdir('src/core')
 subdir('src/formats')
 subdir('src/drivers')
+subdir('src/input')
+subdir('src/output')
+subdir('src/transform')
 
 lib = library('opentracecapture',
-  sources: [core_sources, driver_sources, format_sources],
+  sources: [core_sources, driver_sources, format_sources, input_sources, output_sources, transform_sources],
   include_directories: inc,
   dependencies: all_deps,
   c_args: compile_args,

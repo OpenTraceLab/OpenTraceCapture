@@ -18,11 +18,29 @@ endif
 inc_cxx = include_directories('include')
 inc_root = include_directories('../..')
 
+# Generate Doxygen XML documentation
+doxygen = find_program('doxygen', required: true)
+doxygen_xml = custom_target('doxygen_xml',
+  output: 'xml',
+  input: ['Doxyfile'],
+  command: [doxygen, '@INPUT0@'],
+  build_by_default: true,
+  env: {'SRCDIR': meson.current_source_dir() + '/', 'BUILDDIR': meson.current_build_dir() + '/'}
+)
+
+# Generate enums.cpp
+python3 = import('python').find_installation('python3')
+enums_cpp = custom_target('enums_cpp',
+  output: 'enums.cpp',
+  input: ['enums.py'],
+  depends: doxygen_xml,
+  command: [python3, '@INPUT0@', meson.current_build_dir() + '/doxy/xml/index.xml'],
+  capture: true
+)
+
 # Sources
 cxx_sources = files(
-  'classes.cpp',
-  'ConfigKey_methods.cpp', 
-  'QuantityFlag_methods.cpp'
+  'classes.cpp'
 )
 
 # Library
@@ -37,7 +55,8 @@ libopentracecapturecxx = library('opentracecapturecxx',
 )
 
 # Headers
-install_subdir('include/libsigrokcxx', install_dir: get_option('includedir'), strip_directory: true, install_tag: 'devel')
+install_headers('include/libopentracecapturecxx/libopentracecapturecxx.hpp')
+install_headers('include/libopentracecapturecxx/enums.hpp')
 
 # pkg-config
 pkg = import('pkgconfig')
@@ -46,7 +65,7 @@ pkg.generate(
   description: 'OpenTraceCapture C++ bindings',
   version: meson.project_version(),
   libraries: libopentracecapturecxx,
-  subdirs: 'libsigrokcxx',
+  subdirs: 'libopentracecapturecxx',
   requires: ['glib-2.0', 'glibmm-2.4']
 )
 

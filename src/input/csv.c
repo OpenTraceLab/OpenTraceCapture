@@ -28,7 +28,7 @@
 
 #include <opentracecapture/libopentracecapture.h>
 #include "../libopentracecapture-internal.h"
-#include "scpi.h"	/* String un-quote for channel name from header line. */
+#include "../scpi.h"	/* String un-quote for channel name from header line. */
 
 #define LOG_PREFIX "input/csv"
 

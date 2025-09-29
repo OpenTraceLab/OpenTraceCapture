@@ -24,12 +24,12 @@
 #endif
 
 #include <config.h>
-#include <libsigrokcxx/libsigrokcxx.hpp>
+#include <libopentracecapturecxx/libopentracecapturecxx.hpp>
 
 #include <sstream>
 #include <cmath>
 
-namespace sigrok
+namespace opentrace
 {
 
 using namespace std;
@@ -37,7 +37,7 @@ using namespace std;
 /** Helper function to translate C errors to C++ exceptions. */
 static void check(int result)
 {
-	if (result != SR_OK)
+	if (result != OTC_OK)
 		throw Error(result);
 }
 
@@ -65,7 +65,7 @@ Error::Error(int result) : result(result)
 
 const char *Error::what() const noexcept
 {
-	return sr_strerror(result);
+	return otc_strerror(result);
 }
 
 Error::~Error() noexcept
@@ -76,7 +76,7 @@ ResourceReader::~ResourceReader()
 {
 }
 
-SR_PRIV int ResourceReader::open_callback(struct sr_resource *res,
+OTC_PRIV int ResourceReader::open_callback(struct otc_resource *res,
 		const char *name, void *cb_data) noexcept
 {
 	try {
@@ -85,12 +85,12 @@ SR_PRIV int ResourceReader::open_callback(struct sr_resource *res,
 	} catch (const Error &err) {
 		return err.result;
 	} catch (...) {
-		return SR_ERR;
+		return OTC_ERR;
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV int ResourceReader::close_callback(struct sr_resource *res,
+OTC_PRIV int ResourceReader::close_callback(struct otc_resource *res,
 		void *cb_data) noexcept
 {
 	try {
@@ -99,12 +99,12 @@ SR_PRIV int ResourceReader::close_callback(struct sr_resource *res,
 	} catch (const Error &err) {
 		return err.result;
 	} catch (...) {
-		return SR_ERR;
+		return OTC_ERR;
 	}
-	return SR_OK;
+	return OTC_OK;
 }
 
-SR_PRIV gssize ResourceReader::read_callback(const struct sr_resource *res,
+OTC_PRIV gssize ResourceReader::read_callback(const struct otc_resource *res,
 		void *buf, size_t count, void *cb_data) noexcept
 {
 	try {
@@ -113,7 +113,7 @@ SR_PRIV gssize ResourceReader::read_callback(const struct sr_resource *res,
 	} catch (const Error &err) {
 		return err.result;
 	} catch (...) {
-		return SR_ERR;
+		return OTC_ERR;
 	}
 }
 
@@ -126,21 +126,21 @@ Context::Context() :
 	_structure(nullptr),
 	_session(nullptr)
 {
-	check(sr_init(&_structure));
+	check(otc_init(&_structure));
 
-	if (struct sr_dev_driver **driver_list = sr_driver_list(_structure))
+	if (struct otc_dev_driver **driver_list = otc_driver_list(_structure))
 		for (int i = 0; driver_list[i]; i++) {
 			unique_ptr<Driver> driver {new Driver{driver_list[i]}};
 			_drivers.emplace(driver->name(), move(driver));
 		}
 
-	if (const struct sr_input_module **input_list = sr_input_list())
+	if (const struct otc_input_module **input_list = otc_input_list())
 		for (int i = 0; input_list[i]; i++) {
 			unique_ptr<InputFormat> input {new InputFormat{input_list[i]}};
 			_input_formats.emplace(input->name(), move(input));
 		}
 
-	if (const struct sr_output_module **output_list = sr_output_list())
+	if (const struct otc_output_module **output_list = otc_output_list())
 		for (int i = 0; output_list[i]; i++) {
 			unique_ptr<OutputFormat> output {new OutputFormat{output_list[i]}};
 			_output_formats.emplace(output->name(), move(output));
@@ -149,12 +149,12 @@ Context::Context() :
 
 string Context::package_version()
 {
-	return sr_package_version_string_get();
+	return otc_package_version_string_get();
 }
 
 string Context::lib_version()
 {
-	return sr_lib_version_string_get();
+	return otc_lib_version_string_get();
 }
 
 map<string, shared_ptr<Driver>> Context::drivers()
@@ -181,27 +181,27 @@ map<string, shared_ptr<InputFormat>> Context::input_formats()
 
 shared_ptr<InputFormat> Context::input_format_match(string filename)
 {
-	const struct sr_input *input;
-	const struct sr_input_module *imod;
+	const struct otc_input *input;
+	const struct otc_input_module *imod;
 	int rc;
 
 	/*
 	 * Have the input module looked up for the specified file.
 	 * Failed lookup (or "successful lookup" with an empty result)
-	 * are non-fatal. Free the sr_input that was created by the
+	 * are non-fatal. Free the otc_input that was created by the
 	 * lookup routine, but grab the input module kind and return an
 	 * InputFormat instance to the application. This works because
 	 * the application passes a filename, no input data got buffered
-	 * in the sr_input that we release.
+	 * in the otc_input that we release.
 	 */
 	input = NULL;
-	rc = sr_input_scan_file(filename.c_str(), &input);
-	if (rc != SR_OK)
+	rc = otc_input_scan_file(filename.c_str(), &input);
+	if (rc != OTC_OK)
 		return nullptr;
 	if (!input)
 		return nullptr;
-	imod = sr_input_module_get(input);
-	sr_input_free(input);
+	imod = otc_input_module_get(input);
+	otc_input_free(input);
 	return shared_ptr<InputFormat>{new InputFormat{imod}, default_delete<InputFormat>{}};
 }
 
@@ -218,17 +218,17 @@ map<string, shared_ptr<OutputFormat>> Context::output_formats()
 
 Context::~Context()
 {
-	check(sr_exit(_structure));
+	check(otc_exit(_structure));
 }
 
 const LogLevel *Context::log_level() const
 {
-	return LogLevel::get(sr_log_loglevel_get());
+	return LogLevel::get(otc_log_loglevel_get());
 }
 
 void Context::set_log_level(const LogLevel *level)
 {
-	check(sr_log_loglevel_set(level->id()));
+	check(otc_log_loglevel_set(level->id()));
 }
 
 static int call_log_callback(void *cb_data, int loglevel,
@@ -245,30 +245,30 @@ static int call_log_callback(void *cb_data, int loglevel,
 		return e.result;
 	}
 
-	return SR_OK;
+	return OTC_OK;
 }
 
 void Context::set_log_callback(LogCallbackFunction callback)
 {
 	_log_callback = move(callback);
-	check(sr_log_callback_set(call_log_callback, &_log_callback));
+	check(otc_log_callback_set(call_log_callback, &_log_callback));
 }
 
 void Context::set_log_callback_default()
 {
-	check(sr_log_callback_set_default());
+	check(otc_log_callback_set_default());
 	_log_callback = nullptr;
 }
 
 void Context::set_resource_reader(ResourceReader *reader)
 {
 	if (reader) {
-		check(sr_resource_set_hooks(_structure,
+		check(otc_resource_set_hooks(_structure,
 				&ResourceReader::open_callback,
 				&ResourceReader::close_callback,
 				&ResourceReader::read_callback, reader));
 	} else {
-		check(sr_resource_set_hooks(_structure,
+		check(otc_resource_set_hooks(_structure,
 				nullptr, nullptr, nullptr, nullptr));
 	}
 }
@@ -289,12 +289,12 @@ shared_ptr<UserDevice> Context::create_user_device(
 
 shared_ptr<Packet> Context::create_header_packet(Glib::DateTime start_time)
 {
-	auto header = g_new(struct sr_datafeed_header, 1);
+	auto header = g_new(struct otc_datafeed_header, 1);
 	header->feed_version = 1;
 	header->starttime.tv_sec = start_time.to_unix();
 	header->starttime.tv_usec = start_time.get_microsecond();
-	auto packet = g_new(struct sr_datafeed_packet, 1);
-	packet->type = SR_DF_HEADER;
+	auto packet = g_new(struct otc_datafeed_packet, 1);
+	packet->type = OTC_DF_HEADER;
 	packet->payload = header;
 	return shared_ptr<Packet>{new Packet{nullptr, packet},
 		default_delete<Packet>{}};
@@ -303,17 +303,17 @@ shared_ptr<Packet> Context::create_header_packet(Glib::DateTime start_time)
 shared_ptr<Packet> Context::create_meta_packet(
 	map<const ConfigKey *, Glib::VariantBase> config)
 {
-	auto meta = g_new0(struct sr_datafeed_meta, 1);
+	auto meta = g_new0(struct otc_datafeed_meta, 1);
 	for (const auto &input : config) {
 		const auto &key = input.first;
 		const auto &value = input.second;
-		auto *const output = g_new(struct sr_config, 1);
+		auto *const output = g_new(struct otc_config, 1);
 		output->key = key->id();
 		output->data = value.gobj_copy();
 		meta->config = g_slist_append(meta->config, output);
 	}
-	auto packet = g_new(struct sr_datafeed_packet, 1);
-	packet->type = SR_DF_META;
+	auto packet = g_new(struct otc_datafeed_packet, 1);
+	packet->type = OTC_DF_META;
 	packet->payload = meta;
 	return shared_ptr<Packet>{new Packet{nullptr, packet},
 		default_delete<Packet>{}};
@@ -322,12 +322,12 @@ shared_ptr<Packet> Context::create_meta_packet(
 shared_ptr<Packet> Context::create_logic_packet(
 	void *data_pointer, size_t data_length, unsigned int unit_size)
 {
-	auto logic = g_new(struct sr_datafeed_logic, 1);
+	auto logic = g_new(struct otc_datafeed_logic, 1);
 	logic->length = data_length;
 	logic->unitsize = unit_size;
 	logic->data = data_pointer;
-	auto packet = g_new(struct sr_datafeed_packet, 1);
-	packet->type = SR_DF_LOGIC;
+	auto packet = g_new(struct otc_datafeed_packet, 1);
+	packet->type = OTC_DF_LOGIC;
 	packet->payload = logic;
 	return shared_ptr<Packet>{new Packet{nullptr, packet}, default_delete<Packet>{}};
 }
@@ -337,18 +337,18 @@ shared_ptr<Packet> Context::create_analog_packet(
 	const float *data_pointer, unsigned int num_samples, const Quantity *mq,
 	const Unit *unit, vector<const QuantityFlag *> mqflags)
 {
-	auto analog = g_new0(struct sr_datafeed_analog, 1);
-	auto meaning = g_new0(struct sr_analog_meaning, 1);
-	auto encoding = g_new0(struct sr_analog_encoding, 1);
-	auto spec = g_new0(struct sr_analog_spec, 1);
+	auto analog = g_new0(struct otc_datafeed_analog, 1);
+	auto meaning = g_new0(struct otc_analog_meaning, 1);
+	auto encoding = g_new0(struct otc_analog_encoding, 1);
+	auto spec = g_new0(struct otc_analog_spec, 1);
 
 	analog->meaning = meaning;
 
 	for (const auto &channel : channels)
 		meaning->channels = g_slist_append(meaning->channels, channel->_structure);
-	meaning->mq = static_cast<sr_mq>(mq->id());
-	meaning->unit = static_cast<sr_unit>(unit->id());
-	meaning->mqflags = static_cast<sr_mqflag>(QuantityFlag::mask_from_flags(move(mqflags)));
+	meaning->mq = static_cast<otc_mq>(mq->id());
+	meaning->unit = static_cast<otc_unit>(unit->id());
+	meaning->mqflags = static_cast<otc_mqflag>(QuantityFlag::mask_from_flags(move(mqflags)));
 
 	analog->encoding = encoding;
 
@@ -373,16 +373,16 @@ shared_ptr<Packet> Context::create_analog_packet(
 
 	analog->num_samples = num_samples;
 	analog->data = (float*)data_pointer;
-	auto packet = g_new(struct sr_datafeed_packet, 1);
-	packet->type = SR_DF_ANALOG;
+	auto packet = g_new(struct otc_datafeed_packet, 1);
+	packet->type = OTC_DF_ANALOG;
 	packet->payload = analog;
 	return shared_ptr<Packet>{new Packet{nullptr, packet}, default_delete<Packet>{}};
 }
 
 shared_ptr<Packet> Context::create_end_packet()
 {
-	auto packet = g_new(struct sr_datafeed_packet, 1);
-	packet->type = SR_DF_END;
+	auto packet = g_new(struct otc_datafeed_packet, 1);
+	packet->type = OTC_DF_END;
 	return shared_ptr<Packet>{new Packet{nullptr, packet},
 		default_delete<Packet>{}};
 }
@@ -403,9 +403,9 @@ shared_ptr<Trigger> Context::create_trigger(string name)
 
 shared_ptr<Input> Context::open_file(string filename)
 {
-	const struct sr_input *input;
+	const struct otc_input *input;
 
-	check(sr_input_scan_file(filename.c_str(), &input));
+	check(otc_input_scan_file(filename.c_str(), &input));
 	return shared_ptr<Input>{
 		new Input{shared_from_this(), input},
 		default_delete<Input>{}};
@@ -413,10 +413,10 @@ shared_ptr<Input> Context::open_file(string filename)
 
 shared_ptr<Input> Context::open_stream(string header)
 {
-	const struct sr_input *input;
+	const struct otc_input *input;
 
 	auto gstr = g_string_new(header.c_str());
-	auto ret = sr_input_scan_buffer(gstr, &input);
+	auto ret = otc_input_scan_buffer(gstr, &input);
 	g_string_free(gstr, true);
 	check(ret);
 	return shared_ptr<Input>{
@@ -426,20 +426,20 @@ shared_ptr<Input> Context::open_stream(string header)
 
 map<string, string> Context::serials(shared_ptr<Driver> driver) const
 {
-	GSList *serial_list = sr_serial_list(driver ? driver->_structure : nullptr);
+	GSList *serial_list = otc_serial_list(driver ? driver->_structure : nullptr);
 	map<string, string> serials;
 
 	for (GSList *serial = serial_list; serial; serial = serial->next) {
-		auto *const port = static_cast<sr_serial_port *>(serial->data);
+		auto *const port = static_cast<otc_serial_port *>(serial->data);
 		serials[string(port->name)] = string(port->description);
 	}
 
 	g_slist_free_full(serial_list,
-		reinterpret_cast<GDestroyNotify>(&sr_serial_free));
+		reinterpret_cast<GDestroyNotify>(&otc_serial_free));
 	return serials;
 }
 
-Driver::Driver(struct sr_dev_driver *structure) :
+Driver::Driver(struct otc_dev_driver *structure) :
 	Configurable(structure, nullptr, nullptr),
 	_structure(structure),
 	_initialized(false)
@@ -462,7 +462,7 @@ string Driver::long_name() const
 
 set<const ConfigKey *> Driver::scan_options() const
 {
-	GArray *opts = sr_driver_scan_options_list(_structure);
+	GArray *opts = otc_driver_scan_options_list(_structure);
 	set<const ConfigKey *> result;
 	if (opts) {
 		for (guint i = 0; i < opts->len; i++)
@@ -477,23 +477,23 @@ vector<shared_ptr<HardwareDevice>> Driver::scan(
 {
 	/* Initialise the driver if not yet done. */
 	if (!_initialized) {
-		check(sr_driver_init(_parent->_structure, _structure));
+		check(otc_driver_init(_parent->_structure, _structure));
 		_initialized = true;
 	}
 
-	/* Translate scan options to GSList of struct sr_config pointers. */
+	/* Translate scan options to GSList of struct otc_config pointers. */
 	GSList *option_list = nullptr;
 	for (const auto &entry : options) {
 		const auto &key = entry.first;
 		const auto &value = entry.second;
-		auto *const config = g_new(struct sr_config, 1);
+		auto *const config = g_new(struct otc_config, 1);
 		config->key = key->id();
 		config->data = const_cast<GVariant*>(value.gobj());
 		option_list = g_slist_append(option_list, config);
 	}
 
 	/* Run scan. */
-	GSList *device_list = sr_driver_scan(_structure, option_list);
+	GSList *device_list = otc_driver_scan(_structure, option_list);
 
 	/* Free option list. */
 	g_slist_free_full(option_list, g_free);
@@ -502,7 +502,7 @@ vector<shared_ptr<HardwareDevice>> Driver::scan(
 	/* Create device objects. */
 	vector<shared_ptr<HardwareDevice>> result;
 	for (GSList *device = device_list; device; device = device->next) {
-		auto *const sdi = static_cast<struct sr_dev_inst *>(device->data);
+		auto *const sdi = static_cast<struct otc_dev_inst *>(device->data);
 		shared_ptr<HardwareDevice> hwdev {
 			new HardwareDevice{shared_from_this(), sdi},
 			default_delete<HardwareDevice>{}};
@@ -516,9 +516,9 @@ vector<shared_ptr<HardwareDevice>> Driver::scan(
 }
 
 Configurable::Configurable(
-		struct sr_dev_driver *driver,
-		struct sr_dev_inst *sdi,
-		struct sr_channel_group *cg) :
+		struct otc_dev_driver *driver,
+		struct otc_dev_inst *sdi,
+		struct otc_channel_group *cg) :
 	config_driver(driver),
 	config_sdi(sdi),
 	config_channel_group(cg)
@@ -534,7 +534,7 @@ set<const ConfigKey *> Configurable::config_keys() const
 	GArray *opts;
 	set<const ConfigKey *> result;
 
-	opts = sr_dev_options(config_driver, config_sdi, config_channel_group);
+	opts = otc_dev_options(config_driver, config_sdi, config_channel_group);
 
 	if (opts) {
 		for (guint i = 0; i < opts->len; i++)
@@ -548,7 +548,7 @@ set<const ConfigKey *> Configurable::config_keys() const
 Glib::VariantBase Configurable::config_get(const ConfigKey *key) const
 {
 	GVariant *data;
-	check(sr_config_get(
+	check(otc_config_get(
 		config_driver, config_sdi, config_channel_group,
 		key->id(), &data));
 	return Glib::VariantBase(data);
@@ -556,14 +556,14 @@ Glib::VariantBase Configurable::config_get(const ConfigKey *key) const
 
 void Configurable::config_set(const ConfigKey *key, const Glib::VariantBase &value)
 {
-	check(sr_config_set(
+	check(otc_config_set(
 		config_sdi, config_channel_group,
 		key->id(), const_cast<GVariant*>(value.gobj())));
 }
 
 set<const Capability *> Configurable::config_capabilities(const ConfigKey *key) const
 {
-	int caps = sr_dev_config_capabilities_list(config_sdi,
+	int caps = otc_dev_config_capabilities_list(config_sdi,
 				config_channel_group, key->id());
 
 	set<const Capability *> result;
@@ -578,7 +578,7 @@ set<const Capability *> Configurable::config_capabilities(const ConfigKey *key) 
 bool Configurable::config_check(const ConfigKey *key,
 	const Capability *capability) const
 {
-	int caps = sr_dev_config_capabilities_list(config_sdi,
+	int caps = otc_dev_config_capabilities_list(config_sdi,
 				config_channel_group, key->id());
 
 	return (caps & capability->id());
@@ -587,24 +587,24 @@ bool Configurable::config_check(const ConfigKey *key,
 Glib::VariantContainerBase Configurable::config_list(const ConfigKey *key) const
 {
 	GVariant *data;
-	check(sr_config_list(
+	check(otc_config_list(
 		config_driver, config_sdi, config_channel_group,
 		key->id(), &data));
 	return Glib::VariantContainerBase(data);
 }
 
-Device::Device(struct sr_dev_inst *structure) :
-	Configurable(sr_dev_inst_driver_get(structure), structure, nullptr),
+Device::Device(struct otc_dev_inst *structure) :
+	Configurable(otc_dev_inst_driver_get(structure), structure, nullptr),
 	_structure(structure)
 {
-	for (GSList *entry = sr_dev_inst_channels_get(structure); entry; entry = entry->next) {
-		auto *const ch = static_cast<struct sr_channel *>(entry->data);
+	for (GSList *entry = otc_dev_inst_channels_get(structure); entry; entry = entry->next) {
+		auto *const ch = static_cast<struct otc_channel *>(entry->data);
 		unique_ptr<Channel> channel {new Channel{ch}};
 		_channels.emplace(ch, move(channel));
 	}
 
-	for (GSList *entry = sr_dev_inst_channel_groups_get(structure); entry; entry = entry->next) {
-		auto *const cg = static_cast<struct sr_channel_group *>(entry->data);
+	for (GSList *entry = otc_dev_inst_channel_groups_get(structure); entry; entry = entry->next) {
+		auto *const cg = static_cast<struct otc_channel_group *>(entry->data);
 		unique_ptr<ChannelGroup> group {new ChannelGroup{this, cg}};
 		_channel_groups.emplace(group->name(), move(group));
 	}
@@ -616,40 +616,40 @@ Device::~Device()
 
 string Device::vendor() const
 {
-	return valid_string(sr_dev_inst_vendor_get(_structure));
+	return valid_string(otc_dev_inst_vendor_get(_structure));
 }
 
 string Device::model() const
 {
-	return valid_string(sr_dev_inst_model_get(_structure));
+	return valid_string(otc_dev_inst_model_get(_structure));
 }
 
 string Device::version() const
 {
-	return valid_string(sr_dev_inst_version_get(_structure));
+	return valid_string(otc_dev_inst_version_get(_structure));
 }
 
 string Device::serial_number() const
 {
-	return valid_string(sr_dev_inst_sernum_get(_structure));
+	return valid_string(otc_dev_inst_sernum_get(_structure));
 }
 
 string Device::connection_id() const
 {
-	return valid_string(sr_dev_inst_connid_get(_structure));
+	return valid_string(otc_dev_inst_connid_get(_structure));
 }
 
 vector<shared_ptr<Channel>> Device::channels()
 {
 	vector<shared_ptr<Channel>> result;
-	for (auto channel = sr_dev_inst_channels_get(_structure); channel; channel = channel->next) {
-		auto *const ch = static_cast<struct sr_channel *>(channel->data);
+	for (auto channel = otc_dev_inst_channels_get(_structure); channel; channel = channel->next) {
+		auto *const ch = static_cast<struct otc_channel *>(channel->data);
 		result.push_back(_channels[ch]->share_owned_by(get_shared_from_this()));
 	}
 	return result;
 }
 
-shared_ptr<Channel> Device::get_channel(struct sr_channel *ptr)
+shared_ptr<Channel> Device::get_channel(struct otc_channel *ptr)
 {
 	return _channels[ptr]->share_owned_by(get_shared_from_this());
 }
@@ -668,16 +668,16 @@ Device::channel_groups()
 
 void Device::open()
 {
-	check(sr_dev_open(_structure));
+	check(otc_dev_open(_structure));
 }
 
 void Device::close()
 {
-	check(sr_dev_close(_structure));
+	check(otc_dev_close(_structure));
 }
 
 HardwareDevice::HardwareDevice(shared_ptr<Driver> driver,
-		struct sr_dev_inst *structure) :
+		struct otc_dev_inst *structure) :
 	Device(structure),
 	_driver(move(driver))
 {
@@ -698,7 +698,7 @@ shared_ptr<Driver> HardwareDevice::driver()
 }
 
 UserDevice::UserDevice(string vendor, string model, string version) :
-	Device(sr_dev_inst_user_new(
+	Device(otc_dev_inst_user_new(
 		vendor.c_str(), model.c_str(), version.c_str()))
 {
 }
@@ -715,16 +715,16 @@ shared_ptr<Device> UserDevice::get_shared_from_this()
 shared_ptr<Channel> UserDevice::add_channel(unsigned int index,
 	const ChannelType *type, string name)
 {
-	check(sr_dev_inst_channel_add(Device::_structure,
+	check(otc_dev_inst_channel_add(Device::_structure,
 		index, type->id(), name.c_str()));
-	GSList *const last = g_slist_last(sr_dev_inst_channels_get(Device::_structure));
-	auto *const ch = static_cast<struct sr_channel *>(last->data);
+	GSList *const last = g_slist_last(otc_dev_inst_channels_get(Device::_structure));
+	auto *const ch = static_cast<struct otc_channel *>(last->data);
 	unique_ptr<Channel> channel {new Channel{ch}};
 	_channels.emplace(ch, move(channel));
 	return get_channel(ch);
 }
 
-Channel::Channel(struct sr_channel *structure) :
+Channel::Channel(struct otc_channel *structure) :
 	_structure(structure),
 	_type(ChannelType::get(_structure->type))
 {
@@ -741,7 +741,7 @@ string Channel::name() const
 
 void Channel::set_name(string name)
 {
-	check(sr_dev_channel_name_set(_structure, name.c_str()));
+	check(otc_dev_channel_name_set(_structure, name.c_str()));
 }
 
 const ChannelType *Channel::type() const
@@ -756,7 +756,7 @@ bool Channel::enabled() const
 
 void Channel::set_enabled(bool value)
 {
-	check(sr_dev_channel_enable(_structure, value));
+	check(otc_dev_channel_enable(_structure, value));
 }
 
 unsigned int Channel::index() const
@@ -765,11 +765,11 @@ unsigned int Channel::index() const
 }
 
 ChannelGroup::ChannelGroup(const Device *device,
-		struct sr_channel_group *structure) :
-	Configurable(sr_dev_inst_driver_get(device->_structure), device->_structure, structure)
+		struct otc_channel_group *structure) :
+	Configurable(otc_dev_inst_driver_get(device->_structure), device->_structure, structure)
 {
 	for (GSList *entry = config_channel_group->channels; entry; entry = entry->next) {
-		auto *const ch = static_cast<struct sr_channel *>(entry->data);
+		auto *const ch = static_cast<struct otc_channel *>(entry->data);
 		/* Note: This relies on Device::_channels to keep the Channel
 		 * objects around over the lifetime of the ChannelGroup. */
 		_channels.push_back(device->_channels.find(ch)->second.get());
@@ -794,19 +794,19 @@ vector<shared_ptr<Channel>> ChannelGroup::channels()
 }
 
 Trigger::Trigger(shared_ptr<Context> context, string name) :
-	_structure(sr_trigger_new(name.c_str())),
+	_structure(otc_trigger_new(name.c_str())),
 	_context(move(context))
 {
 	for (auto *stage = _structure->stages; stage; stage = stage->next) {
 		unique_ptr<TriggerStage> ts {new TriggerStage{
-				static_cast<struct sr_trigger_stage *>(stage->data)}};
+				static_cast<struct otc_trigger_stage *>(stage->data)}};
 		_stages.push_back(move(ts));
 	}
 }
 
 Trigger::~Trigger()
 {
-	sr_trigger_free(_structure);
+	otc_trigger_free(_structure);
 }
 
 string Trigger::name() const
@@ -824,12 +824,12 @@ vector<shared_ptr<TriggerStage>> Trigger::stages()
 
 shared_ptr<TriggerStage> Trigger::add_stage()
 {
-	unique_ptr<TriggerStage> stage {new TriggerStage{sr_trigger_stage_add(_structure)}};
+	unique_ptr<TriggerStage> stage {new TriggerStage{otc_trigger_stage_add(_structure)}};
 	_stages.push_back(move(stage));
 	return _stages.back()->share_owned_by(shared_from_this());
 }
 
-TriggerStage::TriggerStage(struct sr_trigger_stage *structure) :
+TriggerStage::TriggerStage(struct otc_trigger_stage *structure) :
 	_structure(structure)
 {
 }
@@ -854,11 +854,11 @@ vector<shared_ptr<TriggerMatch>> TriggerStage::matches()
 void TriggerStage::add_match(shared_ptr<Channel> channel,
 	const TriggerMatchType *type, float value)
 {
-	check(sr_trigger_match_add(_structure,
+	check(otc_trigger_match_add(_structure,
 		channel->_structure, type->id(), value));
 	GSList *const last = g_slist_last(_structure->matches);
 	unique_ptr<TriggerMatch> match {new TriggerMatch{
-			static_cast<struct sr_trigger_match *>(last->data),
+			static_cast<struct otc_trigger_match *>(last->data),
 			move(channel)}};
 	_matches.push_back(move(match));
 }
@@ -869,7 +869,7 @@ void TriggerStage::add_match(shared_ptr<Channel> channel,
 	add_match(move(channel), type, NAN);
 }
 
-TriggerMatch::TriggerMatch(struct sr_trigger_match *structure,
+TriggerMatch::TriggerMatch(struct otc_trigger_match *structure,
 		shared_ptr<Channel> channel) :
 	_structure(structure),
 	_channel(move(channel))
@@ -902,15 +902,15 @@ DatafeedCallbackData::DatafeedCallbackData(Session *session,
 {
 }
 
-void DatafeedCallbackData::run(const struct sr_dev_inst *sdi,
-	const struct sr_datafeed_packet *pkt)
+void DatafeedCallbackData::run(const struct otc_dev_inst *sdi,
+	const struct otc_datafeed_packet *pkt)
 {
 	auto device = _session->get_device(sdi);
 	shared_ptr<Packet> packet {new Packet{device, pkt}, default_delete<Packet>{}};
 	_callback(move(device), move(packet));
 }
 
-SessionDevice::SessionDevice(struct sr_dev_inst *structure) :
+SessionDevice::SessionDevice(struct otc_dev_inst *structure) :
 	Device(structure)
 {
 }
@@ -928,7 +928,7 @@ Session::Session(shared_ptr<Context> context) :
 	_structure(nullptr),
 	_context(move(context))
 {
-	check(sr_session_new(_context->_structure, &_structure));
+	check(otc_session_new(_context->_structure, &_structure));
 	_context->_session = this;
 }
 
@@ -937,11 +937,11 @@ Session::Session(shared_ptr<Context> context, string filename) :
 	_context(move(context)),
 	_filename(move(filename))
 {
-	check(sr_session_load(_context->_structure, _filename.c_str(), &_structure));
+	check(otc_session_load(_context->_structure, _filename.c_str(), &_structure));
 	GSList *dev_list;
-	check(sr_session_dev_list(_structure, &dev_list));
+	check(otc_session_dev_list(_structure, &dev_list));
 	for (GSList *dev = dev_list; dev; dev = dev->next) {
-		auto *const sdi = static_cast<struct sr_dev_inst *>(dev->data);
+		auto *const sdi = static_cast<struct otc_dev_inst *>(dev->data);
 		unique_ptr<SessionDevice> device {new SessionDevice{sdi}};
 		_owned_devices.emplace(sdi, move(device));
 	}
@@ -951,10 +951,10 @@ Session::Session(shared_ptr<Context> context, string filename) :
 
 Session::~Session()
 {
-	check(sr_session_destroy(_structure));
+	check(otc_session_destroy(_structure));
 }
 
-shared_ptr<Device> Session::get_device(const struct sr_dev_inst *sdi)
+shared_ptr<Device> Session::get_device(const struct otc_dev_inst *sdi)
 {
 	if (_owned_devices.count(sdi))
 		return static_pointer_cast<Device>(
@@ -962,23 +962,23 @@ shared_ptr<Device> Session::get_device(const struct sr_dev_inst *sdi)
 	else if (_other_devices.count(sdi))
 		return _other_devices[sdi];
 	else
-		throw Error(SR_ERR_BUG);
+		throw Error(OTC_ERR_BUG);
 }
 
 void Session::add_device(shared_ptr<Device> device)
 {
 	const auto dev_struct = device->_structure;
-	check(sr_session_dev_add(_structure, dev_struct));
+	check(otc_session_dev_add(_structure, dev_struct));
 	_other_devices[dev_struct] = move(device);
 }
 
 vector<shared_ptr<Device>> Session::devices()
 {
 	GSList *dev_list;
-	check(sr_session_dev_list(_structure, &dev_list));
+	check(otc_session_dev_list(_structure, &dev_list));
 	vector<shared_ptr<Device>> result;
 	for (GSList *dev = dev_list; dev; dev = dev->next) {
-		auto *const sdi = static_cast<struct sr_dev_inst *>(dev->data);
+		auto *const sdi = static_cast<struct otc_dev_inst *>(dev->data);
 		result.push_back(get_device(sdi));
 	}
 	g_slist_free(dev_list);
@@ -988,27 +988,27 @@ vector<shared_ptr<Device>> Session::devices()
 void Session::remove_devices()
 {
 	_other_devices.clear();
-	check(sr_session_dev_remove_all(_structure));
+	check(otc_session_dev_remove_all(_structure));
 }
 
 void Session::start()
 {
-	check(sr_session_start(_structure));
+	check(otc_session_start(_structure));
 }
 
 void Session::run()
 {
-	check(sr_session_run(_structure));
+	check(otc_session_run(_structure));
 }
 
 void Session::stop()
 {
-	check(sr_session_stop(_structure));
+	check(otc_session_stop(_structure));
 }
 
 bool Session::is_running() const
 {
-	const int ret = sr_session_is_running(_structure);
+	const int ret = otc_session_is_running(_structure);
 	if (ret < 0)
 		throw Error{ret};
 	return (ret != 0);
@@ -1024,15 +1024,15 @@ void Session::set_stopped_callback(SessionStoppedCallback callback)
 {
 	_stopped_callback = move(callback);
 	if (_stopped_callback)
-		check(sr_session_stopped_callback_set(_structure,
+		check(otc_session_stopped_callback_set(_structure,
 				&session_stopped_callback, &_stopped_callback));
 	else
-		check(sr_session_stopped_callback_set(_structure,
+		check(otc_session_stopped_callback_set(_structure,
 				nullptr, nullptr));
 }
 
-static void datafeed_callback(const struct sr_dev_inst *sdi,
-	const struct sr_datafeed_packet *pkt, void *cb_data) noexcept
+static void datafeed_callback(const struct otc_dev_inst *sdi,
+	const struct otc_datafeed_packet *pkt, void *cb_data) noexcept
 {
 	auto callback = static_cast<DatafeedCallbackData *>(cb_data);
 	callback->run(sdi, pkt);
@@ -1042,14 +1042,14 @@ void Session::add_datafeed_callback(DatafeedCallbackFunction callback)
 {
 	unique_ptr<DatafeedCallbackData> cb_data
 		{new DatafeedCallbackData{this, move(callback)}};
-	check(sr_session_datafeed_callback_add(_structure,
+	check(otc_session_datafeed_callback_add(_structure,
 			&datafeed_callback, cb_data.get()));
 	_datafeed_callbacks.push_back(move(cb_data));
 }
 
 void Session::remove_datafeed_callbacks()
 {
-	check(sr_session_datafeed_callback_remove_all(_structure));
+	check(otc_session_datafeed_callback_remove_all(_structure));
 	_datafeed_callbacks.clear();
 }
 
@@ -1062,9 +1062,9 @@ void Session::set_trigger(shared_ptr<Trigger> trigger)
 {
 	if (!trigger)
 		// Set NULL trigger, i.e. remove any trigger from the session.
-		check(sr_session_trigger_set(_structure, nullptr));
+		check(otc_session_trigger_set(_structure, nullptr));
 	else
-		check(sr_session_trigger_set(_structure, trigger->_structure));
+		check(otc_session_trigger_set(_structure, trigger->_structure));
 	_trigger = move(trigger);
 }
 
@@ -1079,30 +1079,30 @@ shared_ptr<Context> Session::context()
 }
 
 Packet::Packet(shared_ptr<Device> device,
-	const struct sr_datafeed_packet *structure) :
+	const struct otc_datafeed_packet *structure) :
 	_structure(structure),
 	_device(move(device))
 {
 	switch (structure->type)
 	{
-		case SR_DF_HEADER:
+		case OTC_DF_HEADER:
 			_payload.reset(new Header{
-				static_cast<const struct sr_datafeed_header *>(
+				static_cast<const struct otc_datafeed_header *>(
 					structure->payload)});
 			break;
-		case SR_DF_META:
+		case OTC_DF_META:
 			_payload.reset(new Meta{
-				static_cast<const struct sr_datafeed_meta *>(
+				static_cast<const struct otc_datafeed_meta *>(
 					structure->payload)});
 			break;
-		case SR_DF_LOGIC:
+		case OTC_DF_LOGIC:
 			_payload.reset(new Logic{
-				static_cast<const struct sr_datafeed_logic *>(
+				static_cast<const struct otc_datafeed_logic *>(
 					structure->payload)});
 			break;
-		case SR_DF_ANALOG:
+		case OTC_DF_ANALOG:
 			_payload.reset(new Analog{
-				static_cast<const struct sr_datafeed_analog *>(
+				static_cast<const struct otc_datafeed_analog *>(
 					structure->payload)});
 			break;
 	}
@@ -1122,7 +1122,7 @@ shared_ptr<PacketPayload> Packet::payload()
 	if (_payload)
 		return _payload->share_owned_by(shared_from_this());
 	else
-		throw Error(SR_ERR_NA);
+		throw Error(OTC_ERR_NA);
 }
 
 PacketPayload::PacketPayload()
@@ -1133,7 +1133,7 @@ PacketPayload::~PacketPayload()
 {
 }
 
-Header::Header(const struct sr_datafeed_header *structure) :
+Header::Header(const struct otc_datafeed_header *structure) :
 	PacketPayload(),
 	_structure(structure)
 {
@@ -1160,7 +1160,7 @@ Glib::DateTime Header::start_time() const
 	return time.add_seconds(_structure->starttime.tv_usec / 1.0e6);
 }
 
-Meta::Meta(const struct sr_datafeed_meta *structure) :
+Meta::Meta(const struct otc_datafeed_meta *structure) :
 	PacketPayload(),
 	_structure(structure)
 {
@@ -1180,13 +1180,13 @@ map<const ConfigKey *, Glib::VariantBase> Meta::config() const
 {
 	map<const ConfigKey *, Glib::VariantBase> result;
 	for (auto l = _structure->config; l; l = l->next) {
-		auto *const config = static_cast<struct sr_config *>(l->data);
+		auto *const config = static_cast<struct otc_config *>(l->data);
 		result[ConfigKey::get(config->key)] = Glib::VariantBase(config->data, true);
 	}
 	return result;
 }
 
-Logic::Logic(const struct sr_datafeed_logic *structure) :
+Logic::Logic(const struct otc_datafeed_logic *structure) :
 	PacketPayload(),
 	_structure(structure)
 {
@@ -1217,7 +1217,7 @@ unsigned int Logic::unit_size() const
 	return _structure->unitsize;
 }
 
-Analog::Analog(const struct sr_datafeed_analog *structure) :
+Analog::Analog(const struct otc_datafeed_analog *structure) :
 	PacketPayload(),
 	_structure(structure)
 {
@@ -1240,7 +1240,7 @@ void *Analog::data_pointer()
 
 void Analog::get_data_as_float(float *dest)
 {
-	check(sr_analog_to_float(_structure, dest));
+	check(otc_analog_to_float(_structure, dest));
 }
 
 unsigned int Analog::num_samples() const
@@ -1252,7 +1252,7 @@ vector<shared_ptr<Channel>> Analog::channels()
 {
 	vector<shared_ptr<Channel>> result;
 	for (auto l = _structure->meaning->channels; l; l = l->next) {
-		auto *const ch = static_cast<struct sr_channel *>(l->data);
+		auto *const ch = static_cast<struct otc_channel *>(l->data);
 		result.push_back(_parent->_device->get_channel(ch));
 	}
 	return result;
@@ -1296,7 +1296,7 @@ shared_ptr<Rational> Analog::scale()
 	if (scale)
 		return scale->share_owned_by(shared_from_this());
 	else
-		throw Error(SR_ERR_NA);
+		throw Error(OTC_ERR_NA);
 }
 
 shared_ptr<Rational> Analog::offset()
@@ -1307,7 +1307,7 @@ shared_ptr<Rational> Analog::offset()
 	if (offset)
 		return offset->share_owned_by(shared_from_this());
 	else
-		throw Error(SR_ERR_NA);
+		throw Error(OTC_ERR_NA);
 }
 
 const Quantity *Analog::mq() const
@@ -1328,7 +1328,7 @@ vector<const QuantityFlag *> Analog::mq_flags() const
 shared_ptr<Logic> Analog::get_logic_via_threshold(float threshold,
 	uint8_t *data_ptr) const
 {
-	auto datafeed = g_new(struct sr_datafeed_logic, 1);
+	auto datafeed = g_new(struct otc_datafeed_logic, 1);
 	datafeed->length = num_samples();
 	datafeed->unitsize = 1;
 
@@ -1340,7 +1340,7 @@ shared_ptr<Logic> Analog::get_logic_via_threshold(float threshold,
 	shared_ptr<Logic> logic =
 		shared_ptr<Logic>{new Logic{datafeed}, default_delete<Logic>{}};
 
-	check(sr_a2l_threshold(_structure, threshold,
+	check(otc_a2l_threshold(_structure, threshold,
 		(uint8_t*)datafeed->data, datafeed->length));
 
 	return logic;
@@ -1349,7 +1349,7 @@ shared_ptr<Logic> Analog::get_logic_via_threshold(float threshold,
 shared_ptr<Logic> Analog::get_logic_via_schmitt_trigger(float lo_thr,
 	float hi_thr, uint8_t *state, uint8_t *data_ptr) const
 {
-	auto datafeed = g_new(struct sr_datafeed_logic, 1);
+	auto datafeed = g_new(struct otc_datafeed_logic, 1);
 	datafeed->length = num_samples();
 	datafeed->unitsize = 1;
 
@@ -1361,13 +1361,13 @@ shared_ptr<Logic> Analog::get_logic_via_schmitt_trigger(float lo_thr,
 	shared_ptr<Logic> logic =
 		shared_ptr<Logic>{new Logic{datafeed}, default_delete<Logic>{}};
 
-	check(sr_a2l_schmitt_trigger(_structure, lo_thr, hi_thr, state,
+	check(otc_a2l_schmitt_trigger(_structure, lo_thr, hi_thr, state,
 		(uint8_t*)datafeed->data, datafeed->length));
 
 	return logic;
 }
 
-Rational::Rational(const struct sr_rational *structure) :
+Rational::Rational(const struct otc_rational *structure) :
 	_structure(structure)
 {
 }
@@ -1397,7 +1397,7 @@ float Rational::value() const
 	return (float)(_structure->p) / (float)(_structure->q);
 }
 
-InputFormat::InputFormat(const struct sr_input_module *structure) :
+InputFormat::InputFormat(const struct otc_input_module *structure) :
 	_structure(structure)
 {
 }
@@ -1408,18 +1408,18 @@ InputFormat::~InputFormat()
 
 string InputFormat::name() const
 {
-	return valid_string(sr_input_id_get(_structure));
+	return valid_string(otc_input_id_get(_structure));
 }
 
 string InputFormat::description() const
 {
-	return valid_string(sr_input_description_get(_structure));
+	return valid_string(otc_input_description_get(_structure));
 }
 
 vector<string> InputFormat::extensions() const
 {
 	vector<string> exts;
-	for (const char *const *e = sr_input_extensions_get(_structure);
+	for (const char *const *e = otc_input_extensions_get(_structure);
 		e && *e; e++)
 		exts.push_back(*e);
 	return exts;
@@ -1429,9 +1429,9 @@ map<string, shared_ptr<Option>> InputFormat::options()
 {
 	map<string, shared_ptr<Option>> result;
 
-	if (const struct sr_option **options = sr_input_options_get(_structure)) {
-		shared_ptr<const struct sr_option *> option_array
-			{options, &sr_input_options_free};
+	if (const struct otc_option **options = otc_input_options_get(_structure)) {
+		shared_ptr<const struct otc_option *> option_array
+			{options, &otc_input_options_free};
 		for (int i = 0; options[i]; i++) {
 			shared_ptr<Option> opt {
 				new Option{options[i], option_array},
@@ -1445,13 +1445,13 @@ map<string, shared_ptr<Option>> InputFormat::options()
 shared_ptr<Input> InputFormat::create_input(
 	map<string, Glib::VariantBase> options)
 {
-	auto input = sr_input_new(_structure, map_to_hash_variant(options));
+	auto input = otc_input_new(_structure, map_to_hash_variant(options));
 	if (!input)
-		throw Error(SR_ERR_ARG);
+		throw Error(OTC_ERR_ARG);
 	return shared_ptr<Input>{new Input{_parent, input}, default_delete<Input>{}};
 }
 
-Input::Input(shared_ptr<Context> context, const struct sr_input *structure) :
+Input::Input(shared_ptr<Context> context, const struct otc_input *structure) :
 	_structure(structure),
 	_context(move(context))
 {
@@ -1460,9 +1460,9 @@ Input::Input(shared_ptr<Context> context, const struct sr_input *structure) :
 shared_ptr<InputDevice> Input::device()
 {
 	if (!_device) {
-		auto sdi = sr_input_dev_inst_get(_structure);
+		auto sdi = otc_input_dev_inst_get(_structure);
 		if (!sdi)
-			throw Error(SR_ERR_NA);
+			throw Error(OTC_ERR_NA);
 		_device.reset(new InputDevice{shared_from_this(), sdi});
 	}
 
@@ -1472,28 +1472,28 @@ shared_ptr<InputDevice> Input::device()
 void Input::send(void *data, size_t length)
 {
 	auto gstr = g_string_new_len(static_cast<char *>(data), length);
-	auto ret = sr_input_send(_structure, gstr);
+	auto ret = otc_input_send(_structure, gstr);
 	g_string_free(gstr, true);
 	check(ret);
 }
 
 void Input::end()
 {
-	check(sr_input_end(_structure));
+	check(otc_input_end(_structure));
 }
 
 void Input::reset()
 {
-	check(sr_input_reset(_structure));
+	check(otc_input_reset(_structure));
 }
 
 Input::~Input()
 {
-	sr_input_free(_structure);
+	otc_input_free(_structure);
 }
 
 InputDevice::InputDevice(shared_ptr<Input> input,
-		struct sr_dev_inst *structure) :
+		struct otc_dev_inst *structure) :
 	Device(structure),
 	_input(move(input))
 {
@@ -1508,8 +1508,8 @@ shared_ptr<Device> InputDevice::get_shared_from_this()
 	return static_pointer_cast<Device>(shared_from_this());
 }
 
-Option::Option(const struct sr_option *structure,
-		shared_ptr<const struct sr_option *> structure_array) :
+Option::Option(const struct otc_option *structure,
+		shared_ptr<const struct otc_option *> structure_array) :
 	_structure(structure),
 	_structure_array(move(structure_array))
 {
@@ -1551,29 +1551,29 @@ vector<Glib::VariantBase> Option::values() const
 
 Glib::VariantBase Option::parse_string(string value)
 {
-	enum sr_datatype dt;
+	enum otc_datatype dt;
 	Glib::VariantBase dflt = default_value();
 	GVariant *tmpl = dflt.gobj();
 
 	if (g_variant_is_of_type(tmpl, G_VARIANT_TYPE_UINT64)) {
-		dt = SR_T_UINT64;
+		dt = OTC_T_UINT64;
 	} else if (g_variant_is_of_type(tmpl, G_VARIANT_TYPE_STRING)) {
-		dt = SR_T_STRING;
+		dt = OTC_T_STRING;
 	} else if (g_variant_is_of_type(tmpl, G_VARIANT_TYPE_BOOLEAN)) {
-		dt = SR_T_BOOL;
+		dt = OTC_T_BOOL;
 	} else if (g_variant_is_of_type(tmpl, G_VARIANT_TYPE_DOUBLE)) {
-		dt = SR_T_FLOAT;
+		dt = OTC_T_FLOAT;
 	} else if (g_variant_is_of_type(tmpl, G_VARIANT_TYPE_INT32)) {
-		dt = SR_T_INT32;
+		dt = OTC_T_INT32;
 	} else if (g_variant_is_of_type(tmpl, G_VARIANT_TYPE_UINT32)) {
-		dt = SR_T_UINT32;
+		dt = OTC_T_UINT32;
 	} else {
-		throw Error(SR_ERR_BUG);
+		throw Error(OTC_ERR_BUG);
 	}
 	return ConfigKey::parse_string(value, dt);
 }
 
-OutputFormat::OutputFormat(const struct sr_output_module *structure) :
+OutputFormat::OutputFormat(const struct otc_output_module *structure) :
 	_structure(structure)
 {
 }
@@ -1584,18 +1584,18 @@ OutputFormat::~OutputFormat()
 
 string OutputFormat::name() const
 {
-	return valid_string(sr_output_id_get(_structure));
+	return valid_string(otc_output_id_get(_structure));
 }
 
 string OutputFormat::description() const
 {
-	return valid_string(sr_output_description_get(_structure));
+	return valid_string(otc_output_description_get(_structure));
 }
 
 vector<string> OutputFormat::extensions() const
 {
 	vector<string> exts;
-	for (const char *const *e = sr_output_extensions_get(_structure);
+	for (const char *const *e = otc_output_extensions_get(_structure);
 		e && *e; e++)
 		exts.push_back(*e);
 	return exts;
@@ -1605,9 +1605,9 @@ map<string, shared_ptr<Option>> OutputFormat::options()
 {
 	map<string, shared_ptr<Option>> result;
 
-	if (const struct sr_option **options = sr_output_options_get(_structure)) {
-		shared_ptr<const struct sr_option *> option_array
-			{options, &sr_output_options_free};
+	if (const struct otc_option **options = otc_output_options_get(_structure)) {
+		shared_ptr<const struct otc_option *> option_array
+			{options, &otc_output_options_free};
 		for (int i = 0; options[i]; i++) {
 			shared_ptr<Option> opt {
 				new Option{options[i], option_array},
@@ -1636,12 +1636,12 @@ shared_ptr<Output> OutputFormat::create_output(string filename,
 
 bool OutputFormat::test_flag(const OutputFlag *flag) const
 {
-	return sr_output_test_flag(_structure, flag->id());
+	return otc_output_test_flag(_structure, flag->id());
 }
 
 Output::Output(shared_ptr<OutputFormat> format,
 		shared_ptr<Device> device, map<string, Glib::VariantBase> options) :
-	_structure(sr_output_new(format->_structure,
+	_structure(otc_output_new(format->_structure,
 		map_to_hash_variant(options), device->_structure, nullptr)),
 	_format(move(format)),
 	_device(move(device)),
@@ -1651,7 +1651,7 @@ Output::Output(shared_ptr<OutputFormat> format,
 
 Output::Output(string filename, shared_ptr<OutputFormat> format,
 		shared_ptr<Device> device, map<string, Glib::VariantBase> options) :
-	_structure(sr_output_new(format->_structure,
+	_structure(otc_output_new(format->_structure,
 		map_to_hash_variant(options), device->_structure, filename.c_str())),
 	_format(move(format)),
 	_device(move(device)),
@@ -1661,7 +1661,7 @@ Output::Output(string filename, shared_ptr<OutputFormat> format,
 
 Output::~Output()
 {
-	check(sr_output_free(_structure));
+	check(otc_output_free(_structure));
 }
 
 shared_ptr<OutputFormat> Output::format()
@@ -1672,7 +1672,7 @@ shared_ptr<OutputFormat> Output::format()
 string Output::receive(shared_ptr<Packet> packet)
 {
 	GString *out;
-	check(sr_output_send(_structure, packet->_structure, &out));
+	check(otc_output_send(_structure, packet->_structure, &out));
 	if (out) {
 		auto result = string(out->str, out->str + out->len);
 		g_string_free(out, true);
