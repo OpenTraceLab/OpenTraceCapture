@@ -17,8 +17,6 @@ core_sources = files(
   '../sw_limits.c',
   '../binary_helpers.c',
   '../drivers.c',
-  '../driver_list_start.c',
-  '../driver_list_stop.c',
   '../soft-trigger.c',
   '../ezusb.c',
   '../analog.c',

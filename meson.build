@@ -104,6 +104,9 @@ have_gpib = dep_gpib.found() and cc.has_header('gpib/ib.h', dependencies: dep_gp
 # Configuration and driver tracking
 conf = configuration_data()
 
+# Enable drivers
+conf.set('HAVE_DRIVERS', 1)
+
 # Basic configuration
 conf.set_quoted('PACKAGE_NAME', 'opentracecapture')
 conf.set_quoted('CONF_HOST', host_machine.system() + '-' + host_machine.cpu_family())
@@ -178,11 +181,32 @@ subdir('src/input')
 subdir('src/output')
 subdir('src/transform')
 
+# Create separate driver libraries like libsigrok does
+driver_head_lib = static_library('drivers_head',
+  sources: ['src/driver_list_start.c'],
+  include_directories: inc,
+  dependencies: all_deps,
+  c_args: compile_args)
+
+driver_tail_lib = static_library('drivers_tail',
+  sources: ['src/driver_list_stop.c'],
+  include_directories: inc,
+  dependencies: all_deps,
+  c_args: compile_args)
+
+driver_main_lib = static_library('drivers_main',
+  sources: driver_sources,
+  include_directories: inc,
+  dependencies: all_deps,
+  c_args: compile_args)
+
+# Link in correct order: head -> main -> tail (like libsigrok)
 lib = library('opentracecapture',
-  sources: [core_sources, driver_sources, format_sources, input_sources, output_sources, transform_sources],
+  sources: [core_sources, format_sources, input_sources, output_sources, transform_sources],
   include_directories: inc,
   dependencies: all_deps,
   c_args: compile_args,
+  link_whole: [driver_head_lib, driver_main_lib, driver_tail_lib],
   install: true,
   version: meson.project_version(),
   soversion: '0')
