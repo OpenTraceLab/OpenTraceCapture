@@ -27,24 +27,24 @@ index_file = sys.argv[1]
 # Get directory this script is in.
 dirname = os.path.dirname(os.path.realpath(__file__))
 
-outdirname = "bindings"
-if not os.path.exists(os.path.join(outdirname, 'cxx/include/libsigrokcxx')):
-    os.makedirs(os.path.join(outdirname, 'cxx/include/libsigrokcxx'))
+outdirname = "."
+if not os.path.exists(os.path.join(outdirname, 'include/libopentracecapturecxx')):
+    os.makedirs(os.path.join(outdirname, 'include/libopentracecapturecxx'))
 if not os.path.exists(os.path.join(outdirname, 'swig')):
     os.makedirs(os.path.join(outdirname, 'swig'))
 
 mapping = dict([
-    ('sr_loglevel', ('LogLevel', 'Log verbosity level')),
-    ('sr_packettype', ('PacketType', 'Type of datafeed packet')),
-    ('sr_mq', ('Quantity', 'Measured quantity')),
-    ('sr_unit', ('Unit', 'Unit of measurement')),
-    ('sr_mqflag', ('QuantityFlag', 'Flag applied to measured quantity')),
-    ('sr_configkey', ('ConfigKey', 'Configuration key')),
-    ('sr_configcap', ('Capability', 'Configuration capability')),
-    ('sr_datatype', ('DataType', 'Configuration data type')),
-    ('sr_channeltype', ('ChannelType', 'Channel type')),
-    ('sr_trigger_matches', ('TriggerMatchType', 'Trigger match type')),
-    ('sr_output_flag', ('OutputFlag', 'Flag applied to output modules'))])
+    ('otc_loglevel', ('LogLevel', 'Log verbosity level')),
+    ('otc_packettype', ('PacketType', 'Type of datafeed packet')),
+    ('otc_mq', ('Quantity', 'Measured quantity')),
+    ('otc_unit', ('Unit', 'Unit of measurement')),
+    ('otc_mqflag', ('QuantityFlag', 'Flag applied to measured quantity')),
+    ('otc_configkey', ('ConfigKey', 'Configuration key')),
+    ('otc_configcap', ('Capability', 'Configuration capability')),
+    ('otc_datatype', ('DataType', 'Configuration data type')),
+    ('otc_channeltype', ('ChannelType', 'Channel type')),
+    ('otc_trigger_matches', ('TriggerMatchType', 'Trigger match type')),
+    ('otc_output_flag', ('OutputFlag', 'Flag applied to output modules'))])
 
 index = ElementTree.parse(index_file)
 
@@ -69,21 +69,33 @@ for compound in index.findall('compound'):
             if name in mapping:
                 classes[member] = mapping[name]
 
-header = open(os.path.join(outdirname, 'cxx/include/libsigrokcxx/enums.hpp'), 'w')
-code = open(os.path.join(outdirname, 'cxx/enums.cpp'), 'w')
+header = open(os.path.join(outdirname, 'include/libopentracecapturecxx/enums.hpp'), 'w')
+code = sys.stdout  # Output C++ code to stdout for meson capture
 swig = open(os.path.join(outdirname, 'swig/enums.i'), 'w')
 
 for file in (header, code):
     print("/* Generated file - edit enums.py instead! */", file=file)
 
-print("namespace sigrok {", file=header)
+print("namespace opentrace {", file=header)
+
+# Add necessary includes to the code file
+print("#include <config.h>", file=code)
+print("#include <vector>", file=code)
+print("#include <string>", file=code)
+print("#include <cstdint>", file=code)
+print("#include <stdexcept>", file=code)
+print("#include <glibmm.h>", file=code)
+print('#include "libopentracecapturecxx/libopentracecapturecxx.hpp"', file=code)
+print("", file=code)
+# Note: No namespace declaration - enums.cpp is included inside classes.cpp namespace
+print("", file=code)
 
 # Template for beginning of class declaration and public members.
 header_public_template = """
-template<> const SR_API std::map<const enum {enumname}, const {classname} * const> EnumValue<{classname}, enum {enumname}>::_values;
+template<> const OTC_API std::map<const enum {enumname}, const {classname} * const> EnumValue<{classname}, enum {enumname}>::_values;
 
 /** {brief} */
-class SR_API {classname} : public EnumValue<{classname}, enum {enumname}>
+class OTC_API {classname} : public EnumValue<{classname}, enum {enumname}>
 {{
 public:
 """
@@ -103,7 +115,7 @@ for enum, (classname, classbrief) in classes.items():
     enum_name = enum.find('name').text
     members = enum.findall('enumvalue')
     member_names = [m.find('name').text for m in members]
-    trimmed_names = [re.sub("^SR_[A-Z]+_", "", n) for n in member_names]
+    trimmed_names = [re.sub("^OTC_[A-Z]+_", "", n) for n in member_names]
     briefs = [get_text(m.find('briefdescription')) for m in members]
 
     # Begin class and public declarations
@@ -146,7 +158,7 @@ for enum, (classname, classbrief) in classes.items():
             file=code)
 
     # Define map of enum values to constants
-    print('template<> const SR_API std::map<const enum %s, const %s * const> EnumValue<%s, enum %s>::_values = {' % (
+    print('template<> const OTC_API std::map<const enum %s, const %s * const> EnumValue<%s, enum %s>::_values = {' % (
         enum_name, classname, classname, enum_name), file=code)
     for name, trimmed_name in zip(member_names, trimmed_names):
         print('\t{%s, %s::%s},' % (name, classname, trimmed_name), file=code)
@@ -158,12 +170,12 @@ for enum, (classname, classbrief) in classes.items():
         print(str.join('', open(filename).readlines()), file=code)
 
     # Map EnumValue::id() and EnumValue::name() as SWIG attributes.
-    print('%%attribute(sigrok::%s, int, id, id);' % classname, file=swig)
-    print('%%attributestring(sigrok::%s, std::string, name, name);' % classname,
+    print('%%attribute(opentrace::%s, int, id, id);' % classname, file=swig)
+    print('%%attributestring(opentrace::%s, std::string, name, name);' % classname,
         file=swig)
 
     # Instantiate EnumValue template for SWIG
-    print('%%template(EnumValue%s) sigrok::EnumValue<sigrok::%s, enum %s>;' % (
+    print('%%template(EnumValue%s) opentrace::EnumValue<opentrace::%s, enum %s>;' % (
         classname, classname, enum_name), file=swig)
 
     # Apply any language-specific extras.
@@ -175,3 +187,4 @@ for enum, (classname, classbrief) in classes.items():
         print(str.join('', open(filename).readlines()), file=swig)
 
 print("}", file=header)
+# Note: No closing brace for code file - enums.cpp is included inside classes.cpp namespace

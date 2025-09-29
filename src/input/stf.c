@@ -101,7 +101,7 @@
 
 #include <glib.h>
 #include <opentracecapture/libopentracecapture.h>
-#include <libopentracecapture-internal.h>
+#include \"../libopentracecapture-internal.h\"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -109,7 +109,7 @@
 #include <time.h>
 #include <zlib.h>
 
-#include "minilzo/minilzo.h"
+#include \"../minilzo/minilzo.h\"
 
 #define LOG_PREFIX "input/stf"
 

@@ -24,7 +24,7 @@
 Introduction
 ------------
 
-The libsigrokcxx API provides an object-oriented C++ interface to the
+The libopentracecapturecxx API provides an object-oriented C++ interface to the
 functionality in libsigrok, including automatic memory and resource management.
 
 It is built on top of the public libsigrok C API, and is designed to be used as
@@ -45,7 +45,7 @@ use. The C++ interface code also keeps track of internal dependencies between
 libsigrok resources, and ensures that objects are not prematurely deleted when
 their resources are in use by other objects.
 
-This means that management of libsigrokcxx objects and their underlying
+This means that management of libopentracecapturecxx objects and their underlying
 libsigrok resources can be treated as fully automatic. As long as all shared
 pointers to objects are deleted or reassigned when no longer in use, all
 underlying resources will be released at the right time.
@@ -53,16 +53,16 @@ underlying resources will be released at the right time.
 Getting started
 ---------------
 
-Usage of the C++ API needs to begin with a call to sigrok::Context::create().
+Usage of the C++ API needs to begin with a call to opentrace::Context::create().
 This will create the global libsigrok context and returns a shared pointer to
-the sigrok::Context object. Methods on this object provide access to the
+the opentrace::Context object. Methods on this object provide access to the
 hardware drivers, input and output formats supported by the library, as well
 as means of creating other objects such as sessions and triggers.
 
 Error handling
 --------------
 
-When any libsigrok C API call returns an error, a sigrok::Error exception is
+When any libsigrok C API call returns an error, a opentrace::Error exception is
 raised, which provides access to the error code and description.
 
 */
@@ -70,7 +70,7 @@ raised, which provides access to the error code and description.
 #ifndef LIBSIGROKCXX_HPP
 #define LIBSIGROKCXX_HPP
 
-#include <opentracecapture-compat/libsigrok.h>
+#include <opentracecapture/libopentracecapture.h>
 
 /* Suppress warnings due to glibmm's use of std::auto_ptr<> in a public
  * header file. To be removed once glibmm is fixed. */
@@ -85,45 +85,45 @@ G_GNUC_END_IGNORE_DEPRECATIONS
 #include <map>
 #include <set>
 
-namespace sigrok
+namespace opentrace
 {
 
 /* Forward declarations */
-class SR_API Error;
-class SR_API Context;
-class SR_API Driver;
-class SR_API Device;
-class SR_API HardwareDevice;
-class SR_API Channel;
-class SR_API Session;
-class SR_API ConfigKey;
-class SR_API Capability;
-class SR_API InputFormat;
-class SR_API OutputFormat;
-class SR_API OutputFlag;
-class SR_API LogLevel;
-class SR_API ChannelGroup;
-class SR_API Trigger;
-class SR_API TriggerStage;
-class SR_API TriggerMatch;
-class SR_API TriggerMatchType;
-class SR_API ChannelType;
-class SR_API Packet;
-class SR_API PacketPayload;
-class SR_API PacketType;
-class SR_API Quantity;
-class SR_API Unit;
-class SR_API QuantityFlag;
-class SR_API Rational;
-class SR_API Input;
-class SR_API InputDevice;
-class SR_API Output;
-class SR_API DataType;
-class SR_API Option;
-class SR_API UserDevice;
+class OTC_API Error;
+class OTC_API Context;
+class OTC_API Driver;
+class OTC_API Device;
+class OTC_API HardwareDevice;
+class OTC_API Channel;
+class OTC_API Session;
+class OTC_API ConfigKey;
+class OTC_API Capability;
+class OTC_API InputFormat;
+class OTC_API OutputFormat;
+class OTC_API OutputFlag;
+class OTC_API LogLevel;
+class OTC_API ChannelGroup;
+class OTC_API Trigger;
+class OTC_API TriggerStage;
+class OTC_API TriggerMatch;
+class OTC_API TriggerMatchType;
+class OTC_API ChannelType;
+class OTC_API Packet;
+class OTC_API PacketPayload;
+class OTC_API PacketType;
+class OTC_API Quantity;
+class OTC_API Unit;
+class OTC_API QuantityFlag;
+class OTC_API Rational;
+class OTC_API Input;
+class OTC_API InputDevice;
+class OTC_API Output;
+class OTC_API DataType;
+class OTC_API Option;
+class OTC_API UserDevice;
 
 /** Exception thrown when an error code is returned by any libsigrok call. */
-class SR_API Error: public std::exception
+class OTC_API Error: public std::exception
 {
 public:
 	explicit Error(int result);
@@ -134,7 +134,7 @@ public:
 
 /* Base template for classes whose resources are owned by a parent object. */
 template <class Class, class Parent>
-class SR_API ParentOwned
+class OTC_API ParentOwned
 {
 private:
 	/* Weak pointer for shared_from_this() implementation. */
@@ -143,7 +143,7 @@ private:
 	static void reset_parent(Class *object)
 	{
 		if (!object->_parent)
-			throw Error(SR_ERR_BUG);
+			throw Error(OTC_ERR_BUG);
 		object->_parent.reset();
 	}
 
@@ -182,7 +182,7 @@ protected:
 	std::shared_ptr<Class> share_owned_by(std::shared_ptr<Parent> parent)
 	{
 		if (!parent)
-			throw Error(SR_ERR_BUG);
+			throw Error(OTC_ERR_BUG);
 		this->_parent = parent;
 		return shared_from_this();
 	}
@@ -197,7 +197,7 @@ public:
 
 /* Base template for classes whose resources are owned by the user. */
 template <class Class>
-class SR_API UserOwned : public std::enable_shared_from_this<Class>
+class OTC_API UserOwned : public std::enable_shared_from_this<Class>
 {
 protected:
 	UserOwned() {}
@@ -206,7 +206,7 @@ protected:
 	{
 		auto shared = std::enable_shared_from_this<Class>::shared_from_this();
 		if (!shared)
-			throw Error(SR_ERR_BUG);
+			throw Error(OTC_ERR_BUG);
 		return shared;
 	}
 };
@@ -215,30 +215,30 @@ protected:
 typedef std::function<void(const LogLevel *, std::string message)> LogCallbackFunction;
 
 /** Resource reader delegate. */
-class SR_API ResourceReader
+class OTC_API ResourceReader
 {
 public:
 	ResourceReader() {}
 	virtual ~ResourceReader();
 private:
 	/** Resource open hook. */
-	virtual void open(struct sr_resource *res, std::string name) = 0;
+	virtual void open(struct otc_resource *res, std::string name) = 0;
 	/** Resource close hook. */
-	virtual void close(struct sr_resource *res) = 0;
+	virtual void close(struct otc_resource *res) = 0;
 	/** Resource read hook. */
-	virtual size_t read(const struct sr_resource *res, void *buf, size_t count) = 0;
+	virtual size_t read(const struct otc_resource *res, void *buf, size_t count) = 0;
 
-	static SR_PRIV int open_callback(struct sr_resource *res,
+	static OTC_PRIV int open_callback(struct otc_resource *res,
 			const char *name, void *cb_data) noexcept;
-	static SR_PRIV int close_callback(struct sr_resource *res,
+	static OTC_PRIV int close_callback(struct otc_resource *res,
 			void *cb_data) noexcept;
-	static SR_PRIV gssize read_callback(const struct sr_resource *res,
+	static OTC_PRIV gssize read_callback(const struct otc_resource *res,
 			void *buf, size_t count, void *cb_data) noexcept;
 	friend class Context;
 };
 
 /** The global libsigrok context */
-class SR_API Context : public UserOwned<Context>
+class OTC_API Context : public UserOwned<Context>
 {
 public:
 	/** Create new context */
@@ -302,7 +302,7 @@ public:
 	std::shared_ptr<Input> open_stream(std::string header);
 	std::map<std::string, std::string> serials(std::shared_ptr<Driver> driver) const;
 private:
-	struct sr_context *_structure;
+	struct otc_context *_structure;
 	std::map<std::string, std::unique_ptr<Driver> > _drivers;
 	std::map<std::string, std::unique_ptr<InputFormat> > _input_formats;
 	std::map<std::string, std::unique_ptr<OutputFormat> > _output_formats;
@@ -316,7 +316,7 @@ private:
 };
 
 /** An object that can be configured. */
-class SR_API Configurable
+class OTC_API Configurable
 {
 public:
 	/** Supported configuration keys. */
@@ -340,17 +340,17 @@ public:
 	bool config_check(const ConfigKey *key, const Capability *capability) const;
 protected:
 	Configurable(
-		struct sr_dev_driver *driver,
-		struct sr_dev_inst *sdi,
-		struct sr_channel_group *channel_group);
+		struct otc_dev_driver *driver,
+		struct otc_dev_inst *sdi,
+		struct otc_channel_group *channel_group);
 	virtual ~Configurable();
-	struct sr_dev_driver *config_driver;
-	struct sr_dev_inst *config_sdi;
-	struct sr_channel_group *config_channel_group;
+	struct otc_dev_driver *config_driver;
+	struct otc_dev_inst *config_sdi;
+	struct otc_channel_group *config_channel_group;
 };
 
 /** A hardware driver provided by the library */
-class SR_API Driver : public ParentOwned<Driver, Context>, public Configurable
+class OTC_API Driver : public ParentOwned<Driver, Context>, public Configurable
 {
 public:
 	/** Name of this driver. */
@@ -364,10 +364,10 @@ public:
 	std::vector<std::shared_ptr<HardwareDevice> > scan(std::map<const ConfigKey *, Glib::VariantBase>
 			options = std::map<const ConfigKey *, Glib::VariantBase>());
 private:
-	struct sr_dev_driver *_structure;
+	struct otc_dev_driver *_structure;
 	bool _initialized;
 	std::vector<HardwareDevice *> _devices;
-	explicit Driver(struct sr_dev_driver *structure);
+	explicit Driver(struct otc_dev_driver *structure);
 	~Driver();
 	friend class Context;
 	friend class HardwareDevice;
@@ -376,7 +376,7 @@ private:
 };
 
 /** A generic device, either hardware or virtual */
-class SR_API Device : public Configurable
+class OTC_API Device : public Configurable
 {
 public:
 	/** Vendor name for this device. */
@@ -398,13 +398,13 @@ public:
 	/** Close device. */
 	void close();
 protected:
-	explicit Device(struct sr_dev_inst *structure);
+	explicit Device(struct otc_dev_inst *structure);
 	~Device();
 	virtual std::shared_ptr<Device> get_shared_from_this() = 0;
-	std::shared_ptr<Channel> get_channel(struct sr_channel *ptr);
+	std::shared_ptr<Channel> get_channel(struct otc_channel *ptr);
 
-	struct sr_dev_inst *_structure;
-	std::map<struct sr_channel *, std::unique_ptr<Channel> > _channels;
+	struct otc_dev_inst *_structure;
+	std::map<struct otc_channel *, std::unique_ptr<Channel> > _channels;
 private:
 	std::map<std::string, std::unique_ptr<ChannelGroup> > _channel_groups;
 
@@ -417,7 +417,7 @@ private:
 };
 
 /** A real hardware device, connected via a driver */
-class SR_API HardwareDevice :
+class OTC_API HardwareDevice :
 	public UserOwned<HardwareDevice>,
 	public Device
 {
@@ -425,7 +425,7 @@ public:
 	/** Driver providing this device. */
 	std::shared_ptr<Driver> driver();
 private:
-	HardwareDevice(std::shared_ptr<Driver> driver, struct sr_dev_inst *structure);
+	HardwareDevice(std::shared_ptr<Driver> driver, struct otc_dev_inst *structure);
 	~HardwareDevice();
 	std::shared_ptr<Device> get_shared_from_this();
 	std::shared_ptr<Driver> _driver;
@@ -436,7 +436,7 @@ private:
 };
 
 /** A virtual device, created by the user */
-class SR_API UserDevice :
+class OTC_API UserDevice :
 	public UserOwned<UserDevice>,
 	public Device
 {
@@ -453,7 +453,7 @@ private:
 };
 
 /** A channel on a device */
-class SR_API Channel :
+class OTC_API Channel :
 	public ParentOwned<Channel, Device>
 {
 public:
@@ -472,9 +472,9 @@ public:
 	/** Get the index number of this channel. */
 	unsigned int index() const;
 private:
-	explicit Channel(struct sr_channel *structure);
+	explicit Channel(struct otc_channel *structure);
 	~Channel();
-	struct sr_channel *_structure;
+	struct otc_channel *_structure;
 	const ChannelType * const _type;
 	friend class Device;
 	friend class UserDevice;
@@ -486,7 +486,7 @@ private:
 };
 
 /** A group of channels on a device, which share some configuration */
-class SR_API ChannelGroup :
+class OTC_API ChannelGroup :
 	public ParentOwned<ChannelGroup, Device>,
 	public Configurable
 {
@@ -496,7 +496,7 @@ public:
 	/** List of the channels in this group. */
 	std::vector<std::shared_ptr<Channel> > channels();
 private:
-	ChannelGroup(const Device *device, struct sr_channel_group *structure);
+	ChannelGroup(const Device *device, struct otc_channel_group *structure);
 	~ChannelGroup();
 	std::vector<Channel *> _channels;
 	friend class Device;
@@ -504,7 +504,7 @@ private:
 };
 
 /** A trigger configuration */
-class SR_API Trigger : public UserOwned<Trigger>
+class OTC_API Trigger : public UserOwned<Trigger>
 {
 public:
 	/** Name of this trigger configuration. */
@@ -516,7 +516,7 @@ public:
 private:
 	Trigger(std::shared_ptr<Context> context, std::string name);
 	~Trigger();
-	struct sr_trigger *_structure;
+	struct otc_trigger *_structure;
 	std::shared_ptr<Context> _context;
 	std::vector<std::unique_ptr<TriggerStage> > _stages;
 	friend class Context;
@@ -525,7 +525,7 @@ private:
 };
 
 /** A stage in a trigger configuration */
-class SR_API TriggerStage :
+class OTC_API TriggerStage :
 	public ParentOwned<TriggerStage, Trigger>
 {
 public:
@@ -543,16 +543,16 @@ public:
 	 * @param value Threshold value. */
 	void add_match(std::shared_ptr<Channel> channel, const TriggerMatchType *type, float value);
 private:
-	struct sr_trigger_stage *_structure;
+	struct otc_trigger_stage *_structure;
 	std::vector<std::unique_ptr<TriggerMatch> > _matches;
-	explicit TriggerStage(struct sr_trigger_stage *structure);
+	explicit TriggerStage(struct otc_trigger_stage *structure);
 	~TriggerStage();
 	friend class Trigger;
 	friend struct std::default_delete<TriggerStage>;
 };
 
 /** A match condition in a trigger configuration  */
-class SR_API TriggerMatch :
+class OTC_API TriggerMatch :
 	public ParentOwned<TriggerMatch, TriggerStage>
 {
 public:
@@ -563,9 +563,9 @@ public:
 	/** Threshold value. */
 	float value() const;
 private:
-	TriggerMatch(struct sr_trigger_match *structure, std::shared_ptr<Channel> channel);
+	TriggerMatch(struct otc_trigger_match *structure, std::shared_ptr<Channel> channel);
 	~TriggerMatch();
-	struct sr_trigger_match *_structure;
+	struct otc_trigger_match *_structure;
 	std::shared_ptr<Channel> _channel;
 	friend class TriggerStage;
 	friend struct std::default_delete<TriggerMatch>;
@@ -579,11 +579,11 @@ typedef std::function<void(std::shared_ptr<Device>, std::shared_ptr<Packet>)>
 	DatafeedCallbackFunction;
 
 /* Data required for C callback function to call a C++ datafeed callback */
-class SR_PRIV DatafeedCallbackData
+class OTC_PRIV DatafeedCallbackData
 {
 public:
-	void run(const struct sr_dev_inst *sdi,
-		const struct sr_datafeed_packet *pkt);
+	void run(const struct otc_dev_inst *sdi,
+		const struct otc_datafeed_packet *pkt);
 private:
 	DatafeedCallbackFunction _callback;
 	DatafeedCallbackData(Session *session,
@@ -593,12 +593,12 @@ private:
 };
 
 /** A virtual device associated with a stored session */
-class SR_API SessionDevice :
+class OTC_API SessionDevice :
 	public ParentOwned<SessionDevice, Session>,
 	public Device
 {
 private:
-	explicit SessionDevice(struct sr_dev_inst *sdi);
+	explicit SessionDevice(struct otc_dev_inst *sdi);
 	~SessionDevice();
 	std::shared_ptr<Device> get_shared_from_this();
 
@@ -607,7 +607,7 @@ private:
 };
 
 /** A sigrok session */
-class SR_API Session : public UserOwned<Session>
+class OTC_API Session : public UserOwned<Session>
 {
 public:
 	/** Add a device to this session.
@@ -645,11 +645,11 @@ private:
 	explicit Session(std::shared_ptr<Context> context);
 	Session(std::shared_ptr<Context> context, std::string filename);
 	~Session();
-	std::shared_ptr<Device> get_device(const struct sr_dev_inst *sdi);
-	struct sr_session *_structure;
+	std::shared_ptr<Device> get_device(const struct otc_dev_inst *sdi);
+	struct otc_session *_structure;
 	const std::shared_ptr<Context> _context;
-	std::map<const struct sr_dev_inst *, std::unique_ptr<SessionDevice> > _owned_devices;
-	std::map<const struct sr_dev_inst *, std::shared_ptr<Device> > _other_devices;
+	std::map<const struct otc_dev_inst *, std::unique_ptr<SessionDevice> > _owned_devices;
+	std::map<const struct otc_dev_inst *, std::shared_ptr<Device> > _other_devices;
 	std::vector<std::unique_ptr<DatafeedCallbackData> > _datafeed_callbacks;
 	SessionStoppedCallback _stopped_callback;
 	std::string _filename;
@@ -662,7 +662,7 @@ private:
 };
 
 /** A packet on the session datafeed */
-class SR_API Packet : public UserOwned<Packet>
+class OTC_API Packet : public UserOwned<Packet>
 {
 public:
 	/** Type of this packet. */
@@ -671,9 +671,9 @@ public:
 	std::shared_ptr<PacketPayload> payload();
 private:
 	Packet(std::shared_ptr<Device> device,
-		const struct sr_datafeed_packet *structure);
+		const struct otc_datafeed_packet *structure);
 	~Packet();
-	const struct sr_datafeed_packet *_structure;
+	const struct otc_datafeed_packet *_structure;
 	std::shared_ptr<Device> _device;
 	std::unique_ptr<PacketPayload> _payload;
 
@@ -689,7 +689,7 @@ private:
 };
 
 /** Abstract base class for datafeed packet payloads */
-class SR_API PacketPayload
+class OTC_API PacketPayload
 {
 protected:
 	PacketPayload();
@@ -703,7 +703,7 @@ private:
 };
 
 /** Payload of a datafeed header packet */
-class SR_API Header :
+class OTC_API Header :
 	public ParentOwned<Header, Packet>,
 	public PacketPayload
 {
@@ -713,17 +713,17 @@ public:
 	/* Start time of this session. */
 	Glib::DateTime start_time() const;
 private:
-	explicit Header(const struct sr_datafeed_header *structure);
+	explicit Header(const struct otc_datafeed_header *structure);
 	~Header();
 	std::shared_ptr<PacketPayload> share_owned_by(std::shared_ptr<Packet> parent);
 
-	const struct sr_datafeed_header *_structure;
+	const struct otc_datafeed_header *_structure;
 
 	friend class Packet;
 };
 
 /** Payload of a datafeed metadata packet */
-class SR_API Meta :
+class OTC_API Meta :
 	public ParentOwned<Meta, Packet>,
 	public PacketPayload
 {
@@ -731,18 +731,18 @@ public:
 	/* Mapping of (ConfigKey, value) pairs. */
 	std::map<const ConfigKey *, Glib::VariantBase> config() const;
 private:
-	explicit Meta(const struct sr_datafeed_meta *structure);
+	explicit Meta(const struct otc_datafeed_meta *structure);
 	~Meta();
 	std::shared_ptr<PacketPayload> share_owned_by(std::shared_ptr<Packet> parent);
 
-	const struct sr_datafeed_meta *_structure;
+	const struct otc_datafeed_meta *_structure;
 	std::map<const ConfigKey *, Glib::VariantBase> _config;
 
 	friend class Packet;
 };
 
 /** Payload of a datafeed packet with logic data */
-class SR_API Logic :
+class OTC_API Logic :
 	public ParentOwned<Logic, Packet>,
 	public PacketPayload
 {
@@ -754,11 +754,11 @@ public:
 	/* Size of each sample in bytes. */
 	unsigned int unit_size() const;
 private:
-	explicit Logic(const struct sr_datafeed_logic *structure);
+	explicit Logic(const struct otc_datafeed_logic *structure);
 	~Logic();
 	std::shared_ptr<PacketPayload> share_owned_by(std::shared_ptr<Packet> parent);
 
-	const struct sr_datafeed_logic *_structure;
+	const struct otc_datafeed_logic *_structure;
 
 	friend class Packet;
 	friend class Analog;
@@ -766,7 +766,7 @@ private:
 };
 
 /** Payload of a datafeed packet with analog data */
-class SR_API Analog :
+class OTC_API Analog :
 	public ParentOwned<Analog, Packet>,
 	public PacketPayload
 {
@@ -850,17 +850,17 @@ public:
 	std::shared_ptr<Logic> get_logic_via_schmitt_trigger(float lo_thr,
 		float hi_thr, uint8_t *state, uint8_t *data_ptr=nullptr) const;
 private:
-	explicit Analog(const struct sr_datafeed_analog *structure);
+	explicit Analog(const struct otc_datafeed_analog *structure);
 	~Analog();
 	std::shared_ptr<PacketPayload> share_owned_by(std::shared_ptr<Packet> parent);
 
-	const struct sr_datafeed_analog *_structure;
+	const struct otc_datafeed_analog *_structure;
 
 	friend class Packet;
 };
 
 /** Number represented by a numerator/denominator integer pair */
-class SR_API Rational :
+class OTC_API Rational :
 	public ParentOwned<Rational, Analog>
 {
 public:
@@ -871,18 +871,18 @@ public:
 	/** Actual (lossy) value. */
 	float value() const;
 private:
-	explicit Rational(const struct sr_rational *structure);
+	explicit Rational(const struct otc_rational *structure);
 	~Rational();
 	std::shared_ptr<Rational> share_owned_by(std::shared_ptr<Analog> parent);
 
-	const struct sr_rational *_structure;
+	const struct otc_rational *_structure;
 
 	friend class Analog;
 	friend struct std::default_delete<Rational>;
 };
 
 /** An input format supported by the library */
-class SR_API InputFormat :
+class OTC_API InputFormat :
 	public ParentOwned<InputFormat, Context>
 {
 public:
@@ -900,10 +900,10 @@ public:
 	std::shared_ptr<Input> create_input(std::map<std::string, Glib::VariantBase>
 			options = std::map<std::string, Glib::VariantBase>());
 private:
-	explicit InputFormat(const struct sr_input_module *structure);
+	explicit InputFormat(const struct otc_input_module *structure);
 	~InputFormat();
 
-	const struct sr_input_module *_structure;
+	const struct otc_input_module *_structure;
 
 	friend class Context;
 	friend class InputDevice;
@@ -911,7 +911,7 @@ private:
 };
 
 /** An input instance (an input format applied to a file or stream) */
-class SR_API Input : public UserOwned<Input>
+class OTC_API Input : public UserOwned<Input>
 {
 public:
 	/** Virtual device associated with this input. */
@@ -924,9 +924,9 @@ public:
 	void end();
 	void reset();
 private:
-	Input(std::shared_ptr<Context> context, const struct sr_input *structure);
+	Input(std::shared_ptr<Context> context, const struct otc_input *structure);
 	~Input();
-	const struct sr_input *_structure;
+	const struct otc_input *_structure;
 	std::shared_ptr<Context> _context;
 	std::unique_ptr<InputDevice> _device;
 
@@ -936,12 +936,12 @@ private:
 };
 
 /** A virtual device associated with an input */
-class SR_API InputDevice :
+class OTC_API InputDevice :
 	public ParentOwned<InputDevice, Input>,
 	public Device
 {
 private:
-	InputDevice(std::shared_ptr<Input> input, struct sr_dev_inst *sdi);
+	InputDevice(std::shared_ptr<Input> input, struct otc_dev_inst *sdi);
 	~InputDevice();
 	std::shared_ptr<Device> get_shared_from_this();
 	std::shared_ptr<Input> _input;
@@ -950,7 +950,7 @@ private:
 };
 
 /** An option used by an output format */
-class SR_API Option : public UserOwned<Option>
+class OTC_API Option : public UserOwned<Option>
 {
 public:
 	/** Short name of this option suitable for command line usage. */
@@ -966,11 +966,11 @@ public:
 	/** Parse a string argument into the appropriate type for this option. */
 	Glib::VariantBase parse_string(std::string value);
 private:
-	Option(const struct sr_option *structure,
-		std::shared_ptr<const struct sr_option *> structure_array);
+	Option(const struct otc_option *structure,
+		std::shared_ptr<const struct otc_option *> structure_array);
 	~Option();
-	const struct sr_option *_structure;
-	std::shared_ptr<const struct sr_option *> _structure_array;
+	const struct otc_option *_structure;
+	std::shared_ptr<const struct otc_option *> _structure_array;
 
 	friend class InputFormat;
 	friend class OutputFormat;
@@ -978,7 +978,7 @@ private:
 };
 
 /** An output format supported by the library */
-class SR_API OutputFormat :
+class OTC_API OutputFormat :
 	public ParentOwned<OutputFormat, Context>
 {
 public:
@@ -1007,14 +1007,14 @@ public:
 	 * Checks whether a given flag is set.
 	 * @param flag Flag to check
 	 * @return true if flag is set for this module
-	 * @see sr_output_flags
+	 * @see otc_output_flags
 	 */
 	bool test_flag(const OutputFlag *flag) const;
 private:
-	explicit OutputFormat(const struct sr_output_module *structure);
+	explicit OutputFormat(const struct otc_output_module *structure);
 	~OutputFormat();
 
-	const struct sr_output_module *_structure;
+	const struct otc_output_module *_structure;
 
 	friend class Context;
 	friend class Output;
@@ -1022,7 +1022,7 @@ private:
 };
 
 /** An output instance (an output format applied to a device) */
-class SR_API Output : public UserOwned<Output>
+class OTC_API Output : public UserOwned<Output>
 {
 public:
 	/** Update output with data from the given packet.
@@ -1038,7 +1038,7 @@ private:
 		std::shared_ptr<Device> device, std::map<std::string, Glib::VariantBase> options);
 	~Output();
 
-	const struct sr_output *_structure;
+	const struct otc_output *_structure;
 	const std::shared_ptr<OutputFormat> _format;
 	const std::shared_ptr<Device> _device;
 	const std::map<std::string, Glib::VariantBase> _options;
@@ -1048,7 +1048,7 @@ private:
 };
 
 /** Base class for objects which wrap an enumeration value from libsigrok */
-template <class Class, typename Enum> class SR_API EnumValue
+template <class Class, typename Enum> class OTC_API EnumValue
 {
 public:
 	/** The integer constant associated with this value. */
@@ -1066,7 +1066,7 @@ public:
 	{
 		const auto pos = _values.find(static_cast<Enum>(id));
 		if (pos == _values.end())
-			throw Error(SR_ERR_ARG);
+			throw Error(OTC_ERR_ARG);
 		return pos->second;
 	}
 	/** Get possible values. */
@@ -1092,6 +1092,6 @@ private:
 
 }
 
-#include <libsigrokcxx/enums.hpp>
+#include <enums.hpp>
 
 #endif
