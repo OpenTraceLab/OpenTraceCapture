@@ -1305,7 +1305,7 @@ enum otc_dev_inst_status {
 	OTC_ST_STOPPING,
 };
 
-/** Device driver data. See also http://opentracelab.org/wiki/Hardware_driver_API . */
+/** Device driver data. See also https://opentracelab.github.io/website/wiki/Hardware_driver_API . */
 struct otc_dev_driver {
 	/* Driver-specific */
 	/** Driver name. Lowercase a-z, 0-9 and dashes (-) only. */
