@@ -834,6 +834,23 @@ static inline int32_t read_i24le_inc(const uint8_t **p)
 }
 
 /**
+ * Read signed 24bit integer from raw memory (big endian format), increment read position.
+ * @param[in, out] p Pointer into byte stream.
+ * @return Retrieved integer value, signed.
+ */
+static inline int32_t read_i24be_inc(const uint8_t **p)
+{
+	int32_t v;
+
+	if (!p || !*p)
+		return 0;
+	v = read_i24be(*p);
+	*p += 3 * sizeof(uint8_t);
+
+	return v;
+}
+
+/**
  * Read unsigned 32bit integer from raw memory (big endian format), increment read position.
  * @param[in, out] p Pointer into byte stream.
  * @return Retrieved integer value, unsigned.

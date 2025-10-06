@@ -730,9 +730,21 @@ static int appadmm_process_storage(const struct otc_dev_inst *arg_sdi,
 		return OTC_ERR_BUG;
 	}
 
-	if ((retr = appadmm_dec_read_storage(arg_data, &devc->storage_info[storage], display_data))
-		< OTC_OK)
-		return retr;
+	switch (devc->protocol) {
+	default:
+		if ((retr = appadmm_dec_read_storage(arg_data, &devc->storage_info[storage], display_data))
+			< OTC_OK)
+			return retr;
+		break;
+	case APPADMM_PROTOCOL_500:
+		if ((retr = appadmm_500_dec_read_storage(arg_data, &devc->storage_info[storage], display_data))
+			< OTC_OK)
+			return retr;
+		break;
+	case APPADMM_PROTOCOL_300:
+		otc_err("This device doesn't support MEM/LOG download");
+		break;
+	}
 
 	for (xloop = 0;
 		xloop < arg_data->data_length /
@@ -763,8 +775,13 @@ static int appadmm_process_storage(const struct otc_dev_inst *arg_sdi,
 	return retr;
 }
 
+/* ****************************** */
+/* ****** Generic Protocol ****** */
+/* ****************************** */
+
 /**
  * Request device identification
+ * Generic Protocol
  *
  * Ask device for Model ID, Serial number, Vendor name and Device name.
  * Resolve it based on device capabilities. Fallback: Use APPA internal
@@ -831,7 +848,7 @@ OTC_PRIV int appadmm_op_identify(const struct otc_dev_inst *arg_sdi)
 	case APPADMM_MODEL_ID_506B:
 	case APPADMM_MODEL_ID_506B_2:
 		model_name = response.model_name;
-		serial_number = response.otc_serial_number;
+		serial_number = response.serial_number;
 		break;
 	case APPADMM_MODEL_ID_S0:
 	case APPADMM_MODEL_ID_SFLEX_10A:
@@ -851,7 +868,7 @@ OTC_PRIV int appadmm_op_identify(const struct otc_dev_inst *arg_sdi)
 			 * properly and put it here
 			 */
 		}
-#endif
+#endif/*#ifdef HAVE_BLUETOOTH*/
 		break;
 	}
 
@@ -878,6 +895,7 @@ OTC_PRIV int appadmm_op_identify(const struct otc_dev_inst *arg_sdi)
 
 /**
  * Read storage information from device
+ * Generic Protocol
  *
  * Detect capabilities of device and read amount and sample rate of LOG and
  * MEM entries within the device. If a device doesn't support any of these
@@ -930,7 +948,7 @@ OTC_PRIV int appadmm_op_storage_info(const struct otc_dev_inst *arg_sdi)
 			&request, &response)) < OTC_OK)
 			return retr;
 
-		if ((retr = appadmm_dec_storage_info(&response, devc)) < OTC_OK)
+		if ((retr = appadmm_dec_storage_info(&response, devc, request.data_length)) < OTC_OK)
 			return retr;
 		break;
 	case APPADMM_MODEL_ID_208:
@@ -950,7 +968,7 @@ OTC_PRIV int appadmm_op_storage_info(const struct otc_dev_inst *arg_sdi)
 			&request, &response)) < OTC_OK)
 			return retr;
 
-		if ((retr = appadmm_dec_storage_info(&response, devc)) < OTC_OK)
+		if ((retr = appadmm_dec_storage_info(&response, devc, request.data_length)) < OTC_OK)
 			return retr;
 		break;
 	case APPADMM_MODEL_ID_S1:
@@ -969,7 +987,7 @@ OTC_PRIV int appadmm_op_storage_info(const struct otc_dev_inst *arg_sdi)
 			&request, &response)) < OTC_OK)
 			return retr;
 
-		if ((retr = appadmm_dec_storage_info(&response, devc)) < OTC_OK)
+		if ((retr = appadmm_dec_storage_info(&response, devc, request.data_length)) < OTC_OK)
 			return retr;
 		break;
 	}
@@ -979,6 +997,7 @@ OTC_PRIV int appadmm_op_storage_info(const struct otc_dev_inst *arg_sdi)
 
 /**
  * Acquisition of live display readings
+ * Generic Protocol
  *
  * Based on model and communication (optical serial or BLE) polling is done
  * either once a response was received and no request is pending or within
@@ -1044,6 +1063,12 @@ OTC_PRIV int appadmm_acquire_live(int arg_fd, int arg_revents,
 		} else {
 			devc->rate_sent = FALSE;
 		}
+	} else {
+		if (devc->rate_interval > APPADMM_RATE_INTERVAL_DISABLE
+			&& g_get_monotonic_time() - devc->rate_timer
+			> devc->rate_interval * 2) {
+			devc->request_pending = FALSE;
+		}
 	}
 
 	if (otc_sw_limits_check(&devc->limits)
@@ -1058,6 +1083,7 @@ OTC_PRIV int appadmm_acquire_live(int arg_fd, int arg_revents,
 
 /**
  * Download MEM/LOG storage from device
+ * Generic Protocol
  *
  * Works similar to live acquisition but avoids the interval alignment window
  * since timing is irelevant here. Error counter for problematic BLE behaviour.
@@ -1101,6 +1127,12 @@ OTC_PRIV int appadmm_acquire_storage(int arg_fd, int arg_revents,
 		return OTC_ERR_BUG;
 	}
 
+	if (devc->storage_info[storage].amount < 1) {
+		otc_err("Memory empty or function not available.");
+		otc_dev_acquisition_stop(sdi);
+		return FALSE;
+	}
+
 	if (arg_revents == G_IO_IN) {
 		/* Read (portion of) response from the device */
 		if ((retr = appadmm_response_read_memory(&devc->appa_inst,
@@ -1125,7 +1157,8 @@ OTC_PRIV int appadmm_acquire_storage(int arg_fd, int arg_revents,
 		}
 	}
 
-	if (!devc->request_pending && !abort) {
+	if ((!devc->request_pending && !abort)
+		|| g_get_monotonic_time() - devc->rate_timer > 1000000) {
 		if ((retr = appadmm_enc_read_storage(&request,
 			&devc->storage_info[storage],
 			devc->limits.frames_read, 0xff)) < OTC_OK) {
@@ -1136,7 +1169,644 @@ OTC_PRIV int appadmm_acquire_storage(int arg_fd, int arg_revents,
 			otc_warn("Aborted in appadmm_request_read_memory");
 			abort = TRUE;
 		} else {
+			devc->rate_timer = g_get_monotonic_time();
 			devc->request_pending = TRUE;
+		}
+	}
+
+	if (otc_sw_limits_check(&devc->limits)
+		|| abort == TRUE) {
+		otc_info("Stopping acquisition");
+		otc_dev_acquisition_stop(sdi);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+/* **************************************** */
+/* ****** Series 500 Legacy Protocol ****** */
+/* **************************************** */
+
+/**
+ * Request device identification
+ * 500 Legacy Protocol
+ *
+ * Ask device for Model ID, Serial number, Vendor name and Device name.
+ * Resolve it based on device capabilities. Fallback: Use APPA internal
+ * device designations.
+ *
+ * Will return error if device is not applicable by this driver.
+ *
+ * @param arg_sdi Serial Device instance
+ * @retval OTC_OK on success
+ * @retval OTC_ERR_... on error
+ */
+OTC_PRIV int appadmm_500_op_identify(const struct otc_dev_inst *arg_sdi)
+{
+	char *delim;
+	char *model_name;
+	struct otc_dev_inst *sdi_w;
+	struct appadmm_context *devc;
+
+	int retr;
+
+	struct appadmm_request_data_read_information_s request;
+	struct appadmm_response_data_read_information_s response;
+
+	retr = OTC_OK;
+
+	if (arg_sdi == NULL)
+		return OTC_ERR_ARG;
+
+	devc = arg_sdi->priv;
+	sdi_w = (struct otc_dev_inst*) arg_sdi;
+
+	if ((retr = appadmm_500_rere_read_information(&devc->appa_inst,
+		&request, &response)) < OTC_OK)
+		return retr;
+
+	model_name = NULL;
+	delim = NULL;
+
+	sdi_w->version = g_strdup_printf("%01d.%02d",
+		response.firmware_version / 100,
+		response.firmware_version % 100);
+
+	devc->model_id = response.model_id;
+
+	/* Start from the 505 and try to auto-guess the model from there */
+	switch (response.model_id) {
+	case APPADMM_MODEL_ID_LEGACY_500:
+		if (g_strcmp0(response.model_name, "0008_") == 0)
+			model_name = "Voltcraft VC-950";
+		else if (g_strcmp0(response.model_name, "0007_") == 0)
+			model_name = "Voltcraft VC-930";
+		break;
+	default:
+		break;
+	}
+
+	if (model_name == NULL)
+		model_name = (char*) appadmm_model_id_name(devc->model_id);
+
+	if (model_name[0] != 0)
+		delim = g_strrstr(model_name, " ");
+
+	if (delim == NULL) {
+		sdi_w->vendor = g_strdup("APPA");
+		sdi_w->model = g_strdup(model_name);
+	} else {
+		sdi_w->model = g_strdup(delim + 1);
+		sdi_w->vendor = g_strndup(model_name,
+			strlen(model_name) - strlen(arg_sdi->model) - 1);
+	}
+
+	sdi_w->serial_num = g_strconcat(response.model_name,
+		response.serial_number, NULL);
+
+	return retr;
+}
+
+/**
+ * Read storage information from device
+ * 500 Legacy Protocol
+ *
+ * Detect capabilities of device and read amount and sample rate of LOG and
+ * MEM entries within the device. If a device doesn't support any of these
+ * features, report empty memory.
+ *
+ * @param arg_sdi Serial Device instance
+ * @retval OTC_OK on success
+ * @retval OTC_ERR_... on error
+ */
+OTC_PRIV int appadmm_500_op_storage_info(const struct otc_dev_inst *arg_sdi)
+{
+	struct appadmm_context *devc;
+
+	int retr;
+	uint16_t log_amount;
+	uint16_t mem_amount;
+	int64_t log_rate;
+
+	struct appadmm_request_data_read_memory_s request;
+	struct appadmm_response_data_read_memory_s response;
+	struct appadmm_500_request_data_read_amount_s requestAmount;
+	struct appadmm_500_response_data_read_amount_s responseAmount;
+
+	retr = OTC_OK;
+	log_amount = 0;
+	mem_amount = 0;
+	log_rate = 0;
+
+	if (arg_sdi == NULL)
+		return OTC_ERR_ARG;
+
+	devc = arg_sdi->priv;
+
+	appadmm_clear_storage_info(devc->storage_info);
+
+	/* Select Model ID capabilities
+	 * Memory layout of the model differs a lot, try to read as much
+	 * as possible from the device, fill in the rest from static
+	 * datasheet values
+	 */
+	switch (devc->model_id) {
+	default:
+		otc_err("Your Device doesn't support MEM/LOG or invalid information!");
+		break;
+	case APPADMM_MODEL_ID_LEGACY_500:
+		if ((retr = appadmm_500_rere_read_amount(&devc->appa_inst,
+			&requestAmount, &responseAmount,
+			APPADMM_500_COMMAND_READ_DATALOG_INFO)) < OTC_OK)
+			return retr;
+
+		log_amount = responseAmount.amount;
+		if (log_amount > 20000)
+			log_amount = 0;
+
+		if ((retr = appadmm_500_rere_read_amount(&devc->appa_inst,
+			&requestAmount, &responseAmount,
+			APPADMM_500_COMMAND_READ_STORE_DATA)) < OTC_OK)
+			return retr;
+
+		mem_amount = responseAmount.amount;
+		if (mem_amount > 1000)
+			mem_amount = 0;
+
+		/* log rate location */
+		request.data_length = 4;
+		request.device_number = 0;
+		request.memory_address = 0x0018; /*be*/
+
+		if ((retr = appadmm_rere_read_memory(&devc->appa_inst,
+			&request, &response)) < OTC_OK)
+			return retr;
+
+		log_rate = appadmm_500_map_log_rate(response.data[2] >> 4);
+
+		if ((retr = appadmm_500_dec_storage_info(log_amount,
+			mem_amount, log_rate, devc)) < OTC_OK)
+			return retr;
+		break;
+	}
+
+	return retr;
+}
+
+/**
+ * Acquisition of live display readings
+ * 500 Legacy Protocol
+ *
+ * Based on model and communication (optical serial or BLE) polling is done
+ * either once a response was received and no request is pending or within
+ * desired time windows. This reduces the drift in sample rate and allows
+ * to be tolerant about issues with some of the models A8105 chip.
+ *
+ * @param arg_fd File desriptor (unused)
+ * @param arg_revents Event indicator
+ * @param arg_cb_data Serial Device instance
+ * @retval TRUE on success
+ * @retval FALSE on error
+ */
+OTC_PRIV int appadmm_500_acquire_live(int arg_fd, int arg_revents,
+	void *arg_cb_data)
+{
+	struct otc_dev_inst *sdi;
+	struct appadmm_context *devc;
+	struct appadmm_request_data_read_display_s request;
+	struct appadmm_response_data_read_display_s response;
+
+	int retr;
+	gboolean abort;
+	guint64 rate_window_time;
+
+	(void) arg_fd;
+
+	abort = FALSE;
+
+	if (!(sdi = arg_cb_data))
+		return FALSE;
+	if (!(devc = sdi->priv))
+		return FALSE;
+
+	if (arg_revents == G_IO_IN) {
+		/* process (a portion of the) received data */
+		if ((retr = appadmm_500_response_read_display(&devc->appa_inst,
+			&response)) < OTC_OK) {
+			otc_warn("Aborted in appadmm_receive, result %d", retr);
+			abort = TRUE;
+		} else if (retr > FALSE) {
+			if (appadmm_process_read_display(sdi, &response)
+				< OTC_OK) {
+				abort = TRUE;
+			}
+			devc->request_pending = FALSE;
+		}
+	}
+
+	if (!devc->request_pending) {
+		rate_window_time = g_get_monotonic_time() / devc->rate_interval;
+		/* align requests to the time window */
+		if (rate_window_time != devc->rate_timer
+			&& !devc->rate_sent) {
+			devc->rate_sent = TRUE;
+			devc->rate_timer = rate_window_time;
+			if (appadmm_500_request_read_display(&devc->appa_inst, &request)
+				< TRUE) {
+				otc_warn("Aborted in appadmm_send");
+				abort = TRUE;
+			} else {
+				devc->request_pending = TRUE;
+			}
+		} else {
+			devc->rate_sent = FALSE;
+		}
+	} else {
+		if (devc->rate_interval > APPADMM_RATE_INTERVAL_DISABLE
+			&& g_get_monotonic_time() - devc->rate_timer
+			> devc->rate_interval * 2) {
+			devc->request_pending = FALSE;
+		}
+	}
+
+	if (otc_sw_limits_check(&devc->limits)
+		|| abort == TRUE) {
+		otc_info("Stopping acquisition");
+		otc_dev_acquisition_stop(sdi);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+/**
+ * Download MEM/LOG storage from device
+ * 500 Legacy Protocol
+ *
+ * Works similar to live acquisition but avoids the interval alignment window
+ * since timing is irelevant here. Error counter for problematic BLE behaviour.
+ * Frame Limits are used to count the amount of samples from the storage.
+ *
+ * @param arg_fd File descriptor
+ * @param arg_revents Event indication
+ * @param arg_cb_data Serial Device instance
+ * @retval OTC_OK on success
+ * @retval OTC_ERR_... on error
+ */
+OTC_PRIV int appadmm_500_acquire_storage(int arg_fd, int arg_revents,
+	void *arg_cb_data)
+{
+	struct otc_dev_inst *sdi;
+	struct appadmm_context *devc;
+	struct appadmm_request_data_read_memory_s request;
+	struct appadmm_response_data_read_memory_s response;
+	enum appadmm_storage_e storage;
+
+	gboolean abort;
+	int retr;
+
+	(void) arg_fd;
+
+	abort = FALSE;
+
+	if (!(sdi = arg_cb_data))
+		return FALSE;
+	if (!(devc = sdi->priv))
+		return FALSE;
+	switch (devc->data_source) {
+	case APPADMM_DATA_SOURCE_MEM:
+		storage = APPADMM_STORAGE_MEM;
+		break;
+	case APPADMM_DATA_SOURCE_LOG:
+		storage = APPADMM_STORAGE_LOG;
+		break;
+	default:
+		return OTC_ERR_BUG;
+	}
+
+	if (devc->storage_info[storage].amount < 1) {
+		otc_err("Memory empty or function not available.");
+		otc_dev_acquisition_stop(sdi);
+		return FALSE;
+	}
+
+	if (arg_revents == G_IO_IN) {
+		/* Read (portion of) response from the device */
+		if ((retr = appadmm_response_read_memory(&devc->appa_inst,
+			&response)) < OTC_OK) {
+			if (devc->error_counter++ > 10) {
+				otc_warn("Aborted in appadmm_response_read_memory, result %d", retr);
+				abort = TRUE;
+			} else {
+				devc->request_pending = FALSE;
+			}
+		} else if (retr > FALSE) {
+			/* Slowly decrease error counter */
+			if (devc->error_counter > 0)
+				devc->error_counter--;
+			if (appadmm_process_storage(sdi, &response)
+				< OTC_OK) {
+				otc_warn("Aborted in appadmm_process_storage, result %d",
+					retr);
+				abort = TRUE;
+			}
+			devc->request_pending = FALSE;
+		}
+	}
+
+	if ((!devc->request_pending && !abort)
+		|| g_get_monotonic_time() - devc->rate_timer > 1000000) {
+		if ((retr = appadmm_enc_read_storage(&request,
+			&devc->storage_info[storage],
+			devc->limits.frames_read, 0xff)) < OTC_OK) {
+			otc_warn("Aborted in appadmm_enc_read_storage");
+			abort = TRUE;
+		} else if ((retr = appadmm_request_read_memory(&devc->appa_inst,
+			&request)) < TRUE) {
+			otc_warn("Aborted in appadmm_request_read_memory");
+			abort = TRUE;
+		} else {
+			devc->rate_timer = g_get_monotonic_time();
+			devc->request_pending = TRUE;
+		}
+	}
+
+	if (otc_sw_limits_check(&devc->limits)
+		|| abort == TRUE) {
+		otc_info("Stopping acquisition");
+		otc_dev_acquisition_stop(sdi);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+/* ********************************* */
+/* ****** Series 300 Protocol ****** */
+/* ********************************* */
+
+/**
+ * Request device identification
+ * 300 Legacy Protocol
+ *
+ * Ask device for Model ID, Serial number, Vendor name and Device name.
+ * Resolve it based on device capabilities. Fallback: Use APPA internal
+ * device designations.
+ *
+ * Will return error if device is not applicable by this driver.
+ *
+ * @param arg_sdi Serial Device instance
+ * @retval OTC_OK on success
+ * @retval OTC_ERR_... on error
+ */
+OTC_PRIV int appadmm_300_op_identify(const struct otc_dev_inst *arg_sdi)
+{
+	char *model_name;
+	struct otc_dev_inst *sdi_w;
+	struct appadmm_context *devc;
+
+	int retr;
+
+	struct appadmm_request_data_read_information_s request;
+	struct appadmm_response_data_read_information_s response;
+
+	retr = OTC_OK;
+
+	if (arg_sdi == NULL)
+		return OTC_ERR_ARG;
+
+	devc = arg_sdi->priv;
+	sdi_w = (struct otc_dev_inst*) arg_sdi;
+
+	if ((retr = appadmm_300_rere_read_information(&devc->appa_inst,
+		&request, &response)) < OTC_OK)
+		return retr;
+
+	model_name = NULL;
+
+	sdi_w->version = g_strdup_printf("%01d.%02d",
+		response.firmware_version / 100,
+		response.firmware_version % 100);
+
+	devc->model_id = response.model_id;
+
+	sdi_w->vendor = g_strdup("APPA");
+	sdi_w->model = g_strdup(model_name);
+	sdi_w->serial_num = g_strdup(response.serial_number);
+
+	return retr;
+}
+
+/**
+ * Acquisition of live display readings
+ * 300 Legacy Protocol
+ *
+ * Based on model and communication (optical serial or BLE) polling is done
+ * either once a response was received and no request is pending or within
+ * desired time windows. This reduces the drift in sample rate and allows
+ * to be tolerant about issues with some of the models A8105 chip.
+ *
+ * @param arg_fd File desriptor (unused)
+ * @param arg_revents Event indicator
+ * @param arg_cb_data Serial Device instance
+ * @retval TRUE on success
+ * @retval FALSE on error
+ */
+OTC_PRIV int appadmm_300_acquire_live(int arg_fd, int arg_revents,
+	void *arg_cb_data)
+{
+	struct otc_dev_inst *sdi;
+	struct appadmm_context *devc;
+	struct appadmm_request_data_read_display_s request;
+	struct appadmm_response_data_read_display_s response;
+
+	int retr;
+	gboolean abort;
+	guint64 rate_window_time;
+
+	(void) arg_fd;
+
+	abort = FALSE;
+
+	if (!(sdi = arg_cb_data))
+		return FALSE;
+	if (!(devc = sdi->priv))
+		return FALSE;
+
+	if (arg_revents == G_IO_IN) {
+		/* process (a portion of the) received data */
+		if ((retr = appadmm_300_response_read_display(&devc->appa_inst,
+			&response)) < OTC_OK) {
+			otc_warn("Aborted in appadmm_receive, result %d", retr);
+			abort = TRUE;
+		} else if (retr > FALSE) {
+			if (appadmm_process_read_display(sdi, &response)
+				< OTC_OK) {
+				abort = TRUE;
+			}
+			devc->request_pending = FALSE;
+		}
+	}
+
+	if (!devc->request_pending) {
+		rate_window_time = g_get_monotonic_time() / devc->rate_interval;
+		/* align requests to the time window */
+		if (rate_window_time != devc->rate_timer
+			&& !devc->rate_sent) {
+			devc->rate_sent = TRUE;
+			devc->rate_timer = rate_window_time;
+			if (appadmm_300_request_read_display(&devc->appa_inst, &request)
+				< TRUE) {
+				otc_warn("Aborted in appadmm_send");
+				abort = TRUE;
+			} else {
+				devc->request_pending = TRUE;
+			}
+		} else {
+			devc->rate_sent = FALSE;
+		}
+	} else {
+		if (devc->rate_interval > APPADMM_RATE_INTERVAL_DISABLE
+			&& g_get_monotonic_time() - devc->rate_timer
+			> devc->rate_interval * 2) {
+			devc->request_pending = FALSE;
+		}
+	}
+
+	if (otc_sw_limits_check(&devc->limits)
+		|| abort == TRUE) {
+		otc_info("Stopping acquisition");
+		otc_dev_acquisition_stop(sdi);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+/* ********************************* */
+/* ****** Series 100 Protocol ****** */
+/* ********************************* */
+
+/**
+ * Request device identification
+ * 100 Legacy Protocol
+ *
+ * Ask device for Model ID, Serial number, Vendor name and Device name.
+ * Resolve it based on device capabilities. Fallback: Use APPA internal
+ * device designations.
+ *
+ * Will return error if device is not applicable by this driver.
+ *
+ * @param arg_sdi Serial Device instance
+ * @retval OTC_OK on success
+ * @retval OTC_ERR_... on error
+ */
+OTC_PRIV int appadmm_100_op_identify(const struct otc_dev_inst *arg_sdi)
+{
+	struct otc_dev_inst *sdi_w;
+	struct appadmm_context *devc;
+
+	int retr;
+
+	struct appadmm_request_data_read_information_s request;
+	struct appadmm_response_data_read_information_s response;
+
+	retr = OTC_OK;
+
+	if (arg_sdi == NULL)
+		return OTC_ERR_ARG;
+
+	devc = arg_sdi->priv;
+	sdi_w = (struct otc_dev_inst*) arg_sdi;
+
+	if ((retr = appadmm_100_rere_read_information(&devc->appa_inst,
+		&request, &response)) < OTC_OK)
+		return retr;
+
+	/* no model info in frame, frame size is causing simple validation */
+
+	devc->model_id = APPADMM_MODEL_ID_100;
+
+	sdi_w->vendor = g_strdup("APPA");
+	sdi_w->model = g_strdup("10x");
+
+	return retr;
+}
+
+/**
+ * Acquisition of live display readings
+ * 100 Legacy Protocol
+ *
+ * Based on model and communication (optical serial or BLE) polling is done
+ * either once a response was received and no request is pending or within
+ * desired time windows. This reduces the drift in sample rate and allows
+ * to be tolerant about issues with some of the models A8105 chip.
+ *
+ * @param arg_fd File desriptor (unused)
+ * @param arg_revents Event indicator
+ * @param arg_cb_data Serial Device instance
+ * @retval TRUE on success
+ * @retval FALSE on error
+ */
+OTC_PRIV int appadmm_100_acquire_live(int arg_fd, int arg_revents,
+	void *arg_cb_data)
+{
+	struct otc_dev_inst *sdi;
+	struct appadmm_context *devc;
+	struct appadmm_request_data_read_display_s request;
+	struct appadmm_response_data_read_display_s response;
+
+	int retr;
+	gboolean abort;
+	guint64 rate_window_time;
+
+	(void) arg_fd;
+
+	abort = FALSE;
+
+	if (!(sdi = arg_cb_data))
+		return FALSE;
+	if (!(devc = sdi->priv))
+		return FALSE;
+
+	if (arg_revents == G_IO_IN) {
+		/* process (a portion of the) received data */
+		if ((retr = appadmm_100_response_read_display(&devc->appa_inst,
+			&response)) < OTC_OK) {
+			otc_warn("Aborted in appadmm_receive, result %d", retr);
+			abort = TRUE;
+		} else if (retr > FALSE) {
+			if (appadmm_process_read_display(sdi, &response)
+				< OTC_OK) {
+				abort = TRUE;
+			}
+			devc->request_pending = FALSE;
+		}
+	}
+
+	if (!devc->request_pending) {
+		rate_window_time = g_get_monotonic_time() / devc->rate_interval;
+		/* align requests to the time window */
+		if (rate_window_time != devc->rate_timer
+			&& !devc->rate_sent) {
+			devc->rate_sent = TRUE;
+			devc->rate_timer = rate_window_time;
+			if (appadmm_100_request_read_display(&devc->appa_inst, &request)
+				< TRUE) {
+				otc_warn("Aborted in appadmm_send");
+				abort = TRUE;
+			} else {
+				devc->request_pending = TRUE;
+			}
+		} else {
+			devc->rate_sent = FALSE;
+		}
+	} else {
+		if (devc->rate_interval > APPADMM_RATE_INTERVAL_DISABLE
+			&& g_get_monotonic_time() - devc->rate_timer
+			> devc->rate_interval * 2) {
+			devc->request_pending = FALSE;
 		}
 	}
 
@@ -1168,6 +1838,8 @@ OTC_PRIV int appadmm_clear_context(struct appadmm_context *arg_devc)
 {
 	if (arg_devc == NULL)
 		return OTC_ERR_BUG;
+
+	arg_devc->protocol = APPADMM_PROTOCOL_INVALID;
 
 	arg_devc->model_id = APPADMM_MODEL_ID_INVALID;
 	arg_devc->rate_interval = APPADMM_RATE_INTERVAL_DEFAULT;
@@ -1211,6 +1883,7 @@ OTC_PRIV int appadmm_clear_storage_info(struct appadmm_storage_info_s *arg_stora
 		arg_storage_info[xloop].mem_count = 0;
 		arg_storage_info[xloop].mem_offset = 0;
 		arg_storage_info[xloop].mem_start = 0;
+		arg_storage_info[xloop].endian = APPADMM_MEMENDIAN_LE;
 	}
 
 	return OTC_OK;
