@@ -26,7 +26,7 @@ always_available = [
   'lascar-el-usb', 'microchip-pickit2', 'asix-sigma', 'ikalogic-scanalogic2',
   'ikalogic-scanaplus', 'pipistrello-ols', 'atten-pps3xxx', 'korad-kaxxxxp',
   'manson-hcs-3xxx', 'openbench-logic-sniffer', 'gmc-mh-1x-2x', 'serial-lcr',
-  'mastech-ms6514', 'atorch', 'appa-55ii', 'appa-dmm', 'kern-scale', 'serial-dmm',
+  'mastech-ms6514', 'atorch', 'appa-55ii', 'appa-dmm', 'kern-scale', 'uss-scale', 'serial-dmm',
   'agilent-dmm', 'center-3xx', 'uni-t-ut32x', 'rigol-ds', 'hameg-hmo',
   'siglent-sds', 'asix-omega-rtm-cli', 'rdtech-dps',
   'raspberrypi-pico', 'arachnid-labs-re-load-pro', 'pce-322a', 'hp-59306a',

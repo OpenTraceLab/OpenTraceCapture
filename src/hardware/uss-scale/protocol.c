@@ -18,45 +18,111 @@
  */
 
 #include <config.h>
-#include <glib.h>
-#include <libopentracecapture/internal.h>
 #include <stdlib.h>
+#include <math.h>
+#include <string.h>
+#include <glib.h>
+#include <opentracecapture/libopentracecapture.h>
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
-static struct scale_info uss_scale_info = {
-	{
-		.name = "uss-scale",
-		.longname = "USS scale",
-		.api_version = 1,
-		.init = std_init,
-		.cleanup = std_cleanup,
-		.scan = otc_scan_serial,
-		.dev_list = NULL,
-		.dev_clear = NULL,
-		.config_get = NULL,
-		.config_set = NULL,
-		.config_channel_set = NULL,
-		.config_commit = NULL,
-		.config_list = NULL,
-		.dev_open = otc_dev_open_serial,
-		.dev_close = std_serial_dev_close,
-		.dev_acquisition_start = std_serial_dev_acquisition_start,
-		.dev_acquisition_stop = std_serial_dev_acquisition_stop,
-	},
-	.vendor = "U.S. Solid",
-	.device = "USS-DBS28",
-	.conn = "9600/8n1",
-	.packet_size = 17,
-	.packet_valid = otc_uss_dbs_packet_valid,
-	.packet_parse = otc_uss_dbs_parse,
-	.info_size = sizeof(struct uss_dbs_info),
-};
-
-OTC_PRIV int otc_hw_ussscale_init(struct otc_context *otc_ctx)
+static void handle_packet(const uint8_t *buf, struct otc_dev_inst *sdi)
 {
-	int ret;
+	struct scale_info *scale;
+	struct otc_datafeed_packet packet;
+	struct otc_datafeed_analog analog;
+	struct otc_analog_encoding encoding;
+	struct otc_analog_meaning meaning;
+	struct otc_analog_spec spec;
+	struct dev_context *devc;
+	double result;
+	int err;
 
-	ret = otc_hw_register(otc_ctx, &uss_scale_info);
+	scale = (struct scale_info *)sdi->driver;
 
-	return ret;
+	devc = sdi->priv;
+
+	/* Note: digits/spec_digits will be overridden later. */
+	otc_analog_init(&analog, &encoding, &meaning, &spec, 0);
+
+	analog.meaning->channels = sdi->channels;
+	analog.num_samples = 1;
+	analog.meaning->mq = 0;
+
+	if ((err = scale->packet_parse(buf, &analog, &result))) {
+		otc_spew("packet_parse: %s", otc_strerror(err));
+		return;
+	}
+
+	analog.data = &result;
+	analog.encoding->unitsize = sizeof(result);
+
+	packet.type = OTC_DF_ANALOG;
+	packet.payload = &analog;
+	otc_session_send(sdi, &packet);
+	otc_sw_limits_update_samples_read(&devc->limits, 1);
 }
+
+static void handle_new_data(struct otc_dev_inst *sdi)
+{
+	struct scale_info *scale;
+	struct dev_context *devc;
+	int len, offset;
+	struct otc_serial_dev_inst *serial;
+
+	scale = (struct scale_info *)sdi->driver;
+
+	devc = sdi->priv;
+	serial = sdi->conn;
+
+	/* Try to get as much data as the buffer can hold. */
+	len = SCALE_BUFSIZE - devc->buflen;
+	len = serial_read_nonblocking(serial, devc->buf + devc->buflen, len);
+	if (len == 0)
+		return; /* No new bytes, nothing to do. */
+	if (len < 0) {
+		otc_err("Serial port read error: %d.", len);
+		return;
+	}
+	devc->buflen += len;
+
+	/* Now look for packets in that data. */
+	offset = 0;
+	while ((devc->buflen - offset) >= scale->packet_size) {
+		if (scale->packet_valid(devc->buf + offset)) {
+			handle_packet(devc->buf + offset, sdi);
+			offset += scale->packet_size;
+		} else {
+			offset++;
+		}
+	}
+
+	/* If we have any data left, move it to the beginning of our buffer. */
+	if (offset < devc->buflen)
+		memmove(devc->buf, devc->buf + offset, devc->buflen - offset);
+	devc->buflen -= offset;
+}
+
+OTC_PRIV int uss_scale_receive_data(int fd, int revents, void *cb_data)
+{
+	struct otc_dev_inst *sdi;
+	struct dev_context *devc;
+
+	(void)fd;
+
+	if (!(sdi = cb_data))
+		return TRUE;
+
+	if (!(devc = sdi->priv))
+		return TRUE;
+
+	/* Serial data arrived. */
+	if (revents == G_IO_IN)
+		handle_new_data(sdi);
+
+	if (otc_sw_limits_check(&devc->limits))
+		otc_dev_acquisition_stop(sdi);
+
+	return TRUE;
+}
+

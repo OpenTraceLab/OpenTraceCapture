@@ -29,7 +29,7 @@
 #include <opentracecapture/libopentracecapture.h>
 #include "../libopentracecapture-internal.h"
 
-#define LOG_PREFIX "otc-uss-dbs"
+#define LOG_PREFIX "uss-dbs"
 
 OTC_PRIV gboolean otc_uss_dbs_packet_valid(const uint8_t *buf)
 {

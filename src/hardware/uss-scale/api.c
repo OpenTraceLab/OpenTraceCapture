@@ -20,7 +20,7 @@
 #include <config.h>
 #include <glib.h>
 #include <opentracecapture/libopentracecapture.h>
-#include "libopentracecapture-internal.h"
+#include "../../libopentracecapture-internal.h"
 #include "protocol.h"
 
 static const uint32_t scanopts[] = {
@@ -70,6 +70,7 @@ static struct otc_serial_dev_inst *probe(struct scale_info *scale, const char *c
 
 probe_failed:
 	serial_close(serial);
+	otc_serial_dev_inst_free(serial);
 	return NULL;
 }
 
@@ -142,40 +143,55 @@ static int config_set(uint32_t key, GVariant *data,
 static int config_list(uint32_t key, GVariant **data,
 	const struct otc_dev_inst *sdi, const struct otc_channel_group *cg)
 {
-	struct scale_info *scale;
-	struct dev_context *devc;
-
-	(void)cg;
-
-	scale = (struct scale_info *)sdi->driver;
-	devc = sdi->priv;
-
-	switch (key) {
-	case OTC_CONF_SCAN_OPTIONS:
-	case OTC_CONF_DEVICE_OPTIONS:
-		return OTC_SCAN_OPTIONS_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	default:
-		return otc_sw_limits_config_list(&devc->limits, key, data);
-	}
+	return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
 }
 
-OTC_PRIV struct otc_dev_driver uss_scale_driver_info = {
-	.name = "uss-scale",
-	.longname = "U.S. Solid scale",
-	.api_version = 1,
-	.init = std_init,
-	.cleanup = std_cleanup,
-	.scan = scan,
-	.dev_list = NULL,
-	.dev_clear = NULL,
-	.config_get = std_config_get,
-	.config_set = config_set,
-	.config_channel_set = NULL,
-	.config_commit = std_config_commit,
-	.config_list = config_list,
-	.dev_open = std_serial_dev_open,
-	.dev_close = std_serial_dev_close,
-	.dev_acquisition_start = std_acquisition_start,
-	.dev_acquisition_stop = std_acquisition_stop_seq,
-	.priv = &uss_scale_info,
-};
+static int dev_acquisition_start(const struct otc_dev_inst *sdi)
+{
+	struct dev_context *devc;
+	struct otc_serial_dev_inst *serial;
+
+	devc = sdi->priv;
+	serial = sdi->conn;
+
+	otc_sw_limits_acquisition_start(&devc->limits);
+	std_session_send_df_header(sdi);
+
+	serial_source_add(sdi->session, serial, G_IO_IN, 50,
+		      uss_scale_receive_data, (void *)sdi);
+
+	return OTC_OK;
+}
+
+#define SCALE(ID, CHIPSET, VENDOR, MODEL, PACKETSIZE, \
+			VALID, PARSE) \
+	&((struct scale_info) { \
+		{ \
+			.name = ID, \
+			.longname = VENDOR " " MODEL, \
+			.api_version = 1, \
+			.init = std_init, \
+			.cleanup = std_cleanup, \
+			.scan = scan, \
+			.dev_list = std_dev_list, \
+			.dev_clear = std_dev_clear, \
+			.config_get = NULL, \
+			.config_set = config_set, \
+			.config_list = config_list, \
+			.dev_open = std_serial_dev_open, \
+			.dev_close = std_serial_dev_close, \
+			.dev_acquisition_start = dev_acquisition_start, \
+			.dev_acquisition_stop = std_serial_dev_acquisition_stop, \
+			.context = NULL, \
+		}, \
+		VENDOR, MODEL, PACKETSIZE, \
+		VALID, PARSE \
+	}).di
+
+OTC_REGISTER_DEV_DRIVER_LIST(uss_scale_drivers,
+	SCALE(
+		"uss-dbs28", uss_dbs,
+		"U.S. Solid", "DBS28",
+		17, otc_uss_dbs_packet_valid, otc_uss_dbs_parse
+	)
+);

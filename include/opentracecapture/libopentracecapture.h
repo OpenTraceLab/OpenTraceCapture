@@ -342,6 +342,10 @@ enum otc_unit {
 	OTC_UNIT_COULOMB,
 	/** Electric charge in ampere hour [Ah]. */
 	OTC_UNIT_AMPERE_HOUR,
+	/** Mass in dram [dr]. */
+	OTC_UNIT_DRAM,
+	/** Area density in g/m^2. */
+	OTC_UNIT_GRAMMAGE,
 
 	/*
 	 * Update unit_strings[] (analog.c) and fancyprint() (output/analog.c)
@@ -403,6 +407,12 @@ enum otc_mqflag {
 	OTC_MQFLAG_UNSTABLE = 0x100000,
 	/** Measurement is four wire (e.g. Kelvin connection). */
 	OTC_MQFLAG_FOUR_WIRE = 0x200000,
+	/** Tael measurement (Taiwan variant, 37.50 g/tael). */
+	OTC_MQFLAG_TAEL_TAIWAN = 0x400000,
+	/** Tael measurement (Hong Kong/Troy variant, 37.43 g/tael). */
+	OTC_MQFLAG_TAEL_HONGKONG_TROY = 0x800000,
+	/** Tael measurement (Japan variant, 37.80 g/tael). */
+	OTC_MQFLAG_TAEL_JAPAN = 0x1000000,
 
 	/*
 	 * Update mq_strings[] (analog.c) and fancyprint() (output/analog.c)

@@ -17,29 +17,33 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef LIBSIGROK_HARDWARE_USS_SCALE_PROTOCOL_H
-#define LIBSIGROK_HARDWARE_USS_SCALE_PROTOCOL_H
+#ifndef LIBOPENTRACECAPTURE_HARDWARE_USS_SCALE_PROTOCOL_H
+#define LIBOPENTRACECAPTURE_HARDWARE_USS_SCALE_PROTOCOL_H
 
 #define LOG_PREFIX "uss-scale"
 
-struct scale_info {
-	/** libopentracecapture driver info struct. */
-	struct otc_dev_driver di;
-	/** Manufacturer/brand. */
-	const char *vendor;
-	/** Model. */
-	const char *device;
-	/** serialconn string. */
-	const char *conn;
-	/** Packet size in bytes. */
-	int packet_size;
-	/** Packet validation function. */
-	gboolean (*packet_valid)(const uint8_t *);
-	/** Packet parsing function. */
-	int (*packet_parse)(const uint8_t *, float *,
-			    struct otc_datafeed_analog *, void *);
-	/** Size of chipset info struct. */
-	gsize info_size;
+#define SCALE_BUFSIZE 4096
+
+struct dev_context {
+	struct otc_sw_limits limits;
+
+	uint8_t buf[SCALE_BUFSIZE];
+	int buflen;
 };
+
+struct scale_info {
+	struct otc_dev_driver di;
+	const char *vendor;
+	const char *device;
+	/* I've seen some documentation describing models with 16-byte packets,
+	 * so the packet_size is parameterised. */
+	int packet_size;
+	gboolean (*packet_valid)(const uint8_t *);
+	int (*packet_parse)(const uint8_t *,
+			    struct otc_datafeed_analog *, double *);
+};
+
+
+OTC_PRIV int uss_scale_receive_data(int fd, int revents, void *cb_data);
 
 #endif

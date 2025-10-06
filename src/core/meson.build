@@ -58,6 +58,7 @@ core_sources = files(
   '../lcr/vc4080.c',
   # Scale parsers
   '../scale/kern.c',
+  '../scale/uss_dbs.c',
   # SCPI framework (complete)
   '../scpi/scpi.c',
   '../scpi/scpi_serial.c',

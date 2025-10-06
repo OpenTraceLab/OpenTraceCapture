@@ -91,6 +91,8 @@ static struct unit_mq_string unit_strings[] = {
 	{ OTC_UNIT_JOULE, "J" },
 	{ OTC_UNIT_COULOMB, "C" },
 	{ OTC_UNIT_AMPERE_HOUR, "Ah" },
+	{ OTC_UNIT_DRAM, "dr" },
+	{ OTC_UNIT_GRAMMAGE, "g/m^2" },
 	ALL_ZERO
 };
 
@@ -119,6 +121,9 @@ static struct unit_mq_string mq_strings[] = {
 	{ OTC_MQFLAG_REFERENCE, " REF" },
 	{ OTC_MQFLAG_UNSTABLE, " UNSTABLE" },
 	{ OTC_MQFLAG_FOUR_WIRE, " 4-WIRE" },
+	{ OTC_MQFLAG_TAEL_TAIWAN, " TAIWAN" },
+	{ OTC_MQFLAG_TAEL_HONGKONG_TROY, " HONGKONG" },
+	{ OTC_MQFLAG_TAEL_JAPAN, " JAPAN" },
 	ALL_ZERO
 };
 

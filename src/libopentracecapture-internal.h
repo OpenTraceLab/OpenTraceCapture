@@ -2902,6 +2902,14 @@ OTC_PRIV gboolean otc_kern_packet_valid(const uint8_t *buf);
 OTC_PRIV int otc_kern_parse(const uint8_t *buf, float *floatval,
 		struct otc_datafeed_analog *analog, void *info);
 
+/*--- scale/uss_dbs.c -------------------------------------------------------*/
+
+struct uss_dbs_info {};
+
+OTC_PRIV gboolean otc_uss_dbs_packet_valid(const uint8_t *buf);
+OTC_PRIV enum otc_error_code otc_uss_dbs_parse(const uint8_t *buf,
+		struct otc_datafeed_analog *analog, double *result);
+
 /*--- sw_limits.c -----------------------------------------------------------*/
 
 struct otc_sw_limits {

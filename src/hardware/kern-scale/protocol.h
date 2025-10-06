@@ -48,7 +48,6 @@ struct dev_context {
 	struct otc_sw_limits limits;
 
 	uint8_t buf[SCALE_BUFSIZE];
-	int bufoffset;
 	int buflen;
 };
 
