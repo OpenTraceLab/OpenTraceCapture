@@ -16,7 +16,7 @@ always_available = [
   'norma-dmm', 'cem-dt-885x', 'rdtech-um', 'devantech-eth008',
   'motech-lps-30x', 'zketech-ebd-usb', 'tondaj-sl-814', 'icstation-usbrelay',
   'conrad-digi-35-cpu', 'bkprecision-1856d', 'juntek-jds6600', 'gwinstek-gpd',
-  'colead-slm', 'mic-985xx'
+  'colead-slm', 'mic-985xx', 'mhinstek-mhs-5200a'
 ]
 
 # Always-available drivers (USB/Serial/HID with standard deps)
@@ -34,7 +34,7 @@ always_available = [
   'norma-dmm', 'cem-dt-885x', 'rdtech-um', 'devantech-eth008',
   'motech-lps-30x', 'zketech-ebd-usb', 'tondaj-sl-814', 'icstation-usbrelay',
   'conrad-digi-35-cpu', 'bkprecision-1856d', 'juntek-jds6600', 'gwinstek-gpd',
-  'colead-slm', 'mic-985xx'
+  'colead-slm', 'mic-985xx', 'mhinstek-mhs-5200a'
 ]
 
 # Add always-available drivers
