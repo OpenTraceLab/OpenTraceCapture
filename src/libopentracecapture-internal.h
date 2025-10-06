@@ -173,6 +173,23 @@ static inline uint32_t read_u24le(const uint8_t *p)
 }
 
 /**
+ * Read a 24 bits little endian signed integer out of memory.
+ * @param x a pointer to the input memory
+ * @return the corresponding signed integer
+ */
+static inline int32_t read_i24le(const uint8_t *p)
+{
+	uint32_t u;
+
+	u = p[2] >> 7 == 1 ? 0xff : 0;
+	u <<= 8; u |= p[2];
+	u <<= 8; u |= p[1];
+	u <<= 8; u |= p[0];
+
+	return u;
+}
+
+/**
  * Read a 24 bits big endian unsigned integer out of memory.
  * @param x a pointer to the input memory
  * @return the corresponding unsigned integer
@@ -182,6 +199,23 @@ static inline uint32_t read_u24be(const uint8_t *p)
 	uint32_t u;
 
 	u = 0;
+	u <<= 8; u |= p[0];
+	u <<= 8; u |= p[1];
+	u <<= 8; u |= p[2];
+
+	return u;
+}
+
+/**
+ * Read a 24 bits big endian signed integer out of memory.
+ * @param x a pointer to the input memory
+ * @return the corresponding signed integer
+ */
+static inline int32_t read_i24be(const uint8_t *p)
+{
+	uint32_t u;
+
+	u = p[0] >> 7 == 1 ? 0xff : 0;
 	u <<= 8; u |= p[0];
 	u <<= 8; u |= p[1];
 	u <<= 8; u |= p[2];
@@ -777,6 +811,23 @@ static inline uint32_t read_u24le_inc(const uint8_t **p)
 	if (!p || !*p)
 		return 0;
 	v = read_u24le(*p);
+	*p += 3 * sizeof(uint8_t);
+
+	return v;
+}
+
+/**
+ * Read signed 24bit integer from raw memory (little endian format), increment read position.
+ * @param[in, out] p Pointer into byte stream.
+ * @return Retrieved integer value, signed.
+ */
+static inline int32_t read_i24le_inc(const uint8_t **p)
+{
+	int32_t v;
+
+	if (!p || !*p)
+		return 0;
+	v = read_i24le(*p);
 	*p += 3 * sizeof(uint8_t);
 
 	return v;
@@ -1646,6 +1697,7 @@ struct otc_serial_dev_inst {
 		SER_BT_CONN_CC254x,	/**!< BLE, TI CC254x, notifications */
 		SER_BT_CONN_AC6328,	/**!< BLE, JL AC6328B, notifications */
 		SER_BT_CONN_DIALOG,	/**!< BLE, dialog DA14580, notifications */
+		SER_BT_CONN_APPADMM,	/**!< BLE, APPA DMM, notifications */
 		SER_BT_CONN_NOTIFY,	/**!< BLE, generic notifications */
 		SER_BT_CONN_MAX,	/**!< sentinel */
 	} bt_conn_type;

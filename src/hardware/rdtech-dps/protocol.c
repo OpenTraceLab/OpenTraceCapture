@@ -228,7 +228,7 @@ OTC_PRIV void rdtech_dps_update_multipliers(const struct otc_dev_inst *sdi)
 	const struct rdtech_dps_range *range;
 
 	devc = sdi->priv;
-	range = &devc->model->ranges[devc->curr_range];
+	range = &devc->model.rdtech_model->ranges[devc->curr_range];
 	devc->current_multiplier = pow(10.0, range->current_digits);
 	devc->voltage_multiplier = pow(10.0, range->voltage_digits);
 }
@@ -249,9 +249,9 @@ OTC_PRIV int rdtech_dps_update_range(const struct otc_dev_inst *sdi)
 	 * Only update range if there are multiple ranges and data
 	 * acquisition hasn't started.
 	 */
-	if (devc->model->n_ranges <= 1 || devc->acquisition_started)
+	if (devc->model.rdtech_model->n_ranges <= 1 || devc->acquisition_started)
 		return OTC_OK;
-	if (devc->model->model_type != MODEL_RD)
+	if (devc->model.rdtech_model->model_type != MODEL_RD)
 		return OTC_ERR;
 
 	ret = rdtech_dps_read_holding_registers(sdi->conn,
@@ -362,11 +362,11 @@ OTC_PRIV int rdtech_dps_get_state(const struct otc_dev_inst *sdi,
 	(void)get_init_state;
 	(void)get_curr_meas;
 
-	have_range = devc->model->n_ranges > 1;
+	have_range = devc->model.rdtech_model->n_ranges > 1;
 	if (!have_range)
 		range = 0;
 
-	switch (devc->model->model_type) {
+	switch (devc->model.rdtech_model->model_type) {
 	case MODEL_DPS:
 		/*
 		 * Transfer a chunk of registers in a single call. It's
@@ -429,7 +429,7 @@ OTC_PRIV int rdtech_dps_get_state(const struct otc_dev_inst *sdi,
 		g_mutex_lock(&devc->rw_mutex);
 		ret = rdtech_dps_read_holding_registers(modbus,
 			REG_RD_VOLT_TGT,
-			devc->model->n_ranges > 1
+			devc->model.rdtech_model->n_ranges > 1
 				? REG_RD_RANGE - REG_RD_VOLT_TGT + 1
 				: REG_RD_ENABLE - REG_RD_VOLT_TGT + 1,
 			registers);
@@ -548,7 +548,7 @@ OTC_PRIV int rdtech_dps_set_state(const struct otc_dev_inst *sdi,
 	/* Only a subset of known values is settable. */
 	if (state->mask & STATE_OUTPUT_ENABLED) {
 		reg_value = state->output_enabled ? 1 : 0;
-		switch (devc->model->model_type) {
+		switch (devc->model.rdtech_model->model_type) {
 		case MODEL_DPS:
 			ret = rdtech_dps_set_reg(sdi, REG_DPS_ENABLE, reg_value);
 			if (ret != OTC_OK)
@@ -565,7 +565,7 @@ OTC_PRIV int rdtech_dps_set_state(const struct otc_dev_inst *sdi,
 	}
 	if (state->mask & STATE_VOLTAGE_TARGET) {
 		reg_value = state->voltage_target * devc->voltage_multiplier;
-		switch (devc->model->model_type) {
+		switch (devc->model.rdtech_model->model_type) {
 		case MODEL_DPS:
 			ret = rdtech_dps_set_reg(sdi, REG_DPS_USET, reg_value);
 			if (ret != OTC_OK)
@@ -582,7 +582,7 @@ OTC_PRIV int rdtech_dps_set_state(const struct otc_dev_inst *sdi,
 	}
 	if (state->mask & STATE_CURRENT_LIMIT) {
 		reg_value = state->current_limit * devc->current_multiplier;
-		switch (devc->model->model_type) {
+		switch (devc->model.rdtech_model->model_type) {
 		case MODEL_DPS:
 			ret = rdtech_dps_set_reg(sdi, REG_DPS_ISET, reg_value);
 			if (ret != OTC_OK)
@@ -599,7 +599,7 @@ OTC_PRIV int rdtech_dps_set_state(const struct otc_dev_inst *sdi,
 	}
 	if (state->mask & STATE_OVP_THRESHOLD) {
 		reg_value = state->ovp_threshold * devc->voltage_multiplier;
-		switch (devc->model->model_type) {
+		switch (devc->model.rdtech_model->model_type) {
 		case MODEL_DPS:
 			ret = rdtech_dps_set_reg(sdi, PRE_DPS_OVPSET, reg_value);
 			if (ret != OTC_OK)
@@ -616,7 +616,7 @@ OTC_PRIV int rdtech_dps_set_state(const struct otc_dev_inst *sdi,
 	}
 	if (state->mask & STATE_OCP_THRESHOLD) {
 		reg_value = state->ocp_threshold * devc->current_multiplier;
-		switch (devc->model->model_type) {
+		switch (devc->model.rdtech_model->model_type) {
 		case MODEL_DPS:
 			ret = rdtech_dps_set_reg(sdi, PRE_DPS_OCPSET, reg_value);
 			if (ret != OTC_OK)
@@ -632,7 +632,7 @@ OTC_PRIV int rdtech_dps_set_state(const struct otc_dev_inst *sdi,
 		}
 	}
 	if (state->mask & STATE_LOCK) {
-		switch (devc->model->model_type) {
+		switch (devc->model.rdtech_model->model_type) {
 		case MODEL_DPS:
 			reg_value = state->lock ? 1 : 0;
 			ret = rdtech_dps_set_reg(sdi, REG_DPS_LOCK, reg_value);
@@ -648,7 +648,7 @@ OTC_PRIV int rdtech_dps_set_state(const struct otc_dev_inst *sdi,
 	}
 	if (state->mask & STATE_RANGE) {
 		reg_value = state->range;
-		switch (devc->model->model_type) {
+		switch (devc->model.rdtech_model->model_type) {
 		case MODEL_DPS:
 			/* DPS models don't support current ranges at all. */
 			if (reg_value > 0)
@@ -660,9 +660,9 @@ OTC_PRIV int rdtech_dps_set_state(const struct otc_dev_inst *sdi,
 			 * Need not set the range when the device only
 			 * supports a single fixed range.
 			 */
-			if (reg_value >= devc->model->n_ranges)
+			if (reg_value >= devc->model.rdtech_model->n_ranges)
 				return OTC_ERR_NA;
-			if (devc->model->n_ranges <= 1)
+			if (devc->model.rdtech_model->n_ranges <= 1)
 				return OTC_OK;
 			ret = rdtech_rd_set_reg(sdi, REG_RD_RANGE, reg_value);
 			if (ret != OTC_OK)
@@ -746,11 +746,11 @@ OTC_PRIV int rdtech_dps_receive_data(int fd, int revents, void *cb_data)
 	ch = g_slist_nth_data(sdi->channels, 0);
 	send_value(sdi, ch, state.voltage,
 		OTC_MQ_VOLTAGE, OTC_MQFLAG_DC, OTC_UNIT_VOLT,
-		devc->model->ranges[devc->curr_range].voltage_digits);
+		devc->model.rdtech_model->ranges[devc->curr_range].voltage_digits);
 	ch = g_slist_nth_data(sdi->channels, 1);
 	send_value(sdi, ch, state.current,
 		OTC_MQ_CURRENT, OTC_MQFLAG_DC, OTC_UNIT_AMPERE,
-		devc->model->ranges[devc->curr_range].current_digits);
+		devc->model.rdtech_model->ranges[devc->curr_range].current_digits);
 	ch = g_slist_nth_data(sdi->channels, 2);
 	send_value(sdi, ch, state.power,
 		OTC_MQ_POWER, 0, OTC_UNIT_WATT, 2);
@@ -781,7 +781,7 @@ OTC_PRIV int rdtech_dps_receive_data(int fd, int revents, void *cb_data)
 		devc->curr_out_state = state.output_enabled;
 	}
 	if (devc->curr_range != state.range) {
-		range_text = devc->model->ranges[state.range].range_str;
+		range_text = devc->model.rdtech_model->ranges[state.range].range_str;
 		(void)otc_session_send_meta(sdi, OTC_CONF_RANGE,
 			g_variant_new_string(range_text));
 		devc->curr_range = state.range;

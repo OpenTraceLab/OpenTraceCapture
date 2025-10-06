@@ -180,6 +180,7 @@ subdir('src/drivers')
 subdir('src/input')
 subdir('src/output')
 subdir('src/transform')
+subdir('src/tp')
 
 # Create separate driver libraries like libsigrok does
 driver_head_lib = static_library('drivers_head',
@@ -202,7 +203,7 @@ driver_main_lib = static_library('drivers_main',
 
 # Link in correct order: head -> main -> tail (like libsigrok)
 lib = library('opentracecapture',
-  sources: [core_sources, format_sources, input_sources, output_sources, transform_sources],
+  sources: [core_sources, format_sources, input_sources, output_sources, transform_sources, tp_sources],
   include_directories: inc,
   dependencies: all_deps,
   c_args: compile_args,

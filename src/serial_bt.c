@@ -81,6 +81,40 @@ static const struct scan_supported_item {
 } scan_supported_items[] = {
 	{ "121GW", SER_BT_CONN_BLE122, NULL, },
 	{ "Adafruit Bluefruit LE 8134", SER_BT_CONN_NRF51, NULL, },
+	/* appa-dmm identifiers */
+	{ "APPA 155B", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA 156B", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA 157B", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA 158B", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA 172B", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA 173B", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA 175B", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA 177B", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA 179B", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA 208B", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA 506B", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA A17N", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA S0", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA S1", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA S2", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA S3", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA sFlex-10A", SER_BT_CONN_APPADMM, NULL, },
+	{ "APPA sFlex-18A", SER_BT_CONN_APPADMM, NULL, },
+	{ "BENNING CM9-2", SER_BT_CONN_APPADMM, NULL, },
+	{ "BENNING CM10-1", SER_BT_CONN_APPADMM, NULL, },
+	{ "BENNING CM10-PV", SER_BT_CONN_APPADMM, NULL, },
+	{ "BENNING CM12", SER_BT_CONN_APPADMM, NULL, },
+	{ "BENNING MM10-1", SER_BT_CONN_APPADMM, NULL, },
+	{ "BENNING MM10-PV", SER_BT_CONN_APPADMM, NULL, },
+	{ "BENNING MM12", SER_BT_CONN_APPADMM, NULL, },
+	{ "RSPRO S1", SER_BT_CONN_APPADMM, NULL, },
+	{ "RSPRO S2", SER_BT_CONN_APPADMM, NULL, },
+	{ "RSPRO S3", SER_BT_CONN_APPADMM, NULL, },
+	{ "Sefram 7220", SER_BT_CONN_APPADMM, NULL, },
+	{ "Sefram 7221", SER_BT_CONN_APPADMM, NULL, },
+	{ "Sefram 7222", SER_BT_CONN_APPADMM, NULL, },
+	{ "Sefram 7223", SER_BT_CONN_APPADMM, NULL, },
+	{ "Sefram 7352B", SER_BT_CONN_APPADMM, NULL, },
 	{ "DL24M_BLE", SER_BT_CONN_AC6328, NULL, },
 	{ "DL24M_SPP", SER_BT_CONN_RFCOMM, "/channel=2", },
 	{ "HC-05", SER_BT_CONN_RFCOMM, NULL, },
@@ -116,6 +150,7 @@ static const char *ser_bt_conn_names[SER_BT_CONN_MAX] = {
 	[SER_BT_CONN_CC254x] = "cc254x",
 	[SER_BT_CONN_AC6328] = "ac6328",
 	[SER_BT_CONN_DIALOG] = "dialog",
+	[SER_BT_CONN_APPADMM] = "appa-dmm",
 	[SER_BT_CONN_NOTIFY] = "notify",
 };
 
@@ -319,6 +354,20 @@ static int ser_bt_parse_conn_spec(
 			*cccd_val = 0x0001;
 		if (ble_mtu)
 			*ble_mtu = 400;
+		break;
+	case SER_BT_CONN_APPADMM:
+		/* handle: 0x0049, uuid: 0000fff1-0000-1000-8000-00805f9b34fb */
+		if (read_hdl)
+			*read_hdl = 0x0049;
+		/* handle: 0x004c, uuid: 0000fff2-0000-1000-8000-00805f9b34fb */
+		if (write_hdl)
+			*write_hdl = 0x004c;
+		/* handle: 0x004a, uuid: 00002902-0000-1000-8000-00805f9b34fb */
+		if (cccd_hdl)
+			*cccd_hdl = 0x004a;
+		/* Enable notifications */
+		if (cccd_val)
+			*cccd_val = 0x0001;
 		break;
 	case SER_BT_CONN_NOTIFY:
 		/* All other values must be provided externally. */
@@ -525,6 +574,7 @@ static int ser_bt_open(struct otc_serial_dev_inst *serial, int flags)
 		serial->bt_rfcomm_channel = rfcomm_channel;
 		break;
 	case SER_BT_CONN_BLE122:
+	case SER_BT_CONN_APPADMM:
 	case SER_BT_CONN_NRF51:
 	case SER_BT_CONN_CC254x:
 	case SER_BT_CONN_AC6328:
@@ -562,6 +612,7 @@ static int ser_bt_open(struct otc_serial_dev_inst *serial, int flags)
 			return OTC_ERR;
 		break;
 	case SER_BT_CONN_BLE122:
+	case SER_BT_CONN_APPADMM:
 	case SER_BT_CONN_NRF51:
 	case SER_BT_CONN_CC254x:
 	case SER_BT_CONN_AC6328:
@@ -640,6 +691,7 @@ static int ser_bt_write(struct otc_serial_dev_inst *serial,
 		if (wrlen < 0)
 			return OTC_ERR_IO;
 		return wrlen;
+	case SER_BT_CONN_APPADMM:
 	case SER_BT_CONN_BLE122:
 	case SER_BT_CONN_NRF51:
 	case SER_BT_CONN_CC254x:
@@ -708,6 +760,7 @@ static int ser_bt_read(struct otc_serial_dev_inst *serial,
 			if (rc < 0)
 				rdlen = -1;
 			break;
+		case SER_BT_CONN_APPADMM:
 		case SER_BT_CONN_BLE122:
 		case SER_BT_CONN_NRF51:
 		case SER_BT_CONN_CC254x:
@@ -808,6 +861,7 @@ static int bt_source_cb(int fd, int revents, void *cb_data)
 			if (rc < 0)
 				rdlen = -1;
 			break;
+		case SER_BT_CONN_APPADMM:
 		case SER_BT_CONN_BLE122:
 		case SER_BT_CONN_NRF51:
 		case SER_BT_CONN_CC254x:
