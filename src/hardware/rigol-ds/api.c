@@ -69,6 +69,7 @@ static const uint64_t timebases[][2] = {
 	{ 20, 1000000000 },
 	{ 50, 1000000000 },
 	{ 100, 1000000000 },
+	{ 200, 1000000000 },
 	{ 500, 1000000000 },
 	/* microseconds */
 	{ 1, 1000000 },
@@ -940,11 +941,13 @@ static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 		return OTC_ERR;
 
 	/* Turn off LA module if on and no digital channels selected. */
-	if (devc->la_enabled && !some_digital)
+	if (devc->la_enabled && !some_digital) {
 		if (rigol_ds_config_set(sdi,
 				devc->model->series->protocol >= PROTOCOL_V3 ?
 					":LA:STAT OFF" : ":LA:DISP OFF") != OTC_OK)
 			return OTC_ERR;
+		devc->la_enabled = false;
+	}
 
 	/* Set memory mode. */
 	if (devc->data_source == DATA_SOURCE_SEGMENTED) {
