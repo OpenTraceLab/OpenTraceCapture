@@ -1509,6 +1509,121 @@ static const struct scpi_command rs_hmp4040_cmd[] = {
 	ALL_ZERO
 };
 
+/* Siglent SPD3303 series */
+static const uint32_t siglent_spd3303_devopts[] = {
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_CHANNEL_CONFIG | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+};
+
+static const uint32_t siglent_spd3303_devopts_cg[] = {
+	OTC_CONF_REGULATION | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+};
+
+static const struct channel_spec siglent_spd3303x_ch[] = {
+	{ "1", { 0, 32, 0.001, 3, 3 }, { 0, 3.2, 0.001, 3, 3 }, { 0, 102.4 }, FREQ_DC_ONLY, NO_OVP_LIMITS, NO_OCP_LIMITS },
+	{ "2", { 0, 32, 0.001, 3, 3 }, { 0, 3.2, 0.001, 3, 3 }, { 0, 102.4 }, FREQ_DC_ONLY, NO_OVP_LIMITS, NO_OCP_LIMITS },
+};
+
+static const struct channel_spec siglent_spd3303xe_ch[] = {
+	{ "1", { 0, 32, 0.01, 2, 3 }, { 0, 3.2, 0.01, 2, 3 }, { 0, 102.4 }, FREQ_DC_ONLY, NO_OVP_LIMITS, NO_OCP_LIMITS },
+	{ "2", { 0, 32, 0.01, 2, 3 }, { 0, 3.2, 0.01, 2, 3 }, { 0, 102.4 }, FREQ_DC_ONLY, NO_OVP_LIMITS, NO_OCP_LIMITS },
+};
+
+static const struct channel_group_spec siglent_spd3303_cg[] = {
+	{ "1", CH_IDX(0), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
+	{ "2", CH_IDX(1), PPS_OVP | PPS_OCP, OTC_MQFLAG_DC },
+};
+
+static const struct scpi_command siglent_spd3303_cmd[] = {
+	{ SCPI_CMD_GET_MEAS_VOLTAGE, "MEAS:VOLT? CH%s" },
+	{ SCPI_CMD_GET_MEAS_CURRENT, "MEAS:CURR? CH%s" },
+	{ SCPI_CMD_GET_MEAS_POWER, "MEAS:POWE? CH%s" },
+	{ SCPI_CMD_GET_VOLTAGE_TARGET, "CH%s:VOLT?" },
+	{ SCPI_CMD_SET_VOLTAGE_TARGET, "CH%s:VOLT %.6f" },
+	{ SCPI_CMD_GET_CURRENT_LIMIT, "CH%s:CURR?" },
+	{ SCPI_CMD_SET_CURRENT_LIMIT, "CH%s:CURR %.6f" },
+	{ SCPI_CMD_GET_OUTPUT_REGULATION, "SYST:STAT?" },
+	{ SCPI_CMD_GET_OUTPUT_ENABLED, "SYST:STAT?" },
+	{ SCPI_CMD_SET_OUTPUT_ENABLE, "OUTP CH%s,ON" },
+	{ SCPI_CMD_SET_OUTPUT_DISABLE, "OUTP CH%s,OFF" },
+	{ SCPI_CMD_GET_CHANNEL_CONFIG, "SYST:STAT?" },
+	{ SCPI_CMD_SET_CHANNEL_CONFIG, "OUTP:TRACK %s" },
+	ALL_ZERO
+};
+
+static int siglent_spd3303_update_status(const struct otc_dev_inst *sdi)
+{
+	struct dev_context *devc;
+	struct otc_scpi_dev_inst *scpi;
+	int ret;
+	char *response;
+	long int status_register;
+	uint32_t old, cur, reg, en, ch, mode;
+	char *mode_str, *reg_str;
+
+	scpi = sdi->conn;
+	devc = sdi->priv;
+
+	if (!sdi || !scpi || !devc)
+		return OTC_ERR_ARG;
+
+	/* read status register */
+	ret = otc_scpi_get_string(scpi, "SYST:STAT?", &response);
+	if (ret != OTC_OK)
+		return ret;
+	if (!response)
+		return OTC_ERR;
+	otc_atol_base(response, &status_register, NULL, 16);
+	g_free(response);
+
+	cur = status_register;
+	old = devc->priv_status >> 1;
+
+	if (devc->priv_status) {
+		/* check for regulation/enable changes */
+		for (ch = 0; ch < 2; ch++) {
+			reg = (cur >> ch) & 0x01;
+			en = (cur >> (ch + 4)) & 0x01;
+
+			if (reg != ((old >> ch) & 0x01)) {
+				reg_str = (reg & 0x01 ? "CC" : "CV");
+				otc_info("regulation change: ch=%d, reg=%s", ch + 1, reg_str);
+				/* FIXME: send OTC_CONF_REGULATION meta frame
+				   (when API gets support for channel_group) */
+			}
+			if (en != ((old >> (ch + 4)) & 0x01)) {
+				otc_info("mode change: ch=%d, enabled=%d", ch + 1, en);
+				/* FIXME: send OTC_CONF_ENABLED meta frame
+				   (when API gets support for channel_group) */
+			}
+		}
+		/* check for channel mode change */
+		mode = (cur >> 2) & 0x03;
+		if (mode != ((old >> 2) & 0x03)) {
+			if (mode == 0x02)
+				mode_str = "Parallel";
+			else if (mode == 0x03)
+				mode_str = "Series";
+			else
+				mode_str = "Independent";
+			otc_session_send_meta(sdi, OTC_CONF_CHANNEL_CONFIG,
+					     g_variant_new_string(mode_str));
+		}
+	}
+
+	/* save current status */
+	devc->priv_status = (cur << 1) | 1;
+
+	return OTC_OK;
+}
+
 OTC_PRIV const struct scpi_pps pps_profiles[] = {
 	/* Agilent N5763A */
 	{ "Agilent", "N5763A", SCPI_DIALECT_UNKNOWN, 0,
@@ -2028,6 +2143,41 @@ OTC_PRIV const struct scpi_pps pps_profiles[] = {
 		.probe_channels = NULL,
 		.init_acquisition = NULL,
 		.update_status = NULL,
+	},
+
+	/* Siglent SPD3303 series */
+	{ "Siglent Technologies", "SPD3303C", SCPI_DIALECT_SIGLENT,
+	        PPS_INDEPENDENT | PPS_SERIES | PPS_PARALLEL,
+		ARRAY_AND_SIZE(siglent_spd3303_devopts),
+		ARRAY_AND_SIZE(siglent_spd3303_devopts_cg),
+		ARRAY_AND_SIZE(siglent_spd3303xe_ch),
+		ARRAY_AND_SIZE(siglent_spd3303_cg),
+		siglent_spd3303_cmd,
+		.probe_channels = NULL,
+		.init_acquisition = NULL,
+		.update_status = siglent_spd3303_update_status,
+	},
+	{ "Siglent Technologies", "SPD3303X", SCPI_DIALECT_SIGLENT,
+	        PPS_INDEPENDENT | PPS_SERIES | PPS_PARALLEL,
+		ARRAY_AND_SIZE(siglent_spd3303_devopts),
+		ARRAY_AND_SIZE(siglent_spd3303_devopts_cg),
+		ARRAY_AND_SIZE(siglent_spd3303x_ch),
+		ARRAY_AND_SIZE(siglent_spd3303_cg),
+		siglent_spd3303_cmd,
+		.probe_channels = NULL,
+		.init_acquisition = NULL,
+		.update_status = siglent_spd3303_update_status,
+	},
+	{ "Siglent Technologies", "SPD3303X-E", SCPI_DIALECT_SIGLENT,
+	        PPS_INDEPENDENT | PPS_SERIES | PPS_PARALLEL,
+		ARRAY_AND_SIZE(siglent_spd3303_devopts),
+		ARRAY_AND_SIZE(siglent_spd3303_devopts_cg),
+		ARRAY_AND_SIZE(siglent_spd3303xe_ch),
+		ARRAY_AND_SIZE(siglent_spd3303_cg),
+		siglent_spd3303_cmd,
+		.probe_channels = NULL,
+		.init_acquisition = NULL,
+		.update_status = siglent_spd3303_update_status,
 	},
 };
 

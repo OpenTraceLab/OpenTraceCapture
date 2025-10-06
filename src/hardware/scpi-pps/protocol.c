@@ -92,7 +92,8 @@ OTC_PRIV int scpi_pps_receive_data(int fd, int revents, void *cb_data)
 	}
 
 	ret = otc_scpi_cmd_resp(sdi, devc->device->commands,
-		channel_group_cmd, channel_group_name, &gvdata, gvtype, cmd);
+	        channel_group_cmd, channel_group_name, &gvdata, gvtype, cmd,
+		channel_group_name);
 
 	if (ret != OTC_OK)
 		return ret;

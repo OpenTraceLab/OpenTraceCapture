@@ -86,7 +86,13 @@ ATTRS{idVendor}=="21a9", ATTRS{idProduct}=="1003", MODE="664", GROUP="plugdev", 
 ATTRS{idVendor}=="21a9", ATTRS{idProduct}=="1004", MODE="664", GROUP="plugdev", TAG+="uaccess"
 ATTRS{idVendor}=="21a9", ATTRS{idProduct}=="1005", MODE="664", GROUP="plugdev", TAG+="uaccess"
 
-# Siglent SDS series oscilloscopes
+# Siglent USBTMC devices.
+# 0483:7540: E.g. SPD3303X-E psu
+# f4ec:ee3a: E.g. SDS1052DL+ scope
+# f4ec:ee38: E.g. SDS1104X-E scope
+# f4ed:ee3a: E.g. SDS1202X-E scope or SDG1010 waveform generator
+ATTRS{idVendor}=="0483", ATTRS{idProduct}=="7540", MODE="664", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="f4ec", ATTRS{idProduct}=="ee3a", MODE="664", GROUP="plugdev", TAG+="uaccess"
 ATTRS{idVendor}=="f4ed", ATTRS{idProduct}=="ee3a", MODE="664", GROUP="plugdev", TAG+="uaccess"
 
 # ZEROPLUS Logic Cube series

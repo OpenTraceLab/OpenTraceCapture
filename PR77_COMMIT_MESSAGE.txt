@@ -1,0 +1,29 @@
+Port upstream PR #77: Add SCPI quirks and Siglent SPD3303 support
+
+This is a complete port of libsigrok PR #77 which adds support for
+device-specific SCPI quirks and the Siglent SPD3303 series power supplies.
+
+Changes include:
+
+1. SCPI Quirks Framework
+   - Added enum scpi_quirks with 4 quirk flags for non-compliant devices
+   - Added quirks field to otc_scpi_dev_inst structure
+   - Implemented quirk handling in SCPI command functions
+   - Added Siglent SPD3303 to USB device blacklist
+
+2. udev Rules
+   - Added Siglent USBTMC device entries (SPD3303X-E PSU and scopes)
+   - Consolidated device list with proper comments
+
+3. Siglent SPD3303 Driver
+   - Added SCPI_DIALECT_SIGLENT dialect
+   - Added SCPI_CMD_GET/SET_CHANNEL_CONFIG commands
+   - Implemented device profiles for SPD3303C/X/X-E models
+   - Added status update function for multi-channel monitoring
+   - Implemented channel configuration (Independent/Series/Parallel)
+   - Added special handling for Siglent's hex status register format
+
+All identifiers renamed from SR_/sr_ to OTC_/otc_ conventions.
+
+Upstream source: https://github.com/sigrokproject/libsigrok/pull/77
+Original author: Timo Kokkonen <tjko@iki.fi>

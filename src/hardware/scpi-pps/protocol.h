@@ -68,6 +68,8 @@ enum pps_scpi_cmds {
 	SCPI_CMD_SET_OVER_CURRENT_PROTECTION_THRESHOLD,
 	SCPI_CMD_GET_OVER_CURRENT_PROTECTION_DELAY,
 	SCPI_CMD_SET_OVER_CURRENT_PROTECTION_DELAY,
+	SCPI_CMD_GET_CHANNEL_CONFIG,
+	SCPI_CMD_SET_CHANNEL_CONFIG,
 };
 
 /* Defines the SCPI dialect */
@@ -78,6 +80,7 @@ enum pps_scpi_dialect {
 	SCPI_DIALECT_PHILIPS,
 	SCPI_DIALECT_HMP,
 	SCPI_DIALECT_KEYSIGHT_E36300A,
+	SCPI_DIALECT_SIGLENT,
 };
 
 /*
@@ -168,6 +171,8 @@ struct dev_context {
 
 	struct otc_channel *cur_acquisition_channel;
 	struct otc_sw_limits limits;
+
+	uint32_t priv_status; /* device specific status data */
 };
 
 OTC_PRIV extern unsigned int num_pps_profiles;
