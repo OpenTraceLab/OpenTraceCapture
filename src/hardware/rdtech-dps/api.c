@@ -4,6 +4,7 @@
  * Copyright (C) 2018 James Churchill <pelrun@gmail.com>
  * Copyright (C) 2019 Frank Stettner <frank-stettner@gmx.net>
  * Copyright (C) 2021 Gerhard Sittig <gerhard.sittig@gmx.net>
+ * Copyright (C) 2021 Constantin Wenger <constantin.wenger@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +23,7 @@
 #include "config.h"
 
 #include <string.h>
+#include <math.h>
 
 #include "protocol.h"
 
@@ -68,37 +70,54 @@ static const uint32_t devopts_w_range[] = {
 	OTC_CONF_RANGE | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
 };
 
-/* Range name, max current/voltage/power, current/voltage digits. */
+static const uint32_t devopts_etm[] = {
+	OTC_CONF_CONTINUOUS,
+	OTC_CONF_LIMIT_SAMPLES | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_LIMIT_MSEC | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_VOLTAGE | OTC_CONF_GET,
+	OTC_CONF_VOLTAGE_TARGET | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_CURRENT | OTC_CONF_GET,
+	OTC_CONF_CURRENT_LIMIT | OTC_CONF_GET | OTC_CONF_SET | OTC_CONF_LIST,
+	OTC_CONF_ENABLED | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_REGULATION | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_VOLTAGE_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_ACTIVE | OTC_CONF_GET,
+	OTC_CONF_OVER_CURRENT_PROTECTION_THRESHOLD | OTC_CONF_GET | OTC_CONF_SET,
+	OTC_CONF_OVER_TEMPERATURE_PROTECTION_ACTIVE | OTC_CONF_GET,
+};
+
+/* Range name, max current/voltage/power, current/voltage/power digits. */
 static const struct rdtech_dps_range ranges_dps3005[] = {
-	{  "5A",  5, 30,  160, 3, 2 }
+	{  "5A",  5, 30,  160, 3, 2, 0 }
 };
 
 static const struct rdtech_dps_range ranges_dps5005[] = {
-	{  "5A",  5, 50,  250, 3, 2 }
+	{  "5A",  5, 50,  250, 3, 2, 0 }
 };
 
 static const struct rdtech_dps_range ranges_dps5015[] = {
-	{ "15A", 15, 50,  750, 2, 2 }
+	{ "15A", 15, 50,  750, 2, 2, 0 }
 };
 
 static const struct rdtech_dps_range ranges_dps5020[] = {
-	{ "20A", 20, 50, 1000, 2, 2 }
+	{ "20A", 20, 50, 1000, 2, 2, 0 }
 };
 
 static const struct rdtech_dps_range ranges_dps8005[] = {
-	{  "5A",  5, 80,  408, 3, 2 }
+	{  "5A",  5, 80,  408, 3, 2, 0 }
 };
 
 static const struct rdtech_dps_range ranges_rd6006[] = {
-	{  "6A",  6, 60,  360, 3, 2 }
+	{  "6A",  6, 60,  360, 3, 2, 0 }
 };
 
 static const struct rdtech_dps_range ranges_rd6006p[] = {
-	{  "6A",  6, 60,  360, 4, 3 }
+	{  "6A",  6, 60,  360, 4, 3, 0 }
 };
 
 static const struct rdtech_dps_range ranges_rd6012[] = {
-	{ "12A", 12, 60,  720, 2, 2 }
+	{ "12A", 12, 60,  720, 2, 2, 0 }
 };
 
 /*
@@ -107,16 +126,16 @@ static const struct rdtech_dps_range ranges_rd6012[] = {
  * (when RTU reg 20 == 1).
  */
 static const struct rdtech_dps_range ranges_rd6012p[] = {
-	{  "6A",  6, 60,  360, 4, 3 },
-	{ "12A", 12, 60,  720, 3, 3 }
+	{  "6A",  6, 60,  360, 4, 3, 0 },
+	{ "12A", 12, 60,  720, 3, 3, 0 }
 };
 
 static const struct rdtech_dps_range ranges_rd6018[] = {
-	{ "18A", 18, 60, 1080, 2, 2 }
+	{ "18A", 18, 60, 1080, 2, 2, 0 }
 };
 
 static const struct rdtech_dps_range ranges_rd6024[] = {
-	{ "24A", 24, 60, 1440, 2, 2 }
+	{ "24A", 24, 60, 1440, 2, 2, 0 }
 };
 
 /* Model ID, model name, model dependent ranges. */
@@ -133,22 +152,28 @@ static const struct rdtech_dps_model supported_models[] = {
 	 * specs for RD6012P from the 2021.10.26 (english) manual,
 	 * and specs for RD6024P from the 2021.1.7 (english) manual.
 	 */
-	{ MODEL_RD, 60061, "RD6006" , ARRAY_AND_SIZE(ranges_rd6006),  },
-	{ MODEL_RD, 60062, "RD6006" , ARRAY_AND_SIZE(ranges_rd6006),  },
+	{ MODEL_RD, 60061, "RD6006", ARRAY_AND_SIZE(ranges_rd6006),  },
+	{ MODEL_RD, 60062, "RD6006", ARRAY_AND_SIZE(ranges_rd6006),  },
 	{ MODEL_RD, 60065, "RD6006P", ARRAY_AND_SIZE(ranges_rd6006p), },
-	{ MODEL_RD, 60121, "RD6012" , ARRAY_AND_SIZE(ranges_rd6012),  },
+	{ MODEL_RD, 60121, "RD6012", ARRAY_AND_SIZE(ranges_rd6012),  },
 	{ MODEL_RD, 60125, "RD6012P", ARRAY_AND_SIZE(ranges_rd6012p), },
-	{ MODEL_RD, 60181, "RD6018" , ARRAY_AND_SIZE(ranges_rd6018),  },
-	{ MODEL_RD, 60241, "RD6024" , ARRAY_AND_SIZE(ranges_rd6024),  },
+	{ MODEL_RD, 60181, "RD6018", ARRAY_AND_SIZE(ranges_rd6018),  },
+	{ MODEL_RD, 60241, "RD6024", ARRAY_AND_SIZE(ranges_rd6024),  },
+};
+
+static const struct etommens_etm_xxxxp_model etommens_models[] = {
+	{ 0x4B50, 3010, "eTM-3010P/RS310P/HM310P" },
+	{ 0x4B50, 305, "etM-305P/RS305P/HM305P" },
 };
 
 static struct otc_dev_driver rdtech_dps_driver_info;
 static struct otc_dev_driver rdtech_rd_driver_info;
+static struct otc_dev_driver etommens_etm_xxxxp_driver_info;
 
 static struct otc_dev_inst *probe_device(struct otc_modbus_dev_inst *modbus,
 	enum rdtech_dps_model_type model_type)
 {
-	static const char *type_prefix[] = {
+	static const char * const type_prefix[] = {
 		[MODEL_DPS] = "DPS",
 		[MODEL_RD]  = "RD",
 	};
@@ -215,7 +240,7 @@ static struct otc_dev_inst *probe_device(struct otc_modbus_dev_inst *modbus,
 	devc = g_malloc0(sizeof(*devc));
 	sdi->priv = devc;
 	otc_sw_limits_init(&devc->limits);
-	devc->model = model;
+	devc->model.rdtech_model = model;
 	ret = rdtech_dps_update_range(sdi);
 	if (ret != OTC_OK)
 		return NULL;
@@ -457,7 +482,7 @@ static int config_get(uint32_t key, GVariant **data,
 			return ret;
 		if (!(state.mask & STATE_RANGE))
 			return OTC_ERR_DATA;
-		range_text = devc->model->ranges[state.range].range_str;
+		range_text = devc->model.rdtech_model->ranges[state.range].range_str;
 		*data = g_variant_new_string(range_text);
 		break;
 	default:
@@ -507,8 +532,8 @@ static int config_set(uint32_t key, GVariant *data,
 		return rdtech_dps_set_state(sdi, &state);
 	case OTC_CONF_RANGE:
 		range_str = g_variant_get_string(data, NULL);
-		for (i = 0; i < devc->model->n_ranges; i++) {
-			range = &devc->model->ranges[i];
+		for (i = 0; i < devc->model.rdtech_model->n_ranges; i++) {
+			range = &devc->model.rdtech_model->ranges[i];
 			if (g_strcmp0(range->range_str, range_str) != 0)
 				continue;
 			state.range = i;
@@ -537,7 +562,7 @@ static int config_list(uint32_t key, GVariant **data,
 	switch (key) {
 	case OTC_CONF_SCAN_OPTIONS:
 	case OTC_CONF_DEVICE_OPTIONS:
-		if (devc && devc->model->n_ranges > 1) {
+		if (devc && devc->model.rdtech_model->n_ranges > 1) {
 			return STD_CONFIG_LIST(key, data, sdi, cg,
 				scanopts, drvopts, devopts_w_range);
 		} else {
@@ -546,20 +571,20 @@ static int config_list(uint32_t key, GVariant **data,
 		}
 	case OTC_CONF_VOLTAGE_TARGET:
 		rdtech_dps_update_range(sdi);
-		range = &devc->model->ranges[devc->curr_range];
+		range = &devc->model.rdtech_model->ranges[devc->curr_range];
 		*data = std_gvar_min_max_step(0.0, range->max_voltage,
 			1 / devc->voltage_multiplier);
 		break;
 	case OTC_CONF_CURRENT_LIMIT:
 		rdtech_dps_update_range(sdi);
-		range = &devc->model->ranges[devc->curr_range];
+		range = &devc->model.rdtech_model->ranges[devc->curr_range];
 		*data = std_gvar_min_max_step(0.0, range->max_current,
 			1 / devc->current_multiplier);
 		break;
 	case OTC_CONF_RANGE:
 		g_variant_builder_init(&gvb, G_VARIANT_TYPE_ARRAY);
-		for (i = 0; i < devc->model->n_ranges; i++) {
-			s = devc->model->ranges[i].range_str;
+		for (i = 0; i < devc->model.rdtech_model->n_ranges; i++) {
+			s = devc->model.rdtech_model->ranges[i].range_str;
 			g_variant_builder_add(&gvb, "s", s);
 		}
 		*data = g_variant_builder_end(&gvb);

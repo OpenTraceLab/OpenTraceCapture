@@ -4,6 +4,7 @@
  * Copyright (C) 2018 James Churchill <pelrun@gmail.com>
  * Copyright (C) 2019 Frank Stettner <frank-stettner@gmx.net>
  * Copyright (C) 2021 Gerhard Sittig <gerhard.sittig@gmx.net>
+ * Copyright (C) 2021 Constantin Wenger <constantin.wenger@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +37,7 @@ enum rdtech_dps_model_type {
 	MODEL_NONE,
 	MODEL_DPS,
 	MODEL_RD,
+	MODEL_ETOMMENS,
 };
 
 struct rdtech_dps_range {
@@ -45,6 +47,7 @@ struct rdtech_dps_range {
 	unsigned int max_power;
 	unsigned int current_digits;
 	unsigned int voltage_digits;
+	unsigned int power_digits;
 };
 
 struct rdtech_dps_model {
@@ -55,10 +58,23 @@ struct rdtech_dps_model {
 	size_t n_ranges;
 };
 
+struct etommens_etm_xxxxp_model {
+	unsigned int classid;
+	unsigned int modelid;
+	const char *name;
+};
+
+union model {
+	const struct rdtech_dps_model *rdtech_model;
+	const struct etommens_etm_xxxxp_model *etm_model;
+};
+
 struct dev_context {
-	const struct rdtech_dps_model *model;
+	enum rdtech_dps_model_type model_type;
+	union model model;
 	double current_multiplier;
 	double voltage_multiplier;
+	double power_multiplier;
 	struct otc_sw_limits limits;
 	GMutex rw_mutex;
 	gboolean curr_ovp_state;
@@ -114,5 +130,9 @@ OTC_PRIV void rdtech_dps_update_multipliers(const struct otc_dev_inst *sdi);
 OTC_PRIV int rdtech_dps_update_range(const struct otc_dev_inst *sdi);
 OTC_PRIV int rdtech_dps_seed_receive(const struct otc_dev_inst *sdi);
 OTC_PRIV int rdtech_dps_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV int etommens_etm_xxxxp_device_info_get(struct otc_modbus_dev_inst *modbus,
+	uint16_t *modelid, uint16_t *dclassid, uint16_t *limit_voltage,
+	uint16_t *limit_current, uint16_t *digits_voltage, uint16_t *digits_current,
+	uint16_t *digits_power);
 
 #endif
