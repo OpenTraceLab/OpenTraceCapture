@@ -221,7 +221,7 @@ static int rigol_ds_check_stop(const struct otc_dev_inst *sdi)
 
 	ch = devc->channel_entry->data;
 
-	if (devc->model->series->protocol != PROTOCOL_V3)
+	if (devc->model->series->protocol != PROTOCOL_V4)
 		return OTC_OK;
 
 	if (ch->type == OTC_CHANNEL_LOGIC) {
@@ -275,7 +275,7 @@ static int rigol_ds_block_wait(const struct otc_dev_inst *sdi)
 	if (!(devc = sdi->priv))
 		return OTC_ERR;
 
-	if (devc->model->series->protocol == PROTOCOL_V3) {
+	if (devc->model->series->protocol == PROTOCOL_V4) {
 
 		start = time(NULL);
 
@@ -323,7 +323,7 @@ OTC_PRIV int rigol_ds_config_set(const struct otc_dev_inst *sdi, const char *for
 	if (ret != OTC_OK)
 		return OTC_ERR;
 
-	if (devc->model->series->protocol == PROTOCOL_V2) {
+	if (devc->model->series->protocol == PROTOCOL_V3) {
 		/* The DS1000 series needs this stupid delay, *OPC? doesn't work. */
 		otc_spew("delay %dms", 100);
 		g_usleep(100 * 1000);
@@ -359,9 +359,10 @@ OTC_PRIV int rigol_ds_capture_start(const struct otc_dev_inst *sdi)
 
 	switch (devc->model->series->protocol) {
 	case PROTOCOL_V1:
+	case PROTOCOL_V2:
 		rigol_ds_set_wait_event(devc, WAIT_TRIGGER);
 		break;
-	case PROTOCOL_V2:
+	case PROTOCOL_V3:
 		if (devc->data_source == DATA_SOURCE_LIVE) {
 			if (rigol_ds_config_set(sdi, ":WAV:POIN:MODE NORMAL") != OTC_OK)
 				return OTC_ERR;
@@ -382,9 +383,9 @@ OTC_PRIV int rigol_ds_capture_start(const struct otc_dev_inst *sdi)
 			rigol_ds_set_wait_event(devc, WAIT_STOP);
 		}
 		break;
-	case PROTOCOL_V3:
 	case PROTOCOL_V4:
 	case PROTOCOL_V5:
+	case PROTOCOL_V6:
 		if (first_frame && rigol_ds_config_set(sdi, ":WAV:FORM BYTE") != OTC_OK)
 			return OTC_ERR;
 		if (devc->data_source == DATA_SOURCE_LIVE) {
@@ -394,10 +395,10 @@ OTC_PRIV int rigol_ds_capture_start(const struct otc_dev_inst *sdi)
 			devc->digital_frame_size = devc->model->series->live_samples;
 			rigol_ds_set_wait_event(devc, WAIT_TRIGGER);
 		} else {
-			if (devc->model->series->protocol == PROTOCOL_V3) {
+			if (devc->model->series->protocol == PROTOCOL_V4) {
 				if (first_frame && rigol_ds_config_set(sdi, ":WAV:MODE RAW") != OTC_OK)
 					return OTC_ERR;
-			} else if (devc->model->series->protocol >= PROTOCOL_V4) {
+			} else if (devc->model->series->protocol >= PROTOCOL_V5) {
 				num_channels = 0;
 
 				/* Channels 3 and 4 are multiplexed with D0-7 and D8-15 */
@@ -443,7 +444,7 @@ OTC_PRIV int rigol_ds_capture_start(const struct otc_dev_inst *sdi)
 				return OTC_ERR;
 			rigol_ds_set_wait_event(devc, WAIT_STOP);
 			if (devc->data_source == DATA_SOURCE_SEGMENTED &&
-					devc->model->series->protocol <= PROTOCOL_V4)
+					devc->model->series->protocol <= PROTOCOL_V5)
 				if (rigol_ds_config_set(sdi, "FUNC:WREP:FCUR %d", devc->num_frames + 1) != OTC_OK)
 					return OTC_ERR;
 		}
@@ -471,6 +472,7 @@ OTC_PRIV int rigol_ds_channel_start(const struct otc_dev_inst *sdi)
 	switch (devc->model->series->protocol) {
 	case PROTOCOL_V1:
 	case PROTOCOL_V2:
+	case PROTOCOL_V3:
 		if (ch->type == OTC_CHANNEL_LOGIC) {
 			if (otc_scpi_send(sdi->conn, ":WAV:DATA? DIG") != OTC_OK)
 				return OTC_ERR;
@@ -481,7 +483,7 @@ OTC_PRIV int rigol_ds_channel_start(const struct otc_dev_inst *sdi)
 		}
 		rigol_ds_set_wait_event(devc, WAIT_NONE);
 		break;
-	case PROTOCOL_V3:
+	case PROTOCOL_V4:
 		if (ch->type == OTC_CHANNEL_LOGIC) {
 			if (rigol_ds_config_set(sdi, ":WAV:SOUR LA") != OTC_OK)
 				return OTC_ERR;
@@ -497,8 +499,8 @@ OTC_PRIV int rigol_ds_channel_start(const struct otc_dev_inst *sdi)
 				return OTC_ERR;
 		}
 		break;
-	case PROTOCOL_V4:
 	case PROTOCOL_V5:
+	case PROTOCOL_V6:
 		if (ch->type == OTC_CHANNEL_ANALOG) {
 			if (rigol_ds_config_set(sdi, ":WAV:SOUR CHAN%d",
 					ch->index + 1) != OTC_OK)
@@ -521,7 +523,7 @@ OTC_PRIV int rigol_ds_channel_start(const struct otc_dev_inst *sdi)
 		break;
 	}
 
-	if (devc->model->series->protocol >= PROTOCOL_V3 &&
+	if (devc->model->series->protocol >= PROTOCOL_V4 &&
 			ch->type == OTC_CHANNEL_ANALOG) {
 		/* Vertical increment. */
 		if (first_frame && otc_scpi_get_float(sdi->conn, ":WAV:YINC?",
@@ -605,6 +607,52 @@ static int rigol_ds_read_header(struct otc_dev_inst *sdi)
 	return ret;
 }
 
+/* Read data in hex format (DSO3000 protocol) */
+static int rigol_ds_read_hex_data(struct otc_scpi_dev_inst *scpi, char *buf, int maxlen)
+{
+	char c;
+	int len = 0;
+	int state = 0;
+	int h;
+
+	while (otc_scpi_read_data(scpi, &c, 1) == 1) {
+		if (state == 0) {
+			state++;
+			if (c == '0')
+				continue;
+		}
+
+		if (state == 1) {
+			state++;
+			if (c == 'x')
+				continue;
+		}
+
+		if (len >= maxlen)
+			break;
+
+		if (c >= '0' && c <= '9') {
+			h = c - '0';
+		} else if (c >= 'a' && c <= 'f') {
+			h = c - 'a' + 0xa;
+		} else if (c >= 'A' && c <= 'F') {
+			h = c - 'A' + 0xa;
+		} else {
+			if (state == 3)
+				((unsigned char *)buf)[len++] >>= 4;
+			state = 0;
+			continue;
+		}
+
+		if (state++ == 2)
+			buf[len] = h << 4;
+		else
+			buf[len++] |= h;
+	}
+
+	return len;
+}
+
 OTC_PRIV int rigol_ds_receive(int fd, int revents, void *cb_data)
 {
 	struct otc_dev_inst *sdi;
@@ -668,7 +716,7 @@ OTC_PRIV int rigol_ds_receive(int fd, int revents, void *cb_data)
 			devc->analog_frame_size : devc->digital_frame_size;
 
 	if (devc->num_block_bytes == 0) {
-		if (devc->model->series->protocol >= PROTOCOL_V4) {
+		if (devc->model->series->protocol >= PROTOCOL_V5) {
 			if (first_frame && rigol_ds_config_set(sdi, ":WAV:START %d",
 					devc->num_channel_bytes + 1) != OTC_OK)
 				return TRUE;
@@ -678,7 +726,7 @@ OTC_PRIV int rigol_ds_receive(int fd, int revents, void *cb_data)
 				return TRUE;
 		}
 
-		if (devc->model->series->protocol >= PROTOCOL_V3) {
+		if (devc->model->series->protocol >= PROTOCOL_V4) {
 			if (rigol_ds_config_set(sdi, ":WAV:BEG") != OTC_OK)
 				return TRUE;
 			if (otc_scpi_send(sdi->conn, ":WAV:DATA?") != OTC_OK)
@@ -725,7 +773,10 @@ OTC_PRIV int rigol_ds_receive(int fd, int revents, void *cb_data)
 		len = ACQ_BUFFER_SIZE;
 	otc_dbg("Requesting read of %d bytes", len);
 
-	len = otc_scpi_read_data(scpi, (char *)devc->buffer, len);
+	if (devc->format == FORMAT_HEX)
+		len = rigol_ds_read_hex_data(scpi, (char *)devc->buffer, len);
+	else
+		len = otc_scpi_read_data(scpi, (char *)devc->buffer, len);
 
 	if (len == -1) {
 		otc_err("Error while reading block data, aborting capture.");
@@ -743,9 +794,12 @@ OTC_PRIV int rigol_ds_receive(int fd, int revents, void *cb_data)
 		vdiv = devc->vert_inc[ch->index];
 		origin = devc->vert_origin[ch->index];
 		offset = devc->vert_offset[ch->index];
-		if (devc->model->series->protocol >= PROTOCOL_V3)
+		if (devc->model->series->protocol >= PROTOCOL_V5)
 			for (i = 0; i < len; i++)
 				devc->data[i] = ((int)devc->buffer[i] - vref - origin) * vdiv;
+		else if (devc->model->series->protocol == PROTOCOL_V1)
+			for (i = 0; i < len; i++)
+				devc->data[i] = (126 - devc->buffer[i]) * vdiv - offset;
 		else
 			for (i = 0; i < len; i++)
 				devc->data[i] = (128 - devc->buffer[i]) * vdiv - offset;
@@ -767,7 +821,7 @@ OTC_PRIV int rigol_ds_receive(int fd, int revents, void *cb_data)
 		// TODO: For the MSO1000Z series, we need a way to express that
 		// this data is in fact just for a single channel, with the valid
 		// data for that channel in the LSB of each byte.
-		logic.unitsize = devc->model->series->protocol >= PROTOCOL_V4 ? 1 : 2;
+		logic.unitsize = devc->model->series->protocol >= PROTOCOL_V5 ? 1 : 2;
 		logic.data = devc->buffer;
 		packet.type = OTC_DF_LOGIC;
 		packet.payload = &logic;
@@ -776,7 +830,7 @@ OTC_PRIV int rigol_ds_receive(int fd, int revents, void *cb_data)
 
 	if (devc->num_block_read == devc->num_block_bytes) {
 		otc_dbg("Block has been completed");
-		if (devc->model->series->protocol >= PROTOCOL_V3) {
+		if (devc->model->series->protocol >= PROTOCOL_V4) {
 			/* Discard the terminating linefeed */
 			otc_scpi_read_data(scpi, (char *)devc->buffer, 1);
 		}
@@ -803,7 +857,7 @@ OTC_PRIV int rigol_ds_receive(int fd, int revents, void *cb_data)
 		return TRUE;
 
 	/* End of data for this channel. */
-	if (devc->model->series->protocol == PROTOCOL_V3) {
+	if (devc->model->series->protocol == PROTOCOL_V4) {
 		/* Signal end of data download to scope */
 		if (devc->data_source != DATA_SOURCE_LIVE)
 			/*
@@ -828,7 +882,7 @@ OTC_PRIV int rigol_ds_receive(int fd, int revents, void *cb_data)
 		 * next frame and read it back instead.
 		 */
 		if (devc->data_source == DATA_SOURCE_SEGMENTED &&
-				devc->model->series->protocol == PROTOCOL_V5) {
+				devc->model->series->protocol == PROTOCOL_V6) {
 			int frames = 0;
 			if (rigol_ds_config_set(sdi, "REC:CURR %d", devc->num_frames + 1) != OTC_OK)
 				return OTC_ERR;
@@ -883,16 +937,16 @@ OTC_PRIV int rigol_ds_get_dev_cfg(const struct otc_dev_inst *sdi)
 	/* Digital channel state. */
 	if (devc->model->has_digital) {
 		if (otc_scpi_get_bool(sdi->conn,
-				devc->model->series->protocol >= PROTOCOL_V3 ?
+				devc->model->series->protocol >= PROTOCOL_V4 ?
 					":LA:STAT?" : ":LA:DISP?",
 				&devc->la_enabled) != OTC_OK)
 			return OTC_ERR;
 		otc_dbg("Logic analyzer %s, current digital channel state:",
 				devc->la_enabled ? "enabled" : "disabled");
 		for (i = 0; i < ARRAY_SIZE(devc->digital_channels); i++) {
-			if (devc->model->series->protocol >= PROTOCOL_V5)
+			if (devc->model->series->protocol >= PROTOCOL_V6)
 				cmd = g_strdup_printf(":LA:DISP? D%d", i);
-			else if (devc->model->series->protocol >= PROTOCOL_V3)
+			else if (devc->model->series->protocol >= PROTOCOL_V4)
 				cmd = g_strdup_printf(":LA:DIG%d:DISP?", i);
 			else
 				cmd = g_strdup_printf(":DIG%d:TURN?", i);

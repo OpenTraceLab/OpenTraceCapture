@@ -168,7 +168,7 @@ static int scpi_tcp_raw_read_data(void *priv, char *buf, int maxlen)
 	 * more data can follow.
 	 */
 	tcp->length_bytes_read = LENGTH_BYTES;
-	tcp->response_length = rcvd < rdlen ? rcvd : rdlen + 1;
+	tcp->response_length = rcvd <= rdlen ? rcvd : rdlen + 1;
 	tcp->response_bytes_read = rcvd;
 
 	return rcvd;
