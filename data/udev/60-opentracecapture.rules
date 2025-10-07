@@ -380,4 +380,7 @@ ATTRS{idVendor}=="0c12", ATTRS{idProduct}=="7060", ENV{ID_SIGROK}="1"
 ATTRS{idVendor}=="0c12", ATTRS{idProduct}=="7064", ENV{ID_SIGROK}="1"
 ATTRS{idVendor}=="0c12", ATTRS{idProduct}=="7100", ENV{ID_SIGROK}="1"
 
+# Voltcraft DSO2020, renumerates as 1d50:608e "sigrok fx2lafw", Serial: Hantek 6022BE
+ATTRS{idVendor}=="04b4", ATTRS{idProduct}=="2020", ENV{ID_SIGROK}="1"
+
 LABEL="opentracecapture_rules_end"
