@@ -112,6 +112,13 @@ static const struct fx2lafw_profile supported_fx2[] = {
 		"fx2lafw-usb-c-grok.fw",
 		0, NULL, NULL},
 
+	/*
+	 * Cypress SuperSpeed Explorer Kit (CYUSB3KIT-003)
+	 */
+	{ 0x04b4, 0x00f3, "Cypress", "SuperSpeed Explorer Kit", NULL,
+		"fx3lafw-cypress-fx3.fw",
+		DEV_CAPS_FX3 | DEV_CAPS_32BIT, NULL, NULL },
+
 	ALL_ZERO
 };
 
@@ -158,8 +165,8 @@ static const uint64_t samplerates[] = {
 	OTC_MHZ(8),
 	OTC_MHZ(12),
 	OTC_MHZ(16),
+	OTC_MHZ(32),
 	OTC_MHZ(24),
-	OTC_MHZ(48),
 };
 
 static const char *channel_names_logic[] = {
@@ -326,7 +333,10 @@ static GSList *scan(struct otc_dev_driver *di, GSList *options)
 		devices = g_slist_append(devices, sdi);
 
 		/* Fill in channellist according to this device's profile. */
-		num_logic_channels = prof->dev_caps & DEV_CAPS_16BIT ? 16 : 8;
+		num_logic_channels =
+			prof->dev_caps & DEV_CAPS_32BIT ? 32 :
+			(prof->dev_caps & DEV_CAPS_24BIT ? 24 :
+			 (prof->dev_caps & DEV_CAPS_16BIT ? 16 : 8));
 		if (num_logic_channels > ARRAY_SIZE(channel_names_logic))
 			num_logic_channels = ARRAY_SIZE(channel_names_logic);
 		num_analog_channels = prof->dev_caps & DEV_CAPS_AX_ANALOG ? 1 : 0;
