@@ -73,8 +73,10 @@ header = open(os.path.join(outdirname, 'include/libopentracecapturecxx/enums.hpp
 code = sys.stdout  # Output C++ code to stdout for meson capture
 swig = open(os.path.join(outdirname, 'swig/enums.i'), 'w')
 
-for file in (header, code):
+for file in (header, code, swig):
     print("/* Generated file - edit enums.py instead! */", file=file)
+
+print('%include "attribute.i"', file=swig)
 
 print("namespace opentrace {", file=header)
 
