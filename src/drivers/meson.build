@@ -35,7 +35,8 @@ always_available = [
   'motech-lps-30x', 'zketech-ebd-usb', 'tondaj-sl-814', 'icstation-usbrelay',
   'conrad-digi-35-cpu', 'bkprecision-1856d', 'juntek-jds6600', 'gwinstek-gpd',
   'colead-slm', 'mic-985xx', 'mhinstek-mhs-5200a', 'tiny-logic-friend-la',
-  'rohde-schwarz-nrpxsn', 'ftdi-la', 'aim-tti-dps', 'open-logic-bit', 'pslab'
+  'rohde-schwarz-nrpxsn', 'ftdi-la', 'aim-tti-dps', 'open-logic-bit', 'pslab',
+  'francaise-instrumentation-ams515'
 ]
 
 # Add always-available drivers
