@@ -231,6 +231,7 @@ static GSList *scan(struct otc_dev_driver *di, GSList *options)
 			if (ret < 0) {
 				otc_warn("Cannot get USB serial number: %s.",
 					libusb_error_name(ret));
+				libusb_close(hdl);
 				continue;
 			}
 		}

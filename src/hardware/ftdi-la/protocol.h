@@ -2,6 +2,7 @@
  * This file is part of the libopentracecapture project.
  *
  * Copyright (C) 2015 Sergey Alirzaev <zl29ah@gmail.com>
+ * Copyright (C) 2021 Thomas Hebb <tommyhebb@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,28 +28,55 @@
 
 #define LOG_PREFIX "ftdi-la"
 
-#define DATA_BUF_SIZE (16 * 1024)
+/* Number of interfaces on largest supported chip. Used to size arrays of
+ * per-interface parameters. */
+#define MAX_IFACES 4
 
 struct ftdi_chip_desc {
 	uint16_t vendor;
 	uint16_t product;
-	int samplerate_div;
-	char *channel_names[];
+
+	/* Set to TRUE for chips that expect an interface to be specified for
+	 * commands like baud rate selection, even if the specific chip only
+	 * has a single one (e.g. FT232H). */
+	gboolean multi_iface;
+	unsigned int num_ifaces; /* No effect if multi_iface is FALSE. */
+
+	uint32_t base_clock;
+	uint32_t bitbang_divisor;
+	uint32_t max_sample_rates[MAX_IFACES];
+
+	char *channel_names[]; /* 8 channel names for each interface */
+};
+
+struct clock_config {
+	uint64_t rate_millihz;
+	uint32_t encoded_divisor;
 };
 
 struct dev_context {
-	struct ftdi_context *ftdic;
 	const struct ftdi_chip_desc *desc;
 
-	uint64_t limit_samples;
-	uint32_t cur_samplerate;
+	uint16_t usb_iface_idx;
+	uint16_t ftdi_iface_idx; /* 1-indexed because FTDI hates us */
 
-	unsigned char *data_buf;
+	uint16_t in_ep_pkt_size;
+	uint8_t in_ep_addr;
+
+	struct clock_config cur_clk;
+
+	struct libusb_transfer **transfers;
+	size_t num_transfers;
+	size_t active_transfers;
+
+	uint64_t limit_samples;
 	uint64_t samples_sent;
-	uint64_t bytes_received;
+	gboolean acq_aborted;
 };
 
-OTC_PRIV int ftdi_la_set_samplerate(struct dev_context *devc);
-OTC_PRIV int ftdi_la_receive_data(int fd, int revents, void *cb_data);
+OTC_PRIV unsigned int ftdi_la_cur_samplerate(const struct otc_dev_inst *sdi);
+OTC_PRIV void ftdi_la_store_samplerate(const struct otc_dev_inst *sdi, uint64_t requested_rate);
+OTC_PRIV int ftdi_la_start_acquisition(const struct otc_dev_inst *sdi);
+OTC_PRIV int ftdi_la_stop_acquisition(struct otc_dev_inst *sdi);
 
 #endif

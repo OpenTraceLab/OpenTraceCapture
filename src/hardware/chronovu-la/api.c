@@ -191,6 +191,7 @@ static GSList *scan(struct otc_dev_driver *di, GSList *options)
 				sizeof(product))) < 0) {
 			otc_warn("Failed to get product string descriptor: %s.",
 				libusb_error_name(ret));
+			libusb_close(hdl);
 			continue;
 		}
 
@@ -201,6 +202,7 @@ static GSList *scan(struct otc_dev_driver *di, GSList *options)
 				sizeof(serial_num))) < 0) {
 			otc_warn("Failed to get serial number string descriptor: %s.",
 				libusb_error_name(ret));
+			libusb_close(hdl);
 			continue;
 		}
 

@@ -84,6 +84,7 @@
 
 27. **#243** - Added Adalm2k support  
     https://github.com/sigrokproject/libsigrok/pull/243
+    See 104
 
 28. **#242** - Run USB as an idle task instead of a custom FD-based GSource  
     https://github.com/sigrokproject/libsigrok/pull/242
@@ -170,51 +171,76 @@
 
 55. **#145** - Overhaul FTDI-LA driver: multiple channels, no more dropped samples, goodbye FT232R  
     https://github.com/sigrokproject/libsigrok/pull/145
+    merged
 
 56. **#140** - Add drivers for R&S SMC100A, SMB100A and SMBV100A  
     https://github.com/sigrokproject/libsigrok/pull/140
+    merged
 
 57. **#139** - Add support for Rohde&Schwarz power sensors NRPxxS(N)  
     https://github.com/sigrokproject/libsigrok/pull/139
+    Merged
 
 58. **#137** - Add driver for TinyLogicFriend  
     https://github.com/sigrokproject/libsigrok/pull/137
+    Merged
 
 59. **#129** - Faster .sr file save performance.  
     https://github.com/sigrokproject/libsigrok/pull/129
+    Not merged needs improvements and testing
 
 60. **#121** - Gwinstek gds800 improvements  
     https://github.com/sigrokproject/libsigrok/pull/121
+    Not merged needs improvements and testing
+
 
 61. **#115** - MHINSTEK MHS-5200A function generator patch rev 3  
     https://github.com/sigrokproject/libsigrok/pull/115
+    Merged needs wiki
 
 62. **#106** - Add support for USS-DBS28  
     https://github.com/sigrokproject/libsigrok/pull/106
+    Merged needs wiki
 
 63. **#104** - Add support for ADALM2000  
     https://github.com/sigrokproject/libsigrok/pull/104
+    There is another effort underway for an ADALM2000 driver in PR #243. Could you join forces with that PR? The use of libiio there isn't going to work out, and it looks like libm2k (a precursor to libiio?) is a similar thing: it brings nothing to the table that I can see, and the device interface should just be handled with libusb.
+
+
 
 64. **#102** - Driver for (almost) all APPA-Devices with RS232, USB, Bluetooth LE (10x(N) and 30x(N) experimental)  
     https://github.com/sigrokproject/libsigrok/pull/102
+    Merged needs wiki updates
 
 65. **#101** - new SR_CONF_CHANNEL_GROUP meta package  
     https://github.com/sigrokproject/libsigrok/pull/101
+    Needs updates not merged
+
 
 66. **#100** - Driver for etommens etm xxxxp and clones  
     https://github.com/sigrokproject/libsigrok/pull/100
+    Merged
+
 
 67. **#95** - Rigol MSO5000 support for digital channels in memory mode  
     https://github.com/sigrokproject/libsigrok/pull/95
+    Needs taesting is partly merged
 
 68. **#90** - Added support for importing NCI GoLogic and GoLogic XL project files.  
     https://github.com/sigrokproject/libsigrok/pull/90
 
+    Needs updates beyond porting
+
 69. **#77** - scpi-pps: Add Siglent SPD3303 series PSU support  
     https://github.com/sigrokproject/libsigrok/pull/77
 
+    Need updated wiki but is Done !!!!
+    https://sigrok.org/wiki/Siglent_SPD3303_series
+
 70. **#59** - Add suport for Instrustar ISDS205B  
     https://github.com/sigrokproject/libsigrok/pull/59
+
+    Maybe later will contact author
 
 ---
 
