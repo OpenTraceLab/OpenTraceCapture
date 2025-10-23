@@ -21,7 +21,7 @@ inc_root = include_directories('../..')
 # Generate Doxygen XML documentation
 doxygen = find_program('doxygen', required: true)
 doxygen_xml = custom_target('doxygen_xml',
-  output: 'xml',
+  output: 'doxy',
   input: ['Doxyfile'],
   command: [doxygen, '@INPUT0@'],
   build_by_default: true,
@@ -30,11 +30,11 @@ doxygen_xml = custom_target('doxygen_xml',
 
 # Generate enums.cpp
 python3 = import('python').find_installation('python3')
-enums_cpp = custom_target('enums_cpp',
-  output: 'enums.cpp',
+enums_inc = custom_target('enums_inc',
+  output: 'enums.inc',
   input: ['enums.py'],
   depends: doxygen_xml,
-  command: [python3, '@INPUT0@', meson.current_build_dir() + '/doxy/xml/index.xml'],
+  command: [python3, '@INPUT0@', meson.current_build_dir() + '/doxy/xml/index.xml', meson.current_build_dir()],
   capture: true
 )
 
@@ -46,7 +46,7 @@ cxx_sources = files(
 # Library
 libopentracecapturecxx = library('opentracecapturecxx',
   cxx_sources,
-  dependencies: [glib_dep, glibmm_dep, all_deps],
+  dependencies: [glib_dep, glibmm_dep, all_deps, declare_dependency(sources: enums_inc)],
   include_directories: [inc_cxx, inc_root, inc],
   link_with: lib,
   version: meson.project_version(),

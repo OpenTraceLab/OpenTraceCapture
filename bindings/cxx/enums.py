@@ -27,7 +27,7 @@ index_file = sys.argv[1]
 # Get directory this script is in.
 dirname = os.path.dirname(os.path.realpath(__file__))
 
-outdirname = "."
+outdirname = sys.argv[2] if len(sys.argv) > 2 else "."
 if not os.path.exists(os.path.join(outdirname, 'include/libopentracecapturecxx')):
     os.makedirs(os.path.join(outdirname, 'include/libopentracecapturecxx'))
 if not os.path.exists(os.path.join(outdirname, 'swig')):
