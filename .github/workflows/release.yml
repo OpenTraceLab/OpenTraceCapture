@@ -60,8 +60,8 @@ jobs:
         run: |
           CXXFLAGS="-std=c++17" meson setup build --buildtype=release -Dbindings_cxx=true --prefix=/usr
           meson compile -C build
-          DESTDIR=$PWD/install meson install -C build
-          tar czf opentracecapture-${{ matrix.name }}.tar.gz -C install .
+          DESTDIR=install meson install -C build
+          tar czf opentracecapture-${{ matrix.name }}.tar.gz -C install/usr .
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
@@ -69,8 +69,8 @@ jobs:
         run: |
           CXXFLAGS="-std=c++17" meson setup build --buildtype=release -Dbindings_cxx=true --prefix=/mingw64
           meson compile -C build
-          DESTDIR=$PWD/install meson install -C build
-          tar czf opentracecapture-${{ matrix.name }}.tar.gz -C install .
+          DESTDIR=install meson install -C build
+          tar czf opentracecapture-${{ matrix.name }}.tar.gz -C install/mingw64 .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
