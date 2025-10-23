@@ -74,8 +74,10 @@ jobs:
         run: |
           CXXFLAGS="-std=c++17" meson setup build --buildtype=release -Dbindings_cxx=true --prefix=/mingw64
           meson compile -C build
-          DESTDIR=$(pwd)/install meson install -C build
-          tar czf opentracecapture-${{ matrix.name }}.tar.gz -C install/mingw64 .
+          DESTDIR=install meson install -C build
+          # Meson creates full path, find where mingw64 actually is
+          MINGW_PATH=$(find install -type d -name mingw64 | head -1)
+          tar czf opentracecapture-${{ matrix.name }}.tar.gz -C $MINGW_PATH .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
