@@ -58,10 +58,15 @@ jobs:
       - name: Build (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          CXXFLAGS="-std=c++17" meson setup build --buildtype=release -Dbindings_cxx=true --prefix=/usr
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            PREFIX=/usr/local
+          else
+            PREFIX=/usr
+          fi
+          CXXFLAGS="-std=c++17" meson setup build --buildtype=release -Dbindings_cxx=true --prefix=$PREFIX
           meson compile -C build
           DESTDIR=install meson install -C build
-          tar czf opentracecapture-${{ matrix.name }}.tar.gz -C install/usr .
+          tar czf opentracecapture-${{ matrix.name }}.tar.gz -C install$PREFIX .
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
