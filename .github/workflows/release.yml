@@ -60,13 +60,15 @@ jobs:
         run: |
           if [ "${{ runner.os }}" = "macOS" ]; then
             PREFIX=/usr/local
+            STRIP_PREFIX=usr/local
           else
             PREFIX=/usr
+            STRIP_PREFIX=usr
           fi
           CXXFLAGS="-std=c++17" meson setup build --buildtype=release -Dbindings_cxx=true --prefix=$PREFIX
           meson compile -C build
           DESTDIR=install meson install -C build
-          tar czf opentracecapture-${{ matrix.name }}.tar.gz -C install$PREFIX .
+          tar czf opentracecapture-${{ matrix.name }}.tar.gz -C install/$STRIP_PREFIX .
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
