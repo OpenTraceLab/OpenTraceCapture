@@ -1,10 +1,10 @@
 # OpenTraceCapture
 
-OpenTraceCapture is a fork of libsigrok, providing a portable, cross-platform signal analysis library for various hardware devices including logic analyzers, oscilloscopes, and multimeters.
+OpenTraceCapture is a portable, cross-platform signal analysis library for various hardware devices including logic analyzers, oscilloscopes, and multimeters.
 
 ## About
 
-This project extends the original libsigrok functionality with enhanced trace capture capabilities and improved hardware support. OpenTraceCapture maintains compatibility with the libsigrok API while adding new features for modern signal analysis workflows.
+This project provides enhanced trace capture capabilities and improved hardware support for modern signal analysis workflows.
 
 ## Build Instructions
 
@@ -40,4 +40,4 @@ This project follows our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Original Project
 
-This is a fork of [libsigrok](http://sigrok.org/wiki/Libsigrok). See the original README file for detailed information about supported hardware and additional features.
+This project is based on libsigrok. See the original README file for detailed information about supported hardware and additional features.

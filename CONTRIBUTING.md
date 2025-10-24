@@ -28,7 +28,7 @@ meson test -C builddir
 - Follow the existing code style in the project
 - Use consistent indentation and formatting
 - Add appropriate comments for complex logic
-- Ensure compatibility with the libsigrok API where applicable
+- Ensure API compatibility where applicable
 
 ### Submitting Changes
 
