@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "src/**"
       - "include/**"
@@ -36,6 +37,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.ref }}
+          fetch-depth: 0
+
+      - name: Show build context
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Building PR #${{ github.event.pull_request.number }}"
+          echo "Base: ${{ github.base_ref }}"
+          echo "Head: ${{ github.head_ref }}"
+          echo "Merge commit: ${{ github.event.pull_request.merge_commit_sha }}"
+          git --no-pager log -1 --oneline
 
       # Linux cache
       - name: Cache (Linux)
@@ -159,6 +172,42 @@ jobs:
         with:
           name: opentracecapture-${{ runner.os == 'macOS' && 'macos' || runner.os == 'Windows' && 'windows' || 'linux' }}
           path: opentracecapture-*.tar.gz
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ matrix.os }}
+          path: |
+            build/meson-logs
+            build/meson-private
+          if-no-files-found: ignore
+
+  pr-summary:
+    needs: build
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Download failure logs
+        if: needs.build.result == 'failure'
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+        continue-on-error: true
+
+      - name: Create PR summary
+        run: |
+          if [ "${{ needs.build.result }}" = "failure" ]; then
+            echo "## ❌ Build/Test Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "One or more platform builds failed. Check the job logs above for details." >> $GITHUB_STEP_SUMMARY
+            find artifacts -type f -name 'testlog.txt' -print -exec echo "### {}" \; -exec tail -n 100 {} \; >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+          else
+            echo "## ✅ All Checks Passed" >> $GITHUB_STEP_SUMMARY
+          fi
 
   release:
     needs: build
