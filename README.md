@@ -34,6 +34,10 @@ OpenTraceCapture is licensed under the GNU General Public License (GPL), version
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
+## Community
+
+Join our community discussions on Discord: https://discord.gg/DsYwx59MPh
+
 ## Code of Conduct
 
 This project follows our [Code of Conduct](CODE_OF_CONDUCT.md).
