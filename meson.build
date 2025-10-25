@@ -17,11 +17,13 @@ else
   otc_version = meson.project_version()
 endif
 
-# Split version into major/minor/micro
+# Split version into major/minor/micro (strip pre-release suffixes)
 vparts = otc_version.split('.')
 vmaj = (vparts.length() >= 1) ? vparts[0] : '0'
 vmin = (vparts.length() >= 2) ? vparts[1] : '0'
-vmic = (vparts.length() >= 3) ? vparts[2] : '0'
+# Extract numeric part only from micro version (e.g., "0-alpha" -> "0")
+vmic_raw = (vparts.length() >= 3) ? vparts[2] : '0'
+vmic = vmic_raw.contains('-') ? vmic_raw.split('-')[0] : vmic_raw
 
 # Whether to append git describe suffix (dev builds)
 embed_git_suffix = get_option('embed_git_suffix')

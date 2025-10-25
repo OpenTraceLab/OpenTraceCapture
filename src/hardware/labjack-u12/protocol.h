@@ -5,7 +5,7 @@
 #include <glib.h>
 #include <stdbool.h>
 #include <opentracecapture/opentracecapture.h>
-#include "libopentracecapture-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 #define LOG_PREFIX "labjack-u12"
 

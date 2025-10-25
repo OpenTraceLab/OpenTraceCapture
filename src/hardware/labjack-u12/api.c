@@ -23,7 +23,7 @@
 #include "protocol.h"
 #include <libusb.h>
 #include "opentracecapture/opentracecapture.h"
-#include "opentracecapture-internal.h"
+#include "../../libopentracecapture-internal.h"
 
 static struct otc_dev_driver labjack_u12_driver_info;
 

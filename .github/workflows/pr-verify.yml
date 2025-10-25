@@ -1,0 +1,170 @@
+name: PR Verify
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-verify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    if: github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14, windows-2022]
+
+    steps:
+      - name: Checkout PR merge ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Show build context
+        run: |
+          echo "Base:   ${{ github.base_ref }}"
+          echo "Head:   ${{ github.head_ref }}"
+          echo "Commit: ${{ github.event.pull_request.merge_commit_sha }}"
+          git --no-pager log -1 --oneline
+
+      - name: Cache (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: |
+            $HOME/.cache/ccache
+            $HOME/.cache/meson
+          key: pr-linux-${{ hashFiles('**/meson.build','**/meson_options.txt') }}
+          restore-keys: |
+            pr-linux-
+            linux-
+
+      - name: Cache (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/cache@v4
+        with:
+          path: |
+            $HOME/.cache/ccache
+            $HOME/.cache/meson
+          key: pr-mac-${{ hashFiles('**/meson.build','**/meson_options.txt') }}
+          restore-keys: |
+            pr-mac-
+            mac-
+
+      - name: Cache (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\Users\runneradmin\.ccache
+            C:\Users\runneradmin\AppData\Local\meson
+          key: pr-win-${{ hashFiles('**/meson.build','**/meson_options.txt') }}
+          restore-keys: |
+            pr-win-
+            win-
+
+      - name: Install deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build pkg-config gcc g++ ccache \
+            libglib2.0-dev libusb-1.0-0-dev libzip-dev libftdi1-dev libserialport-dev libhidapi-dev libieee1284-3-dev
+          echo "/usr/lib/ccache" >> "$GITHUB_PATH"
+          mkdir -p "$HOME/.cache/ccache" "$HOME/.cache/meson"
+
+      - name: Install deps (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install meson ninja pkg-config ccache glib libusb libzip libftdi hidapi libserialport
+          echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
+          echo "XDG_CACHE_HOME=$HOME/.cache" >> "$GITHUB_ENV"
+          echo "CCACHE_DIR=$HOME/.cache/ccache" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/.cache/ccache" "$HOME/.cache/meson"
+
+      - name: MSYS2 setup (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-ccache
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-glib2
+            mingw-w64-x86_64-libusb
+            mingw-w64-x86_64-libzip
+            mingw-w64-x86_64-libftdi
+            mingw-w64-x86_64-libserialport
+            mingw-w64-x86_64-hidapi
+
+      - name: Configure & Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          meson setup build --buildtype=release -Dembed_git_suffix=true || (cat build/meson-logs/meson-log.txt && exit 1)
+          meson compile -C build || (cat build/meson-logs/meson-log.txt && exit 1)
+
+      - name: Configure & Build (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          export CCACHE_DIR=/c/Users/runneradmin/.ccache
+          export XDG_CACHE_HOME=/c/Users/runneradmin/AppData/Local
+          mkdir -p "$CCACHE_DIR"
+          meson setup build --buildtype=release -Dembed_git_suffix=true || (cat build/meson-logs/meson-log.txt && exit 1)
+          meson compile -C build || (cat build/meson-logs/meson-log.txt && exit 1)
+
+      - name: Run tests (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: meson test -C build --print-errorlogs --num-processes=0
+
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: meson test -C build --print-errorlogs --num-processes=0
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meson-logs-${{ matrix.os }}
+          path: |
+            build/meson-logs
+            build/meson-private
+          if-no-files-found: ignore
+
+  summary:
+    needs: build-test
+    if: always()
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download logs
+        if: needs.build-test.result == 'failure'
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+        continue-on-error: true
+
+      - name: Summarize results
+        run: |
+          if [ "${{ needs.build-test.result }}" = "failure" ]; then
+            echo "## ❌ Build/Test Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            find artifacts -type f -name 'testlog.txt' -print -exec echo "### {}" \; -exec tail -n 100 {} \; >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+          else
+            echo "## ✅ All Checks Passed" >> $GITHUB_STEP_SUMMARY
+          fi

@@ -815,7 +815,7 @@ OTC_PRIV int labjack_u12_receive_data(int fd, int revents, void *cb_data)
 	int analog_index = 0;
 	int logic_index = 0;
 	float voltage;
-	uint32_t io_state, d_state, counter_value;
+	uint32_t io_state = 0, d_state = 0, counter_value = 0;
 	int ret;
 
 	(void)fd;
