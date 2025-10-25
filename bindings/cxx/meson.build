@@ -20,11 +20,13 @@ inc_root = include_directories('../..')
 
 # Generate Doxygen XML documentation
 doxygen = find_program('doxygen', required: true)
+run_doxygen = find_program('run-doxygen.sh')
 doxygen_xml = custom_target('doxygen_xml',
-  output: 'xml',
+  output: 'doxy.stamp',
   input: ['Doxyfile'],
-  command: [doxygen, '@INPUT0@'],
+  command: [run_doxygen, '@INPUT0@', '@OUTPUT@'],
   build_by_default: true,
+  build_always_stale: true,
   env: {'SRCDIR': meson.current_source_dir() + '/', 'BUILDDIR': meson.current_build_dir() + '/'}
 )
 
@@ -34,7 +36,7 @@ enums_cpp = custom_target('enums_cpp',
   output: 'enums.cpp',
   input: ['enums.py'],
   depends: doxygen_xml,
-  command: [python3, '@INPUT0@', meson.current_build_dir() + '/xml/index.xml'],
+  command: [python3, '@INPUT0@', meson.current_build_dir() + '/doxy/xml/index.xml'],
   capture: true
 )
 
