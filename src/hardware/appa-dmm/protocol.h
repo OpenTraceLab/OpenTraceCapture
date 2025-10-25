@@ -1110,7 +1110,7 @@ struct appadmm_response_data_read_information_s {
 	char model_name[33]; /**< String 0x20 filled model name of device (branded) */
 	char serial_number[17]; /**< String 0x20 filled serial number of device */
 	enum appadmm_model_id_e model_id; /*< Model ID Number @appadmm_model_id_e */
-	u_int16_t firmware_version; /*< Firmware version */
+	uint16_t firmware_version; /*< Firmware version */
 };
 
 /**
