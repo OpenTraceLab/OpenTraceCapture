@@ -45,7 +45,7 @@ cxx_sources = files(
 
 # Library
 libopentracecapturecxx = library('opentracecapturecxx',
-  cxx_sources,
+  cxx_sources, enums_cpp,
   dependencies: [glib_dep, glibmm_dep, all_deps],
   include_directories: [inc_cxx, inc_root, inc],
   link_with: lib,
