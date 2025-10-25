@@ -22,9 +22,9 @@ always_available = [
 # Always-available drivers (USB/Serial/HID with standard deps)
 always_available = [
   'fx2lafw', 'demo', 'saleae-logic16', 'kingst-la2016', 'dreamsourcelab-dslogic',
-  'chronovu-la', 'hantek-6xxx', 'hantek-4032l', 'hantek-dso', 'kecheng-kc-330b',
-  'lascar-el-usb', 'microchip-pickit2', 'asix-sigma', 'ikalogic-scanalogic2',
-  'ikalogic-scanaplus', 'pipistrello-ols', 'atten-pps3xxx', 'korad-kaxxxxp',
+  'hantek-6xxx', 'hantek-4032l', 'hantek-dso', 'kecheng-kc-330b',
+  'lascar-el-usb', 'microchip-pickit2', 'ikalogic-scanalogic2',
+  'atten-pps3xxx', 'korad-kaxxxxp',
   'manson-hcs-3xxx', 'openbench-logic-sniffer', 'gmc-mh-1x-2x', 'serial-lcr',
   'mastech-ms6514', 'atorch', 'appa-55ii', 'kern-scale', 'serial-dmm',
   'agilent-dmm', 'center-3xx', 'uni-t-ut32x', 'rigol-ds', 'hameg-hmo',
@@ -47,6 +47,26 @@ foreach driver : always_available
     enabled_drivers += driver
   endif
 endforeach
+
+# libftdi1-dependent drivers
+if dep_libftdi1.found()
+  libftdi1_drivers = ['chronovu-la', 'asix-sigma', 'ikalogic-scanaplus', 'pipistrello-ols']
+  foreach driver : libftdi1_drivers
+    if fs.is_dir('../hardware/' + driver)
+      driver_sources += files('../hardware/' + driver + '/api.c')
+      if fs.is_file('../hardware/' + driver + '/protocol.c')
+        driver_sources += files('../hardware/' + driver + '/protocol.c')
+      endif
+      conf.set10('HAVE_DRIVER_' + driver.underscorify().to_upper(), true)
+      enabled_drivers += driver
+    endif
+  endforeach
+else
+  disabled_drivers += 'chronovu-la (needs libftdi1)'
+  disabled_drivers += 'asix-sigma (needs libftdi1)'
+  disabled_drivers += 'ikalogic-scanaplus (needs libftdi1)'
+  disabled_drivers += 'pipistrello-ols (needs libftdi1)'
+endif
 
 # libserialport-specific drivers (need libserialport, not just serial_comm)
 if dep_libserialport.found()
