@@ -2,9 +2,20 @@ project('opentracecapture', ['c', 'cpp'],
   version: '0.1.0',
   default_options: ['c_std=c11', 'warning_level=2'])
 
-# Version handling - allow CI to override version from Git tags
+# Auto-detect version from git tags (latest by date)
+git_version_cmd = run_command('git', 'describe', '--tags', '--abbrev=0', check: false)
+git_version_from_tag = git_version_cmd.returncode() == 0 ? git_version_cmd.stdout().strip() : ''
+
+# Version handling - priority: override > git tag > project version
 otc_version_opt = get_option('version_override')
-otc_version = otc_version_opt != '' ? otc_version_opt : meson.project_version()
+if otc_version_opt != ''
+  otc_version = otc_version_opt
+elif git_version_from_tag != ''
+  # Remove 'v' prefix if present
+  otc_version = git_version_from_tag.startswith('v') ? git_version_from_tag.substring(1) : git_version_from_tag
+else
+  otc_version = meson.project_version()
+endif
 
 # Split version into major/minor/micro
 vparts = otc_version.split('.')
