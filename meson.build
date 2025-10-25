@@ -234,7 +234,6 @@ pkg.generate(
   description: 'OpenTraceCapture core library',
   version: meson.project_version(),
   libraries: lib,
-  subdirs: 'opentracecapture',
   requires: ['glib-2.0', 'libusb-1.0']
 )
 
