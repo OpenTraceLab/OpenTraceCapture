@@ -12,7 +12,7 @@ always_available = [
   'agilent-dmm', 'center-3xx', 'uni-t-ut32x', 'rigol-ds', 'hameg-hmo',
   'siglent-sds', 'asix-omega-rtm-cli', 'rdtech-dps',
   'raspberrypi-pico', 'arachnid-labs-re-load-pro', 'pce-322a', 'hp-59306a',
-  'teleinfo', 'rigol-dg',
+  'teleinfo', 'rigol-dg', 'labjack-u12',
   'norma-dmm', 'cem-dt-885x', 'rdtech-um', 'devantech-eth008',
   'motech-lps-30x', 'zketech-ebd-usb', 'tondaj-sl-814', 'icstation-usbrelay',
   'conrad-digi-35-cpu', 'bkprecision-1856d', 'juntek-jds6600', 'gwinstek-gpd',
