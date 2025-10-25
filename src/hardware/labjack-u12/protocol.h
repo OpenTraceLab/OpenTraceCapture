@@ -1,11 +1,11 @@
-#ifndef LIBSIGROK_HARDWARE_LABJACK_U12_PROTOCOL_H
-#define LIBSIGROK_HARDWARE_LABJACK_U12_PROTOCOL_H
+#ifndef OPENTRACECAPTURE_HARDWARE_LABJACK_U12_PROTOCOL_H
+#define OPENTRACECAPTURE_HARDWARE_LABJACK_U12_PROTOCOL_H
 
 #include <stdint.h>
 #include <glib.h>
 #include <stdbool.h>
 #include <opentracecapture/opentracecapture.h>
-#include "opentracecapture-internal.h"
+#include "libopentracecapture-internal.h"
 
 #define LOG_PREFIX "labjack-u12"
 
@@ -252,14 +252,6 @@ struct dev_context {
 	uint64_t num_samples;
 	gboolean acquisition_running;
 	gboolean continuous;
-	
-	/* Unified polling thread state */
-	gboolean polling_thread_running; /* Polling thread control flag */
-	GThread *polling_thread;         /* Unified polling thread */
-	GMutex polling_mutex;            /* Protect polling state */
-	GCond polling_cond;              /* Polling thread synchronization */
-	uint32_t poll_interval_ms;       /* Polling interval in milliseconds */
-	uint64_t samples_collected;      /* Total samples collected */
 };
 
 /* Helper functions for channel management */
@@ -299,11 +291,6 @@ OTC_PRIV int labjack_u12_bulk_io(const struct otc_dev_inst *sdi,
 OTC_PRIV float labjack_u12_raw_to_voltage(uint16_t raw_value, uint8_t range);
 OTC_PRIV uint16_t labjack_u12_voltage_to_raw(float voltage);
 OTC_PRIV int labjack_u12_unbind_hid_driver(int bus, int address);
-
-/* Unified polling thread functions */
-OTC_PRIV gpointer labjack_u12_polling_thread(gpointer data);
-OTC_PRIV int labjack_u12_start_polling_acquisition(const struct otc_dev_inst *sdi);
-OTC_PRIV int labjack_u12_stop_polling_acquisition(const struct otc_dev_inst *sdi);
 
 OTC_PRIV int labjack_u12_receive_data(int fd, int revents, void *cb_data);
 

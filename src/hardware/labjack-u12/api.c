@@ -91,14 +91,6 @@ static GSList *dev_scan(struct otc_dev_driver *di, GSList *options)
             devc->usb = usb;
             g_mutex_init(&devc->usb_mutex);
             
-            /* Initialize unified polling state */
-            g_mutex_init(&devc->polling_mutex);
-            g_cond_init(&devc->polling_cond);
-            devc->polling_thread_running = FALSE;
-            devc->polling_thread = NULL;
-            devc->poll_interval_ms = 100;  /* Default 10 Hz */
-            devc->samples_collected = 0;
-            
             /* Initialize acquisition state */
             devc->limit_samples = 0;
             devc->num_samples = 0;
@@ -320,16 +312,7 @@ static int dev_close(struct otc_dev_inst *sdi)
 
 	/* Stop any ongoing acquisition */
 	if (devc->acquisition_running) {
-		/* Call the static function directly since we're in the same file */
 		devc->acquisition_running = FALSE;
-		
-		/* Stop unified polling thread */
-		labjack_u12_stop_polling_acquisition(sdi);
-	}
-
-	/* Ensure polling thread is stopped */
-	if (devc->polling_thread_running) {
-		labjack_u12_stop_polling_acquisition(sdi);
 	}
 
 	/* Release USB interface and close device */
@@ -858,19 +841,10 @@ static int dev_acquisition_start(const struct otc_dev_inst *sdi)
 	otc_session_send(sdi, &packet);
 	g_slist_free_full(meta.config, (GDestroyNotify)otc_config_free);
 
-	/* Use unified polling thread for all acquisition modes */
-	int ret = labjack_u12_start_polling_acquisition(sdi);
-	if (ret != OTC_OK) {
-		otc_err("Failed to start polling acquisition");
-		devc->acquisition_running = FALSE;
-		return ret;
-	}
+	/* Start polling timer - poll every 100ms */
+	otc_session_source_add(sdi->session, -1, 0, 100, labjack_u12_receive_data, (void *)sdi);
 
-	if (devc->continuous) {
-		otc_info("LabJack U12 acquisition started (continuous polling mode, %d channels enabled).", enabled_channels);
-	} else {
-		otc_info("LabJack U12 acquisition started (sample-limited polling mode, %d channels enabled).", enabled_channels);
-	}
+	otc_info("LabJack U12 acquisition started (poll mode, %d channels enabled).", enabled_channels);
 
 	return OTC_OK;
 }
@@ -892,8 +866,8 @@ static int dev_acquisition_stop(struct otc_dev_inst *sdi)
 
 	devc->acquisition_running = FALSE;
 
-	/* Stop unified polling thread */
-	labjack_u12_stop_polling_acquisition(sdi);
+	/* Remove polling source */
+	otc_session_source_remove(sdi->session, -1);
 
 	/* Send end packet */
 	packet.type = OTC_DF_END;
