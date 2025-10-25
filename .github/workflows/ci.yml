@@ -17,7 +17,8 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo apt-get update
             sudo apt-get install -y ninja-build meson pkg-config \
-              libglib2.0-dev libusb-1.0-0-dev libhidapi-dev libftdi1-dev libzip-dev libserialport-dev
+              libglib2.0-dev libusb-1.0-0-dev libhidapi-dev libftdi1-dev libzip-dev libserialport-dev \
+              libglibmm-2.4-dev doxygen
           else
             brew update
             brew install meson ninja pkg-config glib libusb hidapi libftdi libzip libserialport glibmm doxygen
@@ -34,6 +35,7 @@ jobs:
             mingw-w64-x86_64-glib2 mingw-w64-x86_64-libusb
             mingw-w64-x86_64-libftdi mingw-w64-x86_64-hidapi
             mingw-w64-x86_64-libzip mingw-w64-x86_64-libserialport
+            mingw-w64-x86_64-glibmm mingw-w64-x86_64-doxygen
 
       - name: Configure
         shell: bash
