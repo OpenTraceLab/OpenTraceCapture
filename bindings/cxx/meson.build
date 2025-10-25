@@ -34,7 +34,7 @@ enums_cpp = custom_target('enums_cpp',
   output: 'enums.cpp',
   input: ['enums.py'],
   depends: doxygen_xml,
-  command: [python3, '@INPUT0@', meson.current_build_dir() + '/doxy/xml/index.xml'],
+  command: [python3, '@INPUT0@', meson.current_build_dir() + '/xml/index.xml'],
   capture: true
 )
 
