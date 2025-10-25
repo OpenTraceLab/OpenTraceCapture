@@ -20,7 +20,7 @@ jobs:
               libglib2.0-dev libusb-1.0-0-dev libhidapi-dev libftdi1-dev libzip-dev libserialport-dev
           else
             brew update
-            brew install meson ninja pkg-config glib libusb hidapi libftdi libzip libserialport
+            brew install meson ninja pkg-config glib libusb hidapi libftdi libzip libserialport glibmm doxygen
           fi
 
       - name: Windows deps
