@@ -25,7 +25,6 @@ jobs:
 
       - name: Windows deps
         if: runner.os == 'Windows'
-        shell: msys2 {0}
         uses: msys2/setup-msys2@v2
         with:
           update: true
