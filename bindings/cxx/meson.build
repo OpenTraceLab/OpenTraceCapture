@@ -51,7 +51,8 @@ libopentracecapturecxx = library('opentracecapturecxx',
   link_with: lib,
   version: meson.project_version(),
   soversion: '0',
-  install: true
+  install: true,
+  override_options: ['cpp_std=c++17']
 )
 
 # Headers
