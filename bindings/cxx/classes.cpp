@@ -1682,6 +1682,4 @@ string Output::receive(shared_ptr<Packet> packet)
 	}
 }
 
-#include "enums.cpp"
-
 }

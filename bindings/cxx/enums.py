@@ -89,7 +89,7 @@ print("#include <stdexcept>", file=code)
 print("#include <glibmm.h>", file=code)
 print('#include "libopentracecapturecxx/libopentracecapturecxx.hpp"', file=code)
 print("", file=code)
-# Note: No namespace declaration - enums.cpp is included inside classes.cpp namespace
+print("namespace opentrace {", file=code)
 print("", file=code)
 
 # Template for beginning of class declaration and public members.
@@ -189,4 +189,4 @@ for enum, (classname, classbrief) in classes.items():
         print(str.join('', open(filename).readlines()), file=swig)
 
 print("}", file=header)
-# Note: No closing brace for code file - enums.cpp is included inside classes.cpp namespace
+print("}", file=code)
