@@ -78,7 +78,7 @@ for file in (header, code, swig):
 
 print('%include "attribute.i"', file=swig)
 
-print("namespace opentrace {", file=header)
+# Note: No namespace in header - it's included from libopentracecapturecxx.hpp which is inside namespace
 
 # Add necessary includes to the code file
 print("#include <config.h>", file=code)
@@ -188,5 +188,5 @@ for enum, (classname, classbrief) in classes.items():
     if os.path.exists(filename):
         print(str.join('', open(filename).readlines()), file=swig)
 
-print("}", file=header)
+# Note: No closing brace for header - it's included inside namespace
 print("}", file=code)
