@@ -14,9 +14,9 @@ if not glibmm_dep.found()
   error('glibmm not found. Install libglibmm-2.4-dev or libglibmm-2.68-dev')
 endif
 
-# Include directories
+# Include directories  
 inc_cxx = include_directories('include')
-inc_cxx_build = include_directories('.')  # Build dir for generated enums.hpp
+inc_cxx_gen = include_directories(meson.project_build_root() / 'bindings/cxx/include', is_system: false)
 inc_root = include_directories('../..')
 
 # Generate Doxygen XML documentation
@@ -31,19 +31,21 @@ doxygen_xml = custom_target('doxygen_xml',
   env: {'SRCDIR': meson.current_source_dir() + '/', 'BUILDDIR': meson.current_build_dir() + '/'}
 )
 
-# Generate enums.cpp and enums.hpp
+# Generate enums.cpp (enums.py also generates enums.hpp and swig files)
 python3 = import('python').find_installation('python3')
-generate_enums = find_program('generate-enums.sh')
-enums_gen = custom_target('enums_gen',
-  output: ['enums.cpp', 'include', 'swig'],
+enums_cpp = custom_target('enums_cpp',
+  output: 'enums.cpp',
   input: ['enums.py'],
   depends: doxygen_xml,
-  command: [generate_enums, '@INPUT0@', meson.current_build_dir() + '/doxy/xml/index.xml', meson.current_build_dir()],
-  install: true,
-  install_dir: [false, get_option('includedir'), false]
+  command: [python3, '@INPUT0@', meson.current_build_dir() + '/doxy/xml/index.xml'],
+  capture: true
 )
 
-enums_cpp = enums_gen[0]
+# Install the generated enums.hpp
+meson.add_install_script('sh', '-c', 
+  'cp ' + meson.current_build_dir() + '/include/libopentracecapturecxx/enums.hpp ' +
+  '$MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx/'
+)
 
 # Sources
 cxx_sources = files(
@@ -52,9 +54,9 @@ cxx_sources = files(
 
 # Library
 libopentracecapturecxx = library('opentracecapturecxx',
-  cxx_sources,
-  dependencies: [glib_dep, glibmm_dep, all_deps, declare_dependency(sources: enums_cpp)],
-  include_directories: [inc_cxx_build, inc_cxx, inc_root, inc],
+  [cxx_sources, enums_cpp],
+  dependencies: [glib_dep, glibmm_dep, all_deps],
+  include_directories: [inc_cxx_gen, inc_cxx, inc_root, inc],
   link_with: lib,
   version: meson.project_version(),
   soversion: '0',

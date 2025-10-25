@@ -138,7 +138,7 @@ Glib::VariantBase ConfigKey::parse_string(std::string value, enum otc_datatype d
 		case OTC_T_FLOAT:
 			try {
 				variant = g_variant_new_double(stod(value));
-			} catch (invalid_argument&) {
+			} catch (std::invalid_argument&) {
 				throw Error(OTC_ERR_ARG);
 			}
 			break;
@@ -153,14 +153,14 @@ Glib::VariantBase ConfigKey::parse_string(std::string value, enum otc_datatype d
 		case OTC_T_INT32:
 			try {
 				variant = g_variant_new_int32(stoi(value));
-			} catch (invalid_argument&) {
+			} catch (std::invalid_argument&) {
 				throw Error(OTC_ERR_ARG);
 			}
 			break;
 		case OTC_T_UINT32:
 			try {
 				variant = g_variant_new_uint32(stou32(value));
-			} catch (invalid_argument&) {
+			} catch (std::invalid_argument&) {
 				throw Error(OTC_ERR_ARG);
 			}
 			break;
