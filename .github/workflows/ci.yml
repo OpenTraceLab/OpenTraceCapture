@@ -130,7 +130,7 @@ jobs:
           else
             PREFIX=/usr
           fi
-          meson setup build --buildtype=release -Dembed_git_suffix=true --prefix=$PREFIX
+          meson setup build --buildtype=release -Dembed_git_suffix=true -Dbindings_cxx=true --prefix=$PREFIX
           meson configure build
           meson compile -C build
           meson test -C build --print-errorlogs
@@ -143,7 +143,7 @@ jobs:
           export CCACHE_DIR=/c/Users/runneradmin/.ccache
           export XDG_CACHE_HOME=/c/Users/runneradmin/AppData/Local
           mkdir -p "$CCACHE_DIR"
-          meson setup build --buildtype=release -Dembed_git_suffix=true
+          meson setup build --buildtype=release -Dembed_git_suffix=true -Dbindings_cxx=true
           meson configure build
           meson compile -C build
           meson test -C build --print-errorlogs
