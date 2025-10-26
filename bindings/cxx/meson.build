@@ -41,10 +41,10 @@ enums_cpp = custom_target('enums_cpp',
   capture: true
 )
 
-# Install the generated enums.hpp
+# Install the generated enums.hpp (generated to source dir)
 meson.add_install_script('sh', '-c', 
   'mkdir -p $MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx && ' +
-  'cp ' + meson.current_build_dir() + '/include/libopentracecapturecxx/enums.hpp ' +
+  'cp ' + meson.current_source_dir() + '/include/libopentracecapturecxx/enums.hpp ' +
   '$MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx/'
 )
 
