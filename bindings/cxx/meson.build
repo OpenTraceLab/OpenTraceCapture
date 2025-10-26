@@ -75,7 +75,6 @@ pkg.generate(
   description: 'OpenTraceCapture C++ bindings',
   version: meson.project_version(),
   libraries: libopentracecapturecxx,
-  subdirs: 'libopentracecapturecxx',
   requires: ['glib-2.0', 'glibmm-2.4']
 )
 
