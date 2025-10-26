@@ -1090,8 +1090,8 @@ private:
 	const std::string _name;
 };
 
-}
-
 #include "enums.hpp"
+
+}
 
 #endif

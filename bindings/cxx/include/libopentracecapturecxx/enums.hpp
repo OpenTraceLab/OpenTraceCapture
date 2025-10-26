@@ -1,5 +1,9 @@
 /* Generated file - edit enums.py instead! */
-namespace opentrace {
+#ifndef LIBOPENTRACECAPTURECXX_ENUMS_HPP
+#define LIBOPENTRACECAPTURECXX_ENUMS_HPP
+
+// Generated file - included by libopentracecapturecxx.hpp
+
 
 template<> const OTC_API std::map<const enum otc_loglevel, const LogLevel * const> EnumValue<LogLevel, enum otc_loglevel>::_values;
 
@@ -895,4 +899,5 @@ protected:
 	static const ConfigKey _RESISTANCE;
 	static const ConfigKey _GATE_TIME;
 };
-}
+
+#endif // LIBOPENTRACECAPTURECXX_ENUMS_HPP

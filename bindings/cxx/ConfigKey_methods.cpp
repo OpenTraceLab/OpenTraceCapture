@@ -1,8 +1,5 @@
-#include <config.h>
-#include <string>
-#include <glibmm.h>
-#include "libopentracecapturecxx/libopentracecapturecxx.hpp"
-
+// Note: This file is included by enums.cpp which is included by classes.cpp
+// All necessary headers are already included
 
 const DataType *ConfigKey::data_type() const
 {
@@ -173,6 +170,6 @@ Glib::VariantBase ConfigKey::parse_string(std::string value, enum otc_datatype d
 
 Glib::VariantBase ConfigKey::parse_string(std::string value) const
 {
-	enum otc_datatype dt = (enum otc_datatype)(data_type()->id());
+	enum otc_datatype dt = (enum otc_datatype)(this->data_type()->id());
 	return parse_string(value, dt);
 }

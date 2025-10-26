@@ -74,23 +74,37 @@ header = open(os.path.join(dirname, 'include/libopentracecapturecxx/enums.hpp'),
 code = sys.stdout  # Output C++ code to stdout for meson capture
 swig = open(os.path.join(outdirname, 'swig/enums.i'), 'w')
 
-for file in (header, code, swig):
+for file in (header, swig):
     print("/* Generated file - edit enums.py instead! */", file=file)
 
 print('%include "attribute.i"', file=swig)
 
-print("namespace opentrace {", file=header)
+# Add header guard
+print("#ifndef LIBOPENTRACECAPTURECXX_ENUMS_HPP", file=header)
+print("#define LIBOPENTRACECAPTURECXX_ENUMS_HPP", file=header)
+print("", file=header)
+print("// Generated file - included by libopentracecapturecxx.hpp", file=header)
+print("", file=header)
 
 # Add necessary includes to the code file
+print("// Generated file - edit enums.py instead!", file=code)
+print("", file=code)
 print("#include <config.h>", file=code)
-print("#include <vector>", file=code)
-print("#include <string>", file=code)
-print("#include <cstdint>", file=code)
-print("#include <stdexcept>", file=code)
-print("#include <glibmm.h>", file=code)
 print('#include "libopentracecapturecxx/libopentracecapturecxx.hpp"', file=code)
 print("", file=code)
 print("namespace opentrace {", file=code)
+print("", file=code)
+print("// Helper functions", file=code)
+print("static void check(int result)", file=code)
+print("{", file=code)
+print("\tif (result != OTC_OK)", file=code)
+print("\t\tthrow Error(result);", file=code)
+print("}", file=code)
+print("", file=code)
+print("static inline const char *valid_string(const char *input)", file=code)
+print("{", file=code)
+print("\treturn (input) ? input : \"\";", file=code)
+print("}", file=code)
 print("", file=code)
 
 # Template for beginning of class declaration and public members.
@@ -189,5 +203,8 @@ for enum, (classname, classbrief) in classes.items():
     if os.path.exists(filename):
         print(str.join('', open(filename).readlines()), file=swig)
 
-print("}", file=header)
+# Close header guard
+print("", file=header)
+print("#endif // LIBOPENTRACECAPTURECXX_ENUMS_HPP", file=header)
+# Close namespace for code file
 print("}", file=code)
