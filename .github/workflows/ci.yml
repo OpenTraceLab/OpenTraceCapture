@@ -28,6 +28,7 @@ jobs:
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
+          msystem: MINGW64
           update: true
           install: >-
             mingw-w64-x86_64-meson mingw-w64-x86_64-ninja
@@ -38,13 +39,13 @@ jobs:
             mingw-w64-x86_64-glibmm mingw-w64-x86_64-doxygen
 
       - name: Configure
-        shell: bash
+        shell: ${{ runner.os == 'Windows' && 'msys2 {0}' || 'bash' }}
         run: meson setup build -Dbindings_cxx=true
 
       - name: Build
-        shell: bash
+        shell: ${{ runner.os == 'Windows' && 'msys2 {0}' || 'bash' }}
         run: meson compile -C build
 
       - name: Test
-        shell: bash
+        shell: ${{ runner.os == 'Windows' && 'msys2 {0}' || 'bash' }}
         run: meson test -C build --print-errorlogs
