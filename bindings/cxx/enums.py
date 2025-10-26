@@ -69,7 +69,8 @@ for compound in index.findall('compound'):
             if name in mapping:
                 classes[member] = mapping[name]
 
-header = open(os.path.join(outdirname, 'include/libopentracecapturecxx/enums.hpp'), 'w')
+# Header goes to source directory so relative include from libopentracecapturecxx.hpp works
+header = open(os.path.join(dirname, 'include/libopentracecapturecxx/enums.hpp'), 'w')
 code = sys.stdout  # Output C++ code to stdout for meson capture
 swig = open(os.path.join(outdirname, 'swig/enums.i'), 'w')
 
@@ -78,7 +79,7 @@ for file in (header, code, swig):
 
 print('%include "attribute.i"', file=swig)
 
-# Note: No namespace in header - it's included from libopentracecapturecxx.hpp which is inside namespace
+print("namespace opentrace {", file=header)
 
 # Add necessary includes to the code file
 print("#include <config.h>", file=code)
@@ -188,5 +189,5 @@ for enum, (classname, classbrief) in classes.items():
     if os.path.exists(filename):
         print(str.join('', open(filename).readlines()), file=swig)
 
-# Note: No closing brace for header - it's included inside namespace
+print("}", file=header)
 print("}", file=code)
