@@ -69,13 +69,15 @@ jobs:
         if: runner.os != 'Windows' && startsWith(github.ref, 'refs/tags/v')
         run: |
           DESTDIR="${PWD}/install" meson install -C build
-          # Find the actual install prefix by looking for lib directory
-          ACTUAL_PREFIX=$(find install -type d -name lib | head -1 | sed 's|/lib$||' | sed 's|^install||')
+          # Find the actual install prefix by looking for pkgconfig directory
+          PKGCONFIG_DIR=$(find install -type d -name pkgconfig | head -1)
+          ACTUAL_PREFIX=$(echo $PKGCONFIG_DIR | sed 's|/lib.*/pkgconfig$||' | sed 's|^install||')
           if [ "$RUNNER_OS" = "macOS" ]; then
             PLATFORM="macos"
           else
             PLATFORM="linux"
           fi
+          echo "Creating tarball from install$ACTUAL_PREFIX"
           tar czf opentracecapture-${PLATFORM}.tar.gz -C install$ACTUAL_PREFIX .
 
       - name: Install (Windows)
