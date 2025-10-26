@@ -64,3 +64,48 @@ jobs:
       - name: Test (Linux/macOS)
         if: runner.os != 'Windows'
         run: meson test -C build --print-errorlogs
+
+      - name: Install (Linux/macOS)
+        if: runner.os != 'Windows' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            PREFIX=/usr/local
+          else
+            PREFIX=/usr
+          fi
+          DESTDIR="${PWD}/install" meson install -C build
+          tar czf opentracecapture-${{ runner.os == 'macOS' && 'macos' || 'linux' }}.tar.gz -C install$PREFIX .
+
+      - name: Install (Windows)
+        if: runner.os == 'Windows' && startsWith(github.ref, 'refs/tags/v')
+        shell: msys2 {0}
+        run: |
+          DESTDIR="${PWD}/install" meson install -C build
+          MINGW_PATH=$(find install -type d -name mingw64 | head -1)
+          tar czf opentracecapture-windows.tar.gz -C $MINGW_PATH .
+
+      - name: Upload artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: opentracecapture-${{ runner.os == 'macOS' && 'macos' || runner.os == 'Windows' && 'windows' || 'linux' }}
+          path: opentracecapture-*.tar.gz
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*/opentracecapture-*.tar.gz
+          draft: false
+          prerelease: true
