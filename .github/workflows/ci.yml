@@ -38,14 +38,29 @@ jobs:
             mingw-w64-x86_64-libzip mingw-w64-x86_64-libserialport
             mingw-w64-x86_64-glibmm mingw-w64-x86_64-doxygen
 
-      - name: Configure
-        shell: ${{ runner.os == 'Windows' && 'msys2 {0}' || 'bash' }}
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
         run: meson setup build -Dbindings_cxx=true
 
-      - name: Build
-        shell: ${{ runner.os == 'Windows' && 'msys2 {0}' || 'bash' }}
+      - name: Configure (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: meson setup build -Dbindings_cxx=true
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
         run: meson compile -C build
 
-      - name: Test
-        shell: ${{ runner.os == 'Windows' && 'msys2 {0}' || 'bash' }}
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: meson compile -C build
+
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: meson test -C build --print-errorlogs
+
+      - name: Test (Linux/macOS)
+        if: runner.os != 'Windows'
         run: meson test -C build --print-errorlogs
