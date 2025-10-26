@@ -45,6 +45,8 @@ enums_cpp = custom_target('enums_cpp',
 meson.add_install_script('sh', '-c', 
   'mkdir -p $MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx && ' +
   'cp ' + meson.current_source_dir() + '/include/libopentracecapturecxx/enums.hpp ' +
+  '$MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx/ && ' +
+  'cp ' + meson.current_source_dir() + '/include/libopentracecapturecxx/libopentracecapturecxx.hpp ' +
   '$MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx/'
 )
 
@@ -64,9 +66,6 @@ libopentracecapturecxx = library('opentracecapturecxx',
   install: true,
   override_options: ['cpp_std=c++17']
 )
-
-# Headers
-install_headers('include/libopentracecapturecxx/libopentracecapturecxx.hpp', subdir: 'libopentracecapturecxx')
 
 # pkg-config
 pkg = import('pkgconfig')
