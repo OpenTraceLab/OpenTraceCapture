@@ -69,8 +69,8 @@ jobs:
         if: runner.os != 'Windows' && startsWith(github.ref, 'refs/tags/v')
         run: |
           DESTDIR="${PWD}/install" meson install -C build
-          # Find the actual install prefix (could be /usr, /usr/local, or /opt/homebrew)
-          ACTUAL_PREFIX=$(find install -type d -maxdepth 2 | grep -E '/(usr|opt)' | head -1 | sed 's|^install||')
+          # Find the actual install prefix by looking for lib directory
+          ACTUAL_PREFIX=$(find install -type d -name lib | head -1 | sed 's|/lib$||' | sed 's|^install||')
           if [ "$RUNNER_OS" = "macOS" ]; then
             PLATFORM="macos"
           else
