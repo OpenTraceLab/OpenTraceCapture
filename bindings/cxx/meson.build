@@ -75,7 +75,7 @@ pkg.generate(
   version: meson.project_version(),
   libraries: libopentracecapturecxx,
   subdirs: 'libopentracecapturecxx',
-  requires: ['glib-2.0', 'glibmm-2.4']
+  requires: ['glib-2.0', glibmm_dep]
 )
 
 # Dependency for other projects
