@@ -66,7 +66,7 @@ libopentracecapturecxx = library('opentracecapturecxx',
 )
 
 # Headers
-install_headers('include/libopentracecapturecxx/libopentracecapturecxx.hpp')
+install_headers('include/libopentracecapturecxx/libopentracecapturecxx.hpp', subdir: 'libopentracecapturecxx')
 
 # pkg-config
 pkg = import('pkgconfig')
@@ -75,6 +75,7 @@ pkg.generate(
   description: 'OpenTraceCapture C++ bindings',
   version: meson.project_version(),
   libraries: libopentracecapturecxx,
+  subdirs: 'libopentracecapturecxx',
   requires: ['glib-2.0', 'glibmm-2.4']
 )
 
