@@ -145,9 +145,20 @@ inc = include_directories('include', '.')
 all_deps = deps_core
 compile_args = ['-DOPENTRACECAPTURE_BUILD']
 
-# Windows-specific dependencies
+# Windows-specific dependencies and flags
 if host_machine.system() == 'windows'
   all_deps += cc.find_library('ws2_32', required: true)
+  
+  # MSVC-specific flags
+  if cc.get_id() == 'msvc'
+    compile_args += [
+      '/DWIN32_LEAN_AND_MEAN',
+      '/DNOMINMAX',
+      '/D_CRT_SECURE_NO_WARNINGS',
+    ]
+    # Remove GNU-specific defines for MSVC
+    compile_args = compile_args.filter(x => x != '-D_GNU_SOURCE')
+  endif
 endif
 
 # Add optional dependencies when available
@@ -170,8 +181,10 @@ if have_gpib
   all_deps += dep_gpib
 endif
 
-# Add network support for TCP
-compile_args += '-D_GNU_SOURCE'
+# Add network support for TCP (not needed on MSVC)
+if cc.get_id() != 'msvc'
+  compile_args += '-D_GNU_SOURCE'
+endif
 
 # Include subdirectories
 subdir('src/core')

@@ -22,6 +22,10 @@
 
 #include "config.h"
 
+/* Include portability headers first */
+#include <opentracecapture/otc_attrs.h>
+#include <opentracecapture/otc_win_compat.h>
+
 #include <glib.h>
 #ifdef HAVE_LIBHIDAPI
 #include <hidapi.h>
@@ -2904,7 +2908,9 @@ OTC_PRIV int otc_kern_parse(const uint8_t *buf, float *floatval,
 
 /*--- scale/uss_dbs.c -------------------------------------------------------*/
 
-struct uss_dbs_info {};
+struct uss_dbs_info {
+	int _dummy; /* MSVC requires at least one member */
+};
 
 OTC_PRIV gboolean otc_uss_dbs_packet_valid(const uint8_t *buf);
 OTC_PRIV enum otc_error_code otc_uss_dbs_parse(const uint8_t *buf,

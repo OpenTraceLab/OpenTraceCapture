@@ -17,13 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#if defined(_WIN32)
-#include <winsock2.h>
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#endif
+#include <opentracecapture/otc_win_compat.h>
 
 #ifndef OPENTRACECAPTURE_LIBSIGROK_H
 #define OPENTRACECAPTURE_LIBSIGROK_H
