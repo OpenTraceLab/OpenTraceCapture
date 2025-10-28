@@ -21,7 +21,9 @@
 #define OPENTRACECAPTURE_LIBSIGROK_H
 
 #include <stdio.h>
-#ifndef _WIN32
+#ifdef _WIN32
+#include <winsock2.h>
+#else
 #include <sys/time.h>
 #endif
 #include <stdint.h>
