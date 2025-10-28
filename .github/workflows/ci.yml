@@ -56,11 +56,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            C:\vcpkg\installed
             C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
+            C:\vcpkg\downloads
+            C:\vcpkg\buildtrees
+          key: vcpkg-msvc-${{ hashFiles('**/ci.yml') }}
           restore-keys: |
-            vcpkg-${{ runner.os }}-
+            vcpkg-msvc-
 
       - name: Windows MSVC deps (vcpkg)
         if: matrix.name == 'Windows-MSVC'
