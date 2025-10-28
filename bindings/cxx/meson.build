@@ -33,8 +33,8 @@ doxygen_xml = custom_target('doxygen_xml',
 
 # Generate enums.cpp (enums.py also generates enums.hpp and swig files)
 python3 = import('python').find_installation('python3')
-enums_cpp = custom_target('enums_cpp',
-  output: 'enums.cpp',
+enums_gen = custom_target('enums_gen',
+  output: ['enums.cpp', 'include/libopentracecapturecxx/enums.hpp'],
   input: ['enums.py'],
   depends: doxygen_xml,
   command: [python3, '@INPUT0@', meson.current_build_dir() + '/doxy/xml/index.xml', meson.current_build_dir()],
@@ -58,8 +58,8 @@ cxx_sources = files(
 # Library
 libopentracecapturecxx = library('opentracecapturecxx',
   cxx_sources,
-  dependencies: [glib_dep, glibmm_dep, all_deps, declare_dependency(sources: enums_cpp)],
-  include_directories: [inc_cxx, inc_root, inc],
+  dependencies: [glib_dep, glibmm_dep, all_deps, declare_dependency(sources: enums_gen)],
+  include_directories: [inc_cxx, inc_root, inc, include_directories('.')],
   link_with: lib,
   version: meson.project_version(),
   soversion: '0',
