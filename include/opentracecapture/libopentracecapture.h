@@ -124,14 +124,22 @@ enum otc_loglevel {
  */
 
 /* Marks public libopentracecapture API symbols. */
-#ifndef _WIN32
+#ifdef _MSC_VER
+#ifdef OPENTRACECAPTURE_BUILD
+#define OTC_API __declspec(dllexport)
+#else
+#define OTC_API __declspec(dllimport)
+#endif
+#elif !defined(_WIN32)
 #define OTC_API __attribute__((visibility("default")))
 #else
 #define OTC_API
 #endif
 
 /* Marks private, non-public libopentracecapture symbols (not part of the API). */
-#ifndef _WIN32
+#ifdef _MSC_VER
+#define OTC_PRIV
+#elif !defined(_WIN32)
 #define OTC_PRIV __attribute__((visibility("hidden")))
 #else
 #define OTC_PRIV

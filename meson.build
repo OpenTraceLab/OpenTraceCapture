@@ -143,7 +143,7 @@ inc = include_directories('include', '.')
 
 # Build final dependency list (core deps are always included)
 all_deps = deps_core
-compile_args = []
+compile_args = ['-DOPENTRACECAPTURE_BUILD']
 
 # Windows-specific dependencies
 if host_machine.system() == 'windows'

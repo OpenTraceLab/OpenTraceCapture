@@ -6,15 +6,24 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-22.04
+            name: Linux
+          - os: macos-latest
+            name: macOS
+          - os: windows-latest
+            name: Windows-MinGW
+          - os: windows-latest
+            name: Windows-MSVC
     runs-on: ${{ matrix.os }}
+    name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Linux/macOS deps
-        if: runner.os != 'Windows'
+        if: matrix.name == 'Linux' || matrix.name == 'macOS'
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
+          if [ "${{ matrix.name }}" = "Linux" ]; then
             sudo apt-get update
             sudo apt-get install -y ninja-build meson pkg-config \
               libglib2.0-dev libusb-1.0-0-dev libhidapi-dev libftdi1-dev libzip-dev libserialport-dev \
@@ -24,8 +33,8 @@ jobs:
             brew install meson ninja pkg-config glib libusb hidapi libftdi libzip libserialport glibmm doxygen
           fi
 
-      - name: Windows deps
-        if: runner.os == 'Windows'
+      - name: Windows MinGW deps
+        if: matrix.name == 'Windows-MinGW'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -38,41 +47,75 @@ jobs:
             mingw-w64-x86_64-libzip mingw-w64-x86_64-libserialport
             mingw-w64-x86_64-glibmm mingw-w64-x86_64-doxygen
 
-      - name: Configure (Windows)
-        if: runner.os == 'Windows'
+      - name: Windows MSVC setup
+        if: matrix.name == 'Windows-MSVC'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Windows MSVC deps (vcpkg)
+        if: matrix.name == 'Windows-MSVC'
+        run: |
+          vcpkg install glib:x64-windows libusb:x64-windows libzip:x64-windows hidapi:x64-windows libftdi1:x64-windows glibmm:x64-windows
+          pip install meson ninja
+
+      - name: Download libserialport (MSVC)
+        if: matrix.name == 'Windows-MSVC'
+        run: |
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/OpenTraceLab/libserialport/releases/latest"
+          $asset = $release.assets | Where-Object { $_.name -like "*windows-msvc*" }
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile libserialport-msvc.tar.gz
+          tar xzf libserialport-msvc.tar.gz -C C:\
+          echo "PKG_CONFIG_PATH=C:\lib\pkgconfig" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Configure (Windows MinGW)
+        if: matrix.name == 'Windows-MinGW'
         shell: msys2 {0}
         run: meson setup build -Dbindings_cxx=true
+
+      - name: Configure (Windows MSVC)
+        if: matrix.name == 'Windows-MSVC'
+        run: meson setup build -Dbindings_cxx=false -Db_vscrt=md -Ddefault_library=shared --cmake-prefix-path="C:\vcpkg\installed\x64-windows"
+        shell: pwsh
 
       - name: Configure (Linux/macOS)
-        if: runner.os != 'Windows'
+        if: matrix.name == 'Linux' || matrix.name == 'macOS'
         run: meson setup build -Dbindings_cxx=true
 
-      - name: Build (Windows)
-        if: runner.os == 'Windows'
+      - name: Build (Windows MinGW)
+        if: matrix.name == 'Windows-MinGW'
         shell: msys2 {0}
         run: meson compile -C build
 
+      - name: Build (Windows MSVC)
+        if: matrix.name == 'Windows-MSVC'
+        run: meson compile -C build
+        shell: pwsh
+
       - name: Build (Linux/macOS)
-        if: runner.os != 'Windows'
+        if: matrix.name == 'Linux' || matrix.name == 'macOS'
         run: meson compile -C build
 
-      - name: Test (Windows)
-        if: runner.os == 'Windows'
+      - name: Test (Windows MinGW)
+        if: matrix.name == 'Windows-MinGW'
         shell: msys2 {0}
         run: meson test -C build --print-errorlogs
 
+      - name: Test (Windows MSVC)
+        if: matrix.name == 'Windows-MSVC'
+        run: meson test -C build --print-errorlogs
+        shell: pwsh
+
       - name: Test (Linux/macOS)
-        if: runner.os != 'Windows'
+        if: matrix.name == 'Linux' || matrix.name == 'macOS'
         run: meson test -C build --print-errorlogs
 
       - name: Install (Linux/macOS)
-        if: runner.os != 'Windows' && startsWith(github.ref, 'refs/tags/v')
+        if: (matrix.name == 'Linux' || matrix.name == 'macOS') && startsWith(github.ref, 'refs/tags/v')
         run: |
           DESTDIR="${PWD}/install" meson install -C build
-          # Find the actual install prefix by looking for pkgconfig directory
           PKGCONFIG_DIR=$(find install -type d -name pkgconfig | head -1)
           ACTUAL_PREFIX=$(echo $PKGCONFIG_DIR | sed 's|/lib.*/pkgconfig$||' | sed 's|^install||')
-          if [ "$RUNNER_OS" = "macOS" ]; then
+          if [ "${{ matrix.name }}" = "macOS" ]; then
             PLATFORM="macos"
           else
             PLATFORM="linux"
@@ -80,33 +123,48 @@ jobs:
           echo "Creating tarball from install$ACTUAL_PREFIX"
           tar czf opentracecapture-${PLATFORM}.tar.gz -C install$ACTUAL_PREFIX .
 
-      - name: Install (Windows)
-        if: runner.os == 'Windows' && startsWith(github.ref, 'refs/tags/v')
+      - name: Install (Windows MinGW)
+        if: matrix.name == 'Windows-MinGW' && startsWith(github.ref, 'refs/tags/v')
         shell: msys2 {0}
         run: |
           DESTDIR="${PWD}/install" meson install -C build
           MINGW_PATH=$(find install -type d -name mingw64 | head -1)
-          tar czf opentracecapture-windows.tar.gz -C $MINGW_PATH .
+          tar czf opentracecapture-windows-mingw.tar.gz -C $MINGW_PATH .
+
+      - name: Install (Windows MSVC)
+        if: matrix.name == 'Windows-MSVC' && startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          meson install -C build --destdir="$pwd\install"
+          $installRoot = (Get-ChildItem -Path install -Recurse -Directory -Filter include | Select-Object -First 1).Parent.FullName
+          tar czf opentracecapture-windows-msvc.tar.gz -C $installRoot .
 
       - name: Upload artifact (Linux)
-        if: runner.os == 'Linux' && startsWith(github.ref, 'refs/tags/v')
+        if: matrix.name == 'Linux' && startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
           name: opentracecapture-linux
           path: opentracecapture-*.tar.gz
 
       - name: Upload artifact (macOS)
-        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v')
+        if: matrix.name == 'macOS' && startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
           name: opentracecapture-macos
           path: opentracecapture-*.tar.gz
 
-      - name: Upload artifact (Windows)
-        if: runner.os == 'Windows' && startsWith(github.ref, 'refs/tags/v')
+      - name: Upload artifact (Windows MinGW)
+        if: matrix.name == 'Windows-MinGW' && startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: opentracecapture-windows
+          name: opentracecapture-windows-mingw
+          path: opentracecapture-*.tar.gz
+
+      - name: Upload artifact (Windows MSVC)
+        if: matrix.name == 'Windows-MSVC' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: opentracecapture-windows-msvc
           path: opentracecapture-*.tar.gz
 
   release:
