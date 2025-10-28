@@ -17,13 +17,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#endif
+
 #ifndef OPENTRACECAPTURE_LIBSIGROK_H
 #define OPENTRACECAPTURE_LIBSIGROK_H
 
 #include <stdio.h>
-#ifdef _WIN32
-#include <winsock2.h>
-#else
+#ifndef _WIN32
 #include <sys/time.h>
 #endif
 #include <stdint.h>
