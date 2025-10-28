@@ -1,0 +1,6 @@
+glib:x64-windows
+libusb:x64-windows
+libzip:x64-windows
+hidapi:x64-windows
+libftdi1:x64-windows
+glibmm:x64-windows

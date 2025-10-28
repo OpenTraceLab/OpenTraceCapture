@@ -51,23 +51,60 @@ jobs:
         if: matrix.name == 'Windows-MSVC'
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Setup vcpkg binary cache
+      # sccache for MSVC compiler caching
+      - name: Setup sccache
+        if: matrix.name == 'Windows-MSVC'
+        uses: mozilla-actions/sccache-action@v0.0.4
+
+      - name: Configure sccache for MSVC
+        if: matrix.name == 'Windows-MSVC'
+        shell: pwsh
+        run: |
+          echo "CC=sccache cl" >> $env:GITHUB_ENV
+          echo "CXX=sccache cl" >> $env:GITHUB_ENV
+          echo "SCCACHE_CACHE_SIZE=5G" >> $env:GITHUB_ENV
+          echo "SCCACHE_DIR=$env:USERPROFILE\.cache\sccache" >> $env:GITHUB_ENV
+
+      - name: Cache sccache (MSVC)
         if: matrix.name == 'Windows-MSVC'
         uses: actions/cache@v4
         with:
           path: |
-            C:\Users\runneradmin\AppData\Local\vcpkg\archives
-            C:\vcpkg\downloads
-            C:\vcpkg\buildtrees
-          key: vcpkg-msvc-${{ hashFiles('**/ci.yml') }}
+            ~\AppData\Local\sccache
+            ~\.cache\sccache
+          key: sccache-msvc-${{ runner.os }}-${{ hashFiles('**/meson.build', '**/meson_options.txt') }}
           restore-keys: |
-            vcpkg-msvc-
+            sccache-msvc-${{ runner.os }}-
+
+      # vcpkg binary cache only (archives speed up installs)
+      - name: Cache vcpkg binaries
+        if: matrix.name == 'Windows-MSVC'
+        uses: actions/cache@v4
+        with:
+          path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
+          key: vcpkg-bincache-${{ runner.os }}-${{ hashFiles('scripts/vcpkg-ports.txt') }}
+          restore-keys: |
+            vcpkg-bincache-${{ runner.os }}-
 
       - name: Windows MSVC deps (vcpkg)
         if: matrix.name == 'Windows-MSVC'
+        env:
+          VCPKG_FEATURE_FLAGS: binarycaching
+          VCPKG_DEFAULT_BINARY_CACHE: C:\Users\runneradmin\AppData\Local\vcpkg\archives
         run: |
-          vcpkg install glib:x64-windows libusb:x64-windows libzip:x64-windows hidapi:x64-windows libftdi1:x64-windows glibmm:x64-windows
+          Get-Content scripts/vcpkg-ports.txt | ForEach-Object { vcpkg install $_ }
           pip install meson ninja
+        shell: pwsh
+
+      # Cache Meson build directory for incremental builds
+      - name: Cache Meson build dir (MSVC)
+        if: matrix.name == 'Windows-MSVC'
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: msvc-build-${{ runner.os }}-${{ hashFiles('**/meson.build', '**/meson_options.txt') }}
+          restore-keys: |
+            msvc-build-${{ runner.os }}-
 
       - name: Download libserialport (MSVC)
         if: matrix.name == 'Windows-MSVC'
