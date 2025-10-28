@@ -91,6 +91,7 @@ jobs:
         shell: pwsh
         env:
           PKG_CONFIG: C:\vcpkg\installed\x64-windows\tools\pkgconf\pkgconf.exe
+          PKG_CONFIG_PATH: C:\vcpkg\installed\x64-windows\lib\pkgconfig
 
       - name: Configure (Linux/macOS)
         if: matrix.name == 'Linux' || matrix.name == 'macOS'
