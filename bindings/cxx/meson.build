@@ -33,12 +33,12 @@ doxygen_xml = custom_target('doxygen_xml',
 
 # Generate enums.cpp (enums.py also generates enums.hpp and swig files)
 python3 = import('python').find_installation('python3')
+generate_enums_sh = find_program('generate-enums.sh')
 enums_gen = custom_target('enums_gen',
   output: ['enums.cpp', 'enums.hpp'],
   input: ['enums.py'],
   depends: doxygen_xml,
-  command: [python3, '@INPUT0@', meson.current_build_dir() + '/doxy/xml/index.xml', meson.current_build_dir()],
-  capture: true
+  command: [generate_enums_sh, python3, '@INPUT0@', meson.current_build_dir() + '/doxy/xml/index.xml', meson.current_build_dir(), '@OUTPUT0@', '@OUTPUT1@']
 )
 
 # Install the generated enums.hpp (generated to source dir)
