@@ -69,8 +69,8 @@ for compound in index.findall('compound'):
             if name in mapping:
                 classes[member] = mapping[name]
 
-# Header goes to source directory so relative include from libopentracecapturecxx.hpp works
-header = open(os.path.join(dirname, 'include/libopentracecapturecxx/enums.hpp'), 'w')
+# Header goes to build directory root for meson custom_target
+header = open(os.path.join(outdirname, 'enums.hpp'), 'w')
 code = sys.stdout  # Output C++ code to stdout for meson capture
 swig = open(os.path.join(outdirname, 'swig/enums.i'), 'w')
 
