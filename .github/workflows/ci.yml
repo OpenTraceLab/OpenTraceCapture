@@ -70,7 +70,7 @@ jobs:
       - name: Configure (Windows MinGW)
         if: matrix.name == 'Windows-MinGW'
         shell: msys2 {0}
-        run: meson setup build -Dbindings_cxx=true
+        run: meson setup build -Dbindings_cxx=false
 
       - name: Configure (Windows MSVC)
         if: matrix.name == 'Windows-MSVC'
