@@ -51,6 +51,17 @@ jobs:
         if: matrix.name == 'Windows-MSVC'
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Setup vcpkg binary cache
+        if: matrix.name == 'Windows-MSVC'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\vcpkg\installed
+            C:\Users\runneradmin\AppData\Local\vcpkg\archives
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
       - name: Windows MSVC deps (vcpkg)
         if: matrix.name == 'Windows-MSVC'
         run: |
