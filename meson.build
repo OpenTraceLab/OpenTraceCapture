@@ -156,8 +156,6 @@ if host_machine.system() == 'windows'
       '/DNOMINMAX',
       '/D_CRT_SECURE_NO_WARNINGS',
     ]
-    # Remove GNU-specific defines for MSVC
-    compile_args = compile_args.filter(x => x != '-D_GNU_SOURCE')
   endif
 endif
 
