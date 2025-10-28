@@ -63,7 +63,7 @@ jobs:
           $release = Invoke-RestMethod -Uri "https://api.github.com/repos/OpenTraceLab/libserialport/releases/latest"
           $asset = $release.assets | Where-Object { $_.name -like "*windows-msvc*" }
           Invoke-WebRequest -Uri $asset.browser_download_url -OutFile libserialport-msvc.tar.gz
-          tar xzf libserialport-msvc.tar.gz -C C:\
+          tar xzf libserialport-msvc.tar.gz -C C:/
           echo "PKG_CONFIG_PATH=C:\lib\pkgconfig" >> $env:GITHUB_ENV
         shell: pwsh
 
