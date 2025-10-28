@@ -94,6 +94,8 @@ jobs:
         run: |
           Get-Content scripts/vcpkg-ports.txt | ForEach-Object { vcpkg install $_ }
           pip install meson ninja
+          echo "PKG_CONFIG=C:\vcpkg\installed\x64-windows\tools\pkgconf\pkgconf.exe" >> $env:GITHUB_ENV
+          echo "PKG_CONFIG_PATH=C:\vcpkg\installed\x64-windows\lib\pkgconfig" >> $env:GITHUB_ENV
         shell: pwsh
 
       # Cache Meson build directory for incremental builds
@@ -115,7 +117,7 @@ jobs:
           mkdir libserialport-temp
           tar xzf libserialport-msvc.tar.gz -C libserialport-temp
           Copy-Item -Path libserialport-temp\* -Destination C:\ -Recurse -Force
-          echo "PKG_CONFIG_PATH=C:\lib\pkgconfig" >> $env:GITHUB_ENV
+          echo "PKG_CONFIG_PATH=C:\lib\pkgconfig;$env:PKG_CONFIG_PATH" >> $env:GITHUB_ENV
         shell: pwsh
 
       - name: Configure (Windows MinGW)
@@ -127,9 +129,6 @@ jobs:
         if: matrix.name == 'Windows-MSVC'
         run: meson setup build -Dbindings_cxx=true -Db_vscrt=md -Ddefault_library=shared --cmake-prefix-path="C:\vcpkg\installed\x64-windows"
         shell: pwsh
-        env:
-          PKG_CONFIG: C:\vcpkg\installed\x64-windows\tools\pkgconf\pkgconf.exe
-          PKG_CONFIG_PATH: C:\vcpkg\installed\x64-windows\lib\pkgconfig
 
       - name: Configure (Linux/macOS)
         if: matrix.name == 'Linux' || matrix.name == 'macOS'
