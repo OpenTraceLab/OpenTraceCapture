@@ -88,9 +88,6 @@ jobs:
 
       - name: Windows MSVC deps (vcpkg)
         if: matrix.name == 'Windows-MSVC'
-        env:
-          VCPKG_FEATURE_FLAGS: binarycaching
-          VCPKG_DEFAULT_BINARY_CACHE: C:\Users\runneradmin\AppData\Local\vcpkg\archives
         run: |
           vcpkg install pkgconf:x64-windows
           Get-Content scripts/vcpkg-ports.txt | ForEach-Object { vcpkg install $_ }
