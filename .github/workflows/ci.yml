@@ -1,6 +1,6 @@
 name: CI
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
@@ -63,7 +63,9 @@ jobs:
           $release = Invoke-RestMethod -Uri "https://api.github.com/repos/OpenTraceLab/libserialport/releases/latest"
           $asset = $release.assets | Where-Object { $_.name -like "*windows-msvc*" }
           Invoke-WebRequest -Uri $asset.browser_download_url -OutFile libserialport-msvc.tar.gz
-          tar xzf libserialport-msvc.tar.gz -C C:/
+          mkdir libserialport-temp
+          tar xzf libserialport-msvc.tar.gz -C libserialport-temp
+          Copy-Item -Path libserialport-temp\* -Destination C:\ -Recurse -Force
           echo "PKG_CONFIG_PATH=C:\lib\pkgconfig" >> $env:GITHUB_ENV
         shell: pwsh
 
