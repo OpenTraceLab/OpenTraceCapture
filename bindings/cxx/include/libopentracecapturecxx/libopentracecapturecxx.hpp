@@ -72,6 +72,16 @@ raised, which provides access to the error code and description.
 
 #include <opentracecapture/libopentracecapture.h>
 
+/* Undefine Windows macros that conflict with C++ enum member names */
+#if defined(_WIN32)
+#ifdef DIFFERENCE
+#undef DIFFERENCE
+#endif
+#ifdef RELATIVE
+#undef RELATIVE
+#endif
+#endif
+
 /* Suppress warnings due to glibmm's use of std::auto_ptr<> in a public
  * header file. To be removed once glibmm is fixed. */
 G_GNUC_BEGIN_IGNORE_DEPRECATIONS
