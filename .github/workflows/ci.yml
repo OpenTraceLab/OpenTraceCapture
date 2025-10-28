@@ -84,11 +84,11 @@ jobs:
       - name: Configure (Windows MinGW)
         if: matrix.name == 'Windows-MinGW'
         shell: msys2 {0}
-        run: meson setup build -Dbindings_cxx=false
+        run: meson setup build -Dbindings_cxx=true
 
       - name: Configure (Windows MSVC)
         if: matrix.name == 'Windows-MSVC'
-        run: meson setup build -Dbindings_cxx=false -Db_vscrt=md -Ddefault_library=shared --cmake-prefix-path="C:\vcpkg\installed\x64-windows"
+        run: meson setup build -Dbindings_cxx=true -Db_vscrt=md -Ddefault_library=shared --cmake-prefix-path="C:\vcpkg\installed\x64-windows"
         shell: pwsh
         env:
           PKG_CONFIG: C:\vcpkg\installed\x64-windows\tools\pkgconf\pkgconf.exe
