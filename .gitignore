@@ -68,3 +68,4 @@
 /tests/*.log
 /tests/*.trs
 /tests/main
+bindings/cxx/include/libopentracecapturecxx/enums.hpp
