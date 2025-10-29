@@ -18,6 +18,7 @@
  */
 
 #include "config.h"
+#include <opentracecapture/otc_win_compat.h>
 #include <glib.h>
 #ifdef HAVE_LIBHIDAPI
 #include <hidapi.h>
@@ -27,9 +28,6 @@
 #include "serial_hid.h"
 #include <stdlib.h>
 #include <string.h>
-#ifdef G_OS_WIN32
-#include <windows.h> /* for HANDLE */
-#endif
 
 #define LOG_PREFIX "serial-hid"
 

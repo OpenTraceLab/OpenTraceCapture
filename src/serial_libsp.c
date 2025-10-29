@@ -21,14 +21,12 @@
  */
 
 #include <config.h>
+#include <opentracecapture/otc_win_compat.h>
 #include <glib.h>
 #include <opentracecapture/libopentracecapture.h>
 #include "libopentracecapture-internal.h"
 #ifdef HAVE_LIBSERIALPORT
 #include <libserialport.h>
-#endif
-#ifdef G_OS_WIN32
-#include <windows.h> /* for HANDLE */
 #endif
 
 #define LOG_PREFIX "serial-libsp"

@@ -22,6 +22,7 @@
  */
 
 #include <config.h>
+#include <opentracecapture/otc_win_compat.h>
 #include <string.h>
 #include <stdlib.h>
 #include <glib.h>
@@ -31,8 +32,6 @@
 #endif
 #include <opentracecapture/libopentracecapture.h>
 #include "libopentracecapture-internal.h"
-#ifdef _WIN32
-#include <windows.h> /* for HANDLE */
 #endif
 
 /** @cond PRIVATE */
