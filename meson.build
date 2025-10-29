@@ -14,6 +14,7 @@ if host_machine.system() == 'windows'
       '/DWIN32_LEAN_AND_MEAN',
       '/DNOMINMAX',
       '/D_CRT_SECURE_NO_WARNINGS',
+      '/D_CRT_NONSTDC_NO_DEPRECATE',
       '/D_WIN32_WINNT=0x0601',
       '/DWINVER=0x0601',
       language: ['c', 'cpp']
@@ -25,6 +26,7 @@ if host_machine.system() == 'windows'
       '-DWIN32_LEAN_AND_MEAN',
       '-DNOMINMAX',
       '-D_CRT_SECURE_NO_WARNINGS',
+      '-D_CRT_NONSTDC_NO_DEPRECATE',
       '-D_WIN32_WINNT=0x0601',
       '-DWINVER=0x0601',
       language: ['c', 'cpp']
