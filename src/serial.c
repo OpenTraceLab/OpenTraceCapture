@@ -32,7 +32,6 @@
 #endif
 #include <opentracecapture/libopentracecapture.h>
 #include "libopentracecapture-internal.h"
-#endif
 
 /** @cond PRIVATE */
 #define LOG_PREFIX "serial"
