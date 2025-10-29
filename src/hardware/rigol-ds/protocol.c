@@ -22,7 +22,7 @@
 #include <config.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#ifndef _WIN32
+#ifndef _MSC_VER
 #include <unistd.h>
 #endif
 #include <errno.h>

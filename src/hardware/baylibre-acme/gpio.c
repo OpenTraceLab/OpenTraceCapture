@@ -20,7 +20,7 @@
 #include <config.h>
 #include <glib.h>
 #include <glib/gstdio.h>
-#ifndef _WIN32
+#ifndef _MSC_VER
 #include <unistd.h>
 #endif
 #include <fcntl.h>

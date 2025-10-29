@@ -30,10 +30,10 @@
 #endif
 #include <glib.h>
 #include <string.h>
-#ifndef _WIN32
+#ifndef _MSC_VER
 #include <unistd.h>
 #endif
-#ifndef _WIN32
+#ifndef _MSC_VER
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>

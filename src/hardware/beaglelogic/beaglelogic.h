@@ -26,7 +26,7 @@
 #include <sys/errno.h>
 #include <sys/ioctl.h>
 #include <stdlib.h>
-#ifndef _WIN32
+#ifndef _MSC_VER
 #include <unistd.h>
 #endif
 

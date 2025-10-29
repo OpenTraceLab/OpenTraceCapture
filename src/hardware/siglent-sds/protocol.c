@@ -30,7 +30,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
-#ifndef _WIN32
+#ifndef _MSC_VER
 #include <unistd.h>
 #endif
 #include <opentracecapture/libopentracecapture.h>
