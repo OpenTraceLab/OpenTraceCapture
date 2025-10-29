@@ -392,7 +392,7 @@ static void logic_fixup_feed(struct dev_context *devc,
 		return;
 
 	for (off = 0; off < logic->length; off += logic->unitsize) {
-		sample = logic->data + off;
+		sample = (uint8_t *)logic->data + off;
 		sample[fp_off] &= fp_mask;
 		for (idx = fp_off + 1; idx < logic->unitsize; idx++)
 			sample[idx] = 0x00;

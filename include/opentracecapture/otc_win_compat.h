@@ -8,6 +8,11 @@
 #define OPENTRACECAPTURE_WIN_COMPAT_H
 
 #if defined(_WIN32)
+  /* Prevent windows.h from including winsock.h */
+  #ifndef _WINSOCKAPI_
+  #define _WINSOCKAPI_
+  #endif
+
   /* Keep Windows headers lean and avoid min/max macro collisions */
   #ifndef WIN32_LEAN_AND_MEAN
   #define WIN32_LEAN_AND_MEAN
