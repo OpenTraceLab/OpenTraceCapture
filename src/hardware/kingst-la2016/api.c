@@ -973,7 +973,7 @@ static int config_list(uint32_t key, GVariant **data,
 				return OTC_ERR_NA;
 			*data = g_variant_new_fixed_array(G_VARIANT_TYPE_UINT32,
 				devopts_cg_logic, ARRAY_SIZE(devopts_cg_logic),
-				sizeof(devopts_cg_logic[0]));
+				sizeof(uint32_t));
 			break;
 #if !WITH_THRESHOLD_DEVCFG
 		case OTC_CONF_VOLTAGE_THRESHOLD:

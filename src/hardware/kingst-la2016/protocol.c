@@ -193,7 +193,7 @@ static void la2016_dump_fpga_registers(const struct otc_dev_inst *sdi,
 	}
 	rdptr = rdbuf;
 
-	otc_spew("FPGA registers dump: %s", caption ? : "for fun");
+	otc_spew("FPGA registers dump: %s", caption ? caption : "for fun");
 	dump_addr = reg_lower;
 	while (rdlen) {
 		dump_len = rdlen;
