@@ -25,9 +25,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifndef _WIN32
 #include <unistd.h>
-#include <string.h>
 #include <sys/time.h>
+#endif
+#include <string.h>
 #include <inttypes.h>
 #include <glib.h>
 #include <libusb.h>
