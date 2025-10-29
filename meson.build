@@ -158,7 +158,6 @@ if host_machine.system() == 'windows'
       '/D_CRT_SECURE_NO_WARNINGS',
       '/D_WIN32_WINNT=0x0601',
       '/DWINVER=0x0601',
-      '/Ob0',
     ]
   endif
 endif
