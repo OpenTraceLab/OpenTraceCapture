@@ -1,35 +1,32 @@
-/*
- * This file is part of the libopentracecapture project.
- *
- * Windows compatibility header - ensures proper header ordering
- */
+#pragma once
 
-#ifndef OPENTRACECAPTURE_WIN_COMPAT_H
-#define OPENTRACECAPTURE_WIN_COMPAT_H
+#ifdef _WIN32
 
-#if defined(_WIN32)
-  /* Target Windows 7+ for IPv6 support */
-  #ifndef _WIN32_WINNT
-  #define _WIN32_WINNT 0x0601
-  #endif
-  #ifndef WINVER
-  #define WINVER 0x0601
-  #endif
-
-  /* Keep Windows headers lean and avoid min/max macro collisions */
-  #ifndef WIN32_LEAN_AND_MEAN
-  #define WIN32_LEAN_AND_MEAN
-  #endif
-  #ifndef NOMINMAX
-  #define NOMINMAX
-  #endif
-
-  /* Include winsock2 before windows.h - this MUST come first */
-  #include <winsock2.h>
-  #include <ws2tcpip.h>
-  
-  /* Now safe to include windows.h - it will skip winsock.h due to header guards */
-  #include <windows.h>
+/* Keep Windows headers lean and avoid std::min/max hijack */
+#ifndef WIN32_LEAN_AND_MEAN
+#  define WIN32_LEAN_AND_MEAN 1
+#endif
+#ifndef NOMINMAX
+#  define NOMINMAX 1
 #endif
 
+/* Target: Windows 7+ (same you used before) */
+#ifndef _WIN32_WINNT
+#  define _WIN32_WINNT 0x0601
 #endif
+#ifndef WINVER
+#  define WINVER 0x0601
+#endif
+
+/* IMPORTANT: winsock2.h must come BEFORE windows.h */
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+/* Block winsock.h from being included later via windows.h or others */
+#ifndef _WINSOCKAPI_
+#  define _WINSOCKAPI_
+#endif
+
+#include <windows.h>
+
+#endif /* _WIN32 */

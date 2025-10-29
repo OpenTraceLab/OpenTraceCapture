@@ -131,7 +131,7 @@ jobs:
 
       - name: Configure (Windows MSVC)
         if: matrix.name == 'Windows-MSVC'
-        run: meson setup build -Dbindings_cxx=true -Db_vscrt=md -Ddefault_library=shared --cmake-prefix-path="C:\vcpkg\installed\x64-windows" --buildtype=plain
+        run: meson setup build --wipe -Dbindings_cxx=true -Db_vscrt=md -Ddefault_library=shared --cmake-prefix-path="C:\vcpkg\installed\x64-windows" --buildtype=plain
         shell: pwsh
         env:
           CC: clang-cl

@@ -2,6 +2,19 @@ project('opentracecapture', ['c', 'cpp'],
   version: '0.1.0',
   default_options: ['c_std=c11', 'warning_level=2'])
 
+# Force-include Windows compatibility header on Windows to ensure proper header order
+if host_machine.system() == 'windows'
+  add_project_arguments(
+    '/FI' + join_paths(meson.source_root(), 'include', 'opentracecapture', 'otc_win_compat.h'),
+    '/DWIN32_LEAN_AND_MEAN',
+    '/DNOMINMAX',
+    '/D_CRT_SECURE_NO_WARNINGS',
+    '/D_WIN32_WINNT=0x0601',
+    '/DWINVER=0x0601',
+    language: ['c', 'cpp']
+  )
+endif
+
 # Version handling - allow CI to override version from Git tags
 otc_version_opt = get_option('version_override')
 otc_version = otc_version_opt != '' ? otc_version_opt : meson.project_version()
@@ -145,21 +158,9 @@ inc = include_directories('include', '.')
 all_deps = deps_core
 compile_args = ['-DOPENTRACECAPTURE_BUILD']
 
-# Windows-specific dependencies and flags
+# Windows-specific dependencies
 if host_machine.system() == 'windows'
   all_deps += cc.find_library('ws2_32', required: true)
-  
-  # MSVC-specific flags
-  if cc.get_id() == 'msvc'
-    compile_args += [
-      '/FI' + meson.current_source_dir() + '/include/opentracecapture/otc_win_compat.h',
-      '/DWIN32_LEAN_AND_MEAN',
-      '/DNOMINMAX',
-      '/D_CRT_SECURE_NO_WARNINGS',
-      '/D_WIN32_WINNT=0x0601',
-      '/DWINVER=0x0601',
-    ]
-  endif
 endif
 
 # Add optional dependencies when available
