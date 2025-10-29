@@ -994,7 +994,7 @@ static int config_list(uint32_t key, GVariant **data,
 		case OTC_CONF_DEVICE_OPTIONS:
 			*data = g_variant_new_fixed_array(G_VARIANT_TYPE_UINT32,
 				devopts_cg_pwm, ARRAY_SIZE(devopts_cg_pwm),
-				sizeof(devopts_cg_pwm[0]));
+				sizeof(uint32_t));
 			break;
 		default:
 			return OTC_ERR_NA;
