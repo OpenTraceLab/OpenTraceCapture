@@ -969,11 +969,13 @@ static int config_list(uint32_t key, GVariant **data,
 	if (cg && cg_type == OTC_CHANNEL_LOGIC) {
 		switch (key) {
 		case OTC_CONF_DEVICE_OPTIONS:
-			if (ARRAY_SIZE(devopts_cg_logic) == 0)
-				return OTC_ERR_NA;
+#if WITH_THRESHOLD_DEVCFG
+			return OTC_ERR_NA;
+#else
 			*data = g_variant_new_fixed_array(G_VARIANT_TYPE_UINT32,
 				devopts_cg_logic, ARRAY_SIZE(devopts_cg_logic),
 				sizeof(uint32_t));
+#endif
 			break;
 #if !WITH_THRESHOLD_DEVCFG
 		case OTC_CONF_VOLTAGE_THRESHOLD:
