@@ -8,6 +8,14 @@
 #define OPENTRACECAPTURE_WIN_COMPAT_H
 
 #if defined(_WIN32)
+  /* Target Windows 7+ for IPv6 support */
+  #ifndef _WIN32_WINNT
+  #define _WIN32_WINNT 0x0601
+  #endif
+  #ifndef WINVER
+  #define WINVER 0x0601
+  #endif
+
   /* Prevent windows.h from including winsock.h */
   #ifndef _WINSOCKAPI_
   #define _WINSOCKAPI_
@@ -21,11 +29,9 @@
   #define NOMINMAX
   #endif
 
-  /* Ensure winsock2 takes precedence over legacy winsock */
+  /* Include winsock2 before windows.h */
   #include <winsock2.h>
   #include <ws2tcpip.h>
-
-  /* Now safe to include windows.h */
   #include <windows.h>
 #endif
 

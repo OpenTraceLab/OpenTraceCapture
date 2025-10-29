@@ -155,6 +155,9 @@ if host_machine.system() == 'windows'
       '/DWIN32_LEAN_AND_MEAN',
       '/DNOMINMAX',
       '/D_CRT_SECURE_NO_WARNINGS',
+      '/D_WINSOCKAPI_',
+      '/D_WIN32_WINNT=0x0601',
+      '/DWINVER=0x0601',
     ]
   endif
 endif
