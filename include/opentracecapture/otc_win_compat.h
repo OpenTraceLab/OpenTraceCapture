@@ -18,6 +18,33 @@
 #  define WINVER 0x0601
 #endif
 
+#if defined(_MSC_VER) && !defined(OTC_HAVE_GETTIMEOFDAY)
+#define OTC_HAVE_GETTIMEOFDAY 1
+
+/* Must be included before windows.h */
+#include <winsock2.h>   /* for struct timeval */
+#include <windows.h>
+
+static inline int gettimeofday(struct timeval *tv, void *tz_unused) {
+    (void)tz_unused;
+    FILETIME ft;
+    ULARGE_INTEGER uli;
+
+    /* 100-ns intervals since Jan 1, 1601 (UTC) */
+    GetSystemTimeAsFileTime(&ft);
+    uli.LowPart  = ft.dwLowDateTime;
+    uli.HighPart = ft.dwHighDateTime;
+
+    /* Convert to microseconds since Unix epoch (Jan 1, 1970) */
+    const unsigned long long EPOCH_DIFF_US = 11644473600000000ULL;
+    unsigned long long usec = (uli.QuadPart / 10ULL) - EPOCH_DIFF_US;
+
+    tv->tv_sec  = (long)(usec / 1000000ULL);
+    tv->tv_usec = (long)(usec % 1000000ULL);
+    return 0;
+}
+#endif
+
 /* IMPORTANT: winsock2.h must come BEFORE windows.h */
 #include <winsock2.h>
 #include <ws2tcpip.h>
