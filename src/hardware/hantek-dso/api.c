@@ -29,7 +29,9 @@
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif
+#ifndef _MSC_VER
 #include <sys/time.h>
+#endif
 #endif
 #include <string.h>
 #include <inttypes.h>

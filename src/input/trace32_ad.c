@@ -41,7 +41,9 @@
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif
+#ifndef _MSC_VER
 #include <sys/time.h>
+#endif
 #include <opentracecapture/libopentracecapture.h>
 #include "../libopentracecapture-internal.h"
 

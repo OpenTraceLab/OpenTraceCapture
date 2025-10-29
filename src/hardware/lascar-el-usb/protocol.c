@@ -20,7 +20,9 @@
 #include <config.h>
 #include <stdlib.h>
 #ifndef _MSC_VER
+#ifndef _MSC_VER
 #include <sys/time.h>
+#endif
 #endif
 #include <string.h>
 #include <math.h>

@@ -24,7 +24,9 @@
 
 #include <stdio.h>
 #if !defined(_WIN32)
+#ifndef _MSC_VER
 #include <sys/time.h>
+#endif
 #endif
 #include <stdint.h>
 #include <inttypes.h>

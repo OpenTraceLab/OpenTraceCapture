@@ -29,7 +29,9 @@
 #include <config.h>
 #include <string.h>
 #include <math.h>
+#ifndef _MSC_VER
 #include <sys/time.h>
+#endif
 #include <glib.h>
 #include <opentracecapture/libopentracecapture.h>
 #include "libopentracecapture-internal.h"
