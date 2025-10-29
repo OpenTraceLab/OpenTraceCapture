@@ -31,7 +31,9 @@
 #include <sys/ioctl.h>
 #endif
 #include <string.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <errno.h>
 #include "protocol.h"
 

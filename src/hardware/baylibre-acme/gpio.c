@@ -20,7 +20,9 @@
 #include <config.h>
 #include <glib.h>
 #include <glib/gstdio.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>

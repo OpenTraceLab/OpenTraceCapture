@@ -22,7 +22,9 @@
 
 #include <stdint.h>
 #include <glib.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <opentracecapture/libopentracecapture.h>
 #include "../../libopentracecapture-internal.h"
 

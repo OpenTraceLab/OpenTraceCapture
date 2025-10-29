@@ -20,7 +20,9 @@
 #include <config.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #ifdef _WIN32
 #define _WIN32_WINNT 0x0501
 #include <winsock2.h>

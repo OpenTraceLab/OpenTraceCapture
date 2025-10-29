@@ -26,7 +26,9 @@
 #include <sys/errno.h>
 #include <sys/ioctl.h>
 #include <stdlib.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 /* BeagleLogic device node name */
 #define BEAGLELOGIC_DEV_NODE        "/dev/beaglelogic"
