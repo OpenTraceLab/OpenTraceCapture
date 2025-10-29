@@ -152,6 +152,7 @@ if host_machine.system() == 'windows'
   # MSVC-specific flags
   if cc.get_id() == 'msvc'
     compile_args += [
+      '/FI' + meson.current_source_dir() + '/include/opentracecapture/otc_win_compat.h',
       '/DWIN32_LEAN_AND_MEAN',
       '/DNOMINMAX',
       '/D_CRT_SECURE_NO_WARNINGS',
