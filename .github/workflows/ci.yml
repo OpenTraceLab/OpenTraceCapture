@@ -145,7 +145,7 @@ jobs:
 
       - name: Build (Windows MSVC)
         if: matrix.name == 'Windows-MSVC'
-        run: meson compile -C build
+        run: meson compile -C build -v -j1
         shell: pwsh
 
       - name: Build (Linux/macOS)
