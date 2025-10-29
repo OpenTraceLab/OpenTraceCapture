@@ -21,7 +21,9 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #ifndef _MSC_VER
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 #endif
 #include <fcntl.h>
 #include <errno.h>

@@ -20,7 +20,9 @@
 #include <config.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 #include <sys/stat.h>
 #include <opentracecapture/libopentracecapture.h>
 #include "../libopentracecapture-internal.h"

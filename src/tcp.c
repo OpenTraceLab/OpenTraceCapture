@@ -34,7 +34,9 @@
 #include <errno.h>
 #include <glib.h>
 #include <string.h>
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 
 #if !defined _WIN32
 #include <arpa/inet.h>

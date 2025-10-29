@@ -83,7 +83,9 @@
 #include <sys/uio.h>
 #include <sys/socket.h>
 #include <time.h>
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 
 #include <opentracecapture/libopentracecapture.h>
 #include "../libopentracecapture-internal.h"

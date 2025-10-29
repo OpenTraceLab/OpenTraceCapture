@@ -26,7 +26,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #ifndef _WIN32
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 #include <sys/time.h>
 #endif
 #include <string.h>

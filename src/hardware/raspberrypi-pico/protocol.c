@@ -27,7 +27,9 @@
 #include <string.h>
 #include <time.h>
 #ifndef _MSC_VER
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 #endif
 #include <opentracecapture/libopentracecapture.h>
 #include "../../libopentracecapture-internal.h"

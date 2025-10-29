@@ -27,7 +27,9 @@
 #include <sys/ioctl.h>
 #include <stdlib.h>
 #ifndef _MSC_VER
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 #endif
 
 /* BeagleLogic device node name */

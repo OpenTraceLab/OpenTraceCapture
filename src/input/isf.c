@@ -47,7 +47,9 @@
 #include <config.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 #include <fcntl.h>
 #include <ctype.h>
 #include <string.h>
