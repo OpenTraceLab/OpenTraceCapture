@@ -28,6 +28,11 @@
 
 #include <config.h>
 
+/* Work around MSVC Internal Compiler Error */
+#ifdef _MSC_VER
+#pragma optimize("", off)
+#endif
+
 #include <opentracecapture/libopentracecapture.h>
 #include <string.h>
 
