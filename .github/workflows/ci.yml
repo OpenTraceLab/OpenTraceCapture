@@ -133,6 +133,9 @@ jobs:
         if: matrix.name == 'Windows-MSVC'
         run: meson setup build -Dbindings_cxx=true -Db_vscrt=md -Ddefault_library=shared --cmake-prefix-path="C:\vcpkg\installed\x64-windows" --buildtype=plain
         shell: pwsh
+        env:
+          CC: clang-cl
+          CXX: clang-cl
 
       - name: Configure (Linux/macOS)
         if: matrix.name == 'Linux' || matrix.name == 'macOS'
