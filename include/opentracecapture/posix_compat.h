@@ -1,5 +1,5 @@
 #pragma once
-#ifdef _WIN32
+#if defined(_WIN32) && (defined(_MSC_VER) || defined(__clang__))
 
 // Standard Windows + CRT bits
 #include <windows.h>
@@ -33,4 +33,4 @@ static inline void otc_usleep_win(unsigned long usec) {
 #define strcasecmp  _stricmp
 #define strncasecmp _strnicmp
 
-#endif /* _WIN32 */
+#endif /* _WIN32 && (_MSC_VER || __clang__) */
