@@ -29,4 +29,7 @@
 
 #include <windows.h>
 
+/* Include POSIX compatibility shim */
+#include <opentracecapture/posix_compat.h>
+
 #endif /* _WIN32 */
