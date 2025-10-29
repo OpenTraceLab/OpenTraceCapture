@@ -20,11 +20,13 @@
 #ifndef LIBSIGROK_LIBSIGROK_INTERNAL_H
 #define LIBSIGROK_LIBSIGROK_INTERNAL_H
 
+/* Include Windows compatibility header FIRST before anything else */
+#include <opentracecapture/otc_win_compat.h>
+
 #include "config.h"
 
-/* Include portability headers first */
+/* Include other portability headers */
 #include <opentracecapture/otc_attrs.h>
-#include <opentracecapture/otc_win_compat.h>
 
 #include <glib.h>
 #ifdef HAVE_LIBHIDAPI
