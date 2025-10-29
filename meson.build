@@ -4,15 +4,32 @@ project('opentracecapture', ['c', 'cpp'],
 
 # Force-include Windows compatibility header on Windows to ensure proper header order
 if host_machine.system() == 'windows'
-  add_project_arguments(
-    '/FI' + join_paths(meson.source_root(), 'include', 'opentracecapture', 'otc_win_compat.h'),
-    '/DWIN32_LEAN_AND_MEAN',
-    '/DNOMINMAX',
-    '/D_CRT_SECURE_NO_WARNINGS',
-    '/D_WIN32_WINNT=0x0601',
-    '/DWINVER=0x0601',
-    language: ['c', 'cpp']
-  )
+  cc = meson.get_compiler('c')
+  compat_header = join_paths(meson.source_root(), 'include', 'opentracecapture', 'otc_win_compat.h')
+  
+  if cc.get_id() == 'msvc' or cc.get_id() == 'clang-cl'
+    # MSVC and clang-cl use /FI
+    add_project_arguments(
+      '/FI' + compat_header,
+      '/DWIN32_LEAN_AND_MEAN',
+      '/DNOMINMAX',
+      '/D_CRT_SECURE_NO_WARNINGS',
+      '/D_WIN32_WINNT=0x0601',
+      '/DWINVER=0x0601',
+      language: ['c', 'cpp']
+    )
+  else
+    # GCC/MinGW use -include
+    add_project_arguments(
+      '-include', compat_header,
+      '-DWIN32_LEAN_AND_MEAN',
+      '-DNOMINMAX',
+      '-D_CRT_SECURE_NO_WARNINGS',
+      '-D_WIN32_WINNT=0x0601',
+      '-DWINVER=0x0601',
+      language: ['c', 'cpp']
+    )
+  endif
 endif
 
 # Version handling - allow CI to override version from Git tags
