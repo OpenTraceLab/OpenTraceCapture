@@ -41,10 +41,10 @@ enums_gen = custom_target('enums_gen',
   command: [generate_enums_sh, python3, '@INPUT0@', meson.current_build_dir() + '/doxy/xml/index.xml', meson.current_build_dir(), '@OUTPUT0@', '@OUTPUT1@']
 )
 
-# Install the generated enums.hpp (generated to source dir)
+# Install the generated enums.hpp (generated to build dir)
 meson.add_install_script('sh', '-c', 
   'mkdir -p $MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx && ' +
-  'cp ' + meson.current_source_dir() + '/include/libopentracecapturecxx/enums.hpp ' +
+  'cp ' + meson.current_build_dir() + '/enums.hpp ' +
   '$MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx/ && ' +
   'cp ' + meson.current_source_dir() + '/include/libopentracecapturecxx/libopentracecapturecxx.hpp ' +
   '$MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx/ && ' +
