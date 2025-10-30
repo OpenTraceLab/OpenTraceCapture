@@ -18,6 +18,25 @@
 #  define WINVER 0x0601
 #endif
 
+/* IMPORTANT: winsock2.h must come BEFORE windows.h */
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+/* Block winsock.h from being included later via windows.h or others */
+#ifndef _WINSOCKAPI_
+#  define _WINSOCKAPI_
+#endif
+
+#include <windows.h>
+
+/* Nuke noisy Win32 macros that collide with C++ libs */
+#ifdef ERROR
+#  undef ERROR
+#endif
+#ifdef interface
+#  undef interface
+#endif
+
 #if defined(_MSC_VER)
 /* MSVC: no ftello/fseeko; use 64-bit variants. */
 #  include <stdio.h>
@@ -33,12 +52,26 @@
 /* Optional: provide a consistent 64-bit file offset type for your code. */
 typedef int64_t otc_off_t;
 
+/* Provide a Windows sleep shim */
+/* C++: don't macro-poison 'usleep' because glibmm declares it. */
+#  ifdef __cplusplus
+     /* If you still need a helper in C++, give it a different name: */
+     static inline void otc_usleep(unsigned long usec) {
+         /* round up to next millisecond */
+         Sleep((DWORD)((usec + 999UL) / 1000UL));
+     }
+#  else
+     /* C: map POSIX name to our helper */
+     static inline void otc_usleep_win(unsigned long usec) {
+         Sleep((DWORD)((usec + 999UL) / 1000UL));
+     }
+#    ifndef usleep
+#      define usleep(usec) otc_usleep_win((unsigned long)(usec))
+#    endif
+#  endif
+
 #if !defined(OTC_HAVE_GETTIMEOFDAY)
 #define OTC_HAVE_GETTIMEOFDAY 1
-
-/* Must be included before windows.h */
-#include <winsock2.h>   /* for struct timeval */
-#include <windows.h>
 
 static inline int gettimeofday(struct timeval *tv, void *tz_unused) {
     (void)tz_unused;
@@ -65,17 +98,6 @@ static inline int gettimeofday(struct timeval *tv, void *tz_unused) {
 #  include <sys/types.h>
 typedef off_t otc_off_t;
 #endif
-
-/* IMPORTANT: winsock2.h must come BEFORE windows.h */
-#include <winsock2.h>
-#include <ws2tcpip.h>
-
-/* Block winsock.h from being included later via windows.h or others */
-#ifndef _WINSOCKAPI_
-#  define _WINSOCKAPI_
-#endif
-
-#include <windows.h>
 
 /* Include POSIX compatibility shim */
 #include <opentracecapture/posix_compat.h>

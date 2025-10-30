@@ -47,6 +47,8 @@ meson.add_install_script('sh', '-c',
   'cp ' + meson.current_source_dir() + '/include/libopentracecapturecxx/enums.hpp ' +
   '$MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx/ && ' +
   'cp ' + meson.current_source_dir() + '/include/libopentracecapturecxx/libopentracecapturecxx.hpp ' +
+  '$MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx/ && ' +
+  'cp ' + meson.current_source_dir() + '/include/libopentracecapturecxx/export.hpp ' +
   '$MESON_INSTALL_DESTDIR_PREFIX/' + get_option('includedir') + '/libopentracecapturecxx/'
 )
 
@@ -64,7 +66,8 @@ libopentracecapturecxx = library('opentracecapturecxx',
   version: meson.project_version(),
   soversion: '0',
   install: true,
-  override_options: ['cpp_std=c++17']
+  override_options: ['cpp_std=c++17'],
+  cpp_args: ['-DOPENTRACECAPTURECXX_BUILD']
 )
 
 # pkg-config

@@ -71,6 +71,7 @@ raised, which provides access to the error code and description.
 #define LIBSIGROKCXX_HPP
 
 #include <opentracecapture/libopentracecapture.h>
+#include "libopentracecapturecxx/export.hpp"
 
 /* Undefine Windows macros that conflict with C++ enum member names */
 #if defined(_WIN32)
@@ -99,41 +100,41 @@ namespace opentrace
 {
 
 /* Forward declarations */
-class OTC_API Error;
-class OTC_API Context;
-class OTC_API Driver;
-class OTC_API Device;
-class OTC_API HardwareDevice;
-class OTC_API Channel;
-class OTC_API Session;
-class OTC_API ConfigKey;
-class OTC_API Capability;
-class OTC_API InputFormat;
-class OTC_API OutputFormat;
-class OTC_API OutputFlag;
-class OTC_API LogLevel;
-class OTC_API ChannelGroup;
-class OTC_API Trigger;
-class OTC_API TriggerStage;
-class OTC_API TriggerMatch;
-class OTC_API TriggerMatchType;
-class OTC_API ChannelType;
-class OTC_API Packet;
-class OTC_API PacketPayload;
-class OTC_API PacketType;
-class OTC_API Quantity;
-class OTC_API Unit;
-class OTC_API QuantityFlag;
-class OTC_API Rational;
-class OTC_API Input;
-class OTC_API InputDevice;
-class OTC_API Output;
-class OTC_API DataType;
-class OTC_API Option;
-class OTC_API UserDevice;
+class OTCCXX_API Error;
+class OTCCXX_API Context;
+class OTCCXX_API Driver;
+class OTCCXX_API Device;
+class OTCCXX_API HardwareDevice;
+class OTCCXX_API Channel;
+class OTCCXX_API Session;
+class OTCCXX_API ConfigKey;
+class OTCCXX_API Capability;
+class OTCCXX_API InputFormat;
+class OTCCXX_API OutputFormat;
+class OTCCXX_API OutputFlag;
+class OTCCXX_API LogLevel;
+class OTCCXX_API ChannelGroup;
+class OTCCXX_API Trigger;
+class OTCCXX_API TriggerStage;
+class OTCCXX_API TriggerMatch;
+class OTCCXX_API TriggerMatchType;
+class OTCCXX_API ChannelType;
+class OTCCXX_API Packet;
+class OTCCXX_API PacketPayload;
+class OTCCXX_API PacketType;
+class OTCCXX_API Quantity;
+class OTCCXX_API Unit;
+class OTCCXX_API QuantityFlag;
+class OTCCXX_API Rational;
+class OTCCXX_API Input;
+class OTCCXX_API InputDevice;
+class OTCCXX_API Output;
+class OTCCXX_API DataType;
+class OTCCXX_API Option;
+class OTCCXX_API UserDevice;
 
 /** Exception thrown when an error code is returned by any libsigrok call. */
-class OTC_API Error: public std::exception
+class OTCCXX_API Error: public std::exception
 {
 public:
 	explicit Error(int result);
@@ -144,7 +145,7 @@ public:
 
 /* Base template for classes whose resources are owned by a parent object. */
 template <class Class, class Parent>
-class OTC_API ParentOwned
+class OTCCXX_API ParentOwned
 {
 private:
 	/* Weak pointer for shared_from_this() implementation. */
@@ -207,7 +208,7 @@ public:
 
 /* Base template for classes whose resources are owned by the user. */
 template <class Class>
-class OTC_API UserOwned : public std::enable_shared_from_this<Class>
+class OTCCXX_API UserOwned : public std::enable_shared_from_this<Class>
 {
 protected:
 	UserOwned() {}
@@ -225,7 +226,7 @@ protected:
 typedef std::function<void(const LogLevel *, std::string message)> LogCallbackFunction;
 
 /** Resource reader delegate. */
-class OTC_API ResourceReader
+class OTCCXX_API ResourceReader
 {
 public:
 	ResourceReader() {}
@@ -248,7 +249,7 @@ private:
 };
 
 /** The global libsigrok context */
-class OTC_API Context : public UserOwned<Context>
+class OTCCXX_API Context : public UserOwned<Context>
 {
 public:
 	/** Create new context */
@@ -326,7 +327,7 @@ private:
 };
 
 /** An object that can be configured. */
-class OTC_API Configurable
+class OTCCXX_API Configurable
 {
 public:
 	/** Supported configuration keys. */
@@ -360,7 +361,7 @@ protected:
 };
 
 /** A hardware driver provided by the library */
-class OTC_API Driver : public ParentOwned<Driver, Context>, public Configurable
+class OTCCXX_API Driver : public ParentOwned<Driver, Context>, public Configurable
 {
 public:
 	/** Name of this driver. */
@@ -386,7 +387,7 @@ private:
 };
 
 /** A generic device, either hardware or virtual */
-class OTC_API Device : public Configurable
+class OTCCXX_API Device : public Configurable
 {
 public:
 	/** Vendor name for this device. */
@@ -427,7 +428,7 @@ private:
 };
 
 /** A real hardware device, connected via a driver */
-class OTC_API HardwareDevice :
+class OTCCXX_API HardwareDevice :
 	public UserOwned<HardwareDevice>,
 	public Device
 {
@@ -446,7 +447,7 @@ private:
 };
 
 /** A virtual device, created by the user */
-class OTC_API UserDevice :
+class OTCCXX_API UserDevice :
 	public UserOwned<UserDevice>,
 	public Device
 {
@@ -463,7 +464,7 @@ private:
 };
 
 /** A channel on a device */
-class OTC_API Channel :
+class OTCCXX_API Channel :
 	public ParentOwned<Channel, Device>
 {
 public:
@@ -496,7 +497,7 @@ private:
 };
 
 /** A group of channels on a device, which share some configuration */
-class OTC_API ChannelGroup :
+class OTCCXX_API ChannelGroup :
 	public ParentOwned<ChannelGroup, Device>,
 	public Configurable
 {
@@ -514,7 +515,7 @@ private:
 };
 
 /** A trigger configuration */
-class OTC_API Trigger : public UserOwned<Trigger>
+class OTCCXX_API Trigger : public UserOwned<Trigger>
 {
 public:
 	/** Name of this trigger configuration. */
@@ -535,7 +536,7 @@ private:
 };
 
 /** A stage in a trigger configuration */
-class OTC_API TriggerStage :
+class OTCCXX_API TriggerStage :
 	public ParentOwned<TriggerStage, Trigger>
 {
 public:
@@ -562,7 +563,7 @@ private:
 };
 
 /** A match condition in a trigger configuration  */
-class OTC_API TriggerMatch :
+class OTCCXX_API TriggerMatch :
 	public ParentOwned<TriggerMatch, TriggerStage>
 {
 public:
@@ -603,7 +604,7 @@ private:
 };
 
 /** A virtual device associated with a stored session */
-class OTC_API SessionDevice :
+class OTCCXX_API SessionDevice :
 	public ParentOwned<SessionDevice, Session>,
 	public Device
 {
@@ -617,7 +618,7 @@ private:
 };
 
 /** A sigrok session */
-class OTC_API Session : public UserOwned<Session>
+class OTCCXX_API Session : public UserOwned<Session>
 {
 public:
 	/** Add a device to this session.
@@ -672,7 +673,7 @@ private:
 };
 
 /** A packet on the session datafeed */
-class OTC_API Packet : public UserOwned<Packet>
+class OTCCXX_API Packet : public UserOwned<Packet>
 {
 public:
 	/** Type of this packet. */
@@ -699,7 +700,7 @@ private:
 };
 
 /** Abstract base class for datafeed packet payloads */
-class OTC_API PacketPayload
+class OTCCXX_API PacketPayload
 {
 protected:
 	PacketPayload();
@@ -713,7 +714,7 @@ private:
 };
 
 /** Payload of a datafeed header packet */
-class OTC_API Header :
+class OTCCXX_API Header :
 	public ParentOwned<Header, Packet>,
 	public PacketPayload
 {
@@ -733,7 +734,7 @@ private:
 };
 
 /** Payload of a datafeed metadata packet */
-class OTC_API Meta :
+class OTCCXX_API Meta :
 	public ParentOwned<Meta, Packet>,
 	public PacketPayload
 {
@@ -752,7 +753,7 @@ private:
 };
 
 /** Payload of a datafeed packet with logic data */
-class OTC_API Logic :
+class OTCCXX_API Logic :
 	public ParentOwned<Logic, Packet>,
 	public PacketPayload
 {
@@ -776,7 +777,7 @@ private:
 };
 
 /** Payload of a datafeed packet with analog data */
-class OTC_API Analog :
+class OTCCXX_API Analog :
 	public ParentOwned<Analog, Packet>,
 	public PacketPayload
 {
@@ -870,7 +871,7 @@ private:
 };
 
 /** Number represented by a numerator/denominator integer pair */
-class OTC_API Rational :
+class OTCCXX_API Rational :
 	public ParentOwned<Rational, Analog>
 {
 public:
@@ -892,7 +893,7 @@ private:
 };
 
 /** An input format supported by the library */
-class OTC_API InputFormat :
+class OTCCXX_API InputFormat :
 	public ParentOwned<InputFormat, Context>
 {
 public:
@@ -921,7 +922,7 @@ private:
 };
 
 /** An input instance (an input format applied to a file or stream) */
-class OTC_API Input : public UserOwned<Input>
+class OTCCXX_API Input : public UserOwned<Input>
 {
 public:
 	/** Virtual device associated with this input. */
@@ -946,7 +947,7 @@ private:
 };
 
 /** A virtual device associated with an input */
-class OTC_API InputDevice :
+class OTCCXX_API InputDevice :
 	public ParentOwned<InputDevice, Input>,
 	public Device
 {
@@ -960,7 +961,7 @@ private:
 };
 
 /** An option used by an output format */
-class OTC_API Option : public UserOwned<Option>
+class OTCCXX_API Option : public UserOwned<Option>
 {
 public:
 	/** Short name of this option suitable for command line usage. */
@@ -988,7 +989,7 @@ private:
 };
 
 /** An output format supported by the library */
-class OTC_API OutputFormat :
+class OTCCXX_API OutputFormat :
 	public ParentOwned<OutputFormat, Context>
 {
 public:
@@ -1032,7 +1033,7 @@ private:
 };
 
 /** An output instance (an output format applied to a device) */
-class OTC_API Output : public UserOwned<Output>
+class OTCCXX_API Output : public UserOwned<Output>
 {
 public:
 	/** Update output with data from the given packet.
@@ -1058,7 +1059,7 @@ private:
 };
 
 /** Base class for objects which wrap an enumeration value from libsigrok */
-template <class Class, typename Enum> class OTC_API EnumValue
+template <class Class, typename Enum> class OTCCXX_API EnumValue
 {
 public:
 	/** The integer constant associated with this value. */
