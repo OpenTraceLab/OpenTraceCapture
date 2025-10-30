@@ -1075,8 +1075,9 @@ public:
 	/** Get value associated with a given integer constant. */
 	static const Class *get(int id)
 	{
-		const auto pos = _values.find(static_cast<Enum>(id));
-		if (pos == _values.end())
+		const auto& values_map = _values();
+		const auto pos = values_map.find(static_cast<Enum>(id));
+		if (pos == values_map.end())
 			throw Error(OTC_ERR_ARG);
 		return pos->second;
 	}
@@ -1084,7 +1085,8 @@ public:
 	static std::vector<const Class *> values()
 	{
 		std::vector<const Class *> result;
-		for (auto entry : _values)
+		const auto& values_map = _values();
+		for (auto entry : values_map)
 			result.push_back(entry.second);
 		return result;
 	}
@@ -1096,7 +1098,7 @@ protected:
 	{
 	}
 private:
-	static const std::map<const Enum, const Class * const> _values;
+	static const std::map<const Enum, const Class * const>& _values();
 	const Enum _id;
 	const std::string _name;
 };

@@ -90,6 +90,11 @@ print("", file=header)
 print("// Generated file - edit enums.py instead!", file=code)
 print("", file=code)
 print("#include <config.h>", file=code)
+print('#include <vector>', file=code)
+print('#include <string>', file=code)
+print('#include <cstdint>', file=code)
+print('#include <stdexcept>', file=code)
+print('#include <glibmm.h>', file=code)
 print('#include "libopentracecapturecxx/libopentracecapturecxx.hpp"', file=code)
 print("", file=code)
 print("namespace opentrace {", file=code)
@@ -109,8 +114,6 @@ print("", file=code)
 
 # Template for beginning of class declaration and public members.
 header_public_template = """
-template<> const OTC_API std::map<const enum {enumname}, const {classname} * const> EnumValue<{classname}, enum {enumname}>::_values;
-
 /** {brief} */
 class OTC_API {classname} : public EnumValue<{classname}, enum {enumname}>
 {{
@@ -174,12 +177,17 @@ for enum, (classname, classbrief) in classes.items():
             classname, classname, trimmed_name, classname, trimmed_name),
             file=code)
 
-    # Define map of enum values to constants
-    print('template<> const OTC_API std::map<const enum %s, const %s * const> EnumValue<%s, enum %s>::_values = {' % (
+    # Define map of enum values to constants using accessor function
+    print('template<>')
+    print('const std::map<const enum %s, const %s * const>& EnumValue<%s, enum %s>::_values() {' % (
         enum_name, classname, classname, enum_name), file=code)
+    print('\tstatic const std::map<const enum %s, const %s * const> m = {' % (
+        enum_name, classname), file=code)
     for name, trimmed_name in zip(member_names, trimmed_names):
-        print('\t{%s, %s::%s},' % (name, classname, trimmed_name), file=code)
-    print('};', file=code)
+        print('\t\t{%s, %s::%s},' % (name, classname, trimmed_name), file=code)
+    print('\t};', file=code)
+    print('\treturn m;', file=code)
+    print('}', file=code)
 
     # Define additional methods if present
     filename = os.path.join(dirname, "%s_methods.cpp" % classname)
