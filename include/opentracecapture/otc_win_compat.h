@@ -18,7 +18,22 @@
 #  define WINVER 0x0601
 #endif
 
-#if defined(_MSC_VER) && !defined(OTC_HAVE_GETTIMEOFDAY)
+#if defined(_MSC_VER)
+/* MSVC: no ftello/fseeko; use 64-bit variants. */
+#  include <stdio.h>
+#  include <stdint.h>
+
+#  ifndef fseeko
+#    define fseeko _fseeki64
+#  endif
+#  ifndef ftello
+#    define ftello _ftelli64
+#  endif
+
+/* Optional: provide a consistent 64-bit file offset type for your code. */
+typedef int64_t otc_off_t;
+
+#if !defined(OTC_HAVE_GETTIMEOFDAY)
 #define OTC_HAVE_GETTIMEOFDAY 1
 
 /* Must be included before windows.h */
@@ -43,6 +58,12 @@ static inline int gettimeofday(struct timeval *tv, void *tz_unused) {
     tv->tv_usec = (long)(usec % 1000000ULL);
     return 0;
 }
+#endif
+
+#else
+/* POSIX/MinGW path: keep normal ftello/fseeko; ensure 64-bit off_t. */
+#  include <sys/types.h>
+typedef off_t otc_off_t;
 #endif
 
 /* IMPORTANT: winsock2.h must come BEFORE windows.h */
