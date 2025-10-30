@@ -51,19 +51,21 @@ jobs:
         if: matrix.name == 'Windows-MSVC'
         uses: ilammy/msvc-dev-cmd@v1
 
-      # sccache for MSVC compiler caching
       - name: Setup sccache
         if: matrix.name == 'Windows-MSVC'
         uses: mozilla-actions/sccache-action@v0.0.4
 
-      - name: Configure sccache for MSVC
+      - name: Configure env for MSVC + sccache
         if: matrix.name == 'Windows-MSVC'
         shell: pwsh
         run: |
-          echo "CC=sccache cl" >> $env:GITHUB_ENV
-          echo "CXX=sccache cl" >> $env:GITHUB_ENV
           echo "SCCACHE_CACHE_SIZE=5G" >> $env:GITHUB_ENV
           echo "SCCACHE_DIR=$env:USERPROFILE\.cache\sccache" >> $env:GITHUB_ENV
+          echo "CC=cl" >> $env:GITHUB_ENV
+          echo "CXX=cl" >> $env:GITHUB_ENV
+          echo "VCPKG_DEFAULT_TRIPLET=x64-windows" >> $env:GITHUB_ENV
+          echo "VCPKG_FEATURE_FLAGS=manifests,binarycaching" >> $env:GITHUB_ENV
+          echo "VCPKG_BINARY_SOURCES=clear;files,C:\vcpkg\cache,readwrite" >> $env:GITHUB_ENV
 
       - name: Cache sccache (MSVC)
         if: matrix.name == 'Windows-MSVC'
@@ -76,18 +78,23 @@ jobs:
           restore-keys: |
             sccache-msvc-${{ runner.os }}-
 
-      # vcpkg binary cache only (archives speed up installs)
-      - name: Cache vcpkg binaries
+      - name: Cache vcpkg state (MSVC)
         if: matrix.name == 'Windows-MSVC'
         uses: actions/cache@v4
         with:
-          path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: vcpkg-bincache-${{ runner.os }}-${{ hashFiles('scripts/vcpkg-ports.txt') }}
+          path: |
+            C:\vcpkg\installed
+            C:\vcpkg\packages
+            C:\vcpkg\downloads
+            C:\Users\runneradmin\AppData\Local\vcpkg\archives
+            C:\vcpkg\cache
+          key: vcpkg-msvc-${{ runner.os }}-${{ hashFiles('scripts/vcpkg-ports.txt') }}
           restore-keys: |
-            vcpkg-bincache-${{ runner.os }}-
+            vcpkg-msvc-${{ runner.os }}-
 
       - name: Windows MSVC deps (vcpkg)
         if: matrix.name == 'Windows-MSVC'
+        shell: pwsh
         run: |
           vcpkg install pkgconf:x64-windows
           Get-Content scripts/vcpkg-ports.txt | ForEach-Object { vcpkg install $_ }
@@ -97,29 +104,45 @@ jobs:
             echo "PKG_CONFIG=$pkgconf" >> $env:GITHUB_ENV
             echo "PKG_CONFIG_PATH=C:\vcpkg\installed\x64-windows\lib\pkgconfig" >> $env:GITHUB_ENV
           } else {
-            Write-Error "pkgconf not found at $pkgconf"
-            exit 1
+            Write-Error "pkgconf not found at $pkgconf"; exit 1
           }
-        shell: pwsh
 
-      # Cache Meson build directory for incremental builds
       - name: Cache Meson build dir (MSVC)
         if: matrix.name == 'Windows-MSVC'
         uses: actions/cache@v4
         with:
           path: build
-          key: msvc-build-${{ runner.os }}-${{ hashFiles('**/meson.build', '**/meson_options.txt') }}
+          key: msvc-build-${{ runner.os }}-meson${{ hashFiles('**/meson.build','**/meson_options.txt') }}-cc${{ env.CC }}-triplet${{ env.VCPKG_DEFAULT_TRIPLET }}
           restore-keys: |
             msvc-build-${{ runner.os }}-
 
       - name: Download libserialport (MSVC)
         if: matrix.name == 'Windows-MSVC'
+        id: lsp
+        shell: pwsh
         run: |
           $release = Invoke-RestMethod -Uri "https://api.github.com/repos/OpenTraceLab/libserialport/releases/latest"
           $asset = $release.assets | Where-Object { $_.name -like "*windows-msvc*" }
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile libserialport-msvc.tar.gz
+          echo "asset=$($asset.browser_download_url)" >> $env:GITHUB_OUTPUT
+
+      - name: Cache libserialport payload (MSVC)
+        if: matrix.name == 'Windows-MSVC'
+        uses: actions/cache@v4
+        with:
+          path: C:\_lsp_cache
+          key: lsp-${{ steps.lsp.outputs.asset }}
+
+      - name: Install libserialport (MSVC)
+        if: matrix.name == 'Windows-MSVC'
+        shell: pwsh
+        run: |
+          New-Item -Force -ItemType Directory C:\_lsp_cache | Out-Null
+          $tarPath = "C:\_lsp_cache\libserialport-msvc.tar.gz"
+          if (-not (Test-Path $tarPath)) {
+            Invoke-WebRequest -Uri "${{ steps.lsp.outputs.asset }}" -OutFile $tarPath
+          }
           mkdir libserialport-temp
-          tar xzf libserialport-msvc.tar.gz -C libserialport-temp
+          tar xzf $tarPath -C libserialport-temp
           Copy-Item -Path libserialport-temp\* -Destination C:\ -Recurse -Force
           echo "PKG_CONFIG_PATH=C:\lib\pkgconfig;$env:PKG_CONFIG_PATH" >> $env:GITHUB_ENV
         shell: pwsh
@@ -131,11 +154,25 @@ jobs:
 
       - name: Configure (Windows MSVC)
         if: matrix.name == 'Windows-MSVC'
-        run: meson setup build --wipe -Dbindings_cxx=true -Db_vscrt=md -Ddefault_library=shared --cmake-prefix-path="C:\vcpkg\installed\x64-windows" --buildtype=plain
         shell: pwsh
-        env:
-          CC: clang-cl
-          CXX: clang-cl
+        run: |
+          # Remove --wipe to preserve build cache, add optimizations
+          meson setup build `
+            -Dbindings_cxx=true `
+            -Db_vscrt=md `
+            -Ddefault_library=shared `
+            -Dunity=on `
+            -Db_pch=true `
+            -Db_compiler_launcher=sccache `
+            --cmake-prefix-path="C:\vcpkg\installed\x64-windows" `
+            --buildtype=debugoptimized
+
+          # Add MSVC-friendly args for parallel compilation and fast debug linking
+          meson configure build `
+            -Dc_args="/Z7 /MP" `
+            -Dcpp_args="/Z7 /MP" `
+            -Dc_link_args="/DEBUG:FASTLINK" `
+            -Dcpp_link_args="/DEBUG:FASTLINK"
 
       - name: Configure (Linux/macOS)
         if: matrix.name == 'Linux' || matrix.name == 'macOS'
@@ -148,8 +185,10 @@ jobs:
 
       - name: Build (Windows MSVC)
         if: matrix.name == 'Windows-MSVC'
-        run: meson compile -C build -v -j1
         shell: pwsh
+        run: |
+          # Use parallel compilation now that we have /Z7 and /DEBUG:FASTLINK
+          meson compile -C build -v
 
       - name: Build (Linux/macOS)
         if: matrix.name == 'Linux' || matrix.name == 'macOS'
