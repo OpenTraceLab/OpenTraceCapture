@@ -2,6 +2,9 @@
 
 #ifdef _WIN32
 
+#ifndef OTC_WIN_SHIM_ONCE
+#define OTC_WIN_SHIM_ONCE 1
+
 /* Keep Windows headers lean and avoid std::min/max hijack */
 #ifndef WIN32_LEAN_AND_MEAN
 #  define WIN32_LEAN_AND_MEAN 1
@@ -52,24 +55,16 @@
 /* Optional: provide a consistent 64-bit file offset type for your code. */
 typedef int64_t otc_off_t;
 
-/* Provide a Windows sleep shim */
-/* C++: don't macro-poison 'usleep' because glibmm declares it. */
-#  ifdef __cplusplus
-     /* If you still need a helper in C++, give it a different name: */
-     static inline void otc_usleep(unsigned long usec) {
-         /* round up to next millisecond */
-         Sleep((DWORD)((usec + 999UL) / 1000UL));
-     }
-#  else
-     /* C: map POSIX name to our helper */
-     static inline void otc_usleep_win(unsigned long usec) {
-         Sleep((DWORD)((usec + 999UL) / 1000UL));
-     }
-#    ifndef usleep
-#      define usleep(usec) otc_usleep_win((unsigned long)(usec))
-#    endif
-#  endif
+/* ---- usleep shim (implementation lives here) ---- */
+#ifndef OTC_HAVE_USLEEP_WIN
+#define OTC_HAVE_USLEEP_WIN 1
+static inline void otc_usleep_win(unsigned long usec) {
+    /* round up to next millisecond */
+    Sleep((DWORD)((usec + 999UL) / 1000UL));
+}
+#endif
 
+/* ---- gettimeofday shim ---- */
 #if !defined(OTC_HAVE_GETTIMEOFDAY)
 #define OTC_HAVE_GETTIMEOFDAY 1
 
@@ -98,6 +93,8 @@ static inline int gettimeofday(struct timeval *tv, void *tz_unused) {
 #  include <sys/types.h>
 typedef off_t otc_off_t;
 #endif
+
+#endif /* OTC_WIN_SHIM_ONCE */
 
 /* Include POSIX compatibility shim */
 #include <opentracecapture/posix_compat.h>
