@@ -252,6 +252,10 @@ private:
 class OTCCXX_API Context : public UserOwned<Context>
 {
 public:
+	// Non-copyable due to unique_ptr members
+	Context(const Context&) = delete;
+	Context& operator=(const Context&) = delete;
+	
 	/** Create new context */
 	static std::shared_ptr<Context> create();
 	/** libsigrok package version. */
@@ -390,6 +394,10 @@ private:
 class OTCCXX_API Device : public Configurable
 {
 public:
+	// Non-copyable due to unique_ptr members
+	Device(const Device&) = delete;
+	Device& operator=(const Device&) = delete;
+	
 	/** Vendor name for this device. */
 	std::string vendor() const;
 	/** Model name for this device. */
@@ -518,6 +526,10 @@ private:
 class OTCCXX_API Trigger : public UserOwned<Trigger>
 {
 public:
+	// Non-copyable due to unique_ptr members
+	Trigger(const Trigger&) = delete;
+	Trigger& operator=(const Trigger&) = delete;
+	
 	/** Name of this trigger configuration. */
 	std::string name() const;
 	/** List of the stages in this trigger. */
@@ -540,6 +552,10 @@ class OTCCXX_API TriggerStage :
 	public ParentOwned<TriggerStage, Trigger>
 {
 public:
+	// Non-copyable due to unique_ptr members
+	TriggerStage(const TriggerStage&) = delete;
+	TriggerStage& operator=(const TriggerStage&) = delete;
+	
 	/** Index number of this stage. */
 	int number() const;
 	/** List of match conditions on this stage. */
@@ -621,6 +637,10 @@ private:
 class OTCCXX_API Session : public UserOwned<Session>
 {
 public:
+	// Non-copyable due to unique_ptr members
+	Session(const Session&) = delete;
+	Session& operator=(const Session&) = delete;
+	
 	/** Add a device to this session.
 	 * @param device Device to add. */
 	void add_device(std::shared_ptr<Device> device);
