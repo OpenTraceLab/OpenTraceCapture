@@ -145,7 +145,6 @@ jobs:
           tar xzf $tarPath -C libserialport-temp
           Copy-Item -Path libserialport-temp\* -Destination C:\ -Recurse -Force
           echo "PKG_CONFIG_PATH=C:\lib\pkgconfig;$env:PKG_CONFIG_PATH" >> $env:GITHUB_ENV
-        shell: pwsh
 
       - name: Configure (Windows MinGW)
         if: matrix.name == 'Windows-MinGW'
